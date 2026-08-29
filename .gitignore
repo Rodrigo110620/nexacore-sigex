@@ -1,0 +1,50 @@
+# =========================
+# 1. Variables de Entorno (¡Seguridad Crítica!)
+# =========================
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# =========================
+# 2. Frontend (Node / pnpm / Vite / React)
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+npm-debug.log*
+pnpm-debug.log*
+
+# =========================
+# 3. Backend (Java / Maven / Spring Boot)
+# =========================
+backend/target/
+*.class
+*.jar
+*.war
+.mvn/
+backend/.mvn/
+
+# =========================
+# 4. Bases de Datos Locales
+# =========================
+*.sqlite3
+pgdata/
+
+# =========================
+# 5. IDEs y Editores de Código del Equipo
+# =========================
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# =========================
+# 6. Archivos de Sistemas Operativos
+# =========================
+.DS_Store
+Thumbs.db
