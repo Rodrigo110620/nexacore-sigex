@@ -6,12 +6,10 @@ on:
 
 jobs:
   test-backend:
-    # Definimos la matriz con los 3 sistemas operativos
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     
-    # Asignamos la variable de la matriz al sistema virtual
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -19,12 +17,13 @@ jobs:
       - name: Configurar Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17' # Cambia a tu versión
+          java-version: '17'
           distribution: 'temurin'
+          cache: maven # Esto hace que los tests sean mucho más rápidos guardando las dependencias
       - name: Ejecutar tests del Backend
         working-directory: ./backend
-        run: ./mvnw test
-        shell: bash # Forza el uso de bash para que el wrapper ./mvnw funcione en Windows
+        run: mvn test # Usamos mvn nativo en lugar del wrapper local
+        shell: bash
 
   test-frontend:
     strategy:
@@ -35,13 +34,24 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8 # o la versión que estés usando
+          
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+          
       - name: Instalar dependencias
         working-directory: ./frontend
-        run: npm ci
+        # usamos install simple porque quizás aún no has subido tu pnpm-lock.yaml
+        run: pnpm install
+        
       - name: Ejecutar tests del Frontend
         working-directory: ./frontend
-        run: npm run test
+        run: pnpm run test

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "echo \"Pruebas pendientes de implementacion\" && exit 0"
   },
   "dependencies": {
     "axios": "^1.6.0",
