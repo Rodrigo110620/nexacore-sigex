@@ -1,17 +1,38 @@
 version: '3.8'
+
 services:
   db:
     image: postgres:15.10
     container_name: nexacore_postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dfigueroa
-      POSTGRES_DB: taller_TIS
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dfigueroa}
+      POSTGRES_DB: ${DB_NAME:-taller_TIS}
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - nexacore_net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: nexacore_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@nexacore.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - db
+    networks:
+      - nexacore_net
 
 volumes:
   pgdata:
+
+networks:
+  nexacore_net:
+    driver: bridge
