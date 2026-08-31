@@ -1,59 +1,67 @@
-# 🎓 Sistema de Control de Ingreso a Exámenes Masivos (NexaCore)
+# Sistema de Control de Ingreso a Exámenes Masivos — SIGEX
 
-Bienvenido al repositorio del proyecto. Este documento contiene todas las instrucciones necesarias para que cualquier desarrollador del equipo pueda levantar el entorno de trabajo local rápidamente, sin importar su sistema operativo (Windows, macOS o Linux).
-
-## 📋 Requisitos Previos (Instalar en tu PC)
-Asegúrate de tener instalado lo siguiente en tu sistema antes de empezar:
-- [Git](https://git-scm.com/)
-- [Java 17 (JDK)](https://adoptium.net/es/)
-- [Node.js (v20.19.0 estrictamente)](https://nodejs.org/es/)
-- [pnpm](https://pnpm.io/es/) (Lo instalas ejecutando `npm install -g pnpm` en tu terminal)
-- [Docker Desktop](https://www.docker.com/) (Para levantar la base de datos localmente de forma automática)
+**NexaCore Arquitectura de Software S.R.L.**
+Convocatoria CPTIS-452026-2026 | UMSS — Taller de Ingeniería de Software
 
 ---
 
-## 🚀 Pasos para inicializar el proyecto
+## Requisitos Previos
 
-### 1. Clonar el repositorio
-Abre tu terminal (Símbolo del sistema, PowerShell o Bash) y descarga el código ubicándote en la rama de desarrollo (`develop`):
+Instala esto en tu PC antes de empezar:
+
+| Herramienta | Versión requerida | Link |
+|---|---|---|
+| Git | Última | https://git-scm.com |
+| Java JDK | **17** (Temurin recomendado) | https://adoptium.net/es |
+| Docker Desktop | Última | https://www.docker.com |
+| Node.js | **20.19.0 estrictamente** | https://nodejs.org |
+| pnpm | >= 8 | `npm install -g pnpm` |
+
+> Maven **no necesitas instalarlo** — el proyecto incluye Maven Wrapper (`./mvnw`).
+
+---
+
+## Levantar el proyecto (primera vez)
+
+### 1. Clonar y ubicarse en la rama de desarrollo
 
 ```bash
-git clone <URL_DE_TU_REPOSITORIO>
+git clone https://github.com/Rodrigo110620/nexacore-sigex.git
 cd nexacore-sigex
 git checkout develop
 ```
 
-### 2. Configurar las Variables de Entorno (¡Muy importante!)
-El proyecto necesita credenciales para conectarse a la base de datos, las cuales **nunca** se suben a Git por seguridad. Debes crear tu propio archivo `.env` local a partir de la plantilla.
+### 2. Configurar variables de entorno
 
-**En Windows (CMD o PowerShell):**
-```cmd
+```bash
+# Linux / macOS
+cp .env.example .env
+
+# Windows (CMD)
 copy .env.example .env
 ```
-**En Mac o Linux (Terminal):**
-```bash
-cp .env.example .env
-```
-*(Una vez copiado, abre tu nuevo archivo `.env` en cualquier editor de texto y configura las contraseñas que vas a usar en tu base de datos local, o coloca la URL de Supabase).*
 
-### 3. Levantar la Base de Datos (PostgreSQL)
-Abre tu terminal en la raíz del proyecto y ejecuta el siguiente comando. Esto levantará PostgreSQL y PgAdmin de fondo:
+Abre el `.env` y ajusta al menos `DB_PASSWORD` y `JWT_SECRET`.
+
+### 3. Levantar la base de datos
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 4. Ejecutar el Backend (Spring Boot / Java)
-Abre una nueva terminal, entra a la carpeta del backend y levanta el servidor de Java:
+Esto levanta PostgreSQL en `:5432` y PgAdmin en `:5050`.
+
+### 4. Ejecutar el backend
 
 ```bash
 cd backend
-mvn spring-boot:run
+./mvnw spring-boot:run          # Linux / macOS
+mvnw.cmd spring-boot:run        # Windows
 ```
-*(💡 **Tip para IDEs:** Si usas IntelliJ IDEA, Eclipse o VS Code, simplemente abre la carpeta `backend` en tu editor y presiona el botón de "Play" para arrancar el proyecto de forma visual, sin usar la terminal).*
 
-### 5. Ejecutar el Frontend (React / Vite)
-Abre una tercera terminal, entra a la carpeta del frontend, instala las librerías necesarias y arranca el entorno gráfico:
+> En IntelliJ o VS Code: abrir la carpeta `backend` y pulsar el botón Run.
+
+### 5. Ejecutar el frontend
 
 ```bash
 cd frontend
@@ -63,9 +71,113 @@ pnpm dev
 
 ---
 
-## 🌐 Enlaces de Acceso Local
-Una vez que hayas completado los pasos 3, 4 y 5, el sistema entero estará corriendo en tu PC. Accede a los siguientes enlaces desde tu navegador web:
+## URLs locales
 
-- 💻 **Frontend (Interfaz de React):** http://localhost:3000
-- ⚙️ **Backend (API REST):** http://localhost:8080
-- 🐘 **PgAdmin (Gestor Visual de BD):** http://localhost:5050 (Las credenciales están en tu archivo `.env`)
+| Servicio | URL |
+|---|---|
+| Frontend (React) | http://localhost:3000 |
+| Backend API | http://localhost:8080/api/v1 |
+| Health check | http://localhost:8080/api/v1/health |
+| Swagger UI | http://localhost:8080/api/v1/swagger-ui/index.html |
+| PgAdmin | http://localhost:5050 |
+
+---
+
+## Convenciones del equipo
+
+### Ramas
+
+```
+main        → producción (solo merge de develop con PR revisada)
+develop     → integración continua (rama principal de trabajo)
+feature/descripcion-corta  → nueva funcionalidad
+fix/descripcion-corta      → corrección de bug
+```
+
+**Regla:** Nadie hace push directo a `main`. Todo va a `develop` mediante Pull Request revisada por al menos 1 compañero.
+
+### Commits
+
+Usamos [Conventional Commits](https://www.conventionalcommits.org/es/):
+
+```
+feat: agregar endpoint de login JWT
+fix: corregir validación de código QR duplicado
+refactor: extraer lógica de examen a ExamenService
+docs: actualizar README con pasos de instalación
+chore: agregar migración V2 de esquema BD
+test: agregar test de integración para HealthController
+```
+
+### Migraciones de base de datos
+
+- Cada cambio de esquema va en un archivo nuevo: `V2__descripcion.sql`, `V3__descripcion.sql`...
+- **Nunca modificar** archivos `V_` ya commiteados.
+- Los archivos van en `backend/src/main/resources/db/migration/`.
+
+### Variables de entorno
+
+- **Nunca** subir `.env` a Git. Solo `.env.example` con valores de ejemplo.
+- Si agregas una variable nueva, actualiza `.env.example`.
+
+---
+
+## Estructura del proyecto
+
+```
+nexacore-sigex/
+├── .env.example              Variables de entorno (plantilla)
+├── docker-compose.yml        PostgreSQL + PgAdmin
+├── backend/                  Spring Boot 3 / Java 17
+│   ├── mvnw / mvnw.cmd       Maven Wrapper (no necesitas Maven instalado)
+│   ├── pom.xml
+│   └── src/main/java/com/nexacore/examenes/
+│       ├── config/           CORS, Security, Swagger
+│       ├── controllers/      Endpoints REST (HealthController, ...)
+│       ├── dto/              Objetos de transferencia (request/response)
+│       ├── exceptions/       Manejo global de errores
+│       ├── models/           Entidades JPA
+│       ├── repositories/     Interfaces Spring Data JPA
+│       ├── security/         Filtros JWT, UserDetailsService
+│       ├── services/         Lógica de negocio
+│       └── utils/            Helpers
+└── frontend/                 React 18 + Vite + TypeScript + Tailwind
+    └── src/
+        ├── components/       Componentes reutilizables
+        ├── context/          Contextos globales (AuthContext, ...)
+        ├── hooks/            Custom hooks
+        ├── pages/            Páginas por módulo
+        │   ├── Login/
+        │   ├── Dashboard/
+        │   ├── ScannerQR/
+        │   └── Reportes/
+        ├── routes/           Definición de rutas React Router
+        ├── services/         api.ts — cliente axios centralizado
+        ├── types/            Tipos TypeScript globales
+        └── utils/            Helpers / formatters
+```
+
+---
+
+## Sprints (según propuesta técnica)
+
+| Sprint | Período | Entregable |
+|---|---|---|
+| Sprint 1 | 31 ago – 18 sep 2026 | Arquitectura, BD, auth base. Deploy v0.1 |
+| Sprint 2 | 19 sep – 08 oct 2026 | UX/UI Mobile-First, aulas, roles. Deploy v0.2 |
+| Sprint 3 | 09 oct – 28 oct 2026 | Control de ingreso, QR. Deploy v0.3 |
+| Sprint 4 | 29 oct – 18 nov 2026 | Auditoría, excepciones, reportes. Deploy v0.4 |
+| Sprint 5 | 19 nov – 07 dic 2026 | Pruebas de estrés, manuales, capacitación. Deploy v1.0 |
+
+---
+
+## Equipo NexaCore
+
+| Rol | Integrante |
+|---|---|
+| Product Owner / Rep. Legal | Lia Cardenas Morales |
+| Scrum Master | Aaron David Rafael Montaño |
+| Dev Team | Rodrigo Figueroa Camacho |
+| Dev Team | Fernando Pereira Torrico |
+| Dev Team | Wilber Ojeda Valente |
+| Dev Team | Marcelo Vallejos Tinta |

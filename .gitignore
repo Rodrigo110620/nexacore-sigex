@@ -25,8 +25,8 @@ backend/target/
 *.class
 *.jar
 *.war
-.mvn/
-backend/.mvn/
+# Ignorar binario del wrapper, pero mantener el script y la config
+backend/.mvn/wrapper/maven-wrapper.jar
 
 # =========================
 # 4. Bases de Datos Locales

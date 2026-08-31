@@ -1,28 +1,33 @@
 spring:
-  # Configuración de la Base de Datos
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/taller_TIS}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:dfigueroa}
     driver-class-name: org.postgresql.Driver
 
-  # Configuración de JPA (Hibernate)
   jpa:
     hibernate:
-      ddl-auto: update # Cambiar a 'validate' en el servidor de la universidad
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-# Configuración del Servidor Web (Tomcat Embebido)
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api/v1
 
-# Variables personalizadas para nuestra seguridad
 app:
   security:
     jwt:
-      secret: ${JWT_SECRET:default_secret_cambiar_en_produccion}
+      secret: ${JWT_SECRET:default_secret_cambiar_en_produccion_debe_tener_al_menos_64_caracteres}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
