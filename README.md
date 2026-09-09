@@ -42,6 +42,7 @@ copy .env.example .env
 ```
 
 Abre el `.env` y ajusta al menos `DB_PASSWORD` y `JWT_SECRET`.
+El backend carga este archivo automáticamente al arrancar (no hace falta exportar variables a mano).
 
 ### 3. Levantar la base de datos
 

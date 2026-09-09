@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Colores de tu Anexo A de la propuesta
+        // Colores del Anexo A de la propuesta
         primary: '#0439D9',
         secondary: '#011540',
         accent: '#5086F2'
