@@ -13,7 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * Configuración de seguridad base (Sprint 1).
  *
- * Sprint 1: login, Swagger y health públicos. Resto requiere autenticación.
+ * Sprint 1: Swagger, health y auth públicos. Resto requiere autenticación.
  * Sprint 2+: Agregar JwtAuthFilter y restricciones por rol.
  */
 @Configuration
