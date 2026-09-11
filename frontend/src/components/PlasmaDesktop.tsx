@@ -31,7 +31,7 @@ export default function PlasmaDesktop() {
         <div className="aurora-shift" />
       </div>
 
-      <main className="absolute inset-0 px-4 pb-[76px] pt-4">
+      <main className="absolute inset-0 overflow-hidden px-3 pb-[76px] pt-3 sm:px-4 sm:pt-4">
         {windowTitle ? (
           <PlasmaWindow title={windowTitle}>
             <Outlet />

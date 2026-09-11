@@ -33,8 +33,8 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="relative h-full">
-      <div className="absolute left-2 top-2 flex flex-col gap-4">
+    <div className="relative h-full overflow-y-auto">
+      <div className="absolute left-2 top-2 hidden flex-col gap-4 sm:flex">
         <button
           type="button"
           className="focus-ring flex w-20 flex-col items-center gap-1 rounded-xl p-2 text-white hover:bg-white/10"
@@ -63,11 +63,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="ml-24 grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="ml-0 grid max-w-5xl grid-cols-1 gap-4 sm:ml-24 md:grid-cols-2 xl:grid-cols-3">
         <article className="glass-panel rounded-[20px] p-5 md:col-span-1">
           <p className="text-sm text-[var(--plasma-muted)]">Bienvenido</p>
           <h2 className="mt-1 text-2xl font-semibold">{user?.nombre}</h2>
-          <p className="mt-3 text-5xl font-semibold tracking-tight">{timeWithSeconds}</p>
+          <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">{timeWithSeconds}</p>
           <p className="mt-1 capitalize text-[var(--plasma-muted)]">{date}</p>
         </article>
 

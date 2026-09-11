@@ -22,16 +22,21 @@ export default function LoginPage() {
         ? 'wallpaper-night'
         : 'wallpaper-aurora'
 
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const result = login(usuario, password)
+    const data = new FormData(event.currentTarget)
+    const usuarioValue = String(data.get('usuario') ?? usuario)
+    const passwordValue = String(data.get('password') ?? password)
+    setUsuario(usuarioValue)
+    setPassword(passwordValue)
+    const result = login(usuarioValue, passwordValue)
     if (!result.ok) {
       setError(result.error ?? 'No se pudo iniciar sesión')
     }
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden">
+    <div className="relative h-screen w-screen overflow-y-auto">
       <div className={`wallpaper ${wallpaperClass}`}>
         <div className="aurora-shift" />
       </div>
@@ -45,9 +50,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="mb-8 text-center text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]">
-          <p className="text-6xl font-semibold tracking-tight sm:text-7xl">{time}</p>
-          <p className="mt-2 text-lg capitalize text-white/90">{date}</p>
+        <div className="mb-6 mt-16 text-center text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:mb-8 sm:mt-0">
+          <p className="text-5xl font-semibold tracking-tight sm:text-7xl">{time}</p>
+          <p className="mt-2 capitalize text-white/90 sm:text-lg">{date}</p>
         </div>
 
         <form
@@ -68,6 +73,7 @@ export default function LoginPage() {
           </label>
           <input
             id="usuario"
+            name="usuario"
             value={usuario}
             onChange={(event) => setUsuario(event.target.value)}
             className="focus-ring mb-3 w-full rounded-xl bg-[var(--plasma-card)] px-3 py-2.5 text-sm outline-none"
@@ -79,10 +85,11 @@ export default function LoginPage() {
           </label>
           <input
             id="password"
+            name="password"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="plasma"
+            placeholder="Contraseña"
             className="focus-ring mb-4 w-full rounded-xl bg-[var(--plasma-card)] px-3 py-2.5 text-sm outline-none placeholder:text-[var(--plasma-muted)]"
             autoComplete="current-password"
           />
@@ -100,10 +107,17 @@ export default function LoginPage() {
           >
             Iniciar sesión
           </button>
-          <p className="mt-4 text-xs text-[var(--plasma-muted)]">
-            Demo: usuario <span className="font-medium text-[var(--plasma-text)]">rodrigo</span> ·
-            contraseña <span className="font-medium text-[var(--plasma-text)]">plasma</span>
-          </p>
+          <button
+            type="button"
+            className="focus-ring mt-3 text-xs text-[var(--plasma-muted)] underline-offset-2 hover:underline"
+            onClick={() => {
+              setUsuario('rodrigo')
+              setPassword('plasma')
+              setError(null)
+            }}
+          >
+            Usar cuenta demo: rodrigo / plasma
+          </button>
         </form>
       </div>
     </div>

@@ -152,10 +152,10 @@ export default function PlasmaPanel() {
         </div>
 
         <div className="ml-auto flex items-center gap-1 text-[var(--plasma-muted)]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg">
+          <span className="hidden h-9 w-9 items-center justify-center rounded-lg sm:flex">
             <IconWifi className="h-4 w-4" />
           </span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg">
+          <span className="hidden h-9 w-9 items-center justify-center rounded-lg sm:flex">
             <IconBell className="h-4 w-4" />
           </span>
           <div className="px-2 text-right leading-tight">
