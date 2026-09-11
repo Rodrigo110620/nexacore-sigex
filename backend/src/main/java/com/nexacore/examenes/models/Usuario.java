@@ -2,9 +2,12 @@ package com.nexacore.examenes.models;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -40,5 +43,8 @@ public class Usuario {
     @Column(name = "estado", length = Integer.MAX_VALUE)
     private String estado;
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "idUsuario", fetch = FetchType.LAZY)
+    private List<UsuarioRol> usuarioRoles;
 
 }
