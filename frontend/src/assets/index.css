@@ -1,3 +1,60 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --plasma-void: #010617;
+  --plasma-text: #e8eeff;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--plasma-void);
+  color: var(--plasma-text);
+  font-family: 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #5086f2 #01102e;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #01102e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #5086f2, #0439d9);
+  border-radius: 999px;
+}
+
+@layer components {
+  .plasma-glass {
+    @apply border border-accent/25 bg-plasma-panel/70 shadow-plasma backdrop-blur-xl;
+  }
+
+  .plasma-input {
+    @apply w-full rounded-xl border border-accent/25 bg-secondary/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-plasma-mist/50 focus:border-accent focus:shadow-plasma-sm;
+  }
+
+  .plasma-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-4 py-3 text-sm font-semibold text-white shadow-plasma-sm transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .plasma-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-accent/30 bg-white/5 px-4 py-3 text-sm font-semibold text-plasma-mist transition hover:border-accent hover:bg-white/10;
+  }
+}
