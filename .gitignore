@@ -15,6 +15,7 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
+.pnpm-store/
 npm-debug.log*
 pnpm-debug.log*
 
@@ -22,6 +23,7 @@ pnpm-debug.log*
 # 3. Backend (Java / Maven / Spring Boot)
 # =========================
 backend/target/
+.m2/
 *.class
 *.jar
 *.war
