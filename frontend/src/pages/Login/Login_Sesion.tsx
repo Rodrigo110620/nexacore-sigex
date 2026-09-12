@@ -1,7 +1,8 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CircleAlert } from 'lucide-react';
+import { loginUser } from '../../services/authService';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Login__Sesion() {
 
@@ -13,6 +14,7 @@ export default function Login__Sesion() {
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
+    const { login } = useAuth();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     const validateEmail = (value: string): string => {
@@ -57,14 +59,14 @@ export default function Login__Sesion() {
 
         if (emailErr || passwordErr) return;
 
-        //BACKEND
         setLoading(true);
         try {
-            console.log('Enviando:', { email, password });
-            
-            await new Promise(resolve => setTimeout(resolve, 1500));
-        } catch (err) {
-            setGeneralError('Credenciales no válidas. Verifica tu correo o contraseña.');
+            const data = await loginUser({ email, password });
+            login(data.token);
+            navigate('/dashboard', { replace: true });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error inesperado. Intenta más tarde.';
+            setGeneralError(message);
         } finally {
             setLoading(false);
         }
