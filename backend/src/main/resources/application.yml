@@ -1,9 +1,6 @@
 spring:
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/taller_TIS}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:dfigueroa}
-    driver-class-name: org.postgresql.Driver
+  profiles:
+    active: ${DB_TARGET:docker}
 
   jpa:
     hibernate:
