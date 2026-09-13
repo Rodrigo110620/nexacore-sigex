@@ -1,5 +1,8 @@
 package com.nexacore.examenes.config;
 
+import com.nexacore.examenes.security.JwtAuthFilter;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,7 +39,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   CorsConfig corsConfig) throws Exception {
+                                                   CorsConfig corsConfig,JwtAuthFilter jwtAuthFilter) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfig.corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
@@ -47,8 +50,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
                 .anyRequest().authenticated()
-            );
-
+                
+            )
+               .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
