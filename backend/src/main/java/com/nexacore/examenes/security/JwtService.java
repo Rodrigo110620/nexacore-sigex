@@ -33,10 +33,32 @@ public class JwtService {
 
     public JwtService(@Value("${app.security.jwt.secret}") String secret,
                       @Value("${app.security.jwt.expiration-ms}") long expiracionMs) {
+        validarSecreto(secret);
         // HMAC-SHA256 exige una clave de al menos 256 bits (32 caracteres).
-        // Si es mas corta, jjwt lanza WeakKeyException al arrancar la aplicacion.
         this.clave = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiracionMs = expiracionMs;
+    }
+
+    /**
+     * Obliga a configurar JWT_SECRET real. Sin default inseguro en produccion/local.
+     */
+    private static void validarSecreto(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "JWT_SECRET no esta configurado. Definelos en el archivo .env de la raiz.");
+        }
+        if (secret.length() < 32) {
+            throw new IllegalStateException(
+                    "JWT_SECRET debe tener al menos 32 caracteres.");
+        }
+        String normalizado = secret.trim().toLowerCase();
+        if (normalizado.contains("default_secret")
+                || normalizado.contains("escribe_aqui")
+                || normalizado.contains("cambiar_en_produccion")
+                || normalizado.contains("cambia_esta_clave")) {
+            throw new IllegalStateException(
+                    "JWT_SECRET usa un valor de ejemplo inseguro. Cambia JWT_SECRET en tu .env.");
+        }
     }
 
     /**

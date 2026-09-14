@@ -24,7 +24,8 @@ server:
 app:
   security:
     jwt:
-      secret: ${JWT_SECRET:default_secret_cambiar_en_produccion_debe_tener_al_menos_64_caracteres}
+      # Sin default: si falta JWT_SECRET en .env, la app no arranca.
+      secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
