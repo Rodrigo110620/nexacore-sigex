@@ -26,6 +26,8 @@ export default tseslint.config(
       // Reglas suaves para no bloquear el equipo en Sprint 1+
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'off',
+      // Error.cause (ES2022) no está disponible con lib ES2020 del proyecto
+      'preserve-caught-error': 'off',
     },
   },
 )
