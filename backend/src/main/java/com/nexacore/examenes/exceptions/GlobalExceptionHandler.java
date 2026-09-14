@@ -4,6 +4,7 @@ import com.nexacore.examenes.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -69,5 +70,35 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(cuerpo);
+    }
+
+    /** Email ya registrado en la base de datos (HU#2). */
+    @ExceptionHandler(EmailDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarEmailDuplicado(EmailDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    /** Rol enviado no existe o no esta permitido (HU#2). */
+    @ExceptionHandler(RolInvalidoException.class)
+    public ResponseEntity<ErrorResponse> manejarRolInvalido(RolInvalidoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage());
+
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** Usuario autenticado pero sin permisos suficientes (403). */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> manejarAccesoDenegado(AccessDeniedException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "No tienes permisos para realizar esta accion");
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(cuerpo);
     }
 }
