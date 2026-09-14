@@ -1,57 +1,179 @@
-name: Validar Pull Requests Multi-OS
+# CI Monorepo — NexaCore SIGEX
+# Corre en push y Pull Request a main/develop.
+# Pensado para todo el proyecto (Sprint 1+), no solo el login.
+
+name: CI Monorepo
 
 on:
+  push:
+    branches: ["**"]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: ["**"]
 
 jobs:
-  test-backend:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    
-    runs-on: ${{ matrix.os }}
-    
+  # ----------------------------------------------------------
+  # 1) Build Backend (compila Spring Boot / Java 17)
+  # ----------------------------------------------------------
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
-      - name: Configurar Java
+
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven # Esto hace que los tests sean mucho más rápidos guardando las dependencias
-      - name: Ejecutar tests del Backend
-        working-directory: ./backend
-        run: mvn test # Usamos mvn nativo en lugar del wrapper local
-        shell: bash
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
 
-  test-frontend:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    
-    runs-on: ${{ matrix.os }}
-    
+      - name: Compilar backend
+        run: mvn -B -DskipTests package
+
+  # ----------------------------------------------------------
+  # 2) API / Backend Tests (mvn test — H2 en memoria)
+  # ----------------------------------------------------------
+  api-tests:
+    name: API Integration Tests
+    runs-on: ubuntu-latest
+    needs: build-backend
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Ejecutar tests del backend
+        run: mvn -B test
+
+  # ----------------------------------------------------------
+  # 3) TypeScript Check
+  # ----------------------------------------------------------
+  typescript-check:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Configurar pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 8 # o la versión que estés usando
-          
+          version: 8
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
-          cache: 'pnpm'
+          node-version: "20.19.0"
+          cache: pnpm
           cache-dependency-path: ./frontend/pnpm-lock.yaml
-          
+
       - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Verificar tipos TypeScript
+        run: pnpm exec tsc --noEmit
+
+  # ----------------------------------------------------------
+  # 4) Lint Frontend
+  # ----------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
         working-directory: ./frontend
-        # usamos install simple porque quizás aún no has subido tu pnpm-lock.yaml
-        run: pnpm install
-        
-      - name: Ejecutar tests del Frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Ejecutar ESLint
+        run: pnpm run lint
+
+  # ----------------------------------------------------------
+  # 5) Build Frontend
+  # ----------------------------------------------------------
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [typescript-check, lint]
+    defaults:
+      run:
         working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Build de producción
+        run: pnpm run build
+
+  # ----------------------------------------------------------
+  # 6) Frontend unit tests (vitest)
+  # ----------------------------------------------------------
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    needs: typescript-check
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Ejecutar tests del frontend
         run: pnpm run test
