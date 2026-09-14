@@ -24,11 +24,17 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Interceptor de response: redirige al login si el token expiró
+// Interceptor de response: redirige al login si el token expiró.
+// No redirige en /auth/login: un 401 ahí es "credenciales incorrectas",
+// no sesión vencida (el form debe mostrar el error).
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const url = String(error.config?.url ?? '')
+    const isLoginRequest = url.includes('/auth/login')
+
+    if (status === 401 && !isLoginRequest) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }

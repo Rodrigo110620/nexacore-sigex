@@ -15,10 +15,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Configuración de seguridad base (Sprint 1).
+ * Configuración de seguridad (Sprint 1).
  *
- * Sprint 1: Swagger, health y auth públicos. Resto requiere autenticación.
- * Sprint 2+: Agregar JwtAuthFilter y restricciones por rol.
+ * Públicos: login, health y Swagger.
+ * Resto autenticado mediante JwtAuthFilter (Bearer JWT).
+ * Sprint 2+: restricciones por rol (ADMIN / DOCENTE / CONTROL).
  */
 @Configuration
 @EnableWebSecurity
