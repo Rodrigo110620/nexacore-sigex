@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import ProtectedRoute from './ProtectedRoute'
+import UsuariosPage from '../pages/panel_admin/UsuariosPage'   // 👈 AGREGAR
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -23,6 +24,9 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        {/* Ruta temporal para probar registro*/}
+        <Route path="/test-modal" element={<UsuariosPage />} />
       </Routes>
     </BrowserRouter>
   )
