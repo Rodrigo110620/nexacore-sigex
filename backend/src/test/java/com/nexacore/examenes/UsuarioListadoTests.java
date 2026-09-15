@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Pruebas de la tarea B1: GET /usuarios paginado (solo ADMIN).
+ * Pruebas de las tareas B1 (GET /usuarios paginado, solo ADMIN)
+ * y B2 (busqueda y filtros sobre ese mismo endpoint).
  *
  * Cubre el checklist de B1:
  *   - Estructura de PageResponse (contenido, pagina, tamano, totales).
@@ -38,6 +39,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   - Orden por nombre ascendente.
  *   - Rol como texto, o "SIN_ROL" si el usuario no tiene ninguno.
  *   - 401 sin autenticacion y 403 con un rol distinto de ADMIN.
+ *
+ * Cubre el checklist de B2:
+ *   - search parcial en nombre, apellidos, email y CI, sin distinguir mayusculas.
+ *   - Filtros por rol y por estado.
+ *   - Filtros combinados y busqueda sin coincidencias.
  *
  * A proposito esta clase NO es @Transactional y desactiva open-in-view:
  * si el test abriera su propia transaccion, o si OSIV mantuviera la sesion
@@ -66,10 +72,18 @@ class UsuarioListadoTests {
 
     /**
      * Inserta 6 usuarios en orden desordenado a proposito:
-     * Zoe, Ana, Marco, Bruno, Diego, Carla. Bruno queda sin rol.
      *
-     * Antes limpia las tablas, porque otras clases de test que comparten
-     * el mismo contexto (y la misma H2) pueden haber confirmado usuarios.
+     *   nombre  apellidos      email                           ci       rol      estado
+     *   Zoe     Quispe Luna    zoe.quispe@umss.edu.bo          7845123  DOCENTE  activo
+     *   Ana     Rojas Vidal    ana.rojas@umss.edu.bo           6512340  ADMIN    activo
+     *   Marco   Torrez Silva   marco.torrez@umss.edu.bo        9011223  CONTROL  inactivo
+     *   Bruno   Flores Paz     bruno.flores@umss.edu.bo        5566778  (ninguno) activo
+     *   Diego   Choque Rios    diego.choque@est.umss.edu.bo    4433221  CONTROL  activo
+     *   Carla   Mendez Soliz   carla.mendez@est.umss.edu.bo    3322110  DOCENTE  inactivo
+     *
+     * Los textos se eligieron para que cada busqueda de B2 tenga un resultado
+     * unico y conocido. Antes limpia las tablas, porque otras clases de test
+     * que comparten el mismo contexto (y la misma H2) pueden haber confirmado usuarios.
      */
     @BeforeEach
     void prepararUsuarios() {
@@ -85,12 +99,12 @@ class UsuarioListadoTests {
                 roles.put(nombre, rol);
             }
 
-            crearUsuario("Zoe", roles.get("DOCENTE"));
-            crearUsuario("Ana", roles.get("ADMIN"));
-            crearUsuario("Marco", roles.get("CONTROL"));
-            crearUsuario("Bruno", null);
-            crearUsuario("Diego", roles.get("CONTROL"));
-            crearUsuario("Carla", roles.get("DOCENTE"));
+            crearUsuario("Zoe", "Quispe Luna", "zoe.quispe@umss.edu.bo", "7845123", "activo", roles.get("DOCENTE"));
+            crearUsuario("Ana", "Rojas Vidal", "ana.rojas@umss.edu.bo", "6512340", "activo", roles.get("ADMIN"));
+            crearUsuario("Marco", "Torrez Silva", "marco.torrez@umss.edu.bo", "9011223", "inactivo", roles.get("CONTROL"));
+            crearUsuario("Bruno", "Flores Paz", "bruno.flores@umss.edu.bo", "5566778", "activo", null);
+            crearUsuario("Diego", "Choque Rios", "diego.choque@est.umss.edu.bo", "4433221", "activo", roles.get("CONTROL"));
+            crearUsuario("Carla", "Mendez Soliz", "carla.mendez@est.umss.edu.bo", "3322110", "inactivo", roles.get("DOCENTE"));
         });
     }
 
@@ -107,15 +121,15 @@ class UsuarioListadoTests {
         });
     }
 
-    /** Crea un usuario activo y, si se indica, le asigna el rol. */
-    private void crearUsuario(String nombre, Rol rol) {
+    /** Crea un usuario y, si se indica, le asigna el rol. */
+    private void crearUsuario(String nombre, String apellidos, String email, String ci, String estado, Rol rol) {
         Usuario usuario = new Usuario();
         usuario.setNombre(nombre);
-        usuario.setApellidos("Prueba");
-        usuario.setCi("TEST-B1-" + nombre.toUpperCase());
-        usuario.setEmail(nombre.toLowerCase() + ".b1@umss.edu.bo");
+        usuario.setApellidos(apellidos);
+        usuario.setCi(ci);
+        usuario.setEmail(email);
         usuario.setPassword(HASH_PASSWORD);
-        usuario.setEstado("activo");
+        usuario.setEstado(estado);
         entityManager.persist(usuario);
         entityManager.flush();
 
@@ -143,8 +157,8 @@ class UsuarioListadoTests {
                 .andExpect(jsonPath("$.contenido", hasSize(6)))
                 .andExpect(jsonPath("$.contenido[0].id").isNumber())
                 .andExpect(jsonPath("$.contenido[0].nombre").value("Ana"))
-                .andExpect(jsonPath("$.contenido[0].apellidos").value("Prueba"))
-                .andExpect(jsonPath("$.contenido[0].email").value("ana.b1@umss.edu.bo"))
+                .andExpect(jsonPath("$.contenido[0].apellidos").value("Rojas Vidal"))
+                .andExpect(jsonPath("$.contenido[0].email").value("ana.rojas@umss.edu.bo"))
                 .andExpect(jsonPath("$.contenido[0].rol").value("ADMIN"))
                 .andExpect(jsonPath("$.contenido[0].estado").value("activo"))
                 .andExpect(jsonPath("$.pagina").value(0))
@@ -243,5 +257,194 @@ class UsuarioListadoTests {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.estado").value(403))
                 .andExpect(jsonPath("$.contenido").doesNotExist());
+    }
+
+    // ---------------------------------------------------------------------
+    // B2: busqueda y filtros
+    // ---------------------------------------------------------------------
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: search por nombre parcial devuelve solo las coincidencias")
+    void buscaPorNombreParcial() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "arc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Marco")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: search por apellidos parcial")
+    void buscaPorApellidosParcial() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "vida"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Ana")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: search por email parcial")
+    void buscaPorEmail() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "@est.umss"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].email")
+                        .value(contains("carla.mendez@est.umss.edu.bo", "diego.choque@est.umss.edu.bo")))
+                .andExpect(jsonPath("$.totalRegistros").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: search por CI parcial")
+    void buscaPorCi() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "4433"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Diego")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: la busqueda no distingue mayusculas de minusculas")
+    void busquedaInsensibleAMayusculas() throws Exception {
+        for (String texto : new String[]{"QUISPE", "quispe", "QuIsPe"}) {
+            mockMvc.perform(get("/usuarios").param("search", texto))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Zoe")))
+                    .andExpect(jsonPath("$.totalRegistros").value(1));
+        }
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: filtro por rol ADMIN")
+    void filtraPorRolAdmin() throws Exception {
+        mockMvc.perform(get("/usuarios").param("rol", "ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Ana")))
+                .andExpect(jsonPath("$.contenido[*].rol").value(contains("ADMIN")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: filtro por rol DOCENTE")
+    void filtraPorRolDocente() throws Exception {
+        mockMvc.perform(get("/usuarios").param("rol", "DOCENTE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Carla", "Zoe")))
+                .andExpect(jsonPath("$.contenido[*].rol").value(contains("DOCENTE", "DOCENTE")))
+                .andExpect(jsonPath("$.totalRegistros").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: filtro por rol CONTROL")
+    void filtraPorRolControl() throws Exception {
+        mockMvc.perform(get("/usuarios").param("rol", "CONTROL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Diego", "Marco")))
+                .andExpect(jsonPath("$.contenido[*].rol").value(contains("CONTROL", "CONTROL")))
+                .andExpect(jsonPath("$.totalRegistros").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: filtro por estado activo, con totales correctos al paginar")
+    void filtraPorEstadoActivo() throws Exception {
+        mockMvc.perform(get("/usuarios").param("estado", "activo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Ana", "Bruno", "Diego", "Zoe")))
+                .andExpect(jsonPath("$.totalRegistros").value(4));
+
+        mockMvc.perform(get("/usuarios").param("estado", "activo").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Ana", "Bruno")))
+                .andExpect(jsonPath("$.totalRegistros").value(4))
+                .andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: filtro por estado inactivo")
+    void filtraPorEstadoInactivo() throws Exception {
+        mockMvc.perform(get("/usuarios").param("estado", "inactivo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Carla", "Marco")))
+                .andExpect(jsonPath("$.contenido[*].estado").value(contains("inactivo", "inactivo")))
+                .andExpect(jsonPath("$.totalRegistros").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: dos filtros combinados se aplican a la vez")
+    void combinaDosFiltros() throws Exception {
+        // DOCENTE hay dos (Carla y Zoe), pero solo Zoe esta activa
+        mockMvc.perform(get("/usuarios").param("rol", "DOCENTE").param("estado", "activo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Zoe")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+
+        // "@est.umss" encuentra a Carla y Diego, pero solo Diego es CONTROL
+        mockMvc.perform(get("/usuarios").param("search", "@est.umss").param("rol", "CONTROL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Diego")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: los tres filtros combinados se aplican a la vez")
+    void combinaTresFiltros() throws Exception {
+        // "@umss.edu" deja fuera a Diego y Carla; CONTROL deja solo a Marco, que es inactivo
+        mockMvc.perform(get("/usuarios")
+                        .param("search", "@umss.edu")
+                        .param("rol", "CONTROL")
+                        .param("estado", "inactivo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido[*].nombre").value(contains("Marco")))
+                .andExpect(jsonPath("$.totalRegistros").value(1));
+
+        // Cambiando solo el estado ya no queda nadie: el estado tambien se aplica
+        mockMvc.perform(get("/usuarios")
+                        .param("search", "@umss.edu")
+                        .param("rol", "CONTROL")
+                        .param("estado", "activo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.totalRegistros").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: busqueda sin coincidencias devuelve lista vacia y totalRegistros 0")
+    void busquedaSinCoincidencias() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "noexiste"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(0)))
+                .andExpect(jsonPath("$.pagina").value(0))
+                .andExpect(jsonPath("$.totalRegistros").value(0))
+                .andExpect(jsonPath("$.totalPaginas").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: parametros vacios o en blanco no aplican ningun filtro")
+    void parametrosVaciosNoFiltran() throws Exception {
+        mockMvc.perform(get("/usuarios").param("search", "   ").param("rol", "").param("estado", ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRegistros").value(6));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("B2: los caracteres % y _ se buscan literalmente, no como comodines")
+    void comodinesLikeSeBuscanLiteralmente() throws Exception {
+        for (String comodin : new String[]{"%", "_"}) {
+            mockMvc.perform(get("/usuarios").param("search", comodin))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalRegistros").value(0));
+        }
     }
 }
