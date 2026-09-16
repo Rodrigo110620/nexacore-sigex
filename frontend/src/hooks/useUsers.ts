@@ -78,9 +78,6 @@ export default function useUsers(options: UseUsersOptions = {}) {
     const controller = new AbortController()
     const requestId = ++requestIdRef.current
 
-    setLoading(true)
-    setError(null)
-
     getUsers({
       page,
       size,
@@ -111,6 +108,8 @@ export default function useUsers(options: UseUsersOptions = {}) {
   }, [filters, page, retryCount, size])
 
   const updateFilters = useCallback((nextFilters: UserFilterParams) => {
+    setLoading(true)
+    setError(null)
     setFilters((currentFilters) => {
       const didChange =
         currentFilters.search !== nextFilters.search ||
@@ -126,10 +125,14 @@ export default function useUsers(options: UseUsersOptions = {}) {
     const normalizedPage = Number.isFinite(nextPage)
       ? Math.max(0, Math.trunc(nextPage))
       : 0
+    setLoading(true)
+    setError(null)
     setPage((currentPage) => currentPage === normalizedPage ? currentPage : normalizedPage)
   }, [])
 
   const retry = useCallback(() => {
+    setLoading(true)
+    setError(null)
     setRetryCount((currentCount) => currentCount + 1)
   }, [])
 
