@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.nexacore.examenes.dto.UsuarioUpdateDTO;
+import java.util.Map;
 
 import java.util.List;
 
@@ -58,4 +60,21 @@ public class UsuarioController {
     public ResponseEntity<List<Rol>> listarRoles() {
         return ResponseEntity.ok(usuarioService.listarRoles());
     }
+    /**
+     * Actualiza los datos y el rol de un usuario existente (HU#3).
+     * Solo accesible para administradores.
+     */
+    @Operation(summary = "Actualizar usuario", description = "Modifica la información y estado de un usuario. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarUsuario(
+            @PathVariable Integer id, 
+            @Valid @RequestBody UsuarioUpdateDTO dto) {
+        
+        usuarioService.actualizarUsuario(id, dto);
+        
+        return ResponseEntity.ok(Map.of(
+            "mensaje", "La información y los roles de acceso del usuario fueron actualizados correctamente."
+        ));
+    } 
 }

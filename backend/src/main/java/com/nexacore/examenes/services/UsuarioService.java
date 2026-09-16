@@ -1,5 +1,5 @@
 package com.nexacore.examenes.services;
-
+import com.nexacore.examenes.dto.UsuarioUpdateDTO;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
@@ -94,7 +94,53 @@ public class UsuarioService {
                 "Usuario registrado correctamente"
         );
     }
+/**
+     * Actualiza la información de un usuario existente (HU#3).
+     */
+    @Transactional
+    public void actualizarUsuario(Integer id, UsuarioUpdateDTO dto) { // <-- Cambio aquí
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
 
+        // Validación 1: Verificar que el nuevo correo no pertenezca a otra persona
+        if (!usuario.getEmail().equals(dto.email()) && usuarioRepository.findByEmail(dto.email()).isPresent()) {
+            throw new EmailDuplicadoException(dto.email());
+        }
+
+        // Validación 2: Verificar que el rol sea válido
+        String rolNombre = dto.rol().toUpperCase();
+        if (!ROLES_VALIDOS.contains(rolNombre)) {
+            throw new RolInvalidoException(dto.rol());
+        }
+
+        Rol nuevoRol = rolRepository.findByNombre(rolNombre)
+                .orElseThrow(() -> new RolInvalidoException(rolNombre));
+
+        // Mapear datos del DTO a los nombres de la entidad
+        usuario.setNombre(dto.nombres());
+        usuario.setApellidos(dto.apellidos());
+        usuario.setCi(dto.dni());
+        usuario.setEmail(dto.email());
+        usuario.setEstado(dto.activo() ? "activo" : "inactivo");
+
+        // Actualizar el rol: Eliminar los anteriores de la tabla intermedia y guardar el nuevo
+        if (usuario.getUsuarioRoles() != null && !usuario.getUsuarioRoles().isEmpty()) {
+            usuarioRolRepository.deleteAll(usuario.getUsuarioRoles());
+            usuario.getUsuarioRoles().clear();
+        }
+
+        UsuarioRolId urId = new UsuarioRolId();
+        urId.setIdUsuario(usuario.getId());
+        urId.setIdRol(nuevoRol.getId());
+
+        UsuarioRol nuevoUsuarioRol = new UsuarioRol();
+        nuevoUsuarioRol.setId(urId);
+        nuevoUsuarioRol.setIdUsuario(usuario);
+        nuevoUsuarioRol.setIdRol(nuevoRol);
+
+        usuarioRolRepository.save(nuevoUsuarioRol);
+        usuarioRepository.save(usuario);
+    }
     /** Devuelve todos los roles disponibles para el selector del formulario. */
     public List<Rol> listarRoles() {
         return rolRepository.findAll();
