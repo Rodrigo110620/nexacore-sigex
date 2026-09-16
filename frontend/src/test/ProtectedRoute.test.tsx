@@ -4,7 +4,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import ProtectedRoute from '../routes/ProtectedRoute'
 
-function renderWithRouter(token: string | null, roles?: string[], requiredRole?: 'ADMIN') {
+function renderWithRouter(
+  token: string | null,
+  roles?: string[],
+  requiredRole?: 'ADMIN',
+  initialPath = '/dashboard',
+) {
   if (token) {
     localStorage.setItem('token', token)
   } else {
@@ -15,11 +20,11 @@ function renderWithRouter(token: string | null, roles?: string[], requiredRole?:
 
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={['/dashboard']}>
+      <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route path="/login" element={<div>Pantalla Login</div>} />
           <Route
-            path="/dashboard"
+            path="/dashboard/*"
             element={
               <ProtectedRoute requiredRole={requiredRole}>
                 <div>Pantalla Dashboard</div>
@@ -58,6 +63,13 @@ describe('ProtectedRoute', () => {
 
   it('con otro rol muestra acceso restringido y no renderiza el contenido', () => {
     renderWithRouter('token-docente', ['DOCENTE'], 'ADMIN')
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Acceso restringido')
+    expect(screen.queryByText('Pantalla Dashboard')).not.toBeInTheDocument()
+  })
+
+  it('protege /dashboard/usuarios para ADMIN', () => {
+    renderWithRouter('token-docente', ['DOCENTE'], 'ADMIN', '/dashboard/usuarios')
 
     expect(screen.getByRole('alert')).toHaveTextContent('Acceso restringido')
     expect(screen.queryByText('Pantalla Dashboard')).not.toBeInTheDocument()
