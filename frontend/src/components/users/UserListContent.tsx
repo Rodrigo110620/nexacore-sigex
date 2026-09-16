@@ -1,14 +1,45 @@
 import { Download, UserPlus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
+import UserFilters from './UserFilters'
 import UserTable from './UserTable'
-import type { UserListItem } from '../../types/user'
+import useDebouncedValue from '../../hooks/useDebouncedValue'
+import type { UserFilterParams, UserListItem } from '../../types/user'
 
 interface UserListContentProps {
   users: UserListItem[]
+  onFiltersChange?: (filters: UserFilterParams) => void
 }
 
-export default function UserListContent({ users }: UserListContentProps) {
+const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
+
+export default function UserListContent({ users, onFiltersChange }: UserListContentProps) {
+  const [draftFilters, setDraftFilters] = useState<UserFilterParams>(initialFilters)
+  const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
+  const lastEmittedRef = useRef<UserFilterParams>(initialFilters)
+
+  useEffect(() => {
+    if (!onFiltersChange) return
+
+    const nextFilters: UserFilterParams = {
+      search: debouncedSearch.trim(),
+      rol: draftFilters.rol,
+      estado: draftFilters.estado,
+    }
+
+    const lastFilters = lastEmittedRef.current
+    const didChange =
+      lastFilters.search !== nextFilters.search ||
+      lastFilters.rol !== nextFilters.rol ||
+      lastFilters.estado !== nextFilters.estado
+
+    if (!didChange) return
+
+    lastEmittedRef.current = nextFilters
+    onFiltersChange(nextFilters)
+  }, [debouncedSearch, draftFilters.rol, draftFilters.estado, onFiltersChange])
+
   return (
     <section aria-labelledby="users-title" className="bg-white px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
@@ -40,6 +71,9 @@ export default function UserListContent({ users }: UserListContentProps) {
           </div>
         </div>
         <p className="mb-4 text-xs text-gray-500">Funciones disponibles próximamente.</p>
+        <div className="mb-6">
+          <UserFilters value={draftFilters} onChange={setDraftFilters} />
+        </div>
         {users.length > 0 ? (
           <>
             <div className="lg:hidden">
