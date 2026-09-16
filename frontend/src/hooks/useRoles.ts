@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { type RolOption, ROLES_OPTIONS } from '../types/usuario.types'
 
@@ -20,8 +20,12 @@ const ETIQUETAS: Record<string, Omit<RolOption, 'value'>> = {
 function mapearRol(nombre: string): RolOption {
   const etiqueta = ETIQUETAS[nombre]
   if (etiqueta) return { value: nombre, ...etiqueta }
-  // Rol desconocido: se muestra con su nombre directamente
   return { value: nombre, titulo: nombre, subtitulo: nombre, descripcion: nombre }
+}
+
+async function fetchRoles(): Promise<RolOption[]> {
+  const { data } = await api.get<RolApi[]>('/usuarios/roles')
+  return data.map(r => mapearRol(r.nombre))
 }
 
 /**
@@ -33,25 +37,30 @@ export function useRoles() {
   const [roles, setRoles] = useState<RolOption[]>(ROLES_OPTIONS)
   const [cargando, setCargando] = useState(true)
 
-  const cargarRoles = async () => {
-    try {
-      const { data } = await api.get<RolApi[]>('/usuarios/roles')
-      setRoles(data.map(r => mapearRol(r.nombre)))
-    } catch {
-      // Si falla, se quedan los ROLES_OPTIONS estáticos como fallback
-    } finally {
-      setCargando(false)
-    }
-  }
-
   useEffect(() => {
-    cargarRoles()
+    let cancelado = false
+
+    void (async () => {
+      try {
+        const rolesApi = await fetchRoles()
+        if (!cancelado) setRoles(rolesApi)
+      } catch {
+        // Si falla, se quedan los ROLES_OPTIONS estáticos como fallback
+      } finally {
+        if (!cancelado) setCargando(false)
+      }
+    })()
+
+    return () => {
+      cancelado = true
+    }
   }, [])
 
-  const crearRol = async (nombre: string): Promise<void> => {
+  const crearRol = useCallback(async (nombre: string): Promise<void> => {
     await api.post('/usuarios/roles', { nombre: nombre.toUpperCase() })
-    await cargarRoles()
-  }
+    const rolesApi = await fetchRoles()
+    setRoles(rolesApi)
+  }, [])
 
   return { roles, cargando, crearRol }
 }
