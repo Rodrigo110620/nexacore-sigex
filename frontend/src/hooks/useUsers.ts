@@ -125,9 +125,12 @@ export default function useUsers(options: UseUsersOptions = {}) {
     const normalizedPage = Number.isFinite(nextPage)
       ? Math.max(0, Math.trunc(nextPage))
       : 0
-    setLoading(true)
-    setError(null)
-    setPage((currentPage) => currentPage === normalizedPage ? currentPage : normalizedPage)
+    setPage((currentPage) => {
+      if (currentPage === normalizedPage) return currentPage
+      setLoading(true)
+      setError(null)
+      return normalizedPage
+    })
   }, [])
 
   const retry = useCallback(() => {
