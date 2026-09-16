@@ -1,4 +1,4 @@
-import { CircleAlert, Download, LoaderCircle, UserPlus } from 'lucide-react'
+import { CircleAlert, LoaderCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
@@ -72,28 +72,7 @@ export default function UserListContent({
             <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
             <p className="mt-2 text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled
-              aria-label="Exportar usuarios, no disponible"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <Download size={16} aria-hidden="true" />
-              Exportar
-            </button>
-            <button
-              type="button"
-              disabled
-              aria-label="Registrar usuario, no disponible"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <UserPlus size={16} aria-hidden="true" />
-              Registrar
-            </button>
-          </div>
         </div>
-        <p className="mb-4 text-xs text-gray-500">Funciones disponibles próximamente.</p>
         <div className="mb-6">
           <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
         </div>
