@@ -88,11 +88,11 @@ export default function UserListContent({
               type="button"
               onClick={onRegisterClick}
               disabled={!onRegisterClick}
-              aria-label="Registrar usuario"
+              aria-label="Registrar Usuario"
               className="inline-flex h-11 items-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <UserPlus size={16} aria-hidden="true" />
-              Registrar
+              Registrar Usuario
             </button>
           </div>
         </div>
