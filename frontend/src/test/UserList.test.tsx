@@ -71,6 +71,9 @@ describe('UserListContent', () => {
 
     const table = screen.getByRole('table', { name: 'Lista de usuarios del sistema' })
 
+    expect(screen.getByRole('button', { name: /Registrar usuario/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Exportar usuarios/ })).toBeDisabled()
+    
     const editButtons = within(table).getAllByRole('button', { name: /Editar a/ })
     const blockButtons = within(table).getAllByRole('button', { name: /Bloquear a/ })
     expect(editButtons).toHaveLength(users.length)

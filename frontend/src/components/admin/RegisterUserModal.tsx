@@ -126,7 +126,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
 
      return (
     <>
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 lg:left-64 flex items-center justify-center z-50 p-4">
 
         <div className="relative bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100">
 
