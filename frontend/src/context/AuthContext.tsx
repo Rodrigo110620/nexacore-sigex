@@ -16,8 +16,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [nombre, setNombre] = useState<string | null>(() => localStorage.getItem('nombre'))
   const [roles, setRoles] = useState<string[]>(() => {
-    const stored = localStorage.getItem('roles')
-    return stored ? JSON.parse(stored) : []
+    try {
+      const stored = localStorage.getItem('roles')
+      if (!stored) return []
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
   })
 
   const login = (newToken: string, newNombre: string, newRoles: string[]) => {
