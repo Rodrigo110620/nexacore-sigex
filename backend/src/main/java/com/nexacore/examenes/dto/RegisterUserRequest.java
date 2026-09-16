@@ -2,6 +2,7 @@ package com.nexacore.examenes.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 /**
  * Datos para registrar un nuevo usuario del sistema (HU#2).
@@ -26,5 +27,8 @@ public record RegisterUserRequest(
         String email,
 
         @NotBlank(message = "El rol es obligatorio")
-        String rol
+        String rol,
+
+        @NotNull(message = "El estado activo es obligatorio")
+        Boolean activo
 ) {}

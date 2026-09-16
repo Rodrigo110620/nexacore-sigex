@@ -88,7 +88,7 @@ public class UsuarioService {
         usuario.setEmail(request.email());
 
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
-        usuario.setEstado("activo");
+        usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
         usuarioRepository.save(usuario);
 
         UsuarioRolId urId = new UsuarioRolId();

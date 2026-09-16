@@ -79,22 +79,50 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
         ci: form.documento,
         email: form.email,
         rol: form.rol,
+        activo: form.activo,
       });
       setPasswordTemporal(data.passwordTemporal ?? '');
       setSuccess(true);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { mensaje?: string }; status?: number } };
-      if (error.response?.status === 409) {
-        setGeneralError(error.response.data?.mensaje ?? 'El email ya está registrado.');
-      } else if (error.response?.status === 400) {
-        setGeneralError(error.response.data?.mensaje ?? 'Verifica los datos ingresados.');
+      const error = err as { 
+        response?: { 
+          status?: number; 
+          data?: { 
+            mensaje?: string;
+            campos?: Record<string, string>;
+          } 
+        } 
+      };
+      
+      const status = error.response?.status;
+      const data = error.response?.data;
+      
+      if (status === 409) {
+        setGeneralError(data?.mensaje ?? 'El email ya está registrado.');
+      } else if (status === 400) {
+        if (data?.campos) {
+          const fieldErrors: FormErrors = {};
+          if (data.campos.email) fieldErrors.email = data.campos.email;
+          if (data.campos.ci || data.campos.documento) fieldErrors.documento = data.campos.ci || data.campos.documento;
+          if (data.campos.nombre) fieldErrors.nombre = data.campos.nombre;
+          if (data.campos.apellidos) fieldErrors.apellidos = data.campos.apellidos;
+          if (data.campos.rol) fieldErrors.rol = data.campos.rol;
+          setErrors(fieldErrors);
+          setGeneralError('Verifica los campos marcados en rojo.');
+        } else {
+          setGeneralError(data?.mensaje ?? 'Verifica los datos ingresados.');
+        }
+      } else if (status === 403) {
+        setGeneralError('No tienes permisos para registrar usuarios.');
+      } else if (status === 401) {
+        setGeneralError('Sesión expirada. Inicia sesión nuevamente.');
       } else {
         setGeneralError('No se pudo conectar con el servidor. Intenta más tarde.');
       }
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
