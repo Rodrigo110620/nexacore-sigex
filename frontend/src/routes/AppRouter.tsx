@@ -17,6 +17,8 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />
+
+        {/* Dashboard general (cualquier usuario logueado) */}
         <Route
           path="/dashboard"
           element={
@@ -25,6 +27,8 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        {/* Gestión de usuarios (SOLO ADMIN) */}
         <Route
           path="/dashboard/usuarios"
           element={
