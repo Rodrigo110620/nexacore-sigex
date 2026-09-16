@@ -96,7 +96,6 @@ export default function UserListContent({
             </button>
           </div>
         </div>
-        <p className="mb-4 text-xs text-gray-500">Funciones disponibles próximamente.</p>
         <div className="mb-6">
           <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
         </div>

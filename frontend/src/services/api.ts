@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { navigateTo } from '../utils/navigate'
 
 /**
  * Instancia base de axios para todos los requests al backend.
@@ -36,7 +37,9 @@ api.interceptors.response.use(
 
     if (status === 401 && !isLoginRequest) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      localStorage.removeItem('nombre')
+      localStorage.removeItem('roles')
+      navigateTo('/login')
     }
     return Promise.reject(error)
   },

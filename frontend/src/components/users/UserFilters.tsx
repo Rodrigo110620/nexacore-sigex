@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react'
 import { useId } from 'react'
 import type { UserFilterParams } from '../../types/user'
+import { useRoles } from '../../hooks/useRoles'
 
 interface UserFiltersProps {
   value: UserFilterParams
@@ -13,6 +14,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
   const searchId = `${id}-search`
   const roleId = `${id}-role`
   const statusId = `${id}-status`
+  const { roles } = useRoles()
 
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 rounded-xl bg-[#E9F1FF] p-4 sm:p-6">
@@ -47,9 +49,9 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
             className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
           >
             <option value="">Todos los roles</option>
-            <option value="ADMIN">ADMIN</option>
-            <option value="DOCENTE">DOCENTE</option>
-            <option value="CONTROL">CONTROL</option>
+            {roles.map(r => (
+              <option key={r.value} value={r.value}>{r.value}</option>
+            ))}
           </select>
         </div>
 
