@@ -1,5 +1,6 @@
 import { Download, UserPlus } from 'lucide-react'
 import EmptyState from './EmptyState'
+import UserCardList from './UserCardList'
 import UserTable from './UserTable'
 import type { UserListItem } from '../../types/user'
 
@@ -39,7 +40,16 @@ export default function UserListContent({ users }: UserListContentProps) {
           </div>
         </div>
         <p className="mb-4 text-xs text-gray-500">Funciones disponibles próximamente.</p>
-        {users.length > 0 ? <UserTable users={users} /> : <EmptyState />}
+        {users.length > 0 ? (
+          <>
+            <div className="lg:hidden">
+              <UserCardList users={users} />
+            </div>
+            <div className="hidden lg:block">
+              <UserTable users={users} />
+            </div>
+          </>
+        ) : <EmptyState />}
       </div>
     </section>
   )
