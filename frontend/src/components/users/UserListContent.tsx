@@ -20,6 +20,7 @@ interface UserListContentProps {
   totalPages?: number
   onPageChange?: (page: number) => void
   onRetry?: () => void
+  onRegisterClick?: () => void
 }
 
 const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
@@ -35,6 +36,7 @@ export default function UserListContent({
   totalPages = users.length > 0 ? 1 : 0,
   onPageChange,
   onRetry,
+  onRegisterClick,
 }: UserListContentProps) {
   const [draftFilters, setDraftFilters] = useState<UserFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
@@ -84,9 +86,10 @@ export default function UserListContent({
             </button>
             <button
               type="button"
-              disabled
-              aria-label="Registrar usuario, no disponible"
-              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+              onClick={onRegisterClick}
+              disabled={!onRegisterClick}
+              aria-label="Registrar usuario"
+              className="inline-flex h-11 items-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <UserPlus size={16} aria-hidden="true" />
               Registrar
