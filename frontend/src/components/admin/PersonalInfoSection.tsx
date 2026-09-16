@@ -1,4 +1,3 @@
-import { validateNombre, validateApellidos, validateDocumento } from '../../utils/validators';
 import type { RegisterUserFormState } from '../../types/usuario.types';
 
 interface PersonalInfoSectionProps {

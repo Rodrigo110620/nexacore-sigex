@@ -1,4 +1,3 @@
-import { validateEmail } from '../../utils/validators';
 import type { RegisterUserFormState, Rol } from '../../types/usuario.types';
 import RoleSelector from './RoleSelector';
 
