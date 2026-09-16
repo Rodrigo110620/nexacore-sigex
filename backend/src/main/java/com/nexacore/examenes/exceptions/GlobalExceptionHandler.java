@@ -1,6 +1,7 @@
 package com.nexacore.examenes.exceptions;
 
 import com.nexacore.examenes.dto.ErrorResponse;
+import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -75,6 +76,16 @@ public class GlobalExceptionHandler {
     /** Email ya registrado en la base de datos (HU#2). */
     @ExceptionHandler(EmailDuplicadoException.class)
     public ResponseEntity<ErrorResponse> manejarEmailDuplicado(EmailDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    /** Rol duplicado al intentar crear uno nuevo. */
+    @ExceptionHandler(RolDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarRolDuplicado(RolDuplicadoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 ex.getMessage());

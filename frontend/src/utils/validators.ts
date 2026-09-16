@@ -29,8 +29,8 @@ export const validateEmail = (value: string): string => {
 };
 
 export const validateRol = (value: string): string => {
-  if (!value) return 'Debes seleccionar un rol';
-  if (!['ADMIN', 'DOCENTE', 'CONTROL'].includes(value)) return 'Rol inválido';
+  if (!value.trim()) return 'Debes seleccionar un rol';
+  // No se valida contra lista fija: los roles válidos vienen del backend (GET /usuarios/roles).
   return '';
 };
 

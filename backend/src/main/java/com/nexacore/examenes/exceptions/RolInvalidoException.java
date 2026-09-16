@@ -7,6 +7,6 @@ package com.nexacore.examenes.exceptions;
 public class RolInvalidoException extends RuntimeException {
 
     public RolInvalidoException(String rol) {
-        super("El rol '" + rol + "' no es valido. Use: ADMIN, DOCENTE o CONTROL");
+        super("El rol '" + rol + "' no existe en el sistema");
     }
 }

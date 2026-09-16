@@ -1,4 +1,6 @@
-export type Rol = 'ADMIN' | 'DOCENTE' | 'CONTROL';
+// Rol es string dinámico: los valores válidos vienen de GET /api/v1/usuarios/roles.
+// ROLES_OPTIONS es el catálogo inicial; se reemplaza al consultar la BD.
+export type Rol = string;
 
 export type TipoDocumento = 'CI';
 

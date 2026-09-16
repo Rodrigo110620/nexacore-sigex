@@ -1,10 +1,12 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.dto.CrearRolRequest;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
+import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
 import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.models.Usuario;
@@ -36,7 +38,6 @@ import java.util.Objects;
 @Service
 public class UsuarioService {
 
-    private static final List<String> ROLES_VALIDOS = List.of("ADMIN", "DOCENTE", "CONTROL");
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final String SIN_ROL = "SIN_ROL";
     private static final String CARACTERES = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -68,16 +69,14 @@ public class UsuarioService {
 
         String rolNombre = request.rol().toUpperCase();
 
-        if (!ROLES_VALIDOS.contains(rolNombre)) {
-            throw new RolInvalidoException(request.rol());
-        }
+        // Valida contra la BD: si el rol no existe en la tabla rol → 400.
+        // No hay lista fija: cualquier rol que se inserte en BD pasa a ser válido.
+        Rol rol = rolRepository.findByNombre(rolNombre)
+                .orElseThrow(() -> new RolInvalidoException(rolNombre));
 
         if (usuarioRepository.findByEmail(request.email()).isPresent()) {
             throw new EmailDuplicadoException(request.email());
         }
-
-        Rol rol = rolRepository.findByNombre(rolNombre)
-                .orElseThrow(() -> new RolInvalidoException(rolNombre));
 
         String passwordTemporal = generarPasswordTemporal();
 
@@ -113,6 +112,24 @@ public class UsuarioService {
     /** Devuelve todos los roles disponibles para el selector del formulario. */
     public List<Rol> listarRoles() {
         return rolRepository.findAll();
+    }
+
+    /**
+     * Crea un nuevo rol en el sistema.
+     *
+     * @throws RolDuplicadoException si ya existe un rol con ese nombre
+     */
+    @Transactional
+    public Rol crearRol(CrearRolRequest request) {
+        String nombre = request.nombre().toUpperCase();
+
+        if (rolRepository.findByNombre(nombre).isPresent()) {
+            throw new RolDuplicadoException(nombre);
+        }
+
+        Rol rol = new Rol();
+        rol.setNombre(nombre);
+        return rolRepository.save(rol);
     }
 
     /**
