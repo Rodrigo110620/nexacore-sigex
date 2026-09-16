@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -39,6 +40,8 @@ public class UsuarioService {
     private static final List<String> ROLES_VALIDOS = List.of("ADMIN", "DOCENTE", "CONTROL");
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final String SIN_ROL = "SIN_ROL";
+    private static final String CARACTERES = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
@@ -77,13 +80,15 @@ public class UsuarioService {
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
 
+        String passwordTemporal = generarPasswordTemporal();
+
         Usuario usuario = new Usuario();
         usuario.setNombre(request.nombre());
         usuario.setApellidos(request.apellidos());
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
-        String passwordGenerada = generarPasswordAleatoria();
-        usuario.setPassword(passwordEncoder.encode(passwordGenerada));
+
+        usuario.setPassword(passwordEncoder.encode(passwordTemporal));
         usuario.setEstado("activo");
         usuarioRepository.save(usuario);
 
@@ -100,7 +105,7 @@ public class UsuarioService {
         // Mostrar en consola (temporal - después se enviará por correo)
         System.out.println("NUEVO USUARIO REGISTRADO");
         System.out.println("Email: " + request.email());
-        System.out.println("Password temporal: " + passwordGenerada);
+        System.out.println("Password temporal: " + passwordTemporal);
         System.out.println("Rol: " + rolNombre);
 
         return new RegisterUserResponse(
@@ -108,6 +113,7 @@ public class UsuarioService {
                 usuario.getNombre() + " " + usuario.getApellidos(),
                 usuario.getEmail(),
                 rolNombre,
+                passwordTemporal,
                 "Usuario registrado correctamente"
         );
     }
@@ -171,6 +177,19 @@ public class UsuarioService {
         );
     }
 
+    /**
+     * Genera una contraseña provisional de 10 caracteres usando SecureRandom.
+     * Excluye caracteres ambiguos (0/O, 1/l/I) para facilitar la lectura.
+     * Sprint 2+: reemplazar por envío automático por email.
+     */
+    private String generarPasswordTemporal() {
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(CARACTERES.charAt(RANDOM.nextInt(CARACTERES.length())));
+        }
+        return sb.toString();
+    }
+
     /** Devuelve el nombre del primer rol del usuario, o "SIN_ROL" si no tiene ninguno. */
     private String obtenerPrimerRol(Usuario usuario) {
         if (usuario.getUsuarioRoles() == null) {
@@ -185,20 +204,4 @@ public class UsuarioService {
                 .orElse(SIN_ROL);
     }
 
-        /**
-     * Genera una contraseña aleatoria de 10 caracteres
-     * combinando letras mayúsculas, minúsculas y números.
-     */
-    private String generarPasswordAleatoria() {
-        String caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        StringBuilder password = new StringBuilder();
-        Random random = new Random();
-
-        for (int i = 0; i < 10; i++) {
-            int indice = random.nextInt(caracteres.length());
-            password.append(caracteres.charAt(indice));
-        }
-
-        return password.toString();
-    }
 }

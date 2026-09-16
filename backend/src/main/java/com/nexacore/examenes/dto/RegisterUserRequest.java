@@ -6,8 +6,9 @@ import jakarta.validation.constraints.NotBlank;
 /**
  * Datos para registrar un nuevo usuario del sistema (HU#2).
  *
- * Todos los campos son obligatorios. El rol debe ser uno de:
- * ADMIN, DOCENTE o CONTROL (se valida en UsuarioService).
+ * El admin NO envía contraseña: el sistema genera una clave provisional
+ * automáticamente y la devuelve en RegisterUserResponse.passwordTemporal.
+ * El rol debe ser uno de: ADMIN, DOCENTE o CONTROL.
  */
 public record RegisterUserRequest(
 
