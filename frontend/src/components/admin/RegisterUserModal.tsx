@@ -84,19 +84,19 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
       setPasswordTemporal(data.passwordTemporal ?? '');
       setSuccess(true);
     } catch (err: unknown) {
-      const error = err as { 
-        response?: { 
-          status?: number; 
-          data?: { 
+      const error = err as {
+        response?: {
+          status?: number;
+          data?: {
             mensaje?: string;
             campos?: Record<string, string>;
-          } 
-        } 
+          };
+        };
       };
-      
+
       const status = error.response?.status;
       const data = error.response?.data;
-      
+
       if (status === 409) {
         setGeneralError(data?.mensaje ?? 'El email ya está registrado.');
       } else if (status === 400) {
@@ -122,127 +122,158 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+     return (
+    <>
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
 
+        <div className="relative bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100">
 
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-[#011140] font-bold text-xl">Registrar Nuevo Usuario</h2>
-            <p className="text-gray-500 text-xs mt-1">
-              Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.
-            </p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-            <PersonalInfoSection
-              form={form}
-              errors={errors}
-              onChange={handleChange}
-              onBlur={handleBlur}
-            />
-            <CredentialsSection
-              form={form}
-              errors={errors}
-              onChange={handleChange}
-              onBlur={handleBlur}
-            />
-          </div>
-
-          <div className="px-6 pb-4">
-            <div className="flex items-start gap-3 bg-[#EFF6FF] border border-[#DBEAFE] rounded-lg p-2">
-              <Info size={16} className="text-[#0439D9] mt-0.5 flex-shrink-0" />
-              <p className="text-[#011140] text-[0.70rem] leading-relaxed">
-                El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada
-                bajo la norma de seguridad académica institucional.
+          <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-[#011140] font-bold text-xl">Registrar Nuevo Usuario</h2>
+              <p className="text-gray-500 text-xs mt-1">
+                Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.
               </p>
             </div>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-
-          {generalError && (
-            <div className="mx-6 mb-4 flex items-center border border-[#FECACA] bg-[#FEF2F2] p-3 rounded-md">
-              <CircleAlert className="text-[#B91C1C] mr-2 flex-shrink-0" size={18} />
-              <p className="text-[#B91C1C] text-xs">{generalError}</p>
+          <form onSubmit={handleSubmit} className="max-h-[calc(90vh-100px)] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+              <PersonalInfoSection
+                form={form}
+                errors={errors}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              />
+              <CredentialsSection
+                form={form}
+                errors={errors}
+                onChange={handleChange}
+                onBlur={handleBlur}
+              />
             </div>
+
+            <div className="px-6 pb-4">
+              <div className="flex items-start gap-3 bg-[#EFF6FF] border border-[#DBEAFE] rounded-lg p-2">
+                <Info size={16} className="text-[#0439D9] mt-0.5 flex-shrink-0" />
+                <p className="text-[#011140] text-[0.70rem] leading-relaxed">
+                  El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada
+                  bajo la norma de seguridad académica institucional.
+                </p>
+              </div>
+            </div>
+
+            {generalError && (
+              <div className="mx-6 mb-4 flex items-center border border-[#FECACA] bg-[#FEF2F2] p-3 rounded-md">
+                <CircleAlert className="text-[#B91C1C] mr-2 flex-shrink-0" size={18} />
+                <p className="text-[#B91C1C] text-xs">{generalError}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+              <p className="text-gray-400 text-[0.65rem]">
+                Campos con (*) son mandatorios
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-5 py-2.5 text-sm text-[#011140] font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0439D9] text-white font-bold text-sm rounded-lg hover:bg-[#0027a2] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? (
+                    'GUARDANDO...'
+                  ) : (
+                    <>
+                      <CheckCircle size={16} />
+                      Guardar y Registrar Usuario
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {/* ==================== SHADOW PLOMO SOLO SOBRE ESTE MODAL ==================== */}
+          {success && (
+            <div className="absolute inset-0 bg-gray-400/5 backdrop-blur-[1px] rounded-2xl z-10"></div>
           )}
 
+        </div>
 
-          {success && (
-            <div className="mx-6 mb-4 border border-green-200 bg-green-50 p-3 rounded-md">
-              <div className="flex items-center mb-2">
-                <CheckCircle className="text-green-600 mr-2 flex-shrink-0" size={18} />
-                <p className="text-green-700 text-xs font-semibold">Usuario registrado correctamente</p>
+        {/* ==================== MODAL SECUNDARIO (ÉXITO) ENCIMA ==================== */}
+        {success && (
+          <div className="absolute inset-0 flex items-center justify-center z-[60] p-4">
+            <div className="bg-[#f0f5ff] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-[#BFDBFE]">
+
+              {/* Header con ícono de éxito */}
+              <div className="flex flex-col items-center pt-8 pb-4 px-6">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="text-green-600" size={36} />
+                </div>
+
+                <h3 className="text-[#011140] font-bold text-lg mb-1">
+                  Usuario registrado correctamente
+                </h3>
+                <p className="text-gray-600 text-xs text-center">
+                  La cuenta fue creada exitosamente.
+                </p>
               </div>
+
+              {/* Contraseña provisional */}
               {passwordTemporal && (
-                <div className="mt-2 bg-white border border-green-200 rounded-md p-2">
-                  <p className="text-[0.65rem] text-gray-500 mb-1">Contraseña provisional (entrégala al usuario):</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <code className="text-sm font-bold text-[#011140] tracking-widest">{passwordTemporal}</code>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard.writeText(passwordTemporal)}
-                      className="text-gray-400 hover:text-[#0439D9] transition-colors"
-                      title="Copiar contraseña"
-                    >
-                      <Copy size={14} />
-                    </button>
+                <div className="px-6 pb-4">
+                  <div className="bg-white border border-[#BFDBFE] rounded-lg p-4">
+                    <p className="text-[0.70rem] text-[#011140] mb-2 text-center font-medium">
+                      Contraseña provisional (entrégala al usuario):
+                    </p>
+                    <div className="flex items-center justify-between gap-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-md p-3">
+                      <code className="text-base font-bold text-[#011140] tracking-widest flex-1 text-center">
+                        {passwordTemporal}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(passwordTemporal)}
+                        className="text-gray-500 hover:text-[#0439D9] transition-colors p-1"
+                        title="Copiar contraseña"
+                      >
+                        <Copy size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={handleClose}
-                className="mt-3 w-full text-xs text-green-700 font-semibold hover:underline"
-              >
-                Cerrar
-              </button>
-            </div>
-          )}
 
+              {/* Botón Cerrar */}
+              <div className="px-6 pb-6">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full px-6 py-3 bg-[#0439D9] text-white font-bold text-sm rounded-lg hover:bg-[#0027a2] transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
 
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-            <p className="text-gray-400 text-[0.65rem]">
-              Campos con (*) son mandatorios
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="px-5 py-2.5 text-sm text-[#011140] font-medium hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#0439D9] text-white font-bold text-sm rounded-lg hover:bg-[#0027a2] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? (
-                  'GUARDANDO...'
-                ) : (
-                  <>
-                    <CheckCircle size={16} />
-                    Guardar y Registrar Usuario
-                  </>
-                )}
-              </button>
             </div>
           </div>
-        </form>
+        )}
 
       </div>
-    </div>
+    </>
   );
 }
