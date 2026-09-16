@@ -101,12 +101,6 @@ public class UsuarioService {
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
 
-        // Mostrar en consola (temporal - después se enviará por correo)
-        System.out.println("NUEVO USUARIO REGISTRADO");
-        System.out.println("Email: " + request.email());
-        System.out.println("Password temporal: " + passwordTemporal);
-        System.out.println("Rol: " + rolNombre);
-
         return new RegisterUserResponse(
                 usuario.getId(),
                 usuario.getNombre() + " " + usuario.getApellidos(),
