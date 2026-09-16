@@ -1,5 +1,6 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.CrearRolRequest;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
@@ -92,5 +93,12 @@ public class UsuarioController {
     @GetMapping("/roles")
     public ResponseEntity<List<Rol>> listarRoles() {
         return ResponseEntity.ok(usuarioService.listarRoles());
+    }
+
+    @Operation(summary = "Crear rol", description = "Crea un nuevo rol en el sistema. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/roles")
+    public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
     }
 }

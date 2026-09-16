@@ -1,18 +1,12 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 import type { AuthRole } from '../types/auth'
 
-const VALID_ROLES: AuthRole[] = ['ADMIN', 'DOCENTE', 'CONTROL']
-
-function isAuthRole(value: unknown): value is AuthRole {
-  return typeof value === 'string' && VALID_ROLES.includes(value as AuthRole)
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter((role): role is string => typeof role === 'string' && role.trim().length > 0))]
 }
 
-function normalizeRoles(value: unknown): AuthRole[] {
-  if (!Array.isArray(value) || !value.every(isAuthRole)) return []
-  return [...new Set(value)]
-}
-
-function readStoredRoles(): AuthRole[] {
+function readStoredRoles(): string[] {
   const storedRoles = localStorage.getItem('roles')
   if (!storedRoles) return []
 
@@ -26,10 +20,10 @@ function readStoredRoles(): AuthRole[] {
 interface AuthContextType {
   token: string | null
   nombre: string | null
-  roles: AuthRole[]
+  roles: string[]
   isAuthenticated: boolean
   isAdmin: boolean
-  login: (token: string, roles: unknown, nombre?: string) => void
+  login: (token: string, nombre: string, roles: string[]) => void
   logout: () => void
   hasRole: (role: AuthRole) => boolean
 }
@@ -39,38 +33,33 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [nombre, setNombre] = useState<string | null>(() => localStorage.getItem('nombre'))
-  const [roles, setRoles] = useState<AuthRole[]>(readStoredRoles)
+  const [roles, setRoles] = useState<string[]>(readStoredRoles)
 
-  const login = (newToken: string, newRoles: unknown, newNombre?: string) => {
+  const login = (newToken: string, newNombre: string, newRoles: string[]) => {
     const validRoles = normalizeRoles(newRoles)
-    const validName = typeof newNombre === 'string' && newNombre.trim() ? newNombre : null
-
     localStorage.setItem('token', newToken)
+    localStorage.setItem('nombre', newNombre)
     localStorage.setItem('roles', JSON.stringify(validRoles))
-    if (validName) localStorage.setItem('nombre', validName)
-    else localStorage.removeItem('nombre')
-
     setToken(newToken)
-    setNombre(validName)
+    setNombre(newNombre)
     setRoles(validRoles)
   }
 
   const logout = () => {
     localStorage.removeItem('token')
-    localStorage.removeItem('roles')
     localStorage.removeItem('nombre')
+    localStorage.removeItem('roles')
     setToken(null)
     setNombre(null)
     setRoles([])
   }
 
+  const isAuthenticated = !!token
+  const isAdmin = roles.includes('ADMIN')
   const hasRole = (role: AuthRole) => roles.includes(role)
-  const isAdmin = hasRole('ADMIN')
 
   return (
-    <AuthContext.Provider
-      value={{ token, nombre, roles, isAuthenticated: !!token, isAdmin, login, logout, hasRole }}
-    >
+    <AuthContext.Provider value={{ token, nombre, roles, isAuthenticated, isAdmin, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   )

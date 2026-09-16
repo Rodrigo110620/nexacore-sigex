@@ -1,5 +1,6 @@
-import { X, Info, CheckCircle, CircleAlert } from 'lucide-react';
+import { X, Info, CheckCircle, CircleAlert, Copy } from 'lucide-react';
 import { useState } from 'react';
+import api from '../../services/api';
 import {
   INITIAL_FORM_STATE,
   type RegisterUserFormState,
@@ -21,6 +22,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [passwordTemporal, setPasswordTemporal] = useState('');
 
   if (!isOpen) return null;
 
@@ -51,6 +53,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
     setErrors({});
     setGeneralError('');
     setSuccess(false);
+    setPasswordTemporal('');
     onClose();
   };
 
@@ -69,16 +72,25 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
 
     setLoading(true);
     try {
-      // TODO: Reemplazar por llamada al backend
-      console.log('Enviando:', form);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
+      // Mapeo: form.documento → ci (nombre del campo en el backend)
+      const { data } = await api.post('/usuarios', {
+        nombre: form.nombre,
+        apellidos: form.apellidos,
+        ci: form.documento,
+        email: form.email,
+        rol: form.rol,
+      });
+      setPasswordTemporal(data.passwordTemporal ?? '');
       setSuccess(true);
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
-    } catch (err) {
-      setGeneralError('Error al registrar usuario. Intenta más tarde.');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { mensaje?: string }; status?: number } };
+      if (error.response?.status === 409) {
+        setGeneralError(error.response.data?.mensaje ?? 'El email ya está registrado.');
+      } else if (error.response?.status === 400) {
+        setGeneralError(error.response.data?.mensaje ?? 'Verifica los datos ingresados.');
+      } else {
+        setGeneralError('No se pudo conectar con el servidor. Intenta más tarde.');
+      }
     } finally {
       setLoading(false);
     }
@@ -140,9 +152,34 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
 
 
           {success && (
-            <div className="mx-6 mb-4 flex items-center border border-green-200 bg-green-50 p-3 rounded-md">
-              <CheckCircle className="text-green-600 mr-2 flex-shrink-0" size={18} />
-              <p className="text-green-700 text-xs">Usuario registrado correctamente</p>
+            <div className="mx-6 mb-4 border border-green-200 bg-green-50 p-3 rounded-md">
+              <div className="flex items-center mb-2">
+                <CheckCircle className="text-green-600 mr-2 flex-shrink-0" size={18} />
+                <p className="text-green-700 text-xs font-semibold">Usuario registrado correctamente</p>
+              </div>
+              {passwordTemporal && (
+                <div className="mt-2 bg-white border border-green-200 rounded-md p-2">
+                  <p className="text-[0.65rem] text-gray-500 mb-1">Contraseña provisional (entrégala al usuario):</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-sm font-bold text-[#011140] tracking-widest">{passwordTemporal}</code>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(passwordTemporal)}
+                      className="text-gray-400 hover:text-[#0439D9] transition-colors"
+                      title="Copiar contraseña"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleClose}
+                className="mt-3 w-full text-xs text-green-700 font-semibold hover:underline"
+              >
+                Cerrar
+              </button>
             </div>
           )}
 

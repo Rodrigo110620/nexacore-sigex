@@ -68,12 +68,14 @@ describe('UsuariosPage', () => {
     const DashboardPage = (await import('../pages/Dashboard/DashboardPage')).default
 
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dashboard/usuarios" element={<p>Gestión unificada</p>} />
-        </Routes>
-      </MemoryRouter>,
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Routes>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard/usuarios" element={<p>Gestión unificada</p>} />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
     )
 
     expect(screen.getByText('Gestión unificada')).toBeInTheDocument()

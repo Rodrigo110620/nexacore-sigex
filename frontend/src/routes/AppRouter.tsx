@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import ProtectedRoute from './ProtectedRoute'
+import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 
 function LoginRoute() {
@@ -19,7 +20,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
           }
@@ -27,9 +28,9 @@ export default function AppRouter() {
         <Route
           path="/dashboard/usuarios"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <AdminRoute>
               <UsuariosPage />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
       </Routes>

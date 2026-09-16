@@ -12,7 +12,7 @@ function AuthConsumer() {
       <span data-testid="roles">{roles.join(',') || 'sin-roles'}</span>
       <span data-testid="is-admin">{isAdmin ? 'admin' : 'no-admin'}</span>
       <span data-testid="has-admin">{hasRole('ADMIN') ? 'admin' : 'no-admin'}</span>
-      <button onClick={() => login('jwt-test-123', ['ADMIN'], 'Admin Test')}>login</button>
+      <button onClick={() => login('jwt-test-123', 'Admin Test', ['ADMIN'])}>login</button>
       <button onClick={logout}>logout</button>
     </div>
   )
@@ -65,15 +65,15 @@ describe('AuthContext', () => {
   })
 
   it.each([
-    ['JSON malformado', 'no-es-json'],
-    ['valor que no es arreglo', JSON.stringify('ADMIN')],
-    ['rol desconocido', JSON.stringify(['SUPERADMIN'])],
-    ['arreglo parcialmente inválido', JSON.stringify(['ADMIN', 42])],
-  ])('convierte roles inválidos en []: %s', (_caseName, storedRoles) => {
+    ['JSON malformado', 'no-es-json', 'sin-roles'],
+    ['valor que no es arreglo', JSON.stringify('ADMIN'), 'sin-roles'],
+    ['arreglo parcialmente inválido', JSON.stringify(['ADMIN', 42]), 'ADMIN'],
+    ['rol dinámico válido', JSON.stringify(['SUPERVISOR']), 'SUPERVISOR'],
+  ])('normaliza roles almacenados: %s', (_caseName, storedRoles, expectedRoles) => {
     localStorage.setItem('token', 'token-activo')
     localStorage.setItem('roles', storedRoles)
     render(<AuthProvider><AuthConsumer /></AuthProvider>)
-    expect(screen.getByTestId('roles')).toHaveTextContent('sin-roles')
-    expect(screen.getByTestId('is-admin')).toHaveTextContent('no-admin')
+    expect(screen.getByTestId('roles')).toHaveTextContent(expectedRoles)
+    expect(screen.getByTestId('is-admin')).toHaveTextContent(expectedRoles === 'ADMIN' ? 'admin' : 'no-admin')
   })
 })
