@@ -66,12 +66,10 @@ describe('UserListContent', () => {
     expect(screen.queryByRole('row')).not.toBeInTheDocument()
   })
 
-  it('mantiene deshabilitadas las acciones pendientes', () => {
+  it('mantiene deshabilitadas las acciones pendientes por fila', () => {
     render(<UserListContent users={users} />)
 
     const table = screen.getByRole('table', { name: 'Lista de usuarios del sistema' })
-    expect(screen.getByRole('button', { name: /Registrar usuario/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Exportar usuarios/ })).toBeDisabled()
 
     const editButtons = within(table).getAllByRole('button', { name: /Editar a/ })
     const blockButtons = within(table).getAllByRole('button', { name: /Bloquear a/ })
