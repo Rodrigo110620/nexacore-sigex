@@ -16,8 +16,6 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />
-
-        {/* Rutas protegidas del panel admin */}
         <Route
           path="/dashboard"
           element={

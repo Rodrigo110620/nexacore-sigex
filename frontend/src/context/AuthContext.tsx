@@ -25,9 +25,11 @@ function readStoredRoles(): AuthRole[] {
 
 interface AuthContextType {
   token: string | null
+  nombre: string | null
   roles: AuthRole[]
   isAuthenticated: boolean
-  login: (token: string, roles: unknown) => void
+  isAdmin: boolean
+  login: (token: string, roles: unknown, nombre?: string) => void
   logout: () => void
   hasRole: (role: AuthRole) => boolean
 }
@@ -36,27 +38,39 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [nombre, setNombre] = useState<string | null>(() => localStorage.getItem('nombre'))
   const [roles, setRoles] = useState<AuthRole[]>(readStoredRoles)
 
-  const login = (newToken: string, newRoles: unknown) => {
+  const login = (newToken: string, newRoles: unknown, newNombre?: string) => {
     const validRoles = normalizeRoles(newRoles)
+    const validName = typeof newNombre === 'string' && newNombre.trim() ? newNombre : null
+
     localStorage.setItem('token', newToken)
     localStorage.setItem('roles', JSON.stringify(validRoles))
+    if (validName) localStorage.setItem('nombre', validName)
+    else localStorage.removeItem('nombre')
+
     setToken(newToken)
+    setNombre(validName)
     setRoles(validRoles)
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('roles')
+    localStorage.removeItem('nombre')
     setToken(null)
+    setNombre(null)
     setRoles([])
   }
 
   const hasRole = (role: AuthRole) => roles.includes(role)
+  const isAdmin = hasRole('ADMIN')
 
   return (
-    <AuthContext.Provider value={{ token, roles, isAuthenticated: !!token, login, logout, hasRole }}>
+    <AuthContext.Provider
+      value={{ token, nombre, roles, isAuthenticated: !!token, isAdmin, login, logout, hasRole }}
+    >
       {children}
     </AuthContext.Provider>
   )
