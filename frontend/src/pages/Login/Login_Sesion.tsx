@@ -62,7 +62,7 @@ export default function Login__Sesion() {
         setLoading(true);
         try {
             const data = await loginUser({ email, password });
-            login(data.token);
+            login(data.token, data.roles);
             navigate('/dashboard', { replace: true });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error inesperado. Intenta más tarde.';
