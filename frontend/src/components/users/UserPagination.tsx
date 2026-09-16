@@ -45,7 +45,7 @@ export default function UserPagination({
   onPageChange,
   disabled = false,
 }: UserPaginationProps) {
-  if (totalRecords === 0 || totalPages === 0) return null
+  if (totalRecords === 0 || totalPages <= 1) return null
 
   const currentPage = Math.min(Math.max(page, 0), totalPages - 1)
   const firstRecord = currentPage * pageSize + 1
