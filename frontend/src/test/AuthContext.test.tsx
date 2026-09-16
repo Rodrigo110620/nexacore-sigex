@@ -9,7 +9,7 @@ function AuthConsumer() {
     <div>
       <span data-testid="auth-status">{isAuthenticated ? 'autenticado' : 'no-autenticado'}</span>
       <span data-testid="token">{token ?? 'sin-token'}</span>
-      <button onClick={() => login('jwt-test-123')}>login</button>
+      <button onClick={() => login('jwt-test-123', 'Admin Test', ['ADMIN'])}>login</button>
       <button onClick={logout}>logout</button>
     </div>
   )
@@ -32,6 +32,8 @@ describe('AuthContext', () => {
 
   it('inicia autenticado si ya hay token en localStorage', () => {
     localStorage.setItem('token', 'token-previo')
+    localStorage.setItem('nombre', 'Usuario Previo')
+    localStorage.setItem('roles', JSON.stringify(['ADMIN']))
     render(
       <AuthProvider>
         <AuthConsumer />

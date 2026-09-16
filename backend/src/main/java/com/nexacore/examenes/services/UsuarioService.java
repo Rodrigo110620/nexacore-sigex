@@ -24,6 +24,7 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Random;
 
 /**
  * Lógica de negocio para la gestión de usuarios (HU#2).
@@ -86,6 +87,7 @@ public class UsuarioService {
         usuario.setApellidos(request.apellidos());
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
+
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
         usuario.setEstado("activo");
         usuarioRepository.save(usuario);
@@ -99,6 +101,12 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+
+        // Mostrar en consola (temporal - después se enviará por correo)
+        System.out.println("NUEVO USUARIO REGISTRADO");
+        System.out.println("Email: " + request.email());
+        System.out.println("Password temporal: " + passwordTemporal);
+        System.out.println("Rol: " + rolNombre);
 
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -195,4 +203,5 @@ public class UsuarioService {
                 .findFirst()
                 .orElse(SIN_ROL);
     }
+
 }

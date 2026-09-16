@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import ProtectedRoute from './ProtectedRoute'
+import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 
 function LoginRoute() {
@@ -17,7 +18,7 @@ export default function AppRouter() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />
 
-        {/* Rutas protegidas del panel admin */}
+        {/* Dashboard general (cualquier usuario logueado) */}
         <Route
           path="/dashboard"
           element={
@@ -26,12 +27,14 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        {/* Gestión de usuarios (SOLO ADMIN) */}
         <Route
           path="/dashboard/usuarios"
           element={
-            <ProtectedRoute>
+            <AdminRoute>
               <UsuariosPage />
-            </ProtectedRoute>
+            </AdminRoute>
           }
         />
       </Routes>
