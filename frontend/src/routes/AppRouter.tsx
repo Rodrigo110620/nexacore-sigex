@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import ProtectedRoute from './ProtectedRoute'
-import UsuariosPage from '../pages/panel_admin/UsuariosPage'   // 👈 AGREGAR
+import AdminRoute from './AdminRoute'
+import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -16,6 +17,7 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />
+
         <Route
           path="/dashboard"
           element={
@@ -25,7 +27,16 @@ export default function AppRouter() {
           }
         />
 
-        {/* Ruta temporal para probar registro*/}
+        {/* Ruta protegida: solo ADMIN */}
+        <Route
+          path="/usuarios"
+          element={
+            <AdminRoute>
+              <UsuariosPage />
+            </AdminRoute>
+          }
+        />
+
         <Route path="/test-modal" element={<UsuariosPage />} />
       </Routes>
     </BrowserRouter>

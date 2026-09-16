@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Random;
 
 /**
  * Lógica de negocio para la gestión de usuarios (HU#2).
@@ -81,7 +82,8 @@ public class UsuarioService {
         usuario.setApellidos(request.apellidos());
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
-        usuario.setPassword(passwordEncoder.encode(request.password()));
+        String passwordGenerada = generarPasswordAleatoria();
+        usuario.setPassword(passwordEncoder.encode(passwordGenerada));
         usuario.setEstado("activo");
         usuarioRepository.save(usuario);
 
@@ -94,6 +96,12 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+
+        // Mostrar en consola (temporal - después se enviará por correo)
+        System.out.println("NUEVO USUARIO REGISTRADO");
+        System.out.println("Email: " + request.email());
+        System.out.println("Password temporal: " + passwordGenerada);
+        System.out.println("Rol: " + rolNombre);
 
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -175,5 +183,22 @@ public class UsuarioService {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(SIN_ROL);
+    }
+
+        /**
+     * Genera una contraseña aleatoria de 10 caracteres
+     * combinando letras mayúsculas, minúsculas y números.
+     */
+    private String generarPasswordAleatoria() {
+        String caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder password = new StringBuilder();
+        Random random = new Random();
+
+        for (int i = 0; i < 10; i++) {
+            int indice = random.nextInt(caracteres.length());
+            password.append(caracteres.charAt(indice));
+        }
+
+        return password.toString();
     }
 }

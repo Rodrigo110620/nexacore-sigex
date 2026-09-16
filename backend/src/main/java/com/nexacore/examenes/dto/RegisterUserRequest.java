@@ -24,9 +24,6 @@ public record RegisterUserRequest(
         @Email(message = "El formato del correo electronico no es valido")
         String email,
 
-        @NotBlank(message = "La contrasena es obligatoria")
-        String password,
-
         @NotBlank(message = "El rol es obligatorio")
         String rol
 ) {}
