@@ -16,9 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
-
 /**
  * Gestión de usuarios del sistema (HU#2).
  *
@@ -31,14 +29,13 @@ import java.util.List;
 @Tag(name = "Usuarios", description = "Registro y gestión de usuarios del sistema")
 @RestController
 @RequestMapping("/usuarios")
+@CrossOrigin(origins = "http://localhost:3000")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
-
     public UsuarioController(UsuarioService usuarioService) {
         this.usuarioService = usuarioService;
     }
-
     /**
      * Registra un nuevo usuario con el rol indicado.
      * Solo accesible para administradores.
@@ -51,7 +48,6 @@ public class UsuarioController {
     public ResponseEntity<RegisterUserResponse> registrar(@Valid @RequestBody RegisterUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.registrar(request));
     }
-
     /**
      * Lista los usuarios registrados, paginados y ordenados por nombre ascendente (B1),
      * con búsqueda y filtros opcionales que se combinan entre sí (B2).
@@ -82,7 +78,6 @@ public class UsuarioController {
             @RequestParam(required = false) String estado) {
         return ResponseEntity.ok(usuarioService.listar(page, size, search, rol, estado));
     }
-
     /**
      * Lista todos los roles disponibles para el selector del formulario.
      * Solo accesible para administradores.
@@ -95,19 +90,25 @@ public class UsuarioController {
     public ResponseEntity<List<Rol>> listarRoles() {
         return ResponseEntity.ok(usuarioService.listarRoles());
     }
-
     @Operation(summary = "Crear rol", description = "Crea un nuevo rol en el sistema. Solo ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/roles")
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
     }
-
     @Operation(summary = "Estadísticas de usuarios",
             description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/stats")
     public ResponseEntity<UsuarioStatsResponse> obtenerEstadisticas() {
         return ResponseEntity.ok(usuarioService.obtenerEstadisticas());
+    }
+    @Operation(summary = "Actualizar usuario", description = "Modifica los datos y rol de un usuario existente. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<RegisterUserResponse> actualizar(
+        @PathVariable Integer id, 
+            @Valid @RequestBody RegisterUserRequest request) {
+        return ResponseEntity.ok(usuarioService.actualizar(id, request));
     }
 }

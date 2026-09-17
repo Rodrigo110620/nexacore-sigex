@@ -24,6 +24,7 @@ interface UserListContentProps {
   onPageChange?: (page: number) => void
   onRetry?: () => void
   onRegisterClick?: () => void
+  onEditClick?: (user: UserListItem) => void
 }
 
 const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
@@ -41,6 +42,9 @@ export default function UserListContent({
   onPageChange,
   onRetry,
   onRegisterClick,
+
+  onEditClick,
+
 }: UserListContentProps) {
   const [draftFilters, setDraftFilters] = useState<UserFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
@@ -140,7 +144,7 @@ export default function UserListContent({
               <UserCardList users={users} />
             </div>
             <div className="hidden lg:block">
-              <UserTable users={users} />
+              <UserTable users={users} onEditClick={onEditClick} />
             </div>
             {onPageChange ? (
               <UserPagination

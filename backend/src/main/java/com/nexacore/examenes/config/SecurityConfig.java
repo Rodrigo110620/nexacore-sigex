@@ -14,7 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-
+import org.springframework.http.HttpMethod;
 /**
  * Configuración de seguridad (Sprint 1).
  *
@@ -52,6 +52,7 @@ public class SecurityConfig {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
                 
             )
