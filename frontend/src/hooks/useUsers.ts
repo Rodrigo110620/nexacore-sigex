@@ -65,7 +65,7 @@ function classifyError(error: unknown): UserLoadError {
 }
 
 export default function useUsers(options: UseUsersOptions = {}) {
-  const size = options.size ?? 10
+  const size = options.size ?? 5
   const [data, setData] = useState<UserListPage>(() => createEmptyPage(size))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<UserLoadError | null>(null)
