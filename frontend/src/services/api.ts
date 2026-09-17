@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { navigateTo } from '../utils/navigate'
+import { callLogout, navigateTo } from '../utils/navigate'
 
 /**
  * Instancia base de axios para todos los requests al backend.
@@ -36,9 +36,7 @@ api.interceptors.response.use(
     const isLoginRequest = url.includes('/auth/login')
 
     if (status === 401 && !isLoginRequest) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('nombre')
-      localStorage.removeItem('roles')
+      callLogout()        // limpia localStorage Y actualiza el estado de React
       navigateTo('/login')
     }
     return Promise.reject(error)

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { setLogoutCallback } from '../utils/navigate'
 
 interface AuthContextType {
   token: string | null
@@ -73,6 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNombre(null)
     setRoles([])
   }
+
+  // Registra logout en el módulo navigate para que api.ts pueda llamarlo
+  // desde el interceptor sin acceso al contexto React.
+  useEffect(() => {
+    setLogoutCallback(logout)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isAuthenticated = !!token
   const isAdmin = roles.includes('ADMIN')

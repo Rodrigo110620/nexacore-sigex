@@ -22,3 +22,25 @@ export function navigateTo(path: string): void {
     window.location.replace(path)
   }
 }
+
+/**
+ * Callback de logout imperativo para usarse fuera de componentes React.
+ * Se registra en AuthProvider y se llama desde el interceptor de axios
+ * para actualizar el estado de React cuando el token expira (401).
+ */
+let _logout: (() => void) | null = null
+
+export function setLogoutCallback(fn: () => void): void {
+  _logout = fn
+}
+
+export function callLogout(): void {
+  if (_logout) {
+    _logout()
+  } else {
+    // Fallback: limpiar localStorage manualmente si AuthContext no está listo
+    localStorage.removeItem('token')
+    localStorage.removeItem('nombre')
+    localStorage.removeItem('roles')
+  }
+}
