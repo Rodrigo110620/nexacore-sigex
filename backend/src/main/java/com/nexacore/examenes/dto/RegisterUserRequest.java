@@ -30,5 +30,8 @@ public record RegisterUserRequest(
         String rol,
 
         @NotNull(message = "El estado activo es obligatorio")
-        Boolean activo
+        Boolean activo,
+
+        /** Si true, se envía la contraseña temporal por correo. Null se trata como false. */
+        Boolean notificarEmail
 ) {}

@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
+import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
@@ -21,13 +22,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.nexacore.examenes.dto.UsuarioStatsResponse;
 
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Random;
 
 /**
  * Lógica de negocio para la gestión de usuarios (HU#2).
@@ -49,15 +48,18 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           UsuarioRolRepository usuarioRolRepository,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     /**
@@ -102,9 +104,15 @@ public class UsuarioService {
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
 
+        String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
+
+        if (Boolean.TRUE.equals(request.notificarEmail())) {
+            emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
+        }
+
         return new RegisterUserResponse(
                 usuario.getId(),
-                usuario.getNombre() + " " + usuario.getApellidos(),
+                nombreCompleto,
                 usuario.getEmail(),
                 rolNombre,
                 passwordTemporal,
@@ -192,7 +200,6 @@ public class UsuarioService {
     /**
      * Genera una contraseña provisional de 10 caracteres usando SecureRandom.
      * Excluye caracteres ambiguos (0/O, 1/l/I) para facilitar la lectura.
-     * Sprint 2+: reemplazar por envío automático por email.
      */
     private String generarPasswordTemporal() {
         StringBuilder sb = new StringBuilder(10);
@@ -216,7 +223,7 @@ public class UsuarioService {
                 .orElse(SIN_ROL);
     }
 
-        /**
+    /**
      * Devuelve las estadísticas agregadas de usuarios del sistema.
      */
     @Transactional(readOnly = true)

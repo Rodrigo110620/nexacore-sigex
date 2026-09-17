@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
+import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import com.nexacore.examenes.dto.UsuarioStatsResponse;
 
 import java.util.List;
 
@@ -102,7 +102,6 @@ public class UsuarioController {
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
     }
-
 
     @Operation(summary = "Estadísticas de usuarios",
             description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
