@@ -5,6 +5,7 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterUserModal from '../../components/admin/RegisterUserModal'
 import UserListContent from '../../components/users/UserListContent'
 import useUsers from '../../hooks/useUsers'
+import useUserStats from '../../hooks/useUserStats'
 
 export default function UsuariosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -18,12 +19,14 @@ export default function UsuariosPage() {
     retry,
   } = useUsers()
 
+  const { stats } = useUserStats()
+
   return (
     <PanelLayout>
       <div className="min-h-full bg-[#E9F1FF] pb-24 lg:pb-0">
-
         <UserListContent
           users={users}
+          stats={stats ?? undefined}
           loading={loading}
           error={error}
           page={data.pagina}

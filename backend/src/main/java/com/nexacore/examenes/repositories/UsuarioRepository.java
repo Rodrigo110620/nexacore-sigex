@@ -50,4 +50,16 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
                          @Param("rol") String rol,
                          @Param("estado") String estado,
                          Pageable pageable);
+
+      /**
+     * Cuenta usuarios por rol específico.
+     */
+    @Query("""
+            SELECT COUNT(DISTINCT u) FROM Usuario u
+            JOIN u.usuarioRoles ur
+            JOIN ur.idRol r
+            WHERE r.nombre = :rolNombre
+            """)
+    long countByRolNombre(@Param("rolNombre") String rolNombre);
+    long countByEstado(String estado);
 }

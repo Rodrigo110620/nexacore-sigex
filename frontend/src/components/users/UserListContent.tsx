@@ -5,12 +5,15 @@ import UserCardList from './UserCardList'
 import UserFilters from './UserFilters'
 import UserTable from './UserTable'
 import UserPagination from './UserPagination'
+import UserStatsCards from './UserStatsCards'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import type { UserLoadError } from '../../hooks/useUsers'
 import type { UserFilterParams, UserListItem } from '../../types/user'
+import type {UserStats } from '../../types/totalUser'
 
 interface UserListContentProps {
   users: UserListItem[]
+  stats?: UserStats
   onFiltersChange?: (filters: UserFilterParams) => void
   loading?: boolean
   error?: UserLoadError | null
@@ -27,6 +30,7 @@ const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
 
 export default function UserListContent({
   users,
+  stats,
   onFiltersChange,
   loading = false,
   error = null,
@@ -69,12 +73,11 @@ export default function UserListContent({
     <section aria-labelledby="users-title" className="bg-white px-4 py-4 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
         <header className="border-b border-gray-200 pb-4">
-            <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
-            <p className="mt-0 text-sm text-gray-600">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
-          </header>
-        
+          <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
+          <p className="mt-0 text-sm text-gray-600">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+        </header>
+
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          
           <div className="flex flex-wrap gap-2 mt-4">
             <button
               type="button"
@@ -97,6 +100,7 @@ export default function UserListContent({
             </button>
           </div>
         </div>
+
         <div className="mb-6">
           <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
         </div>
@@ -147,6 +151,12 @@ export default function UserListContent({
           </>
         ) : (
           <EmptyState message={hasActiveFilters ? 'No se encontraron usuarios con los filtros seleccionados.' : undefined} />
+        )}
+
+        {stats && (
+          <div className="mt-6">
+            <UserStatsCards stats={stats} />
+          </div>
         )}
       </div>
     </section>
