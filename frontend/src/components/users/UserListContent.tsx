@@ -66,15 +66,16 @@ export default function UserListContent({
   }, [debouncedSearch, draftFilters.rol, draftFilters.estado, onFiltersChange])
 
   return (
-    <section aria-labelledby="users-title" className="bg-white px-4 py-8 sm:px-6 lg:px-10">
+    <section aria-labelledby="users-title" className="bg-white px-4 py-4 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-600">Administración</p>
+        <header className="border-b border-gray-200 pb-4">
             <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
-            <p className="mt-2 text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+            <p className="mt-0 text-sm text-gray-600">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+          </header>
+        
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          
+          <div className="flex flex-wrap gap-2 mt-4">
             <button
               type="button"
               disabled
