@@ -60,6 +60,20 @@ describe('UserPagination', () => {
     expect(screen.queryByRole('navigation', { name: 'Paginación de usuarios' })).not.toBeInTheDocument()
   })
 
+  it('no renderiza controles cuando todos los resultados caben en una página', () => {
+    render(
+      <UserPagination
+        page={0}
+        pageSize={5}
+        totalRecords={4}
+        totalPages={1}
+        onPageChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('navigation', { name: 'Paginación de usuarios' })).not.toBeInTheDocument()
+  })
+
   it('bloquea ambos controles mientras una navegación está en curso', () => {
     render(
       <UserPagination

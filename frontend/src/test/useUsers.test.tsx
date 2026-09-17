@@ -19,7 +19,7 @@ const response = (id: number, page = 0): UserListPage => ({
     estado: 'activo',
   }],
   pagina: page,
-  tamano: 10,
+  tamano: 5,
   totalRegistros: 1,
   totalPaginas: 1,
 })
@@ -41,14 +41,14 @@ describe('useUsers', () => {
     vi.clearAllMocks()
   })
 
-  it('carga inicialmente con page 0, size 10 y guarda la respuesta', async () => {
+  it('carga inicialmente con page 0, size 5 y guarda la respuesta', async () => {
     mockedGetUsers.mockResolvedValue(response(1))
     const { result } = renderHook(() => useUsers())
 
     expect(result.current.loading).toBe(true)
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    expect(mockedGetUsers).toHaveBeenCalledWith({ page: 0, size: 10, ...emptyFilters }, expect.any(AbortSignal))
+    expect(mockedGetUsers).toHaveBeenCalledWith({ page: 0, size: 5, ...emptyFilters }, expect.any(AbortSignal))
     expect(result.current.data).toEqual(response(1))
     expect(result.current.users).toEqual(response(1).contenido)
     expect(result.current.error).toBeNull()
@@ -66,7 +66,7 @@ describe('useUsers', () => {
 
     expect(mockedGetUsers).toHaveBeenLastCalledWith({
       page: 0,
-      size: 10,
+      size: 5,
       search: 'Ána',
       rol: 'DOCENTE',
       estado: 'activo',
@@ -195,7 +195,7 @@ describe('useUsers', () => {
 
     act(() => result.current.retry())
     await waitFor(() => expect(result.current.users[0]?.id).toBe(2))
-    expect(mockedGetUsers.mock.calls[1][0]).toEqual({ page: 0, size: 10, ...emptyFilters })
+    expect(mockedGetUsers.mock.calls[1][0]).toEqual({ page: 0, size: 5, ...emptyFilters })
   })
 
   it('ignora una petición cancelada sin mostrar error', async () => {
