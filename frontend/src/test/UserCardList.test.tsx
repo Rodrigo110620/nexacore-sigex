@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import UserCardList from '../components/users/UserCardList'
 import UserListContent from '../components/users/UserListContent'
-import { getUserAvatarPalette } from '../components/users/UserAvatar'
+import { getUserAvatarPalette } from '../components/users/userAvatar.utils'
 import type { UserListItem } from '../types/user'
 
 const users: UserListItem[] = [
