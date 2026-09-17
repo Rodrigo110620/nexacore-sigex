@@ -6,9 +6,12 @@ import type { UserListItem } from '../../types/user'
 
 interface UserTableProps {
   users: UserListItem[]
+
+  onEditClick?: (user: UserListItem) => void
+
 }
 
-export default function UserTable({ users }: UserTableProps) {
+export default function UserTable({ users,onEditClick}: UserTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
       <table className="w-full min-w-[760px] text-left">
@@ -41,7 +44,8 @@ export default function UserTable({ users }: UserTableProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    disabled
+                    disabled={true}
+                    onClick={() => onEditClick && onEditClick(user)}
                     aria-label={`Editar a ${user.nombre} ${user.apellidos}, no disponible`}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#D6E4FF] bg-[#F1F6FF] p-0 text-[#3D70C9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
                   >
