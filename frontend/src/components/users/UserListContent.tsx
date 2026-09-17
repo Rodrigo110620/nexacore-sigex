@@ -72,11 +72,10 @@ export default function UserListContent({
   return (
     <section aria-labelledby="users-title" className="bg-transparent px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="-mx-4 -mt-8 mb-6 bg-white px-4 py-8 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+        <div className="-mx-4 -mt-8 mb-6 bg-white px-4 py-5 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 border-b">
           <div>
-            <p className="text-sm font-semibold text-gray-600">Administración</p>
-            <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
-            <p className="mt-2 text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
+            <h1 id="users-title" className=" text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
+            <p className="text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react'
+import { Search, ChevronDown } from 'lucide-react'
 import { useId } from 'react'
 import type { UserFilterParams } from '../../types/user'
 import { useRoles } from '../../hooks/useRoles'
@@ -40,35 +40,49 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
 
         <div className="min-w-0">
           <label htmlFor={roleId} className="mb-1.5 block text-sm font-semibold text-[#011140]">Rol</label>
-          <select
-            id={roleId}
-            name="rol"
-            value={value.rol}
-            onChange={(event) => onChange({ ...value, rol: event.target.value as UserFilterParams['rol'] })}
-            disabled={disabled}
-            className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
-          >
-            <option value="">Todos los roles</option>
-            {roles.map(r => (
-              <option key={r.value} value={r.value}>{r.value}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id={roleId}
+              name="rol"
+              value={value.rol}
+              onChange={(event) => onChange({ ...value, rol: event.target.value as UserFilterParams['rol'] })}
+              disabled={disabled}
+              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-4 pr-10 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              <option value="">Todos los roles</option>
+              {roles.map(r => (
+                <option key={r.value} value={r.value}>{r.value}</option>
+              ))}
+            </select>
+            <ChevronDown
+              aria-hidden="true"
+              size={17}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#011140]"
+            />
+          </div>
         </div>
 
         <div className="min-w-0">
           <label htmlFor={statusId} className="mb-1.5 block text-sm font-semibold text-[#011140]">Estado</label>
-          <select
-            id={statusId}
-            name="estado"
-            value={value.estado}
-            onChange={(event) => onChange({ ...value, estado: event.target.value as UserFilterParams['estado'] })}
-            disabled={disabled}
-            className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
-          >
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="inactivo">Inactivo</option>
-          </select>
+          <div className="relative">
+            <select
+              id={statusId}
+              name="estado"
+              value={value.estado}
+              onChange={(event) => onChange({ ...value, estado: event.target.value as UserFilterParams['estado'] })}
+              disabled={disabled}
+              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-4 pr-10 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
+            >
+              <option value="">Todos los estados</option>
+              <option value="activo">Activo</option>
+              <option value="inactivo">Inactivo</option>
+            </select>
+            <ChevronDown
+              aria-hidden="true"
+              size={17}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#011140]"
+            />
+          </div>
         </div>
       </div>
     </section>

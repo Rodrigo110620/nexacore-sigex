@@ -57,7 +57,7 @@ export default function UserPagination({
   return (
     <nav
       aria-label="Paginación de usuarios"
-      className="mt-6 flex flex-col gap-3 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-0 flex flex-col gap-3 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="text-sm text-[#011140]">
         Mostrando <span className="font-semibold">{firstRecord}–{lastRecord}</span> de{' '}
