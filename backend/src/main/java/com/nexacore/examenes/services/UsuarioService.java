@@ -21,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.nexacore.examenes.dto.UsuarioStatsResponse;
 
 import java.security.SecureRandom;
 import java.util.List;
@@ -213,6 +214,28 @@ public class UsuarioService {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(SIN_ROL);
+    }
+
+        /**
+     * Devuelve las estadísticas agregadas de usuarios del sistema.
+     */
+    @Transactional(readOnly = true)
+    public UsuarioStatsResponse obtenerEstadisticas() {
+        long total = usuarioRepository.count();
+        long administradores = usuarioRepository.countByRolNombre("ADMIN");
+        long docentes = usuarioRepository.countByRolNombre("DOCENTE");
+        long personalControl = usuarioRepository.countByRolNombre("CONTROL");
+        long activos = usuarioRepository.countByEstado("activo");
+        long inactivos = usuarioRepository.countByEstado("inactivo");
+
+        return new UsuarioStatsResponse(
+                total,
+                administradores,
+                docentes,
+                personalControl,
+                activos,
+                inactivos
+        );
     }
 
 }

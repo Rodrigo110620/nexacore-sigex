@@ -5,12 +5,15 @@ import UserCardList from './UserCardList'
 import UserFilters from './UserFilters'
 import UserTable from './UserTable'
 import UserPagination from './UserPagination'
+import UserStatsCards from './UserStatsCards'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import type { UserLoadError } from '../../hooks/useUsers'
 import type { UserFilterParams, UserListItem } from '../../types/user'
+import type { UserStats } from '../../types/totalUser'
 
 interface UserListContentProps {
   users: UserListItem[]
+  stats?: UserStats
   onFiltersChange?: (filters: UserFilterParams) => void
   loading?: boolean
   error?: UserLoadError | null
@@ -27,6 +30,7 @@ const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
 
 export default function UserListContent({
   users,
+  stats,
   onFiltersChange,
   loading = false,
   error = null,
@@ -75,6 +79,7 @@ export default function UserListContent({
             <p className="mt-2 text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
           </div>
         </div>
+
         <div className="mb-6 rounded-xl bg-white p-3 shadow-sm ring-1 ring-[#D8E3F5] sm:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="min-w-0 flex-1">
@@ -150,6 +155,12 @@ export default function UserListContent({
           </>
         ) : (
           <EmptyState message={hasActiveFilters ? 'No se encontraron usuarios con los filtros seleccionados.' : undefined} />
+        )}
+
+        {stats && (
+          <div className="mt-6">
+            <UserStatsCards stats={stats} />
+          </div>
         )}
       </div>
     </section>
