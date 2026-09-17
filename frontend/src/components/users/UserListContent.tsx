@@ -5,15 +5,12 @@ import UserCardList from './UserCardList'
 import UserFilters from './UserFilters'
 import UserTable from './UserTable'
 import UserPagination from './UserPagination'
-import UserStatsCards from './UserStatsCards'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import type { UserLoadError } from '../../hooks/useUsers'
 import type { UserFilterParams, UserListItem } from '../../types/user'
-import type { UserStats } from '../../types/totalUser'
 
 interface UserListContentProps {
   users: UserListItem[]
-  stats?: UserStats
   onFiltersChange?: (filters: UserFilterParams) => void
   loading?: boolean
   error?: UserLoadError | null
@@ -30,7 +27,6 @@ const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
 
 export default function UserListContent({
   users,
-  stats,
   onFiltersChange,
   loading = false,
   error = null,
@@ -70,43 +66,39 @@ export default function UserListContent({
   }, [debouncedSearch, draftFilters.rol, draftFilters.estado, onFiltersChange])
 
   return (
-    <section aria-labelledby="users-title" className="bg-transparent px-4 py-8 sm:px-6 lg:px-10">
+    <section aria-labelledby="users-title" className="bg-white px-4 py-4 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="-mx-4 -mt-8 mb-6 bg-white px-4 py-8 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
-          <div>
-            <p className="text-sm font-semibold text-gray-600">Administración</p>
+        <header className="border-b border-gray-200 pb-4">
             <h1 id="users-title" className="mt-1 text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
-            <p className="mt-2 text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
+            <p className="mt-0 text-sm text-gray-600">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+          </header>
+        
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button
+              type="button"
+              disabled
+              aria-label="Exportar usuarios, no disponible"
+              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <Download size={16} aria-hidden="true" />
+              Exportar
+            </button>
+            <button
+              type="button"
+              onClick={onRegisterClick}
+              disabled={!onRegisterClick}
+              aria-label="Registrar Usuario"
+              className="inline-flex h-11 items-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              <UserPlus size={16} aria-hidden="true" />
+              Registrar Usuario
+            </button>
           </div>
         </div>
-
-        <div className="mb-6 rounded-xl bg-white p-3 shadow-sm ring-1 ring-[#D8E3F5] sm:p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-            <div className="min-w-0 flex-1">
-              <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
-            </div>
-            <div className="flex flex-wrap gap-2 lg:shrink-0">
-              <button
-                type="button"
-                disabled
-                aria-label="Exportar usuarios, no disponible"
-                className="inline-flex h-11 items-center gap-2 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-4 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
-              >
-                <Download size={16} aria-hidden="true" />
-                Exportar
-              </button>
-              <button
-                type="button"
-                onClick={onRegisterClick}
-                disabled={!onRegisterClick}
-                aria-label="Registrar Usuario"
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <UserPlus size={16} aria-hidden="true" />
-                Registrar Usuario
-              </button>
-            </div>
-          </div>
+        <div className="mb-6">
+          <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
         </div>
 
         {loading ? (
@@ -155,12 +147,6 @@ export default function UserListContent({
           </>
         ) : (
           <EmptyState message={hasActiveFilters ? 'No se encontraron usuarios con los filtros seleccionados.' : undefined} />
-        )}
-
-        {stats && (
-          <div className="mt-6">
-            <UserStatsCards stats={stats} />
-          </div>
         )}
       </div>
     </section>

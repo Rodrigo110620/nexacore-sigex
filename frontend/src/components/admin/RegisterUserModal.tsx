@@ -80,6 +80,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
         email: form.email,
         rol: form.rol,
         activo: form.activo,
+        notificarEmail: form.notificarEmail,
       });
       setPasswordTemporal(data.passwordTemporal ?? '');
       setSuccess(true);

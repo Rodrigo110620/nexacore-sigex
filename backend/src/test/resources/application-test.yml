@@ -13,8 +13,16 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+  mail:
+    host: localhost
+    port: 25
+    username: test
+    password: test
 
 app:
   security:
     jwt:
       secret: test_secret_key_muy_larga_para_que_pase_la_validacion_de_longitud_minima
+  mail:
+    enabled: false
+    from: test@sigex.local

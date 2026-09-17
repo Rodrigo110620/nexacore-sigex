@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import com.nexacore.examenes.dto.UsuarioStatsResponse;
 
 import java.util.List;
 
@@ -101,14 +100,5 @@ public class UsuarioController {
     @PostMapping("/roles")
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
-    }
-
-
-    @Operation(summary = "Estadísticas de usuarios",
-            description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/stats")
-    public ResponseEntity<UsuarioStatsResponse> obtenerEstadisticas() {
-        return ResponseEntity.ok(usuarioService.obtenerEstadisticas());
     }
 }

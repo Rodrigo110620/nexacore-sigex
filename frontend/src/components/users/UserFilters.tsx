@@ -17,7 +17,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
   const { roles } = useRoles()
 
   return (
-    <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
+    <section aria-labelledby={`${id}-title`} className="min-w-0 rounded-xl bg-[#E9F1FF] p-4 sm:p-6">
       <h2 id={`${id}-title`} className="sr-only">Filtros de usuarios</h2>
       <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
         <div className="min-w-0 sm:col-span-2 lg:col-span-1">
