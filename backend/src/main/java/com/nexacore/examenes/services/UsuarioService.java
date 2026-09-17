@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
+import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
@@ -220,6 +221,28 @@ public class UsuarioService {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(SIN_ROL);
+    }
+
+    /**
+     * Devuelve las estadísticas agregadas de usuarios del sistema.
+     */
+    @Transactional(readOnly = true)
+    public UsuarioStatsResponse obtenerEstadisticas() {
+        long total = usuarioRepository.count();
+        long administradores = usuarioRepository.countByRolNombre("ADMIN");
+        long docentes = usuarioRepository.countByRolNombre("DOCENTE");
+        long personalControl = usuarioRepository.countByRolNombre("CONTROL");
+        long activos = usuarioRepository.countByEstado("activo");
+        long inactivos = usuarioRepository.countByEstado("inactivo");
+
+        return new UsuarioStatsResponse(
+                total,
+                administradores,
+                docentes,
+                personalControl,
+                activos,
+                inactivos
+        );
     }
 
 }

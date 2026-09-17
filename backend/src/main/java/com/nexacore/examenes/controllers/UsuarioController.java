@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
+import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -100,5 +101,13 @@ public class UsuarioController {
     @PostMapping("/roles")
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
+    }
+
+    @Operation(summary = "Estadísticas de usuarios",
+            description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/stats")
+    public ResponseEntity<UsuarioStatsResponse> obtenerEstadisticas() {
+        return ResponseEntity.ok(usuarioService.obtenerEstadisticas());
     }
 }
