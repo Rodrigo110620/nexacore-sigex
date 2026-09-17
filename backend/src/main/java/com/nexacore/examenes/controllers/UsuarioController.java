@@ -29,7 +29,6 @@ import java.util.List;
 @Tag(name = "Usuarios", description = "Registro y gestión de usuarios del sistema")
 @RestController
 @RequestMapping("/usuarios")
-@CrossOrigin(origins = "http://localhost:3000")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;

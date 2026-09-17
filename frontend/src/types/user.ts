@@ -24,6 +24,7 @@ export interface UserListItem {
   nombre: string
   apellidos: string
   email: string
+  ci: string
   rol: UserRole
   estado: UserStatus
 }

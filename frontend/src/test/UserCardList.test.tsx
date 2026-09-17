@@ -6,10 +6,10 @@ import { getUserAvatarPalette } from '../components/users/userAvatar.utils'
 import type { UserListItem } from '../types/user'
 
 const users: UserListItem[] = [
-  { id: 12, nombre: 'Ana', apellidos: 'Rojas Vidal', email: 'ana.rojas@umss.edu.bo', rol: 'ADMIN', estado: 'activo' },
-  { id: 13, nombre: 'Bruno', apellidos: 'Flores Paz', email: 'bruno.flores@umss.edu.bo', rol: 'SIN_ROL', estado: 'inactivo' },
-  { id: 14, nombre: 'Carla', apellidos: 'Mendez Soliz', email: 'carla.mendez@umss.edu.bo', rol: 'DOCENTE', estado: 'activo' },
-  { id: 15, nombre: 'Diego', apellidos: 'Choque Rios', email: 'diego.choque@umss.edu.bo', rol: 'CONTROL', estado: 'inactivo' },
+  { id: 12, nombre: 'Ana', apellidos: 'Rojas Vidal', email: 'ana.rojas@umss.edu.bo', ci: '6512340', rol: 'ADMIN', estado: 'activo' },
+  { id: 13, nombre: 'Bruno', apellidos: 'Flores Paz', email: 'bruno.flores@umss.edu.bo', ci: '5566778', rol: 'SIN_ROL', estado: 'inactivo' },
+  { id: 14, nombre: 'Carla', apellidos: 'Mendez Soliz', email: 'carla.mendez@umss.edu.bo', ci: '3322110', rol: 'DOCENTE', estado: 'activo' },
+  { id: 15, nombre: 'Diego', apellidos: 'Choque Rios', email: 'diego.choque@umss.edu.bo', ci: '4433221', rol: 'CONTROL', estado: 'inactivo' },
 ]
 
 describe('UserCardList', () => {

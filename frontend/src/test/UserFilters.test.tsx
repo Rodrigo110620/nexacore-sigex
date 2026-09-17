@@ -6,7 +6,7 @@ import type { UserFilterParams, UserListItem } from '../types/user'
 
 const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
 const users: UserListItem[] = [
-  { id: 1, nombre: 'Ana', apellidos: 'Rojas', email: 'ana@example.com', rol: 'ADMIN', estado: 'activo' },
+  { id: 1, nombre: 'Ana', apellidos: 'Rojas', email: 'ana@example.com', ci: '123', rol: 'ADMIN', estado: 'activo' },
 ]
 
 function renderFilters(onChange = vi.fn()) {
