@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import UserCardList from '../components/users/UserCardList'
 import UserListContent from '../components/users/UserListContent'
+import { getUserAvatarPalette } from '../components/users/userAvatar.utils'
 import type { UserListItem } from '../types/user'
 
 const users: UserListItem[] = [
@@ -46,6 +47,12 @@ describe('UserCardList', () => {
 
     expect(screen.getByText('1 visible')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '1 usuario visible' })).toBeInTheDocument()
+  })
+
+  it('mantiene una paleta determinista por usuario', () => {
+    const { container } = render(<UserCardList users={[users[0]]} />)
+    const avatar = container.querySelector('[aria-hidden="true"]')
+    expect(avatar).toHaveClass(...getUserAvatarPalette(users[0]).split(' '))
   })
 
   it('mantiene deshabilitadas todas las acciones y nombra cada usuario', () => {

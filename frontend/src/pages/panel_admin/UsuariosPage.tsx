@@ -23,7 +23,10 @@ export default function UsuariosPage() {
 
   return (
     <PanelLayout>
-      <div className="min-h-full bg-[#E9F1FF] pb-24 lg:pb-0">
+      <div
+        className="min-h-screen pb-24 lg:pb-0"
+        style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
+      >
         <UserListContent
           users={users}
           stats={stats ?? undefined}
