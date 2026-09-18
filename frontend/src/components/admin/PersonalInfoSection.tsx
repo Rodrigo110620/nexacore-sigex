@@ -1,4 +1,5 @@
 import type { RegisterUserFormState } from '../../types/usuario.types';
+import { FIELD_LIMITS, sanitizeNombreInput } from '../../utils/validators';
 
 interface PersonalInfoSectionProps {
   form: RegisterUserFormState;
@@ -22,7 +23,6 @@ export default function PersonalInfoSection({
         </h3>
       </div>
 
-      {/* Nombres */}
       <div className="flex flex-col gap-1">
         <label className="text-[#011140] font-medium text-[0.70rem]">
           Nombres *
@@ -30,21 +30,25 @@ export default function PersonalInfoSection({
         <input
           type="text"
           value={form.nombre}
-          onChange={(e) => onChange('nombre', e.target.value)}
+          onChange={(e) => onChange('nombre', sanitizeNombreInput(e.target.value))}
           onBlur={() => onBlur('nombre')}
           placeholder="Ej. Roberto Carlos"
+          maxLength={FIELD_LIMITS.nombre.max}
+          autoComplete="given-name"
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
             errors.nombre
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
+        <p className="text-gray-400 text-[0.60rem]">
+          Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres
+        </p>
         {errors.nombre && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>
         )}
       </div>
 
-      {/* Apellidos */}
       <div className="flex flex-col gap-1">
         <label className="text-[#011140] font-medium text-[0.70rem]">
           Apellidos Completos *
@@ -52,21 +56,25 @@ export default function PersonalInfoSection({
         <input
           type="text"
           value={form.apellidos}
-          onChange={(e) => onChange('apellidos', e.target.value)}
+          onChange={(e) => onChange('apellidos', sanitizeNombreInput(e.target.value))}
           onBlur={() => onBlur('apellidos')}
           placeholder="Ej. Méndez Quispe"
+          maxLength={FIELD_LIMITS.apellidos.max}
+          autoComplete="family-name"
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
             errors.apellidos
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
+        <p className="text-gray-400 text-[0.60rem]">
+          Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres
+        </p>
         {errors.apellidos && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>
         )}
       </div>
 
-      {/* Documento (solo CI) */}
       <div className="flex flex-col gap-1">
         <label className="text-[#011140] font-medium text-[0.70rem]">
           Documento de Identidad *
@@ -77,6 +85,7 @@ export default function PersonalInfoSection({
           </div>
           <input
             type="text"
+            inputMode="numeric"
             value={form.documento}
             onChange={(e) => {
               const onlyNumbers = e.target.value.replace(/\D/g, '');
@@ -84,7 +93,7 @@ export default function PersonalInfoSection({
             }}
             onBlur={() => onBlur('documento')}
             placeholder="8 dígitos"
-            maxLength={8}
+            maxLength={FIELD_LIMITS.documento.max}
             className={`flex-1 text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
               errors.documento
                 ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'

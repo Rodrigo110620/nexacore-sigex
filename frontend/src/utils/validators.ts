@@ -1,62 +1,114 @@
 import type { FormErrors, RegisterUserFormState } from '../types/usuario.types';
 
-export const validateNombre = (value: string): string => {
-  if (!value.trim()) return 'El nombre es obligatorio';
-  if (value.trim().length < 2) return 'Mínimo 2 caracteres';
-  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(value)) return 'Solo letras y espacios';
-  return '';
-};
+/** Límites de longitud alineados con el backend (@Size). */
+export const FIELD_LIMITS = {
+  nombre: { min: 2, max: 50 },
+  apellidos: { min: 2, max: 80 },
+  email: { min: 5, max: 100 },
+  documento: { min: 7, max: 8 },
+  rol: { min: 2, max: 30 },
+} as const
 
-export const validateApellidos = (value: string): string => {
-  if (!value.trim()) return 'Los apellidos son obligatorios';
-  if (value.trim().length < 2) return 'Mínimo 2 caracteres';
-  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(value)) return 'Solo letras y espacios';
-  return '';
-};
+/**
+ * Nombre/apellido válido:
+ * - solo letras (incl. tildes, ü, ñ)
+ * - espacios, guion o apóstrofe entre palabras (Ana María, María-José)
+ * - sin números ni símbolos
+ */
+const NOMBRE_REGEX =
+  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
+
+/** Filtra caracteres no permitidos mientras el usuario escribe. */
+export function sanitizeNombreInput(value: string): string {
+  return value
+    .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '\-]/g, '')
+    .replace(/\s{2,}/g, ' ')
+}
+
+function validateNombrePersona(
+  value: string,
+  etiqueta: 'nombre' | 'apellidos',
+  limits: { min: number; max: number },
+): string {
+  const trimmed = value.trim()
+  const requerido =
+    etiqueta === 'nombre' ? 'El nombre es obligatorio' : 'Los apellidos son obligatorios'
+
+  if (!trimmed) return requerido
+  if (trimmed.length < limits.min) return `Mínimo ${limits.min} caracteres`
+  if (trimmed.length > limits.max) return `Máximo ${limits.max} caracteres`
+  if (/\d/.test(trimmed)) {
+    return etiqueta === 'nombre'
+      ? 'El nombre no puede contener números'
+      : 'Los apellidos no pueden contener números'
+  }
+  if (!NOMBRE_REGEX.test(trimmed)) {
+    return etiqueta === 'nombre'
+      ? 'Ingresa un nombre válido (solo letras)'
+      : 'Ingresa apellidos válidos (solo letras)'
+  }
+  return ''
+}
+
+export const validateNombre = (value: string): string =>
+  validateNombrePersona(value, 'nombre', FIELD_LIMITS.nombre)
+
+export const validateApellidos = (value: string): string =>
+  validateNombrePersona(value, 'apellidos', FIELD_LIMITS.apellidos)
 
 export const validateDocumento = (value: string): string => {
-  if (!value.trim()) return 'El documento es obligatorio';
-  if (!/^\d+$/.test(value)) return 'Solo números';
-  if (value.length < 7 || value.length > 8) return 'Debe tener 7 u 8 dígitos';
-  return '';
-};
+  if (!value.trim()) return 'El documento es obligatorio'
+  if (!/^\d+$/.test(value)) return 'Solo números'
+  if (
+    value.length < FIELD_LIMITS.documento.min ||
+    value.length > FIELD_LIMITS.documento.max
+  ) {
+    return `Debe tener ${FIELD_LIMITS.documento.min} u ${FIELD_LIMITS.documento.max} dígitos`
+  }
+  return ''
+}
 
 export const validateEmail = (value: string): string => {
-  if (!value.trim()) return 'El correo es obligatorio';
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(value)) return 'Formato de correo inválido';
-  return '';
-};
+  const trimmed = value.trim()
+  if (!trimmed) return 'El correo es obligatorio'
+  if (trimmed.length > FIELD_LIMITS.email.max) {
+    return `Máximo ${FIELD_LIMITS.email.max} caracteres`
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(trimmed)) return 'Formato de correo inválido'
+  return ''
+}
 
 export const validateRol = (value: string): string => {
-  if (!value.trim()) return 'Debes seleccionar un rol';
-  // No se valida contra lista fija: los roles válidos vienen del backend (GET /usuarios/roles).
-  return '';
-};
+  const trimmed = value.trim()
+  if (!trimmed) return 'Debes seleccionar un rol'
+  if (trimmed.length > FIELD_LIMITS.rol.max) {
+    return `Máximo ${FIELD_LIMITS.rol.max} caracteres`
+  }
+  return ''
+}
 
 export const validateForm = (form: RegisterUserFormState): FormErrors => {
-  const errors: FormErrors = {};
+  const errors: FormErrors = {}
 
-  const nombreError = validateNombre(form.nombre);
-  if (nombreError) errors.nombre = nombreError;
+  const nombreError = validateNombre(form.nombre)
+  if (nombreError) errors.nombre = nombreError
 
-  const apellidosError = validateApellidos(form.apellidos);
-  if (apellidosError) errors.apellidos = apellidosError;
+  const apellidosError = validateApellidos(form.apellidos)
+  if (apellidosError) errors.apellidos = apellidosError
 
-  const documentoError = validateDocumento(form.documento);
-  if (documentoError) errors.documento = documentoError;
+  const documentoError = validateDocumento(form.documento)
+  if (documentoError) errors.documento = documentoError
 
-  const emailError = validateEmail(form.email);
-  if (emailError) errors.email = emailError;
+  const emailError = validateEmail(form.email)
+  if (emailError) errors.email = emailError
 
-  const rolError = validateRol(form.rol);
-  if (rolError) errors.rol = rolError;
+  const rolError = validateRol(form.rol)
+  if (rolError) errors.rol = rolError
 
-  return errors;
-};
-
-
+  return errors
+}
 
 export const hasErrors = (errors: FormErrors): boolean => {
-  return Object.keys(errors).length > 0;
-};
+  return Object.keys(errors).length > 0
+}
