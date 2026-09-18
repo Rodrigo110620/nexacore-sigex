@@ -74,7 +74,7 @@ export default function Login__Sesion() {
     };
 
     return (
-        <div className="mt-6 w-full bg-white px-1 py-3 sm:px-4 lg:mt-0 lg:max-w-2xl lg:rounded-md lg:border lg:border-t-4 lg:border-t-[#0439D9] lg:px-16 lg:py-10 lg:shadow-lg lg:shadow-[#92aad2]">
+        <div className="mt-6 w-full bg-white px-1 py-3 sm:px-4 lg:mt-0 lg:h-full lg:rounded-md lg:border lg:border-t-4 lg:border-t-[#0439D9] lg:px-10 lg:py-10 lg:shadow-lg lg:shadow-[#92aad2] xl:px-14">
             <div className="flex flex-col gap-1 text-center lg:text-left">
                 <h1 className="text-2xl font-bold text-[#011140]">INICIAR SESIÓN</h1>
                 <p className="mb-8 text-xs text-gray-500 lg:mb-6">
