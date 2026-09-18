@@ -10,7 +10,6 @@ export default function useUserStats() {
   useEffect(() => {
     let cancelled = false
 
-    setLoading(true)
     fetchUserStats()
       .then((data) => {
         if (!cancelled) setStats(data)
@@ -28,6 +27,7 @@ export default function useUserStats() {
   }, [retryCount])
 
   const retry = useCallback(() => {
+    setLoading(true)
     setRetryCount((n) => n + 1)
   }, [])
 
