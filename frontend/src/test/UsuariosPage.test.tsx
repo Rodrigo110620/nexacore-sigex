@@ -63,7 +63,7 @@ describe('UsuariosPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
 
-    expect(screen.getByRole('heading', { name: 'Registrar Nuevo Usuario' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Registrar nuevo usuario' })).toBeInTheDocument()
   })
 
   it('DashboardPage redirige hacia la pantalla unificada', async () => {

@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import PanelLayout from '../../components/layout/PanelLayout'
+import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 
 /**
  * /dashboard:
@@ -16,17 +17,18 @@ export default function DashboardPage() {
 
   return (
     <PanelLayout>
-      <div className="p-8">
-        <h1 className="text-[#011140] font-bold text-xl mb-2">
+      <div className="min-h-screen p-4 pb-24 sm:p-8 lg:pb-8">
+        <h1 className="mb-2 text-xl font-bold text-[#011140]">
           Bienvenido{nombre ? `, ${nombre}` : ''}
         </h1>
-        <p className="text-gray-500 text-sm mb-2">
+        <p className="mb-2 text-sm text-gray-500">
           Rol: {roles.length > 0 ? roles.join(', ') : 'sin rol asignado'}
         </p>
-        <p className="text-gray-400 text-xs">
+        <p className="text-xs text-gray-400">
           Módulos de Exámenes y Estudiantes estarán disponibles en siguientes sprints.
         </p>
       </div>
+      <MobileBottomNav />
     </PanelLayout>
   )
 }

@@ -6,16 +6,19 @@ import RegisterUserModal from '../../components/admin/RegisterUserModal'
 import UserListContent from '../../components/users/UserListContent'
 import useUsers from '../../hooks/useUsers'
 import useUserStats from '../../hooks/useUserStats'
-// Ajusta la ruta dependiendo de dónde guardaste exactamente el EditUserModal.tsx
 import EditUserModal from '../../components/users/EditUserModal'
+import type { UserListItem } from '../../types/user'
+
 export default function UsuariosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
-  const handleEditClick = (user: any) => {
+  const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null)
+
+  const handleEditClick = (user: UserListItem) => {
     setSelectedUser(user)
     setIsEditModalOpen(true)
-    }
+  }
+
   const {
     data,
     users,
@@ -26,10 +29,11 @@ export default function UsuariosPage() {
     retry,
   } = useUsers()
   const { stats } = useUserStats()
+
   return (
     <PanelLayout>
       <div
-        className="min-h-screen pb-24 lg:pb-0"
+        className="min-h-screen pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0"
         style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
       >
         <UserListContent
@@ -47,7 +51,9 @@ export default function UsuariosPage() {
           onRegisterClick={() => setIsModalOpen(true)}
           onEditClick={handleEditClick}
         />
-        <Footer />
+        <div className="hidden lg:block">
+          <Footer />
+        </div>
         <MobileBottomNav />
         <RegisterUserModal
           isOpen={isModalOpen}
@@ -66,7 +72,7 @@ export default function UsuariosPage() {
               retry()
             }}
           />
-        )}   
+        )}
       </div>
     </PanelLayout>
   )
