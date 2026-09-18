@@ -16,12 +16,12 @@ export const FIELD_LIMITS = {
  * - sin números ni símbolos
  */
 const NOMBRE_REGEX =
-  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
+  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
 
 /** Filtra caracteres no permitidos mientras el usuario escribe. */
 export function sanitizeNombreInput(value: string): string {
   return value
-    .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '\-]/g, '')
+    .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
     .replace(/\s{2,}/g, ' ')
 }
 
