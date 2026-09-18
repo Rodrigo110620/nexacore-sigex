@@ -79,7 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // desde el interceptor sin acceso al contexto React.
   useEffect(() => {
     setLogoutCallback(logout)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const isAuthenticated = !!token

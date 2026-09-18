@@ -15,6 +15,7 @@ const response = (id: number, page = 0): UserListPage => ({
     nombre: `Ana ${id}`,
     apellidos: 'Martínez',
     email: `ana${id}@universidad.edu`,
+    ci: `${id}000`,
     rol: 'ADMIN',
     estado: 'activo',
   }],

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { X, Shield, BookOpen, Users as UsersIcon, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import api from '../../services/api';
+import { useRoles } from '../../hooks/useRoles';
 
 interface User {
   id?: string | number;
   nombre?: string;
   apellidos?: string;
-  tipoDocumento?: string;
-  nroDocumento?: string;
+  ci?: string;
   email?: string;
   rol?: string;
   estado?: string;
@@ -16,20 +17,24 @@ interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   user?: User | null;
-  onSaveSuccess?: (updatedUser: any) => void;
+  onSaveSuccess?: (updatedUser: unknown) => void;
+}
+
+function buildFormFromUser(user?: User | null) {
+  return {
+    nombres: user?.nombre || '',
+    apellidos: user?.apellidos || '',
+    ci: user?.ci || '',
+    email: user?.email || '',
+    rol: user?.rol || 'DOCENTE',
+    activo: user?.estado === 'activo',
+  };
 }
 
 const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSaveSuccess }) => {
-  const [formData, setFormData] = useState({
-    nombres: user?.nombre || '',
-    apellidos: user?.apellidos || '',
-    tipoDocumento: user?.tipoDocumento || 'DNI',
-    nroDocumento: user?.nroDocumento || '',
-    email: user?.email || '',
-    rol: user?.rol || 'DOCENTE',
-    estado: user?.estado || 'ACTIVO'
-  });
-  
+  const { roles } = useRoles();
+  // El padre remonta este modal con key={user.id} al abrir otro usuario.
+  const [formData, setFormData] = useState(() => buildFormFromUser(user));
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [modalState, setModalState] = useState<'form' | 'success' | 'error'>('form');
 
@@ -42,47 +47,30 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 1. Validar campos obligatorios
+
     const newErrors: { [key: string]: string } = {};
     if (!formData.nombres.trim()) newErrors.nombres = 'El nombre es obligatorio';
     if (!formData.apellidos.trim()) newErrors.apellidos = 'Los apellidos son obligatorios';
-    if (!formData.nroDocumento.trim()) newErrors.nroDocumento = 'El documento es obligatorio';
-    
-    // 2. Validar formato de correo institucional
+    if (!formData.ci.trim()) newErrors.ci = 'El documento es obligatorio';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'El formato del correo no es válido';
-    }
+    if (!emailRegex.test(formData.email)) newErrors.email = 'El formato del correo no es válido';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    // 3. Petición real vía PUT a Spring Boot
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/usuarios/${user?.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          nombre: formData.nombres,
-          apellidos: formData.apellidos,
-          ci: formData.nroDocumento,
-          email: formData.email,
-          rol: formData.rol,
-          activo: formData.estado === 'ACTIVO',
-          notificarEmail: false
-        }),
+      await api.put(`/usuarios/${user?.id}`, {
+        nombre: formData.nombres,
+        apellidos: formData.apellidos,
+        ci: formData.ci,
+        email: formData.email,
+        rol: formData.rol,
+        activo: formData.activo,
+        notificarEmail: false,
       });
-      if (!response.ok) {
-        throw new Error('Error al actualizar en el servidor');
-      }
       setModalState('success');
-    } catch (error) {
-      console.error("Error al actualizar:", error);
+    } catch {
       setModalState('error');
     }
   };
@@ -149,27 +137,15 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Documento de Identidad *</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <select
-                      name="tipoDocumento"
-                      value={formData.tipoDocumento}
-                      onChange={handleChange}
-                      className="col-span-1 border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 text-gray-700"
-                    >
-                      <option value="DNI">DNI</option>
-                      <option value="CI">C.I.</option>
-                      <option value="PASAPORTE">Pasaporte</option>
-                    </select>
-                    <input
-                      type="text"
-                      name="nroDocumento"
-                      value={formData.nroDocumento}
-                      onChange={handleChange}
-                      placeholder="12345678"
-                      className={`col-span-2 border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.nroDocumento ? 'border-red-500' : 'border-gray-200'}`}
-                    />
-                  </div>
-                  {errors.nroDocumento && <span className="text-[10px] text-red-500 mt-1 block">{errors.nroDocumento}</span>}
+                  <input
+                    type="text"
+                    name="ci"
+                    value={formData.ci}
+                    onChange={handleChange}
+                    placeholder="12345678"
+                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.ci ? 'border-red-500' : 'border-gray-200'}`}
+                  />
+                  {errors.ci && <span className="text-[10px] text-red-500 mt-1 block">{errors.ci}</span>}
                 </div>
               </div>
 
@@ -196,25 +172,29 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-2">Rol Asignado en Plataforma *</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { id: 'ADMIN', label: 'Administrador', sub: 'ROOT', icon: Shield, activeClass: 'border-blue-600 bg-blue-50/60 text-blue-700 ring-1 ring-blue-600' },
-                      { id: 'DOCENTE', label: 'Docente', sub: 'EVALUADOR', icon: BookOpen, activeClass: 'border-emerald-600 bg-emerald-50/60 text-emerald-700 ring-1 ring-emerald-600' },
-                      { id: 'CONTROL', label: 'P. Control', sub: 'VIGILANCIA', icon: UsersIcon, activeClass: 'border-amber-500 bg-amber-50/60 text-amber-700 ring-1 ring-amber-500' },
-                    ].map((role) => {
-                      const IconComponent = role.icon;
-                      const isSelected = formData.rol === role.id;
+                    {roles.map((role) => {
+                      const icons: Record<string, React.ElementType> = { ADMIN: Shield, DOCENTE: BookOpen, CONTROL: UsersIcon };
+                      const activeClasses: Record<string, string> = {
+                        ADMIN: 'border-blue-600 bg-blue-50/60 text-blue-700 ring-1 ring-blue-600',
+                        DOCENTE: 'border-emerald-600 bg-emerald-50/60 text-emerald-700 ring-1 ring-emerald-600',
+                        CONTROL: 'border-amber-500 bg-amber-50/60 text-amber-700 ring-1 ring-amber-500',
+                      };
+                      const IconComponent = icons[role.value] ?? UsersIcon;
+                      const isSelected = formData.rol === role.value;
                       return (
                         <button
                           type="button"
-                          key={role.id}
-                          onClick={() => setFormData({ ...formData, rol: role.id })}
+                          key={role.value}
+                          onClick={() => setFormData({ ...formData, rol: role.value })}
                           className={`flex flex-col items-center p-2.5 rounded-xl border text-center transition-all ${
-                            isSelected ? role.activeClass : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'
+                            isSelected
+                              ? (activeClasses[role.value] ?? 'border-[#0439D9] bg-[#E9F1FF] text-[#0439D9] ring-1 ring-[#0439D9]')
+                              : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'
                           }`}
                         >
                           <IconComponent size={16} className="mb-1" />
-                          <span className="text-xs font-bold">{role.label}</span>
-                          <span className="text-[9px] text-gray-400">{role.sub}</span>
+                          <span className="text-xs font-bold">{role.titulo}</span>
+                          <span className="text-[9px] text-gray-400">{role.subtitulo}</span>
                         </button>
                       );
                     })}
@@ -229,10 +209,10 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                       <span className="text-[10px] text-gray-500">Permite acceso inmediato al sistema</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input
+                        <input
                         type="checkbox"
-                        checked={formData.estado === 'ACTIVO'}
-                        onChange={(e) => setFormData({ ...formData, estado: e.target.checked ? 'ACTIVO' : 'INACTIVO' })}
+                        checked={formData.activo}
+                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
                         className="sr-only peer"
                       />
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0439D9]"></div>
@@ -243,10 +223,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
               </div>
             </div>
 
-            {/* Aviso inferior */}
             <div className="mt-6 px-4 py-3 bg-[#E9F1FF]/60 rounded-xl flex items-center gap-3 text-xs text-[#011140]">
               <Info size={18} className="text-[#0439D9] shrink-0" />
-              <span>El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada bajo la norma de seguridad académica institucional.</span>
+              <span>Los cambios se aplicarán inmediatamente. Toda acción queda auditada bajo la norma de seguridad académica institucional.</span>
             </div>
           </form>
 

@@ -53,14 +53,20 @@ export default function UsuariosPage() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
         />
-        <EditUserModal
-          isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
-          user={selectedUser}
-          onSaveSuccess={() => {
-            retry(); // Esto vuelve a consultar al backend y refresca la tabla automáticamente
-          }}
-        />   
+        {isEditModalOpen && selectedUser && (
+          <EditUserModal
+            key={selectedUser.id}
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false)
+              setSelectedUser(null)
+            }}
+            user={selectedUser}
+            onSaveSuccess={() => {
+              retry()
+            }}
+          />
+        )}   
       </div>
     </PanelLayout>
   )

@@ -44,10 +44,9 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    disabled={true}
                     onClick={() => onEditClick && onEditClick(user)}
-                    aria-label={`Editar a ${user.nombre} ${user.apellidos}, no disponible`}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#D6E4FF] bg-[#F1F6FF] p-0 text-[#3D70C9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
+                    aria-label={`Editar a ${user.nombre} ${user.apellidos}`}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#D6E4FF] bg-[#F1F6FF] p-0 text-[#3D70C9] hover:bg-[#D6E4FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
                   >
                     <Pencil size={16} aria-hidden="true" />
                   </button>

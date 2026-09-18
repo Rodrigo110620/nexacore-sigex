@@ -13,6 +13,7 @@ const responseData: UserListPage = {
       nombre: 'Ana',
       apellidos: 'Martínez',
       email: 'ana@universidad.edu',
+      ci: '1000',
       rol: 'ADMIN',
       estado: 'activo',
     },

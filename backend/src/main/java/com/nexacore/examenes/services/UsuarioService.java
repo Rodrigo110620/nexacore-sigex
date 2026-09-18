@@ -210,6 +210,7 @@ public class UsuarioService {
                 usuario.getNombre(),
                 usuario.getApellidos(),
                 usuario.getEmail(),
+                usuario.getCi(),
                 obtenerPrimerRol(usuario),
                 usuario.getEstado()
         );

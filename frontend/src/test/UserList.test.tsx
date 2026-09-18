@@ -9,6 +9,7 @@ const users: UserListItem[] = [
     nombre: 'Ana',
     apellidos: 'Rojas Vidal',
     email: 'ana.rojas@umss.edu.bo',
+    ci: '6512340',
     rol: 'ADMIN',
     estado: 'activo',
   },
@@ -17,6 +18,7 @@ const users: UserListItem[] = [
     nombre: 'Bruno',
     apellidos: 'Flores Paz',
     email: 'bruno.flores@umss.edu.bo',
+    ci: '5566778',
     rol: 'SIN_ROL',
     estado: 'inactivo',
   },
@@ -25,6 +27,7 @@ const users: UserListItem[] = [
     nombre: 'Carla',
     apellidos: 'Mendez Soliz',
     email: 'carla.mendez@umss.edu.bo',
+    ci: '3322110',
     rol: 'DOCENTE',
     estado: 'activo',
   },
@@ -33,6 +36,7 @@ const users: UserListItem[] = [
     nombre: 'Diego',
     apellidos: 'Choque Rios',
     email: 'diego.choque@umss.edu.bo',
+    ci: '4433221',
     rol: 'CONTROL',
     estado: 'inactivo',
   },
@@ -66,21 +70,21 @@ describe('UserListContent', () => {
     expect(screen.queryByRole('row')).not.toBeInTheDocument()
   })
 
-  it('mantiene deshabilitadas las acciones pendientes por fila', () => {
-    render(<UserListContent users={users} />)
+  it('habilita editar y mantiene bloquear deshabilitado por fila', () => {
+    render(<UserListContent users={users} onEditClick={vi.fn()} onRegisterClick={vi.fn()} />)
 
     const table = screen.getByRole('table', { name: 'Lista de usuarios del sistema' })
 
-    expect(screen.getByRole('button', { name: /Registrar usuario/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Registrar usuario/i })).toBeEnabled()
     expect(screen.getByRole('button', { name: /Exportar usuarios/ })).toBeDisabled()
-    
+
     const editButtons = within(table).getAllByRole('button', { name: /Editar a/ })
     const blockButtons = within(table).getAllByRole('button', { name: /Bloquear a/ })
     expect(editButtons).toHaveLength(users.length)
     expect(blockButtons).toHaveLength(users.length)
     users.forEach((user) => {
       const fullName = `${user.nombre} ${user.apellidos}`
-      expect(within(table).getByRole('button', { name: `Editar a ${fullName}, no disponible` })).toBeDisabled()
+      expect(within(table).getByRole('button', { name: `Editar a ${fullName}` })).toBeEnabled()
       expect(within(table).getByRole('button', { name: `Bloquear a ${fullName}, no disponible` })).toBeDisabled()
     })
   })

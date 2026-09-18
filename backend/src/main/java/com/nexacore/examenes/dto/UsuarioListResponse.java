@@ -11,6 +11,7 @@ public record UsuarioListResponse(
         String nombre,
         String apellidos,
         String email,
+        String ci,
         String rol,
         String estado
 ) {}
