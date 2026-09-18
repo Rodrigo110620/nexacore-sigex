@@ -1,4 +1,5 @@
 import type { RegisterUserFormState, Rol } from '../../types/usuario.types';
+import { FIELD_LIMITS } from '../../utils/validators';
 import RoleSelector from './RoleSelector';
 
 interface CredentialsSectionProps {
@@ -34,6 +35,7 @@ export default function CredentialsSection({
           onChange={(e) => onChange('email', e.target.value)}
           onBlur={() => onBlur('email')}
           placeholder="usuario@universidad.edu"
+          maxLength={FIELD_LIMITS.email.max}
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
             errors.email
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
@@ -41,7 +43,7 @@ export default function CredentialsSection({
           }`}
         />
         <p className="text-gray-400 text-[0.60rem]">
-          Dominio permitido: @universidad.edu
+          Dominio permitido: @universidad.edu · Máx. {FIELD_LIMITS.email.max} caracteres
         </p>
         {errors.email && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.email}</p>

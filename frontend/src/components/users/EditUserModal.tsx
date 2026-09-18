@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Shield, BookOpen, Users as UsersIcon, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import { useRoles } from '../../hooks/useRoles';
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateEmail, validateNombre } from '../../utils/validators';
 
 interface User {
   id?: string | number;
@@ -41,19 +42,35 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+    const nextValue =
+      name === 'nombres' || name === 'apellidos'
+        ? sanitizeNombreInput(value)
+        : name === 'ci'
+          ? value.replace(/\D/g, '')
+          : value;
+    setFormData({ ...formData, [name]: nextValue });
+    setErrors({ ...errors, [name]: '' });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newErrors: { [key: string]: string } = {};
-    if (!formData.nombres.trim()) newErrors.nombres = 'El nombre es obligatorio';
-    if (!formData.apellidos.trim()) newErrors.apellidos = 'Los apellidos son obligatorios';
+    const nombreError = validateNombre(formData.nombres);
+    if (nombreError) newErrors.nombres = nombreError;
+    const apellidosError = validateApellidos(formData.apellidos);
+    if (apellidosError) newErrors.apellidos = apellidosError;
     if (!formData.ci.trim()) newErrors.ci = 'El documento es obligatorio';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) newErrors.email = 'El formato del correo no es válido';
+    else if (!/^\d+$/.test(formData.ci)) newErrors.ci = 'Solo números';
+    else if (
+      formData.ci.length < FIELD_LIMITS.documento.min ||
+      formData.ci.length > FIELD_LIMITS.documento.max
+    ) {
+      newErrors.ci = `Debe tener ${FIELD_LIMITS.documento.min} u ${FIELD_LIMITS.documento.max} dígitos`;
+    }
+    const emailError = validateEmail(formData.email);
+    if (emailError) newErrors.email = emailError;
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -118,6 +135,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     name="nombres"
                     value={formData.nombres}
                     onChange={handleChange}
+                    maxLength={FIELD_LIMITS.nombre.max}
                     className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.nombres ? 'border-red-500' : 'border-gray-200'}`}
                   />
                   {errors.nombres && <span className="mt-1 block text-[10px] text-red-500">{errors.nombres}</span>}
@@ -130,6 +148,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     name="apellidos"
                     value={formData.apellidos}
                     onChange={handleChange}
+                    maxLength={FIELD_LIMITS.apellidos.max}
                     className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.apellidos ? 'border-red-500' : 'border-gray-200'}`}
                   />
                   {errors.apellidos && <span className="mt-1 block text-[10px] text-red-500">{errors.apellidos}</span>}
@@ -143,6 +162,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     value={formData.ci}
                     onChange={handleChange}
                     placeholder="12345678"
+                    maxLength={FIELD_LIMITS.documento.max}
                     className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.ci ? 'border-red-500' : 'border-gray-200'}`}
                   />
                   {errors.ci && <span className="mt-1 block text-[10px] text-red-500">{errors.ci}</span>}
@@ -163,6 +183,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
+                    maxLength={FIELD_LIMITS.email.max}
                     className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
                   />
                   <span className="mt-1 block text-[10px] text-gray-400">Dominio permitido: @umss.edu.bo</span>
