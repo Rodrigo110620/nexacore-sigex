@@ -47,7 +47,7 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
     <div className="flex min-h-screen">
 
       {/* Sidebar */}
-      <aside className="w-52 flex-shrink-0 flex flex-col"
+      <aside className="hidden w-52 flex-shrink-0 flex-col lg:flex"
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}>
 
         {/* Logo */}
@@ -98,7 +98,7 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
       </aside>
 
       {/* Contenido principal */}
-      <main className="flex-1 bg-gray-50 overflow-auto">
+      <main className="relative min-w-0 flex-1 overflow-auto bg-gray-50">
         {children}
       </main>
 
