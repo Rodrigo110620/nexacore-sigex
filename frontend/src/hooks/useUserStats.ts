@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchUserStats } from '../services/userStatsService'
 import type { UserStats } from '../types/totalUser'
 
 export default function useUserStats() {
   const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
 
+    setLoading(true)
     fetchUserStats()
       .then((data) => {
         if (!cancelled) setStats(data)
@@ -23,7 +25,11 @@ export default function useUserStats() {
     return () => {
       cancelled = true
     }
+  }, [retryCount])
+
+  const retry = useCallback(() => {
+    setRetryCount((n) => n + 1)
   }, [])
 
-  return { stats, loading }
+  return { stats, loading, retry }
 }
