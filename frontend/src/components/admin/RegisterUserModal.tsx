@@ -14,9 +14,10 @@ import CredentialsSection from './CredentialsSection';
 interface RegisterUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModalProps) {
+export default function RegisterUserModal({ isOpen, onClose, onSuccess }: RegisterUserModalProps) {
   const [form, setForm] = useState<RegisterUserFormState>(INITIAL_FORM_STATE);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState('');
@@ -83,6 +84,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
       });
       setRegisteredEmail(form.email);
       setSuccess(true);
+      onSuccess?.();
     } catch (err: unknown) {
       const error = err as {
         response?: {

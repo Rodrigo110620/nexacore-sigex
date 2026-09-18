@@ -108,7 +108,7 @@ public class EmailService {
                           </tr>
                           <tr>
                             <td style="padding:16px 32px 24px;border-top:1px solid #EDF1F7;text-align:center;">
-                              <p style="margin:0;color:#9AA8BC;font-size:11px;">— Equipo NexaCore · SIGEX</p>
+                              <p style="margin:0;color:#9AA8BC;font-size:11px;">— Equipo NexaCore </p>
                             </td>
                           </tr>
                         </table>

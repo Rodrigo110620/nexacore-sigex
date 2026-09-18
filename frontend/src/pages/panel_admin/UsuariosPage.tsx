@@ -28,7 +28,12 @@ export default function UsuariosPage() {
     changePage,
     retry,
   } = useUsers()
-  const { stats } = useUserStats()
+  const { stats, retry: retryStats } = useUserStats()
+
+  const refreshUsers = () => {
+    retry()
+    retryStats()
+  }
 
   return (
     <PanelLayout>
@@ -58,6 +63,7 @@ export default function UsuariosPage() {
         <RegisterUserModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
+          onSuccess={refreshUsers}
         />
         {isEditModalOpen && selectedUser && (
           <EditUserModal
@@ -68,9 +74,7 @@ export default function UsuariosPage() {
               setSelectedUser(null)
             }}
             user={selectedUser}
-            onSaveSuccess={() => {
-              retry()
-            }}
+            onSaveSuccess={refreshUsers}
           />
         )}
       </div>
