@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex flex-1 items-stretch overflow-y-auto">
         {children}
       </main>
       <div className="hidden lg:block">
