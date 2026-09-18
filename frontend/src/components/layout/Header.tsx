@@ -1,4 +1,4 @@
-import { MessageCircleQuestionMark } from 'lucide-react';
+import { Crosshair } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -12,11 +12,11 @@ export default function Header() {
 
       <button
         type="button"
-        className="inline-flex shrink-0 items-center gap-2 rounded-lg border bg-gray-100 px-2.5 py-1.5 text-sm font-semibold text-[#011140] shadow-sm hover:bg-[#e9f1ff] sm:px-4"
+        className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-1.5 text-sm font-semibold text-[#011140] shadow-sm hover:bg-[#e9f1ff] sm:px-4"
         aria-label="Mesa de Ayuda"
       >
-        <MessageCircleQuestionMark className="h-6 w-6 text-[#0A2B99]" aria-hidden="true" />
-        <span className="hidden sm:inline">Mesa de Ayuda</span>
+        <Crosshair className="h-6 w-6 text-[#0A2B99] rotate-45" aria-hidden="true" />
+        <span className="hidden sm:inline text-[#011140]">Mesa de Ayuda</span>
       </button>
     </header>
   );

@@ -12,7 +12,7 @@ export async function loginUser(credentials: LoginRequest): Promise<AuthResponse
   } catch (error: unknown) {
     const err = error as { response?: { status?: number } }
     if (err.response?.status === 401) {
-      throw new Error('Correo o contraseña incorrectos.')
+      throw new Error('Revise su correo o contraseña institucional e intente de nuevo.')
     }
     throw new Error('No se pudo conectar con el servidor. Intenta más tarde.')
   }

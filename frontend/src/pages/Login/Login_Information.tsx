@@ -1,8 +1,8 @@
-import { ShieldCheck, Clock, Lock } from 'lucide-react';
+import { ShieldCheck, Clock, File } from 'lucide-react';
 
 export default function Login_Information() {
   return (
-    <div className="bg-[#e9f1ff] rounded-lg p-6 flex flex-col shadow-sm h-full w-full shadow-[#6b88e0] ">
+    <div className=" bg-[#E1ECFF] rounded-xl px-6 py-7 flex flex-col shadow-sm h-full  shadow-[#6b88e0] ">
 
       <div className="flex justify-center gap-2 mb-6">
         <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>
@@ -17,7 +17,7 @@ export default function Login_Information() {
         Plataforma oficial para la administración, control de acceso y verificación biométrica en jornadas evaluativas institucionales.
       </p>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col mt-2 mb-16 gap-4">
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
             <ShieldCheck size={20} className="text-[#0439D9]" />
@@ -48,7 +48,7 @@ export default function Login_Information() {
 
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-            <Lock size={20} className="text-[#0439D9]" />
+            <File size={20} className="text-[#0439D9]" />
           </div>
           <div>
             <h3 className="text-[0.70rem] font-bold text-[#011140] tracking-wide">

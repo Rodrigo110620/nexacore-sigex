@@ -5,15 +5,15 @@ import Login_Sesion from './Login_Sesion';
 export default function LoginPage() {
   return (
     <AuthLayout>
-      <div className="mx-auto flex min-h-full w-full max-w-6xl items-center justify-center px-4 py-6 sm:px-8 lg:px-8 lg:py-8">
-        <div className="grid w-full grid-cols-1 items-stretch gap-8 lg:grid-cols-2 lg:gap-10">
+      <div className="mx-auto flex min-h-full w-full items-center justify-center p-7 sm:px-8 lg:px-8 lg:py-8">
+        <div className="grid w-full pr-8 grid-cols-1 items-stretch gap-8 lg:grid-cols-[1.6fr_0.7fr] lg:gap-16">
           <div className="flex min-h-0 w-full items-center justify-center">
-            <div className="flex w-full max-w-lg flex-col lg:max-w-none">
+            <div className="flex flex-col items-center ml-auto max-w-2xl w-full">
               <div className="flex flex-col items-center lg:hidden">
                 <p className="rounded-full border border-[#D8E3F5] bg-[#F4F8FF] px-4 py-2 text-center text-[11px] font-bold text-[#0439D9]">
                   SISTEMA DE CONTROL &amp; INGRESO A EXÁMENES
                 </p>
-                <img src="/logo_app.png" alt="SIGEX" className="mt-7 h-16 w-48 object-contain" />
+                <img src="/logo_app.png" alt="SIGEX" className="mt-7 h-15 w-48 object-contain" />
               </div>
               <Login_Sesion />
               <p className="mt-auto pt-12 text-center text-xs leading-5 text-[#627A9B] lg:hidden">
@@ -23,7 +23,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="hidden min-h-0 w-full lg:block">
+          <div className="hidden min-h-0 w-full lg:block justify-self-end ">
             <Login_Information />
           </div>
         </div>
