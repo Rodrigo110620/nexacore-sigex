@@ -8,8 +8,8 @@ import jakarta.validation.constraints.NotNull;
  * Datos para registrar un nuevo usuario del sistema (HU#2).
  *
  * El admin NO envía contraseña: el sistema genera una clave provisional
- * automáticamente y la devuelve en RegisterUserResponse.passwordTemporal.
- * El rol debe ser uno de: ADMIN, DOCENTE o CONTROL.
+ * y la envía solo por correo al usuario. No se expone en la respuesta HTTP.
+ * El rol debe existir en la tabla rol.
  */
 public record RegisterUserRequest(
 

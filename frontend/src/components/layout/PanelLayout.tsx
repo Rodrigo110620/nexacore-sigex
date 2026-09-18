@@ -46,9 +46,11 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
   return (
     <div className="flex min-h-screen">
 
-      {/* Sidebar */}
-      <aside className="hidden w-52 flex-shrink-0 flex-col lg:flex"
-        style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}>
+      {/* Sidebar: solo desktop; en mobile se usa MobileBottomNav */}
+      <aside
+        className="hidden w-52 flex-shrink-0 flex-col lg:flex"
+        style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
+      >
 
         {/* Logo */}
         <div className="flex items-center px-5 py-5 border-b border-white/10">
@@ -97,8 +99,8 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
         </div>
       </aside>
 
-      {/* Contenido principal */}
-      <main className="relative min-w-0 flex-1 overflow-auto bg-gray-50">
+      {/* Contenido principal: ancho completo en mobile */}
+      <main className="min-w-0 flex-1 overflow-auto bg-gray-50">
         {children}
       </main>
 

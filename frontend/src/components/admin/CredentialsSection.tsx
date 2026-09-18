@@ -82,29 +82,13 @@ export default function CredentialsSection({
           </button>
         </div>
 
-        {/* Notificar por email */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[#011140] text-[0.70rem] font-semibold">
-              Notificar por email
-            </p>
-            <p className="text-gray-400 text-[0.60rem]">
-              Enviar clave provisional de bienvenida
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onChange('notificarEmail', !form.notificarEmail)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
-              form.notificarEmail ? 'bg-[#0439D9]' : 'bg-gray-300'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                form.notificarEmail ? 'translate-x-6' : 'translate-x-0'
-              }`}
-            />
-          </button>
+        <div className="rounded-lg border border-[#DBEAFE] bg-[#F8FBFF] px-3 py-2.5">
+          <p className="text-[0.70rem] font-semibold text-[#011140]">
+            Credenciales por correo
+          </p>
+          <p className="text-[0.60rem] text-gray-500 leading-relaxed">
+            La contraseña provisional se envía automáticamente al correo institucional del usuario. No se muestra en pantalla.
+          </p>
         </div>
       </div>
     </div>

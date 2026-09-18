@@ -90,16 +90,15 @@ public class UsuarioService {
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
-        if (Boolean.TRUE.equals(request.notificarEmail())) {
-            emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
-        }
+        // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
+        emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
                 usuario.getEmail(),
                 rolNombre,
-                passwordTemporal,
-                "Usuario registrado correctamente"
+                null,
+                "Usuario registrado. Credenciales enviadas por correo."
         );
     }
     /**
