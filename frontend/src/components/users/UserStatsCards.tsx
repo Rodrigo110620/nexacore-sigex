@@ -52,27 +52,27 @@ export default function UserStatsCards({ stats }: UserStatsCardsProps) {
   return (
     <section
       aria-label="Estadísticas de usuarios"
-      className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+      className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4"
     >
       {cards.map((card) => {
         const Icon = card.icon
         return (
           <article
             key={card.label}
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm sm:gap-4 sm:p-4"
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm sm:gap-4 sm:p-4"
           >
             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg sm:h-12 sm:w-12 ${card.iconBg}`}>
-              <Icon className={card.iconColor} size={22} aria-hidden="true" />
+              <Icon className={card.iconColor} size={19} aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[10px] font-bold uppercase tracking-wide text-gray-500 sm:text-xs">
+              <p className="truncate text-[8px] font-bold uppercase tracking-wide text-gray-500 min-[360px]:text-[10px] sm:text-xs">
                 {card.label}
               </p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-xl font-bold text-[#011140] sm:text-2xl">
                   {card.value}
                 </span>
-                <span className={`text-xs font-semibold ${card.sublabelColor}`}>
+                <span className={`truncate text-[10px] font-semibold sm:text-xs ${card.sublabelColor}`}>
                   {card.sublabel}
                 </span>
               </div>

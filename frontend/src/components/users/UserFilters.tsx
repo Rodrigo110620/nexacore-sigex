@@ -19,9 +19,9 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
       <h2 id={`${id}-title`} className="sr-only">Filtros de usuarios</h2>
-      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
-        <div className="min-w-0 sm:col-span-2 lg:col-span-1">
-          <label htmlFor={searchId} className="mb-1.5 block text-sm font-semibold text-[#011140]">Buscar usuarios</label>
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+        <div className="col-span-2 min-w-0 lg:col-span-1">
+          <label htmlFor={searchId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Buscar usuarios</label>
           <div className="relative">
             <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]" />
             <input
@@ -39,7 +39,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
         </div>
 
         <div className="min-w-0">
-          <label htmlFor={roleId} className="mb-1.5 block text-sm font-semibold text-[#011140]">Rol</label>
+          <label htmlFor={roleId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Rol</label>
           <div className="relative">
             <select
               id={roleId}
@@ -47,7 +47,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
               value={value.rol}
               onChange={(event) => onChange({ ...value, rol: event.target.value as UserFilterParams['rol'] })}
               disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-4 pr-10 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
             >
               <option value="">Todos los roles</option>
               {roles.map(r => (
@@ -57,13 +57,13 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
             <ChevronDown
               aria-hidden="true"
               size={17}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#011140]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3"
             />
           </div>
         </div>
 
         <div className="min-w-0">
-          <label htmlFor={statusId} className="mb-1.5 block text-sm font-semibold text-[#011140]">Estado</label>
+          <label htmlFor={statusId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Estado</label>
           <div className="relative">
             <select
               id={statusId}
@@ -71,7 +71,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
               value={value.estado}
               onChange={(event) => onChange({ ...value, estado: event.target.value as UserFilterParams['estado'] })}
               disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-4 pr-10 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
+              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
             >
               <option value="">Todos los estados</option>
               <option value="activo">Activo</option>
@@ -80,7 +80,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
             <ChevronDown
               aria-hidden="true"
               size={17}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#011140]"
+              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3"
             />
           </div>
         </div>

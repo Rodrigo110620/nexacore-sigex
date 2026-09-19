@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, UserRound, X } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, UserRound, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -59,21 +59,30 @@ export default function PanelTopBar() {
         </div>
       </div>
 
-      <div className="relative shrink-0" ref={menuRef}>
+      <div className="relative flex shrink-0 items-center gap-2" ref={menuRef}>
+        <button
+          type="button"
+          disabled
+          aria-label="Notificaciones, no disponible"
+          className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-[#F1F6FF] text-[#627A9B] sm:hidden"
+        >
+          <Bell size={17} aria-hidden="true" />
+        </button>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label={`Menú de cuenta: ${displayName}`}
-          className="inline-flex h-10 max-w-[12rem] items-center gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] px-3 transition-colors hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:px-2.5 md:max-w-[18rem]"
+          className="inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-colors hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem]"
         >
           <span
             aria-hidden="true"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-[11px] font-bold text-white sm:h-8 sm:w-8 sm:text-xs"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-[11px] font-bold text-white sm:inline-flex sm:h-8 sm:w-8 sm:text-xs"
           >
             {getInitials(nombre)}
           </span>
+          <span className="max-w-16 truncate sm:hidden">{roles.includes('ADMIN') ? 'ADMIN' : roleLabel}</span>
           <span className="hidden min-w-0 flex-1 text-left sm:block">
             <span className="block truncate text-sm font-semibold leading-tight text-[#011140]">{displayName}</span>
             <span className="block truncate text-[11px] leading-tight text-[#627A9B]">{roleLabel}</span>
@@ -81,7 +90,7 @@ export default function PanelTopBar() {
           <ChevronDown
             size={16}
             aria-hidden="true"
-            className={`shrink-0 text-[#627A9B] transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`hidden shrink-0 text-[#627A9B] transition-transform sm:block ${open ? 'rotate-180' : ''}`}
           />
         </button>
 
@@ -126,9 +135,9 @@ export default function PanelTopBar() {
         )}
       </div>
     </header>
-    <div className="bg-white py-3 px-4 lg:hidden">
-      <p className="text-lg font-bold text-[#011140]">GESTION DE USARIOS</p>
-      <p className="text-xs text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+    <div className="border-b border-[#EDF1F7] bg-white px-4 py-3 lg:hidden">
+      <p className="text-base font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
+      <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
     </div>
   </>
 

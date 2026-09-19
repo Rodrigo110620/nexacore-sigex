@@ -60,8 +60,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
         Rol Asignado en Plataforma <span className="text-red-500">*</span>
       </label>
 
-      {/* En móviles angostos: lista; desde ~380px: 3 columnas */}
-      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3 min-[380px]:gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
         {ROLES_OPTIONS.map((rol) => {
           const Icon = ICONS[rol.value];
           const isSelected = value === rol.value;
@@ -70,15 +69,17 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
             <button
               key={rol.value}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onChange(rol.value)}
-              className={`flex min-h-11 items-center gap-3 rounded-lg border p-3 transition-all min-[380px]:flex-col min-[380px]:items-center min-[380px]:justify-center min-[380px]:gap-1 min-[380px]:p-2.5 sm:p-3 ${
+              className={`flex min-h-11 items-center gap-3 rounded-lg border p-2.5 transition-all sm:flex-col sm:justify-center sm:gap-1 sm:p-3 ${
                 isSelected
                   ? 'border-[#0439D9] bg-[#E1ECFF] shadow-sm'
                   : 'border-gray-200 bg-white hover:border-[#0439D9]/50'
               }`}
             >
-              <Icon size={20} className={`shrink-0 ${isSelected ? 'text-[#0439D9]' : 'text-gray-400'}`} />
-              <span className="min-w-0 flex-1 text-left min-[380px]:flex-none min-[380px]:text-center">
+              <span aria-hidden="true" className={`h-4 w-4 shrink-0 rounded-full border-2 sm:hidden ${isSelected ? 'border-[#0439D9] bg-[#0439D9] shadow-[inset_0_0_0_3px_white]' : 'border-[#B8CBEF] bg-white'}`} />
+              <Icon size={20} className={`order-last shrink-0 sm:order-none ${isSelected ? 'text-[#0439D9]' : 'text-gray-400'}`} />
+              <span className="min-w-0 flex-1 text-left sm:flex-none sm:text-center">
                 <span className={`block text-[0.70rem] font-bold ${isSelected ? 'text-[#0439D9]' : 'text-[#011140]'}`}>
                   {rol.titulo}
                 </span>

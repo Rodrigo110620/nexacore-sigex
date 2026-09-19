@@ -58,12 +58,14 @@ describe('UsuariosPage', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByText('GESTIÓN DE USUARIOS')).toBeInTheDocument()
+    expect(screen.getAllByText('GESTIÓN DE USUARIOS')).toHaveLength(2)
     expect(screen.getAllByText('ana.rojas@umss.edu.bo').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
 
-    expect(screen.getByRole('heading', { name: 'Registrar nuevo usuario' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Registrar Usuario' })).toBeInTheDocument()
+    expect(screen.getByText('Credenciales por correo')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Notificar por email' })).not.toBeInTheDocument()
   })
 
   it('DashboardPage redirige hacia la pantalla unificada', async () => {

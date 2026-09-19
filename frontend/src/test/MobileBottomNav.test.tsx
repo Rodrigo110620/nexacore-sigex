@@ -21,7 +21,7 @@ describe('MobileBottomNav', () => {
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
     expect(navigation).toHaveClass('lg:hidden')
     expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toHaveAttribute('aria-current', 'page')
-    expect(within(navigation).getAllByRole('listitem')).toHaveLength(4)
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
     expect(within(navigation).queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()
   })
 
@@ -31,6 +31,7 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Exámenes, no disponible' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Estudiantes, no disponible' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Más, no disponible' })).toBeDisabled()
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 })

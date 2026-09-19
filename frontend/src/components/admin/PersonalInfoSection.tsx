@@ -16,7 +16,7 @@ export default function PersonalInfoSection({
 }: PersonalInfoSectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
+      <div className="hidden items-center gap-2 sm:flex">
         <span className="w-1.5 h-1.5 rounded-full bg-[#0439D9]"></span>
         <h3 className="text-[#011140] font-bold text-xs tracking-wide">
           INFORMACIÓN PERSONAL
@@ -53,7 +53,7 @@ export default function PersonalInfoSection({
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
-        <p className="text-gray-600 text-[0.60rem]">
+        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
           Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
         {errors.nombre && (
@@ -91,7 +91,7 @@ export default function PersonalInfoSection({
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
-        <p className="text-gray-600 text-[0.60rem]">
+        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
           Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
         {errors.apellidos && (
@@ -137,7 +137,7 @@ export default function PersonalInfoSection({
             }`}
           />
         </div>
-        <p className="text-gray-600 text-[0.60rem]">
+        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
           Solo numeros · Máximo {FIELD_LIMITS.documento.max} caracteres
         </p>
         {errors.documento && (
