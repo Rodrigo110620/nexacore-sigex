@@ -1,4 +1,4 @@
-import { X, Info, CheckCircle, CircleAlert, Mail } from 'lucide-react';
+import { X, Info, Check, CircleAlert, Mail, Dot } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../services/api';
 import {
@@ -63,7 +63,16 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     setGeneralError('');
     setSuccess(false);
 
-    const formErrors = validateForm(form);
+    //BUG1: Limpiar espacios al inicio/final de los campos de texto
+    const cleanForm = {
+      ...form,
+      nombre: form.nombre.trim(),
+      apellidos: form.apellidos.trim(),
+      documento: form.documento.trim(),
+      email: form.email.trim(),
+    };
+
+    const formErrors = validateForm(cleanForm);
     setErrors(formErrors);
 
     if (hasErrors(formErrors)) {
@@ -74,15 +83,15 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     setLoading(true);
     try {
       await api.post('/usuarios', {
-        nombre: form.nombre,
-        apellidos: form.apellidos,
-        ci: form.documento,
-        email: form.email,
-        rol: form.rol,
-        activo: form.activo,
+        nombre: cleanForm.nombre,
+        apellidos: cleanForm.apellidos,
+        ci: cleanForm.documento,
+        email: cleanForm.email,
+        rol: cleanForm.rol,
+        activo: cleanForm.activo,
         notificarEmail: true,
       });
-      setRegisteredEmail(form.email);
+      setRegisteredEmail(cleanForm.email);
       setSuccess(true);
       onSuccess?.();
     } catch (err: unknown) {
@@ -140,8 +149,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
               Registrar nuevo usuario
             </h2>
             <p className="mt-1 text-[11px] leading-relaxed text-gray-500 sm:text-xs">
-              Completa los datos para crear la cuenta. La contraseña se enviará solo al correo del usuario.
-            </p>
+              Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.            </p>
           </div>
           <button
             type="button"
@@ -173,9 +181,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             <div className="mt-4">
               <div className="flex items-start gap-3 rounded-lg border border-[#DBEAFE] bg-[#EFF6FF] p-3">
                 <Info size={16} className="mt-0.5 flex-shrink-0 text-[#0439D9]" />
-                <p className="text-[11px] leading-relaxed text-[#011140] sm:text-[0.70rem]">
-                  Por seguridad, la contraseña provisional no se muestra aquí. Se enviará por correo
-                  institucional. Toda acción queda auditada.
+                <p className="text-[0.70rem] leading-relaxed text-[#011140] sm:text-[0.70rem]">
+                  El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada bajo la norma de seguridad académica institucional.
                 </p>
               </div>
             </div>
@@ -188,15 +195,15 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             )}
           </div>
 
-          <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
-            <p className="mb-3 text-[0.65rem] text-gray-400 sm:mb-0 sm:hidden">* Campos obligatorios</p>
+          <div className="shrink-0 border-t border-[#e3eaf1] bg-[#f8fbff] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+            <p className="flex items-center mb-3 text-[0.75rem] text-[#94A3B8] sm:mb-0 sm:hidden"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="hidden text-[0.65rem] text-gray-400 sm:block">* Campos obligatorios</p>
+              <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
               <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5"
+                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
                 >
                   Cancelar
                 </button>
@@ -209,9 +216,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
                     'Registrando...'
                   ) : (
                     <>
-                      <CheckCircle size={16} aria-hidden="true" className="shrink-0" />
-                      <span className="sm:hidden">Registrar</span>
-                      <span className="hidden sm:inline">Registrar usuario</span>
+                      <span className="sm:hidden"> + Registrar Usuario</span>
+                      <span className="hidden sm:flex sm:items-center gap-2 "> <Check size={18} strokeWidth={4} aria-hidden="true" className="shrink-0" /> Guardar y Registrar usuario</span>
                     </>
                   )}
                 </button>
@@ -226,7 +232,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
           <div className="w-full max-w-md overflow-hidden rounded-t-2xl border border-[#BFDBFE] bg-[#f0f5ff] shadow-2xl sm:rounded-2xl">
             <div className="flex flex-col items-center px-5 pb-4 pt-8 sm:px-6">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 sm:h-16 sm:w-16">
-                <CheckCircle className="text-green-600" size={34} />
+                <Check className="text-green-600" size={34} />
               </div>
               <h3 className="mb-1 text-center text-base font-bold text-[#011140] sm:text-lg">
                 Usuario registrado correctamente

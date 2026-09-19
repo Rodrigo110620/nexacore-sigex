@@ -1,4 +1,4 @@
-import { Shield, BookOpen, Eye, Plus, Loader2 } from 'lucide-react';
+import { BookOpen, Eye, Plus, Loader2, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 import { useRoles } from '../../hooks/useRoles';
@@ -11,8 +11,8 @@ interface RoleSelectorProps {
 
 const ROLES_PRINCIPALES = new Set(['ADMIN', 'DOCENTE', 'CONTROL']);
 
-const ICONS: Record<string, typeof Shield> = {
-  ADMIN: Shield,
+const ICONS: Record<string, typeof ShieldCheck> = {
+  ADMIN: ShieldCheck,
   DOCENTE: BookOpen,
   CONTROL: Eye,
 };
@@ -57,7 +57,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
   return (
     <div className="flex flex-col gap-2">
       <label className="text-[#011140] font-medium text-[0.70rem]">
-        Rol Asignado en Plataforma *
+        Rol Asignado en Plataforma <span className="text-red-500">*</span>
       </label>
 
       {/* En móviles angostos: lista; desde ~380px: 3 columnas */}
@@ -113,7 +113,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
                       : 'border-gray-200 bg-white text-gray-500 hover:border-[#0439D9]/50'
                   }`}
                 >
-                  <Shield size={12} />
+                  <ShieldCheck size={12} />
                   {rol.value}
                 </button>
               )

@@ -27,23 +27,22 @@ export default function CredentialsSection({
       {/* Email */}
       <div className="flex flex-col gap-1">
         <label className="text-[#011140] font-medium text-[0.70rem]">
-          Correo Institucional *
+          Correo Electrónico <span className="text-red-500">*</span>
         </label>
         <input
           type="email"
           value={form.email}
           onChange={(e) => onChange('email', e.target.value)}
           onBlur={() => onBlur('email')}
-          placeholder="usuario@universidad.edu"
+          placeholder="usuario@"
           maxLength={FIELD_LIMITS.email.max}
-          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
-            errors.email
+          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${errors.email
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-gray-300 focus:ring-[#E1ECFF]'
-          }`}
+            }`}
         />
-        <p className="text-gray-400 text-[0.60rem]">
-          Dominio permitido: @universidad.edu · Máx. {FIELD_LIMITS.email.max} caracteres
+        <p className="text-gray-600 text-[0.60rem]">
+          Dominio permitido: cualquiera · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
         {errors.email && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.email}</p>
@@ -72,14 +71,12 @@ export default function CredentialsSection({
           <button
             type="button"
             onClick={() => onChange('activo', !form.activo)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
-              form.activo ? 'bg-green-500' : 'bg-gray-300'
-            }`}
+            className={`relative w-12 h-6 rounded-full transition-colors ${form.activo ? 'bg-green-500' : 'bg-gray-300'
+              }`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                form.activo ? 'translate-x-6' : 'translate-x-0'
-              }`}
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.activo ? 'translate-x-6' : 'translate-x-0'
+                }`}
             />
           </button>
         </div>
