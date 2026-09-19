@@ -60,8 +60,8 @@ export default function MobileBottomNav() {
             aria-label="Cerrar sesión"
             className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-semibold leading-tight text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs"
           >
-            <LogOut size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
-            <span className="max-w-full truncate">Salir</span>
+            <LogOut size={18} className="shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
+            <span className="max-w-full truncate px-0.5 text-center">Salir</span>
           </button>
         </li>
       </ul>

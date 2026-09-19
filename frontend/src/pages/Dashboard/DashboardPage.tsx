@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   return (
     <PanelLayout>
-      <div className="min-h-screen p-4 pb-24 sm:p-8 lg:pb-8">
+      <div className="min-h-full p-4 pb-24 sm:p-8 lg:pb-8">
         <h1 className="mb-2 text-xl font-bold text-[#011140]">
           Bienvenido{nombre ? `, ${nombre}` : ''}
         </h1>
