@@ -210,14 +210,14 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5 sm:text-[#011140]"
+                  className="w-full rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 sm:w-auto sm:px-5 sm:py-2.5 sm:text-[#011140]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   {loading ? (
                     'Registrando...'
