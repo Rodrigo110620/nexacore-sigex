@@ -2,9 +2,9 @@ import type { FormErrors, RegisterUserFormState } from '../types/usuario.types';
 
 /** Límites de longitud alineados con el backend (@Size). */
 export const FIELD_LIMITS = {
-  nombre: { min: 2, max: 50 },
-  apellidos: { min: 2, max: 80 },
-  email: { min: 5, max: 100 },
+  nombre: { min: 2, max: 30 },
+  apellidos: { min: 2, max: 40 },
+  email: { min: 5, max: 30 },
   documento: { min: 7, max: 8 },
   rol: { min: 2, max: 30 },
 } as const
@@ -70,12 +70,22 @@ export const validateDocumento = (value: string): string => {
 
 export const validateEmail = (value: string): string => {
   const trimmed = value.trim()
+
   if (!trimmed) return 'El correo es obligatorio'
+
   if (trimmed.length > FIELD_LIMITS.email.max) {
     return `Máximo ${FIELD_LIMITS.email.max} caracteres`
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(trimmed)) return 'Formato de correo inválido'
+
+  // Regex estricta:
+  // - antes del @: solo letras, números y . _ % + -
+  // - después del @: letras, números, guiones y puntos
+  // - extensión final: mínimo 2 letras
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  if (!emailRegex.test(trimmed)) {
+    return 'Formato de correo inválido'
+  }
+
   return ''
 }
 

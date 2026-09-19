@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { callLogout, navigateTo } from '../utils/navigate'
 
 /**
  * Instancia base de axios para todos los requests al backend.
@@ -35,12 +34,19 @@ api.interceptors.response.use(
     const url = String(error.config?.url ?? '')
     const isLoginRequest = url.includes('/auth/login')
 
-    if (status === 401 && !isLoginRequest) {
-      callLogout()        // limpia localStorage Y actualiza el estado de React
-      navigateTo('/login')
+    if (!error.response) {
+      return Promise.reject(error)
     }
+
+    // ✅ Solo si es 401 Y NO es login → cerrar sesión
+    if (status === 401 && !isLoginRequest) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('nombre')
+      localStorage.removeItem('roles')
+      window.location.href = '/login'
+    }
+
     return Promise.reject(error)
   },
 )
-
 export default api
