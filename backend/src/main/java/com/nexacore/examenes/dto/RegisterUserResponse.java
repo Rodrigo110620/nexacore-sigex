@@ -3,9 +3,8 @@ package com.nexacore.examenes.dto;
 /**
  * Respuesta tras crear un usuario exitosamente (201 Created).
  *
- * passwordTemporal: clave provisional generada automáticamente por el sistema.
- * El admin debe entregarla al usuario para su primer acceso.
- * Sprint 2+: reemplazar por envío de email con la clave.
+ * passwordTemporal siempre es null: la clave provisional se envía solo
+ * por correo al usuario (Mailtrap / SMTP) y no se expone al administrador.
  */
 public record RegisterUserResponse(
         Integer id,

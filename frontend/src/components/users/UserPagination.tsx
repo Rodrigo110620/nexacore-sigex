@@ -57,26 +57,32 @@ export default function UserPagination({
   return (
     <nav
       aria-label="Paginación de usuarios"
-      className="mt-0 flex flex-col gap-3 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-0 flex flex-col gap-3 rounded-lg border border-[#D8E3F5] bg-white px-3 py-3 sm:px-4 sm:flex-row sm:items-center sm:justify-between"
     >
-      <p className="text-sm text-[#011140]">
+      <p className="text-center text-xs text-[#011140] sm:text-left sm:text-sm">
         Mostrando <span className="font-semibold">{firstRecord}–{lastRecord}</span> de{' '}
-        <span className="font-semibold">{totalRecords}</span> usuarios
+        <span className="font-semibold">{totalRecords}</span>
+        <span className="hidden sm:inline"> usuarios</span>
       </p>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+      <div className="flex items-center justify-between gap-2 sm:justify-end">
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={disabled || isFirstPage}
           aria-label="Página anterior"
-          className="inline-flex h-11 items-center gap-1 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+          className="inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
         >
           <ChevronLeft size={17} aria-hidden="true" />
-          Anterior
+          <span className="hidden min-[380px]:inline">Anterior</span>
         </button>
 
-        <div className="flex flex-wrap items-center justify-center gap-1" aria-label={`Página ${currentPage + 1} de ${totalPages}`}>
+        {/* En pantallas muy chicas: solo indicador de página */}
+        <p className="px-2 text-sm font-semibold text-[#011140] sm:hidden" aria-live="polite">
+          {currentPage + 1} / {totalPages}
+        </p>
+
+        <div className="hidden flex-wrap items-center justify-center gap-1 sm:flex" aria-label={`Página ${currentPage + 1} de ${totalPages}`}>
           {paginationItems.map((item) => {
             if (typeof item !== 'number') {
               return (
@@ -112,9 +118,9 @@ export default function UserPagination({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={disabled || isLastPage}
           aria-label="Página siguiente"
-          className="inline-flex h-11 items-center gap-1 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+          className="inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
         >
-          Siguiente
+          <span className="hidden min-[380px]:inline">Siguiente</span>
           <ChevronRight size={17} aria-hidden="true" />
         </button>
       </div>

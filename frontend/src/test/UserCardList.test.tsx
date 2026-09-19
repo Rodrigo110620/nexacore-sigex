@@ -1,5 +1,5 @@
-import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import UserCardList from '../components/users/UserCardList'
 import UserListContent from '../components/users/UserListContent'
 import { getUserAvatarPalette } from '../components/users/userAvatar.utils'
@@ -55,16 +55,29 @@ describe('UserCardList', () => {
     expect(avatar).toHaveClass(...getUserAvatarPalette(users[0]).split(' '))
   })
 
-  it('mantiene deshabilitadas todas las acciones y nombra cada usuario', () => {
-    render(<UserCardList users={users} />)
+  it('habilita editar cuando hay callback y mantiene bloquear deshabilitado', () => {
+    const onEditClick = vi.fn()
+    render(<UserCardList users={users} onEditClick={onEditClick} />)
 
     const list = screen.getByRole('list', { name: '4 usuarios visibles' })
-    expect(within(list).getAllByRole('button', { name: /Editar a/ })).toHaveLength(4)
+    expect(within(list).getAllByRole('button', { name: /^Editar a/ })).toHaveLength(4)
     expect(within(list).getAllByRole('button', { name: /Bloquear a/ })).toHaveLength(4)
     users.forEach((user) => {
       const fullName = `${user.nombre} ${user.apellidos}`
-      expect(screen.getByRole('button', { name: `Editar a ${fullName}, no disponible` })).toBeDisabled()
+      expect(screen.getByRole('button', { name: `Editar a ${fullName}` })).toBeEnabled()
       expect(screen.getByRole('button', { name: `Bloquear a ${fullName}, no disponible` })).toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar a Ana Rojas Vidal' }))
+    expect(onEditClick).toHaveBeenCalledWith(users[0])
+  })
+
+  it('mantiene editar deshabilitado si no hay callback', () => {
+    render(<UserCardList users={users} />)
+
+    users.forEach((user) => {
+      const fullName = `${user.nombre} ${user.apellidos}`
+      expect(screen.getByRole('button', { name: `Editar a ${fullName}, no disponible` })).toBeDisabled()
     })
   })
 

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Shield, BookOpen, Users as UsersIcon, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, Info, Check, CircleAlert, Mail, Dot, ShieldCheck, BookOpen, Eye, Plus, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import api from '../../services/api';
 import { useRoles } from '../../hooks/useRoles';
+import { FIELD_LIMITS, sanitizeNombreInput } from '../../utils/validators';
+import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 
 interface User {
   id?: string | number;
@@ -20,284 +22,496 @@ interface EditUserModalProps {
   onSaveSuccess?: (updatedUser: unknown) => void;
 }
 
+const ROLES_PRINCIPALES = new Set(['ADMIN', 'DOCENTE', 'CONTROL']);
+const ICONS: Record<string, typeof ShieldCheck> = {
+  ADMIN: ShieldCheck,
+  DOCENTE: BookOpen,
+  CONTROL: Eye,
+};
+
 function buildFormFromUser(user?: User | null) {
   return {
-    nombres: user?.nombre || '',
+    nombre: user?.nombre || '',
     apellidos: user?.apellidos || '',
-    ci: user?.ci || '',
+    documento: user?.ci || '',
     email: user?.email || '',
-    rol: user?.rol || 'DOCENTE',
+    rol: (user?.rol as Rol) || 'DOCENTE',
     activo: user?.estado === 'activo',
   };
 }
 
-const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, onSaveSuccess }) => {
-  const { roles } = useRoles();
-  // El padre remonta este modal con key={user.id} al abrir otro usuario.
-  const [formData, setFormData] = useState(() => buildFormFromUser(user));
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [modalState, setModalState] = useState<'form' | 'success' | 'error'>('form');
+export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: EditUserModalProps) {
+  const [form, setForm] = useState(() => buildFormFromUser(user));
+  const [errors, setErrors] = useState<{ nombre?: string; apellidos?: string; documento?: string; email?: string; rol?: string }>({});
+  const [generalError, setGeneralError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+
+  // Lógica de roles extra / agregar rol
+  const { roles, cargando, crearRol } = useRoles();
+  const [nuevoRol, setNuevoRol] = useState('');
+  const [guardandoRol, setGuardandoRol] = useState(false);
+  const [errorRol, setErrorRol] = useState('');
+  const rolesExtra = roles.filter(r => !ROLES_PRINCIPALES.has(r.value));
 
   if (!isOpen) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: '' });
+  const handleChange = (field: string, value: string | boolean | Rol) => {
+    setForm({ ...form, [field]: value });
+    if (errors[field as keyof typeof errors]) {
+      setErrors({ ...errors, [field]: undefined });
+    }
+    if (generalError) setGeneralError('');
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const newErrors: { [key: string]: string } = {};
-    if (!formData.nombres.trim()) newErrors.nombres = 'El nombre es obligatorio';
-    if (!formData.apellidos.trim()) newErrors.apellidos = 'Los apellidos son obligatorios';
-    if (!formData.ci.trim()) newErrors.ci = 'El documento es obligatorio';
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) newErrors.email = 'El formato del correo no es válido';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+  const handleAgregarRol = async () => {
+    const nombre = nuevoRol.trim().toUpperCase();
+    if (!nombre) return;
+    if (!/^[A-Z_]+$/.test(nombre)) {
+      setErrorRol('Solo letras mayúsculas y guiones bajos');
       return;
     }
-
+    setGuardandoRol(true);
+    setErrorRol('');
     try {
-      await api.put(`/usuarios/${user?.id}`, {
-        nombre: formData.nombres,
-        apellidos: formData.apellidos,
-        ci: formData.ci,
-        email: formData.email,
-        rol: formData.rol,
-        activo: formData.activo,
-        notificarEmail: false,
-      });
-      setModalState('success');
+      await crearRol(nombre);
+      setNuevoRol('');
+      handleChange('rol', nombre as Rol);
     } catch {
-      setModalState('error');
+      setErrorRol('Ese rol ya existe o hubo un error');
+    } finally {
+      setGuardandoRol(false);
     }
   };
 
-  const handleFinishSuccess = () => {
-    if (onSaveSuccess) {
-      onSaveSuccess(formData);
-    }
-    setModalState('form');
+  const handleClose = () => {
+    setErrors({});
+    setGeneralError('');
+    setSuccess(false);
+    setRegisteredEmail('');
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      
-      {/* 1. FORMULARIO PRINCIPAL */}
-      {modalState === 'form' && (
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 my-auto max-h-[90vh] flex flex-col">
-          
-          {/* Header */}
-          <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-start shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#011140]">Editar Datos del Usuario</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Modifica los datos del usuario para mantener actualizada su información y sus roles de acceso.</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
-              <X size={20} />
-            </button>
-          </div>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGeneralError('');
+    setSuccess(false);
 
-          {/* Form Scrollable */}
-          <form onSubmit={handleSave} className="overflow-y-auto flex-1 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    const cleanForm = {
+      ...form,
+      nombre: form.nombre.trim(),
+      apellidos: form.apellidos.trim(),
+      documento: form.documento.trim(),
+      email: form.email.trim(),
+    };
+
+    const newErrors: { nombre?: string; apellidos?: string; documento?: string; email?: string } = {};
+    if (!cleanForm.nombre) newErrors.nombre = 'El nombre es obligatorio';
+    if (!cleanForm.apellidos) newErrors.apellidos = 'Los apellidos son obligatorios';
+    if (!cleanForm.documento) {
+      newErrors.documento = 'El documento es obligatorio';
+    } else if (cleanForm.documento.length < 5 || cleanForm.documento.length > 8) {
+      newErrors.documento = 'Debe tener entre 5 y 8 dígitos';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanForm.email)) newErrors.email = 'El formato del correo no es válido';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      setGeneralError('Por favor, completa todos los campos obligatorios');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.put(`/usuarios/${user?.id}`, {
+        nombre: cleanForm.nombre,
+        apellidos: cleanForm.apellidos,
+        ci: cleanForm.documento,
+        email: cleanForm.email,
+        rol: cleanForm.rol,
+        activo: cleanForm.activo,
+        notificarEmail: false,
+      });
+      setRegisteredEmail(cleanForm.email);
+      setSuccess(true);
+      onSaveSuccess?.(cleanForm);
+    } catch {
+      setGeneralError('Ocurrió un problema al intentar guardar los cambios. Intenta más tarde.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-user-title"
+    >
+      <div className="flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border sm:border-gray-100">
+        
+        {/* Header */}
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 sm:pb-4">
+          <div className="min-w-0">
+            <h2 id="edit-user-title" className="text-lg font-bold text-[#011140] sm:text-xl">
+              Editar datos del usuario
+            </h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-gray-500 sm:text-xs">
+              Modifica los datos del usuario para mantener actualizada su información y sus roles de acceso.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               
               {/* Columna Izquierda: Información Personal */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0439D9]">
-                  <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>
-                  Información Personal
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nombres *</label>
-                  <input
-                    type="text"
-                    name="nombres"
-                    value={formData.nombres}
-                    onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.nombres ? 'border-red-500' : 'border-gray-200'}`}
-                  />
-                  {errors.nombres && <span className="text-[10px] text-red-500 mt-1 block">{errors.nombres}</span>}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0439D9]"></span>
+                  <h3 className="text-[#011140] font-bold text-xs tracking-wide">
+                    INFORMACIÓN PERSONAL
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Apellidos Completos *</label>
+                {/* Nombres */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[#011140] font-medium text-[0.70rem]">
+                      Nombres <span className="text-red-500">*</span>
+                    </label>
+                    <span className={`text-[0.65rem] font-medium ${form.nombre.length >= FIELD_LIMITS.nombre.max ? 'text-red-500' : 'text-gray-400'}`}>
+                      {form.nombre.length}/{FIELD_LIMITS.nombre.max}
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    name="apellidos"
-                    value={formData.apellidos}
-                    onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.apellidos ? 'border-red-500' : 'border-gray-200'}`}
+                    value={form.nombre}
+                    onChange={(e) => handleChange('nombre', sanitizeNombreInput(e.target.value))}
+                    placeholder="Ej. Roberto Carlos"
+                    maxLength={FIELD_LIMITS.nombre.max}
+                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                      errors.nombre ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
+                    }`}
                   />
-                  {errors.apellidos && <span className="text-[10px] text-red-500 mt-1 block">{errors.apellidos}</span>}
+                  <p className="text-gray-600 text-[0.60rem]">Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres</p>
+                  {errors.nombre && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Documento de Identidad *</label>
+                {/* Apellidos */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[#011140] font-medium text-[0.70rem]">
+                      Apellidos Completos <span className="text-red-500">*</span>
+                    </label>
+                    <span className={`text-[0.65rem] font-medium ${form.apellidos.length >= FIELD_LIMITS.apellidos.max ? 'text-red-500' : 'text-gray-400'}`}>
+                      {form.apellidos.length}/{FIELD_LIMITS.apellidos.max}
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    name="ci"
-                    value={formData.ci}
-                    onChange={handleChange}
-                    placeholder="12345678"
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.ci ? 'border-red-500' : 'border-gray-200'}`}
+                    value={form.apellidos}
+                    onChange={(e) => handleChange('apellidos', sanitizeNombreInput(e.target.value))}
+                    placeholder="Ej. Méndez Quispe"
+                    maxLength={FIELD_LIMITS.apellidos.max}
+                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                      errors.apellidos ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
+                    }`}
                   />
-                  {errors.ci && <span className="text-[10px] text-red-500 mt-1 block">{errors.ci}</span>}
+                  <p className="text-gray-600 text-[0.60rem]">Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres</p>
+                  {errors.apellidos && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>}
+                </div>
+
+                {/* Documento de Identidad */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[#011140] font-medium text-[0.70rem]">
+                      Documento de Identidad <span className="text-red-500">*</span>
+                    </label>
+                    <span className={`text-[0.65rem] font-medium ${form.documento.length >= FIELD_LIMITS.documento.max ? 'text-red-500' : 'text-gray-400'}`}>
+                      {form.documento.length}/{FIELD_LIMITS.documento.max}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex items-center justify-center px-3 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-xs text-[#011140] font-medium min-w-[60px]">
+                      CI
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.documento}
+                      onChange={(e) => {
+                        const onlyNumbers = e.target.value.replace(/\D/g, '');
+                        handleChange('documento', onlyNumbers);
+                      }}
+                      placeholder="8 dígitos"
+                      maxLength={FIELD_LIMITS.documento.max}
+                      className={`flex-1 text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                        errors.documento ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
+                      }`}
+                    />
+                  </div>
+                  <p className="text-gray-600 text-[0.60rem]">Solo números · Máximo {FIELD_LIMITS.documento.max} caracteres</p>
+                  {errors.documento && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.documento}</p>}
                 </div>
               </div>
 
               {/* Columna Derecha: Credenciales y Acceso */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0439D9]">
-                  <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>
-                  Credenciales y Acceso
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0439D9]"></span>
+                  <h3 className="text-[#011140] font-bold text-xs tracking-wide">
+                    CREDENCIALES Y ACCESO
+                  </h3>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Correo Institucional *</label>
+                {/* Email */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[#011140] font-medium text-[0.70rem]">
+                    Correo Electrónico <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                    value={form.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    placeholder="usuario@"
+                    maxLength={FIELD_LIMITS.email.max}
+                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                      errors.email ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
+                    }`}
                   />
-                  <span className="text-[10px] text-gray-400 mt-1 block">Dominio permitido: @umss.edu.bo</span>
-                  {errors.email && <span className="text-[10px] text-red-500 mt-1 block">{errors.email}</span>}
+                  <p className="text-gray-600 text-[0.60rem]">Dominio permitido: cualquiera · Máximo {FIELD_LIMITS.email.max} caracteres</p>
+                  {errors.email && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.email}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Rol Asignado en Plataforma *</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {roles.map((role) => {
-                      const icons: Record<string, React.ElementType> = { ADMIN: Shield, DOCENTE: BookOpen, CONTROL: UsersIcon };
-                      const activeClasses: Record<string, string> = {
-                        ADMIN: 'border-blue-600 bg-blue-50/60 text-blue-700 ring-1 ring-blue-600',
-                        DOCENTE: 'border-emerald-600 bg-emerald-50/60 text-emerald-700 ring-1 ring-emerald-600',
-                        CONTROL: 'border-amber-500 bg-amber-50/60 text-amber-700 ring-1 ring-amber-500',
-                      };
-                      const IconComponent = icons[role.value] ?? UsersIcon;
-                      const isSelected = formData.rol === role.value;
-                      return (
-                        <button
-                          type="button"
-                          key={role.value}
-                          onClick={() => setFormData({ ...formData, rol: role.value })}
-                          className={`flex flex-col items-center p-2.5 rounded-xl border text-center transition-all ${
-                            isSelected
-                              ? (activeClasses[role.value] ?? 'border-[#0439D9] bg-[#E9F1FF] text-[#0439D9] ring-1 ring-[#0439D9]')
-                              : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'
-                          }`}
-                        >
-                          <IconComponent size={16} className="mb-1" />
-                          <span className="text-xs font-bold">{role.titulo}</span>
-                          <span className="text-[9px] text-gray-400">{role.subtitulo}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Estado de cuenta */}
-                <div className="pt-2">
-                  <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50/50">
-                    <div>
-                      <span className="text-xs font-bold text-gray-800 block">Estado de cuenta Activo</span>
-                      <span className="text-[10px] text-gray-500">Permite acceso inmediato al sistema</span>
+                {/* Selector de Rol */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-[#011140] font-medium text-[0.70rem]">
+                    Rol Asignado en Plataforma <span className="text-red-500">*</span>
+                  </label>
+                  {cargando ? (
+                    <div className="h-20 rounded-lg border border-gray-200 bg-gray-50 animate-pulse" />
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3 sm:gap-3">
+                      {ROLES_OPTIONS.map((rol) => {
+                        const Icon = ICONS[rol.value];
+                        const isSelected = form.rol === rol.value;
+                        return (
+                          <button
+                            key={rol.value}
+                            type="button"
+                            onClick={() => handleChange('rol', rol.value)}
+                            className={`flex min-h-11 items-center gap-3 rounded-lg border p-3 transition-all min-[380px]:flex-col min-[380px]:items-center min-[380px]:justify-center min-[380px]:gap-1 min-[380px]:p-2.5 sm:p-3 ${
+                              isSelected ? 'border-[#0439D9] bg-[#E1ECFF] shadow-sm' : 'border-gray-200 bg-white hover:border-[#0439D9]/50'
+                            }`}
+                          >
+                            <Icon size={20} className={`shrink-0 ${isSelected ? 'text-[#0439D9]' : 'text-gray-400'}`} />
+                            <span className="min-w-0 flex-1 text-left min-[380px]:flex-none min-[380px]:text-center">
+                              <span className={`block text-[0.70rem] font-bold ${isSelected ? 'text-[#0439D9]' : 'text-[#011140]'}`}>
+                                {rol.titulo}
+                              </span>
+                              <span className={`block text-[0.55rem] font-semibold tracking-wider ${
+                                rol.value === 'ADMIN' ? 'text-[#0439D9]' : rol.value === 'DOCENTE' ? 'text-green-600' : 'text-orange-500'
+                              }`}>
+                                {rol.subtitulo}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                        type="checkbox"
-                        checked={formData.activo}
-                        onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                        className="sr-only peer"
+                  )}
+
+                  {/* Roles adicionales */}
+                  {rolesExtra.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-1">
+                      <p className="text-gray-400 text-[0.60rem] font-medium tracking-wide">ROLES ADICIONALES</p>
+                      <div className="flex flex-wrap gap-2">
+                        {rolesExtra.map((rol) => {
+                          const isSelected = form.rol === rol.value;
+                          return (
+                            <button
+                              key={rol.value}
+                              type="button"
+                              onClick={() => handleChange('rol', rol.value as Rol)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[0.70rem] font-semibold transition-all ${
+                                isSelected ? 'border-[#0439D9] bg-[#E1ECFF] text-[#0439D9]' : 'border-gray-200 bg-white text-gray-500 hover:border-[#0439D9]/50'
+                              }`}
+                            >
+                              <ShieldCheck size={12} />
+                              {rol.value}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Agregar rol nuevo */}
+                  <div className="flex flex-col gap-1 mt-1">
+                    <p className="text-gray-400 text-[0.60rem] font-medium tracking-wide">AGREGAR ROL</p>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={nuevoRol}
+                        onChange={e => { setNuevoRol(e.target.value.toUpperCase()); setErrorRol(''); }}
+                        onKeyDown={e => e.key === 'Enter' && handleAgregarRol()}
+                        placeholder="Ej: SUPERVISOR"
+                        maxLength={30}
+                        className="flex-1 text-xs border border-gray-200 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] uppercase"
                       />
-                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0439D9]"></div>
-                    </label>
+                      <button
+                        type="button"
+                        onClick={handleAgregarRol}
+                        disabled={guardandoRol || !nuevoRol.trim()}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-[#0439D9] text-white text-xs font-semibold rounded-md hover:bg-[#0027a2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {guardandoRol ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                        Agregar
+                      </button>
+                    </div>
+                    {errorRol && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errorRol}</p>}
                   </div>
+                </div>
+
+                {/* Toggles y tarjetas informativas */}
+                <div className="flex flex-col gap-3 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[#011140] text-[0.70rem] font-semibold">Estado de cuenta Activo</p>
+                      <p className="text-gray-400 text-[0.60rem]">Permite acceso inmediato al sistema</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleChange('activo', !form.activo)}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${form.activo ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.activo ? 'translate-x-6' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  {/* Credenciales por correo Card */}
+                  {/*<div className="rounded-lg border border-[#DBEAFE] bg-[#F8FBFF] px-3 py-2.5">
+                    <p className="text-[0.70rem] font-semibold text-[#011140]">Credenciales por correo</p>
+                    <p className="text-[0.60rem] text-gray-500 leading-relaxed">
+                      La contraseña provisional se envía automáticamente al correo institucional del usuario. No se muestra en pantalla.
+                    </p>
+                  </div>*/}
                 </div>
 
               </div>
             </div>
 
-            <div className="mt-6 px-4 py-3 bg-[#E9F1FF]/60 rounded-xl flex items-center gap-3 text-xs text-[#011140]">
-              <Info size={18} className="text-[#0439D9] shrink-0" />
-              <span>Los cambios se aplicarán inmediatamente. Toda acción queda auditada bajo la norma de seguridad académica institucional.</span>
+            {/* Banner inferior de auditoría */}
+            <div className="mt-4">
+              <div className="flex items-start gap-3 rounded-lg border border-[#DBEAFE] bg-[#EFF6FF] p-3">
+                <Info size={16} className="mt-0.5 flex-shrink-0 text-[#0439D9]" />
+                <p className="text-[0.70rem] leading-relaxed text-[#011140]">
+                  El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada bajo la norma de seguridad académica institucional.
+                </p>
+              </div>
             </div>
-          </form>
 
-          {/* Footer fijo */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
-            <span className="text-[11px] text-gray-400">* Campos con (*) son mandatorios</span>
-            <div className="flex gap-3 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 text-xs font-semibold transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                className="flex-1 sm:flex-none px-6 py-2.5 bg-[#0439D9] text-white rounded-xl hover:bg-[#0c41e1] text-xs font-semibold transition-colors shadow-sm shadow-blue-500/20"
-              >
-                Guardar Cambios
-              </button>
+            {generalError && (
+              <div className="mt-4 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-3">
+                <CircleAlert className="mr-2 mt-0.5 flex-shrink-0 text-[#B91C1C]" size={18} />
+                <p className="text-xs text-[#B91C1C]">{generalError}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t border-[#e3eaf1] bg-[#f8fbff] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+            <p className="flex items-center mb-3 text-[0.75rem] text-[#94A3B8] sm:mb-0 sm:hidden">
+              <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios
+            </p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center">
+                <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
+                >
+                  {loading ? (
+                    'Guardando...'
+                  ) : (
+                    <>
+                      <span className="sm:hidden">+ Guardar</span>
+                      <span className="hidden sm:flex sm:items-center gap-2">
+                        <Check size={18} strokeWidth={4} aria-hidden="true" className="shrink-0" /> Guardar cambios
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </form>
+      </div>
 
-      {/* 2. MODAL DE EDICIÓN EXITOSA */}
-      {modalState === 'success' && (
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-6 text-center select-none animate-in fade-in zoom-in duration-200">
-          <CheckCircle2 className="mx-auto text-[#0439D9] mb-3 select-none" size={48} />
-          <h3 className="text-lg font-bold text-[#011140] select-none">Actualización exitosa</h3>
-          <p className="text-xs text-gray-600 mt-2 mb-6 px-4 select-none">
-            La información y los roles de acceso del usuario fueron actualizados correctamente.
-          </p>
-          <button
-            type="button"
-            onClick={handleFinishSuccess}
-            className="w-full py-2.5 bg-[#0439D9] text-white rounded-xl hover:bg-[#0c41e1] text-xs font-semibold transition-colors shadow-sm"
-          >
-            Aceptar
-          </button>
-        </div>
-      )}
+      {/* Modal de éxito */}
+      {success && (
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-t-2xl border border-[#BFDBFE] bg-[#f0f5ff] shadow-2xl sm:rounded-2xl">
+            <div className="flex flex-col items-center px-5 pb-4 pt-8 sm:px-6">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 sm:h-16 sm:w-16">
+                <Check className="text-green-600" size={34} />
+              </div>
+              <h3 className="mb-1 text-center text-base font-bold text-[#011140] sm:text-lg">
+                Usuario actualizado correctamente
+              </h3>
+              <p className="text-center text-xs text-gray-600">
+                La información de la cuenta fue actualizada con éxito.
+              </p>
+            </div>
 
-      {/* 3. MODAL DE EDICIÓN FALLIDA */}
-      {modalState === 'error' && (
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-6 text-center select-none animate-in fade-in zoom-in duration-200">
-          <AlertTriangle className="mx-auto text-amber-500 mb-3 select-none" size={48} />
-          <h3 className="text-lg font-bold text-[#011140] select-none">Error al actualizar</h3>
-          <p className="text-xs text-gray-600 mt-2 mb-6 px-4 select-none">
-            Ocurrió un problema al intentar guardar los cambios del usuario. La información no fue actualizada.
-          </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setModalState('form')}
-              className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 text-xs font-semibold transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex-1 py-2.5 bg-[#0439D9] text-white rounded-xl hover:bg-[#0c41e1] text-xs font-semibold transition-colors shadow-sm"
-            >
-              Reintentar
-            </button>
+            <div className="px-5 pb-4 sm:px-6">
+              <div className="rounded-lg border border-[#BFDBFE] bg-white p-4">
+                <div className="mb-2 flex items-center justify-center gap-2 text-[#0439D9]">
+                  <Mail size={18} aria-hidden="true" />
+                  <p className="text-center text-[0.70rem] font-medium text-[#011140]">
+                    Correo institucional actualizado:
+                  </p>
+                </div>
+                <p className="break-all text-center text-sm font-semibold text-[#011140]">
+                  {registeredEmail}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full rounded-lg bg-[#0439D9] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2]"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-export default EditUserModal;
+}
