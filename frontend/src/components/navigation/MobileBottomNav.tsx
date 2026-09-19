@@ -1,6 +1,5 @@
-import { FileText, GraduationCap, House, LogOut, Users } from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { FileText, GraduationCap, House, Users } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
 
 const unavailableItems = [
   { label: 'Inicio', icon: House },
@@ -9,20 +8,12 @@ const unavailableItems = [
 ]
 
 export default function MobileBottomNav() {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login', { replace: true })
-  }
-
   return (
     <nav
       aria-label="Navegación principal móvil"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#B8CBEF] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-3px_10px_rgba(1,17,64,0.12)] lg:hidden"
     >
-      <ul className="mx-auto grid min-h-14 max-w-lg grid-cols-5">
+      <ul className="mx-auto grid min-h-14 max-w-lg grid-cols-4">
         {unavailableItems.map(({ label, icon: Icon }) => (
           <li key={label} className="flex min-w-0">
             <button
@@ -51,18 +42,6 @@ export default function MobileBottomNav() {
             <Users size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
             <span className="max-w-full truncate">Usuarios</span>
           </NavLink>
-        </li>
-
-        <li className="flex min-w-0">
-          <button
-            type="button"
-            onClick={handleLogout}
-            aria-label="Cerrar sesión"
-            className="flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-semibold leading-tight text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs"
-          >
-            <LogOut size={18} className="shrink-0 sm:h-5 sm:w-5" aria-hidden="true" />
-            <span className="max-w-full truncate px-0.5 text-center">Salir</span>
-          </button>
         </li>
       </ul>
     </nav>
