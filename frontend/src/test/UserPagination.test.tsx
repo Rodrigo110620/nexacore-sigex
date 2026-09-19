@@ -108,6 +108,8 @@ describe('UserPagination', () => {
     expect(screen.getByRole('button', { name: 'Ir a la página 1' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ir a la página 9' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ir a la página 10' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Ir a la página 10' })).toHaveClass('inline-flex')
+    expect(screen.getByRole('button', { name: 'Ir a la página 1' })).toHaveClass('hidden')
     expect(screen.getByRole('button', { name: 'Ir a la página 11' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ir a la página 20' })).toBeInTheDocument()
     expect(screen.getAllByText('…')).toHaveLength(2)

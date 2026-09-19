@@ -1,4 +1,4 @@
-import { X, Info, Check, CircleAlert, Mail, Dot } from 'lucide-react';
+import { X, Info, Check, CircleAlert, Mail, Dot, UserRoundPlus } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../services/api';
 import {
@@ -137,33 +137,41 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="register-user-title"
     >
-      <div className="flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border sm:border-gray-100">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 sm:pb-4">
-          <div className="min-w-0">
-            <h2 id="register-user-title" className="text-lg font-bold text-[#011140] sm:text-xl">
-              Registrar nuevo usuario
-            </h2>
-            <p className="mt-1 text-[11px] leading-relaxed text-gray-500 sm:text-xs">
-              Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.            </p>
+      <div className="flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-6">
+          <div className="min-w-0 flex-1">
+            <div aria-hidden="true" className="mx-auto mb-3 h-1 w-11 rounded-full bg-[#C4D2E7] sm:hidden" />
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9] sm:hidden">
+                <UserRoundPlus size={18} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="register-user-title" className="text-sm font-bold text-[#011140] sm:text-xl">Registrar Usuario</h2>
+                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 sm:mt-1 sm:text-xs">
+                  <span className="sm:hidden">Completa los datos del nuevo miembro</span>
+                  <span className="hidden sm:inline">Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.</span>
+                </p>
+              </div>
+            </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
             aria-label="Cerrar"
-            className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="mt-4 shrink-0 rounded-full bg-[#F1F6FF] p-2 text-[#627A9B] transition-colors hover:bg-gray-100 hover:text-gray-600 sm:mt-0 sm:rounded-lg sm:bg-transparent"
           >
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
               <PersonalInfoSection
                 form={form}
                 errors={errors}
@@ -178,7 +186,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
               />
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 hidden sm:block">
               <div className="flex items-start gap-3 rounded-lg border border-[#DBEAFE] bg-[#EFF6FF] p-3">
                 <Info size={16} className="mt-0.5 flex-shrink-0 text-[#0439D9]" />
                 <p className="text-[0.70rem] leading-relaxed text-[#011140] sm:text-[0.70rem]">
@@ -195,22 +203,21 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             )}
           </div>
 
-          <div className="shrink-0 border-t border-[#e3eaf1] bg-[#f8fbff] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
-            <p className="flex items-center mb-3 text-[0.75rem] text-[#94A3B8] sm:mb-0 sm:hidden"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
+          <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5 sm:text-[#011140]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
                 >
                   {loading ? (
                     'Registrando...'
@@ -228,7 +235,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
       </div>
 
       {success && (
-        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/40 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4">
           <div className="w-full max-w-md overflow-hidden rounded-t-2xl border border-[#BFDBFE] bg-[#f0f5ff] shadow-2xl sm:rounded-2xl">
             <div className="flex flex-col items-center px-5 pb-4 pt-8 sm:px-6">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 sm:h-16 sm:w-16">

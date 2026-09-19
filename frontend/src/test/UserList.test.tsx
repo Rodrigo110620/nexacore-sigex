@@ -89,6 +89,23 @@ describe('UserListContent', () => {
     })
   })
 
+  it('prioriza en móvil las acciones y estadísticas reales antes de las tarjetas', () => {
+    const { container } = render(
+      <UserListContent
+        users={users}
+        stats={{ totalUsuarios: 12, administradores: 2, docentes: 6, personalControl: 4, activos: 9, inactivos: 3 }}
+        onRegisterClick={vi.fn()}
+      />,
+    )
+
+    const filters = screen.getByRole('region', { name: 'Filtros de usuarios' })
+    const actions = screen.getByRole('button', { name: 'Registrar Usuario' }).parentElement
+    expect(actions).toHaveClass('order-first')
+    expect(filters.closest('[class*="mb-4"]')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Estadísticas de usuarios' }).parentElement).toHaveClass('order-1')
+    expect(container.querySelector('.lg\\:hidden')).toBeInTheDocument()
+  })
+
   it('muestra carga sin presentar prematuramente el estado vacío', () => {
     render(<UserListContent users={[]} loading />)
 

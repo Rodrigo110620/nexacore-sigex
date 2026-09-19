@@ -17,7 +17,7 @@ export default function CredentialsSection({
 }: CredentialsSectionProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2">
+      <div className="hidden items-center gap-2 sm:flex">
         <span className="w-1.5 h-1.5 rounded-full bg-[#0439D9]"></span>
         <h3 className="text-[#011140] font-bold text-xs tracking-wide">
           CREDENCIALES Y ACCESO
@@ -41,7 +41,7 @@ export default function CredentialsSection({
               : 'border-gray-300 focus:ring-[#E1ECFF]'
             }`}
         />
-        <p className="text-gray-600 text-[0.60rem]">
+        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
           Dominio permitido: cualquiera · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
         {errors.email && (
@@ -70,6 +70,9 @@ export default function CredentialsSection({
           </div>
           <button
             type="button"
+            role="switch"
+            aria-label="Estado de cuenta activo"
+            aria-checked={form.activo}
             onClick={() => onChange('activo', !form.activo)}
             className={`relative w-12 h-6 rounded-full transition-colors ${form.activo ? 'bg-green-500' : 'bg-gray-300'
               }`}
@@ -85,7 +88,7 @@ export default function CredentialsSection({
           <p className="text-[0.70rem] font-semibold text-[#011140]">
             Credenciales por correo
           </p>
-          <p className="text-[0.60rem] text-gray-500 leading-relaxed">
+          <p className="text-[0.60rem] leading-relaxed text-gray-500">
             La contraseña provisional se envía automáticamente al correo institucional del usuario. No se muestra en pantalla.
           </p>
         </div>
