@@ -76,11 +76,13 @@ pnpm dev
 
 | Servicio | URL |
 |---|---|
-| Frontend (React) | http://localhost:3000 |
+| Frontend (React) | http://localhost:3000 (si está ocupado: 3001, 3002…) |
 | Backend API | http://localhost:8080/api/v1 |
 | Health check | http://localhost:8080/api/v1/health |
 | Swagger UI | http://localhost:8080/api/v1/swagger-ui/index.html |
 | PgAdmin | http://localhost:5050 |
+
+**Móvil / otra PC (misma WiFi):** arranca el front con `pnpm dev` y abre `http://<IP-de-tu-PC>:3000`. El front usa `/api/v1` y Vite hace proxy al backend; no hace falta poner la IP en `VITE_API_BASE_URL`. Puerto del front: `FRONTEND_PORT` en `.env`.
 
 ---
 
