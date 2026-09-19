@@ -2,14 +2,13 @@ import axios from 'axios'
 
 /**
  * Instancia base de axios para todos los requests al backend.
- * La URL viene de la variable de entorno VITE_API_BASE_URL (definida en .env).
  *
- * Uso:
- *   import api from '@/services/api'
- *   const response = await api.get('/health')
+ * En desarrollo: por defecto `/api/v1` (misma origen). Vite hace proxy al backend,
+ * así funciona en localhost, otra PC o móvil en la misma WiFi sin cambiar la URL.
+ * Opcional: VITE_API_BASE_URL absoluto (ej. http://192.168.x.x:8080/api/v1).
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
