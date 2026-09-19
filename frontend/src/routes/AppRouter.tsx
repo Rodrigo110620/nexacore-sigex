@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { setNavigate } from '../utils/navigate'
 import LoginPage from '../pages/Login/LoginPage'
+import ForgotPasswordPage from '../pages/Login/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/Login/ResetPasswordPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
@@ -30,6 +32,8 @@ export default function AppRouter() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Dashboard general (cualquier usuario logueado) */}
         <Route

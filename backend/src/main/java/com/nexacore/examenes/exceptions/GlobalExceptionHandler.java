@@ -121,6 +121,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(cuerpo);
     }
 
+    /** Token de reset inválido, expirado o ya usado. */
+    @ExceptionHandler(TokenResetInvalidoException.class)
+    public ResponseEntity<ErrorResponse> manejarTokenReset(TokenResetInvalidoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage());
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
     /** Errores de negocio simples (ej. nueva igual a la actual). */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> manejarArgumentoInvalido(IllegalArgumentException ex) {
