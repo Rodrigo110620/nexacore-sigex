@@ -1,4 +1,5 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { validateEmail as validateEmailShared, FIELD_LIMITS } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
@@ -16,13 +17,6 @@ export default function Login__Sesion() {
 
     const navigate = useNavigate();
     const { login } = useAuth();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    const validateEmail = (value: string): string => {
-        if (!value.trim()) return 'El correo es obligatorio';
-        if (!emailRegex.test(value)) return 'Formato de correo inválido';
-        return '';
-    };
 
     const validatePassword = (value: string): string => {
         if (!value.trim()) return 'La contraseña es obligatoria';
@@ -32,7 +26,7 @@ export default function Login__Sesion() {
 
     const handleEmailBlur = () => {
         if (email.trim()) {
-            setEmailError(validateEmail(email));
+            setEmailError(validateEmailShared(email));
         }
     };
 
@@ -53,7 +47,7 @@ export default function Login__Sesion() {
             return;
         }
 
-        const emailErr = validateEmail(email);
+        const emailErr = validateEmailShared(email);
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
         setPasswordError(passwordErr);
@@ -76,18 +70,19 @@ export default function Login__Sesion() {
     return (
         <form
             onSubmit={handleSubmit}
+            noValidate
             className="w-full bg-white sm:px-4 lg:mt-0 lg:h-full lg:rounded-md lg:border lg:border-t-4 lg:border-t-[#0439D9] lg:px-10 lg:py-12 lg:shadow-lg lg:shadow-[#92aad2] xl:px-12"
         >
             <div className="flex flex-col gap-1 text-center lg:text-left mb-2">
                 <h1 className="mt-5 text-2xl font-extrabold lg:font-bold text-[#092068]">INICIAR SESIÓN</h1>
                 <p className="mb-8 text-xs text-gray-500 lg:mb-6">
-                    Ingresa con tus credenciales institucionales para acceder a la plataforma.
+                    Ingresa con tus credenciales para acceder a la plataforma.
                 </p>
             </div>
 
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-[#011140]">CORREO ELECTRÓNICO INSTITUCIONAL</label>
+                    <label className="text-xs font-semibold text-[#011140]">CORREO ELECTRÓNICO</label>
                     <div className="relative">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]" size={17} aria-hidden="true" />
                         <input
@@ -99,7 +94,8 @@ export default function Login__Sesion() {
                                 if (generalError) setGeneralError('');
                             }}
                             onBlur={handleEmailBlur}
-                            placeholder="usuario@umss.edu.bo"
+                            placeholder="usuario@cualquierdominio"
+                            maxLength={FIELD_LIMITS.email.max}
                             className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${
                                 emailError
                                     ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'

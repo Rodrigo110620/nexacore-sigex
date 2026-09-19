@@ -2,7 +2,7 @@ import { ShieldCheck, Clock, File } from 'lucide-react';
 
 export default function Login_Information() {
   return (
-    <div className=" bg-[#E1ECFF] rounded-xl px-6 py-7 flex flex-col shadow-sm h-full  shadow-[#6b88e0] ">
+    <div className=" bg-[#E1ECFF] rounded-xl lg:p-6 flex flex-col shadow-sm h-full  shadow-[#6b88e0] ">
 
       <div className="flex justify-center gap-2 mb-6">
         <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>

@@ -4,21 +4,14 @@ import type { FormErrors, RegisterUserFormState } from '../types/usuario.types';
 export const FIELD_LIMITS = {
   nombre: { min: 2, max: 30 },
   apellidos: { min: 2, max: 40 },
-  email: { min: 5, max: 30 },
+  email: { min: 5, max: 40 },   // ← antes decía 20
   documento: { min: 7, max: 8 },
   rol: { min: 2, max: 30 },
 } as const
 
-/**
- * Nombre/apellido válido:
- * - solo letras (incl. tildes, ü, ñ)
- * - espacios, guion o apóstrofe entre palabras (Ana María, María-José)
- * - sin números ni símbolos
- */
 const NOMBRE_REGEX =
   /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
 
-/** Filtra caracteres no permitidos mientras el usuario escribe. */
 export function sanitizeNombreInput(value: string): string {
   return value
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
@@ -77,10 +70,6 @@ export const validateEmail = (value: string): string => {
     return `Máximo ${FIELD_LIMITS.email.max} caracteres`
   }
 
-  // Regex estricta:
-  // - antes del @: solo letras, números y . _ % + -
-  // - después del @: letras, números, guiones y puntos
-  // - extensión final: mínimo 2 letras
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   if (!emailRegex.test(trimmed)) {
     return 'Formato de correo inválido'

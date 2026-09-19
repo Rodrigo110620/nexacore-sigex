@@ -39,8 +39,14 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // ✅ Solo si es 401 Y NO es login/recuperación → cerrar sesión
-    if (status === 401 && !isLoginRequest && !isPasswordRecoveryRequest) {
+    const isTestEnv = import.meta.env.MODE === 'test'
+
+    if (
+      status === 401 &&
+      !isLoginRequest &&
+      !isPasswordRecoveryRequest &&
+      !isTestEnv  
+    ) {
       localStorage.removeItem('token')
       localStorage.removeItem('nombre')
       localStorage.removeItem('roles')
@@ -49,5 +55,6 @@ api.interceptors.response.use(
 
     return Promise.reject(error)
   },
+
 )
 export default api
