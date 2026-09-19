@@ -58,7 +58,7 @@ describe('UsuariosPage', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByText('Gestión de usuarios')).toBeInTheDocument()
+    expect(screen.getByText('GESTIÓN DE USUARIOS')).toBeInTheDocument()
     expect(screen.getAllByText('ana.rojas@umss.edu.bo').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
