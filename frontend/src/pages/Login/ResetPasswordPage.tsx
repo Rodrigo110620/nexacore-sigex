@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="mx-auto flex w-full max-w-lg flex-col justify-center px-6 py-10 sm:px-8">
+      <div className="mx-auto bg-slate-300 flex w-full max-w-lg flex-col justify-center  px-6 py-10 sm:px-8">
         <Link
           to="/login"
           className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2]"
