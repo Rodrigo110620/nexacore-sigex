@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { setNavigate } from '../utils/navigate'
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
+import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
@@ -36,6 +37,16 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Perfil del usuario autenticado */}
+        <Route
+          path="/dashboard/perfil"
+          element={
+            <ProtectedRoute>
+              <PerfilPage />
             </ProtectedRoute>
           }
         />

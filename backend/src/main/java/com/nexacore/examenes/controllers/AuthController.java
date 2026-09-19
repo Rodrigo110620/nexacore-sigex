@@ -1,26 +1,28 @@
 package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.AuthResponse;
+import com.nexacore.examenes.dto.CambiarPasswordRequest;
 import com.nexacore.examenes.dto.LoginRequest;
+import com.nexacore.examenes.dto.PerfilResponse;
 import com.nexacore.examenes.services.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
- * Capa de transporte REST del login (HU AUTH-02).
+ * Autenticación y perfil del usuario logueado.
  *
- * La ruta se declara como "/auth" y NO como "/api/v1/auth" porque
- * application.yml ya define context-path: /api/v1. La URL final que
- * consume el frontend es POST /api/v1/auth/login.
- *
- * Respuestas: 200 OK, 400 Bad Request (validacion), 401 Unauthorized.
- * Las dos ultimas las produce el GlobalExceptionHandler.
- *
- * Tarea B4 - Sprint 1.
+ * POST /auth/login              → público
+ * GET  /auth/me                 → autenticado
+ * PUT  /auth/cambiar-password   → autenticado
  */
 @RestController
 @RequestMapping("/auth")
@@ -32,13 +34,22 @@ public class AuthController {
         this.authService = authService;
     }
 
-    /**
-     * Autentica al usuario y devuelve su token JWT.
-     *
-     * @Valid activa las validaciones del LoginRequest antes de entrar al metodo.
-     */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest peticion) {
         return ResponseEntity.ok(authService.login(peticion));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<PerfilResponse> miPerfil(Authentication authentication) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(authService.obtenerPerfil(email));
+    }
+
+    @PutMapping("/cambiar-password")
+    public ResponseEntity<Map<String, String>> cambiarPassword(
+            Authentication authentication,
+            @Valid @RequestBody CambiarPasswordRequest request) {
+        authService.cambiarPassword(authentication.getName(), request);
+        return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada correctamente"));
     }
 }

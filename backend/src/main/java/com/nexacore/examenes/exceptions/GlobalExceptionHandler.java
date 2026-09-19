@@ -103,6 +103,33 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(cuerpo);
     }
 
+    /** Contraseña actual incorrecta al cambiarla. */
+    @ExceptionHandler(PasswordActualIncorrectaException.class)
+    public ResponseEntity<ErrorResponse> manejarPasswordActual(PasswordActualIncorrectaException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage());
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** Confirmación de nueva contraseña no coincide. */
+    @ExceptionHandler(PasswordConfirmacionException.class)
+    public ResponseEntity<ErrorResponse> manejarPasswordConfirmacion(PasswordConfirmacionException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage());
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** Errores de negocio simples (ej. nueva igual a la actual). */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> manejarArgumentoInvalido(IllegalArgumentException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage());
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
     /** Usuario autenticado pero sin permisos suficientes (403). */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> manejarAccesoDenegado(AccessDeniedException ex) {
