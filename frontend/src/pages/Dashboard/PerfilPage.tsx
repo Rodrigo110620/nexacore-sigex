@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import {
+  ArrowLeft,
   CircleAlert,
   Eye,
   EyeOff,
@@ -11,6 +12,7 @@ import {
   UserRound,
   CheckCircle2,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import {
@@ -118,6 +120,13 @@ export default function PerfilPage() {
       <div className="min-h-full bg-[#F8FBFF] pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-8">
         <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
           <div className="mb-6">
+            <Link
+              to="/dashboard/usuarios"
+              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              Volver
+            </Link>
             <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">Mi perfil</h1>
             <p className="mt-1 text-sm text-gray-600">
               Consulta tus datos y cambia tu contraseña de acceso.

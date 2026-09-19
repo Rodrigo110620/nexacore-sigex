@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, LogOut, UserRound, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -89,9 +89,19 @@ export default function PanelTopBar() {
             role="menu"
             className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#D8E3F5] bg-white py-1 shadow-lg shadow-[#011140]/12"
           >
-            <div className="border-b border-[#EDF1F7] px-3 py-2.5 sm:hidden">
-              <p className="truncate text-sm font-semibold text-[#011140]">{displayName}</p>
-              <p className="truncate text-xs text-[#627A9B]">{roleLabel}</p>
+            <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[#011140]">{displayName}</p>
+                <p className="truncate text-xs text-[#627A9B]">{roleLabel}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar menú"
+                onClick={() => setOpen(false)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
             </div>
             <Link
               role="menuitem"
