@@ -74,7 +74,7 @@ export default function Login__Sesion() {
             className="w-full bg-white sm:px-4 lg:mt-0 lg:h-full lg:rounded-md lg:border lg:border-t-4 lg:border-t-[#0439D9] lg:px-10 lg:py-12 lg:shadow-lg lg:shadow-[#92aad2] xl:px-12"
         >
             <div className="flex flex-col gap-1 text-center lg:text-left mb-2">
-                <h1 className="mt-1 text-2xl font-extrabold lg:font-bold text-[#092068]">INICIAR SESIÓN</h1>
+                <h1 className="mt-1 text-2xl font-extrabold lg:font-extrabold text-[#092068]">INICIAR SESIÓN</h1>
                 <p className="mb-8 text-sm text-gray-500 lg:mb-10">
                     Ingresa con tus credenciales para acceder a la plataforma.
                 </p>
