@@ -47,14 +47,15 @@ export default function PanelTopBar() {
   const roleLabel = roles.length > 0 ? roles.join(', ') : 'Sin rol'
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-3 border-b border-[#D8E3F5] bg-white/95 px-3 backdrop-blur sm:h-16 sm:px-5 lg:px-6">
+    <>
+    <header className="sticky top-0 z-30 flex  w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 p-2 backdrop-blur sm:h-20 sm:px-5 lg:px-6  lg:py-6">
       <div className="min-w-0 flex-1">
         <div className="lg:hidden">
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
         <div className="hidden min-w-0 lg:block">
-          <p className="truncate text-sm font-semibold text-[#011140]">Panel SIGEX</p>
-          <p className="truncate text-xs text-[#627A9B]">Sistema de control e ingreso a exámenes</p>
+          <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
+          <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
         </div>
       </div>
 
@@ -65,7 +66,7 @@ export default function PanelTopBar() {
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label={`Menú de cuenta: ${displayName}`}
-          className="inline-flex h-10 max-w-[12rem] items-center gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] px-2 transition-colors hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:px-2.5 md:max-w-[18rem]"
+          className="inline-flex h-10 max-w-[12rem] items-center gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] px-3 transition-colors hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:px-2.5 md:max-w-[18rem]"
         >
           <span
             aria-hidden="true"
@@ -125,5 +126,11 @@ export default function PanelTopBar() {
         )}
       </div>
     </header>
+    <div className="bg-white py-3 px-4 lg:hidden">
+      <p className="text-lg font-bold text-[#011140]">GESTION DE USARIOS</p>
+      <p className="text-xs text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+    </div>
+  </>
+
   )
 }
