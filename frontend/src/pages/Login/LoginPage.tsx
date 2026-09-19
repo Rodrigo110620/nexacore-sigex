@@ -6,7 +6,7 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <div className="mx-auto flex min-h-full w-full items-center justify-center p-7 sm:px-8 lg:px-8 lg:py-8">
-        <div className="grid w-full grid-cols-1 items-stretch gap-8 lg:grid-cols-[1.6fr_0.7fr] lg:gap-12 ">
+        <div className="grid w-full grid-cols-1 items-stretch gap-8 lg:grid-cols-[1.6fr_0.7fr] lg:gap-10 ">
           <div className="flex min-h-0 w-full items-center justify-center lg:justify-end">
             <div className="flex w-full max-w-2xl flex-col items-center">
               <div className="flex flex-col items-center lg:hidden">
@@ -23,7 +23,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="hidden min-h-0 w-full lg:block pl-6">
+          <div className="hidden min-h-0 w-full lg:block lg:px-7">
             <Login_Information />
           </div>
         </div>
