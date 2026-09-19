@@ -74,39 +74,33 @@ export default function UserListContent({
   }, [debouncedSearch, draftFilters.rol, draftFilters.estado, onFiltersChange])
 
   return (
-    <section aria-labelledby="users-title" className="bg-transparent px-4 py-8 sm:px-6 lg:px-10">
+    <section aria-labelledby="users-title" className="bg-transparent px-3 py-6 sm:px-6 sm:py-8 lg:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="-mx-4 -mt-8 mb-6 bg-white px-4 py-5 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 border-b">
-          <div>
-            <h1 id="users-title" className=" text-2xl font-bold text-[#011140]">Gestión de usuarios</h1>
-            <p className="text-sm text-gray-600">Consulta las cuentas registradas, sus roles y estados de acceso.</p>
-          </div>
-        </div>
-
-        <div className="mb-6 rounded-xl bg-white p-3 shadow-sm ring-1 ring-[#D8E3F5] sm:p-4">
+        <div className="mb-5 rounded-xl bg-white p-3 shadow-sm ring-1 ring-[#D8E3F5] sm:mb-6 sm:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="min-w-0 flex-1">
               <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
             </div>
-            <div className="flex flex-wrap gap-2 lg:shrink-0">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:shrink-0">
               <button
                 type="button"
                 disabled
                 aria-label="Exportar usuarios, no disponible"
-                className="inline-flex h-11 items-center gap-2 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-4 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-3 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 sm:w-auto sm:px-4"
               >
                 <Download size={16} aria-hidden="true" />
-                Exportar
+                <span className="truncate">Exportar</span>
               </button>
               <button
                 type="button"
                 onClick={onRegisterClick}
                 disabled={!onRegisterClick}
                 aria-label="Registrar Usuario"
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:px-4"
               >
-                <UserPlus size={16} aria-hidden="true" />
-                Registrar Usuario
+                <UserPlus size={16} aria-hidden="true" className="shrink-0" />
+                <span className="truncate sm:hidden">Registrar</span>
+                <span className="hidden truncate sm:inline">Registrar Usuario</span>
               </button>
             </div>
           </div>
@@ -141,7 +135,7 @@ export default function UserListContent({
         ) : users.length > 0 ? (
           <>
             <div className="lg:hidden">
-              <UserCardList users={users} />
+              <UserCardList users={users} onEditClick={onEditClick} />
             </div>
             <div className="hidden lg:block">
               <UserTable users={users} onEditClick={onEditClick} />

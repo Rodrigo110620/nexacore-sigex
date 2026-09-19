@@ -5,16 +5,28 @@ import Login_Sesion from './Login_Sesion';
 export default function LoginPage() {
   return (
     <AuthLayout>
-      <div className="h-full grid grid-cols-[1.5fr_1.5fr] w-full">
-        
-        <div className="flex items-center justify-end">
-          <Login_Sesion />
-        </div>
+      <div className="mx-auto flex min-h-full w-full items-center justify-center p-7 sm:px-8 lg:px-8 lg:py-8">
+        <div className="grid w-full pr-8 grid-cols-1 items-stretch gap-8 lg:grid-cols-[1.6fr_0.7fr] lg:gap-16">
+          <div className="flex min-h-0 w-full items-center justify-center">
+            <div className="flex flex-col items-center ml-auto max-w-2xl w-full">
+              <div className="flex flex-col items-center lg:hidden">
+                <p className="rounded-full border border-[#D8E3F5] bg-[#F4F8FF] px-4 py-2 text-center text-[11px] font-bold text-[#0439D9]">
+                  SISTEMA DE CONTROL &amp; INGRESO A EXÁMENES
+                </p>
+                <img src="/logo_app.png" alt="SIGEX" className="mt-7 h-15 w-48 object-contain" />
+              </div>
+              <Login_Sesion />
+              <p className="mt-auto pt-12 text-center text-xs leading-5 text-[#627A9B] lg:hidden">
+                NexaCore Arquitectura de Software S.R.L 2026<br />
+                Laboratorio TIS – UMSS v0.1
+              </p>
+            </div>
+          </div>
 
-        <div className="h-full w-full py-5 px-12">
-          <Login_Information />
+          <div className="hidden min-h-0 w-full lg:block justify-self-end ">
+            <Login_Information />
+          </div>
         </div>
-
       </div>
     </AuthLayout>
   );

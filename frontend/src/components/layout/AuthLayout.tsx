@@ -8,12 +8,16 @@ interface AuthLayoutProps {
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="h-screen flex flex-col bg-white">
-      <Header />
-      <main className="flex-1 overflow-hidden">
+    <div className="flex min-h-screen flex-col bg-white "> 
+      <div className="hidden lg:block">
+        <Header />
+      </div>
+      <main className="flex flex-1 items-stretch overflow-y-auto">
         {children}
       </main>
-      <Footer />
+      <div className="hidden lg:block">
+        <Footer />
+      </div>
     </div>
   );
 }

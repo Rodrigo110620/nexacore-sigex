@@ -2,6 +2,8 @@ import { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, ClipboardList, GraduationCap, Users, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import Footer from './Footer'
+import PanelTopBar from './PanelTopBar'
 
 interface PanelLayoutProps {
   children: ReactNode
@@ -44,26 +46,24 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen">
-
-      {/* Sidebar */}
-      <aside className="w-52 flex-shrink-0 flex flex-col"
-        style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}>
-
-        {/* Logo */}
-        <div className="flex items-center px-5 py-5 border-b border-white/10">
+    <div className="flex h-dvh overflow-hidden">
+      {/* Sidebar fijo al alto del viewport; Cerrar sesión siempre visible */}
+      <aside
+        className="hidden h-full w-52 shrink-0 flex-col xl:w-56 lg:flex"
+        style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
+      >
+        <div className="flex shrink-0 items-center border-b border-white/10 px-5 py-5">
           <img src="/logo_app.png" alt="SIGEX" className="h-10 object-contain" />
         </div>
 
-        {/* Navegación */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {NAV_ITEMS.map(({ label, icon: Icon, to, disabled }) =>
             disabled ? (
               <div
                 key={label}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/40 cursor-not-allowed select-none"
+                className="flex cursor-not-allowed select-none items-center gap-3 rounded-lg px-3 py-2.5 text-white/40"
               >
-                <Icon size={18} />
+                <Icon size={18} className="shrink-0" />
                 <span className="text-sm font-medium">{label}</span>
               </div>
             ) : (
@@ -71,37 +71,39 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
                 key={label}
                 to={to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-white/20 text-white font-bold'
+                      ? 'bg-white/20 font-bold text-white'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <Icon size={18} />
-                {label}
+                <Icon size={18} className="shrink-0" />
+                <span className="truncate">{label}</span>
               </NavLink>
             )
           )}
         </nav>
 
-        {/* Cerrar sesión */}
-        <div className="px-3 pb-5">
+        <div className="shrink-0 border-t border-white/10 px-3 py-4">
           <button
+            type="button"
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
           >
-            <LogOut size={18} />
-            Cerrar sesión
+            <LogOut size={18} className="shrink-0" aria-hidden="true" />
+            <span className="truncate">Cerrar sesión</span>
           </button>
         </div>
       </aside>
 
-      {/* Contenido principal */}
-      <main className="flex-1 bg-gray-50 overflow-auto">
-        {children}
-      </main>
-
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
+        <PanelTopBar />
+        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <div className="hidden shrink-0 lg:block">
+          <Footer />
+        </div>
+      </div>
     </div>
   )
 }

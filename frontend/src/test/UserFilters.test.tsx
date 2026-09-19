@@ -79,7 +79,8 @@ describe('UserFilters', () => {
     const role = screen.getByLabelText('Rol')
     const filtersRegion = screen.getByRole('region', { name: 'Filtros de usuarios' })
 
-    expect(filtersRegion.closest('.mb-6')).toBeInTheDocument()
+    expect(filtersRegion.closest('.mb-5, .sm\\:mb-6') || filtersRegion.closest('[class*="mb-5"]')).toBeTruthy()
+    expect(filtersRegion.closest('[class*="rounded-xl"]')).toBeInTheDocument()
     fireEvent.change(search, { target: { value: 'Ána' } })
     act(() => vi.advanceTimersByTime(300))
     expect(onFiltersChange).toHaveBeenCalledTimes(1)

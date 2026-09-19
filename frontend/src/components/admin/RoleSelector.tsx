@@ -1,4 +1,4 @@
-import { Shield, BookOpen, Eye, Plus, Loader2 } from 'lucide-react';
+import { BookOpen, Eye, Plus, Loader2, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 import { useRoles } from '../../hooks/useRoles';
@@ -11,8 +11,8 @@ interface RoleSelectorProps {
 
 const ROLES_PRINCIPALES = new Set(['ADMIN', 'DOCENTE', 'CONTROL']);
 
-const ICONS: Record<string, typeof Shield> = {
-  ADMIN: Shield,
+const ICONS: Record<string, typeof ShieldCheck> = {
+  ADMIN: ShieldCheck,
   DOCENTE: BookOpen,
   CONTROL: Eye,
 };
@@ -57,11 +57,11 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
   return (
     <div className="flex flex-col gap-2">
       <label className="text-[#011140] font-medium text-[0.70rem]">
-        Rol Asignado en Plataforma *
+        Rol Asignado en Plataforma <span className="text-red-500">*</span>
       </label>
 
-      {/* Tarjetas principales — siempre los 3 fijos */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* En móviles angostos: lista; desde ~380px: 3 columnas */}
+      <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3 min-[380px]:gap-2 sm:gap-3">
         {ROLES_OPTIONS.map((rol) => {
           const Icon = ICONS[rol.value];
           const isSelected = value === rol.value;
@@ -71,22 +71,24 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
               key={rol.value}
               type="button"
               onClick={() => onChange(rol.value)}
-              className={`flex flex-col items-center justify-center gap-1 p-3 rounded-lg border transition-all ${
+              className={`flex min-h-11 items-center gap-3 rounded-lg border p-3 transition-all min-[380px]:flex-col min-[380px]:items-center min-[380px]:justify-center min-[380px]:gap-1 min-[380px]:p-2.5 sm:p-3 ${
                 isSelected
                   ? 'border-[#0439D9] bg-[#E1ECFF] shadow-sm'
                   : 'border-gray-200 bg-white hover:border-[#0439D9]/50'
               }`}
             >
-              <Icon size={20} className={isSelected ? 'text-[#0439D9]' : 'text-gray-400'} />
-              <span className={`text-[0.70rem] font-bold ${isSelected ? 'text-[#0439D9]' : 'text-[#011140]'}`}>
-                {rol.titulo}
-              </span>
-              <span className={`text-[0.55rem] font-semibold tracking-wider ${
-                rol.value === 'ADMIN' ? 'text-[#0439D9]'
-                : rol.value === 'DOCENTE' ? 'text-green-600'
-                : 'text-orange-500'
-              }`}>
-                {rol.subtitulo}
+              <Icon size={20} className={`shrink-0 ${isSelected ? 'text-[#0439D9]' : 'text-gray-400'}`} />
+              <span className="min-w-0 flex-1 text-left min-[380px]:flex-none min-[380px]:text-center">
+                <span className={`block text-[0.70rem] font-bold ${isSelected ? 'text-[#0439D9]' : 'text-[#011140]'}`}>
+                  {rol.titulo}
+                </span>
+                <span className={`block text-[0.55rem] font-semibold tracking-wider ${
+                  rol.value === 'ADMIN' ? 'text-[#0439D9]'
+                  : rol.value === 'DOCENTE' ? 'text-green-600'
+                  : 'text-orange-500'
+                }`}>
+                  {rol.subtitulo}
+                </span>
               </span>
             </button>
           )
@@ -111,7 +113,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
                       : 'border-gray-200 bg-white text-gray-500 hover:border-[#0439D9]/50'
                   }`}
                 >
-                  <Shield size={12} />
+                  <ShieldCheck size={12} />
                   {rol.value}
                 </button>
               )

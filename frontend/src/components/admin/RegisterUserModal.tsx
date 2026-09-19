@@ -1,4 +1,4 @@
-import { X, Info, CheckCircle, CircleAlert, Copy } from 'lucide-react';
+import { X, Info, Check, CircleAlert, Mail, Dot } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../services/api';
 import {
@@ -14,15 +14,16 @@ import CredentialsSection from './CredentialsSection';
 interface RegisterUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModalProps) {
+export default function RegisterUserModal({ isOpen, onClose, onSuccess }: RegisterUserModalProps) {
   const [form, setForm] = useState<RegisterUserFormState>(INITIAL_FORM_STATE);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [passwordTemporal, setPasswordTemporal] = useState('');
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   if (!isOpen) return null;
 
@@ -53,7 +54,7 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
     setErrors({});
     setGeneralError('');
     setSuccess(false);
-    setPasswordTemporal('');
+    setRegisteredEmail('');
     onClose();
   };
 
@@ -62,7 +63,16 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
     setGeneralError('');
     setSuccess(false);
 
-    const formErrors = validateForm(form);
+    //BUG1: Limpiar espacios al inicio/final de los campos de texto
+    const cleanForm = {
+      ...form,
+      nombre: form.nombre.trim(),
+      apellidos: form.apellidos.trim(),
+      documento: form.documento.trim(),
+      email: form.email.trim(),
+    };
+
+    const formErrors = validateForm(cleanForm);
     setErrors(formErrors);
 
     if (hasErrors(formErrors)) {
@@ -72,18 +82,18 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
 
     setLoading(true);
     try {
-      // Mapeo: form.documento → ci (nombre del campo en el backend)
-      const { data } = await api.post('/usuarios', {
-        nombre: form.nombre,
-        apellidos: form.apellidos,
-        ci: form.documento,
-        email: form.email,
-        rol: form.rol,
-        activo: form.activo,
-        notificarEmail: form.notificarEmail,
+      await api.post('/usuarios', {
+        nombre: cleanForm.nombre,
+        apellidos: cleanForm.apellidos,
+        ci: cleanForm.documento,
+        email: cleanForm.email,
+        rol: cleanForm.rol,
+        activo: cleanForm.activo,
+        notificarEmail: true,
       });
-      setPasswordTemporal(data.passwordTemporal ?? '');
+      setRegisteredEmail(cleanForm.email);
       setSuccess(true);
+      onSuccess?.();
     } catch (err: unknown) {
       const error = err as {
         response?: {
@@ -125,29 +135,35 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
     }
   };
 
-     return (
-    <>
-      <div className="fixed inset-0 lg:left-64 flex items-center justify-center z-50 p-4">
-
-        <div className="relative bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100">
-
-          <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100">
-            <div>
-              <h2 className="text-[#011140] font-bold text-xl">Registrar Nuevo Usuario</h2>
-              <p className="text-gray-500 text-xs mt-1">
-                Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.
-              </p>
-            </div>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-            >
-              <X size={20} />
-            </button>
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="register-user-title"
+    >
+      <div className="flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border sm:border-gray-100">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 sm:pb-4">
+          <div className="min-w-0">
+            <h2 id="register-user-title" className="text-lg font-bold text-[#011140] sm:text-xl">
+              Registrar nuevo usuario
+            </h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-gray-500 sm:text-xs">
+              Ingresa los datos para dar de alta una nueva cuenta y asignar roles de acceso institucional.            </p>
           </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="max-h-[calc(90vh-100px)] overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <PersonalInfoSection
                 form={form}
                 errors={errors}
@@ -162,119 +178,99 @@ export default function RegisterUserModal({ isOpen, onClose }: RegisterUserModal
               />
             </div>
 
-            <div className="px-6 pb-4">
-              <div className="flex items-start gap-3 bg-[#EFF6FF] border border-[#DBEAFE] rounded-lg p-2">
-                <Info size={16} className="text-[#0439D9] mt-0.5 flex-shrink-0" />
-                <p className="text-[#011140] text-[0.70rem] leading-relaxed">
-                  El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada
-                  bajo la norma de seguridad académica institucional.
+            <div className="mt-4">
+              <div className="flex items-start gap-3 rounded-lg border border-[#DBEAFE] bg-[#EFF6FF] p-3">
+                <Info size={16} className="mt-0.5 flex-shrink-0 text-[#0439D9]" />
+                <p className="text-[0.70rem] leading-relaxed text-[#011140] sm:text-[0.70rem]">
+                  El usuario recibirá un token de seguridad de un solo uso. Toda acción quedará auditada bajo la norma de seguridad académica institucional.
                 </p>
               </div>
             </div>
 
             {generalError && (
-              <div className="mx-6 mb-4 flex items-center border border-[#FECACA] bg-[#FEF2F2] p-3 rounded-md">
-                <CircleAlert className="text-[#B91C1C] mr-2 flex-shrink-0" size={18} />
-                <p className="text-[#B91C1C] text-xs">{generalError}</p>
+              <div className="mt-4 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-3">
+                <CircleAlert className="mr-2 mt-0.5 flex-shrink-0 text-[#B91C1C]" size={18} />
+                <p className="text-xs text-[#B91C1C]">{generalError}</p>
               </div>
             )}
+          </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-              <p className="text-gray-400 text-[0.65rem]">
-                Campos con (*) son mandatorios
-              </p>
-              <div className="flex gap-3">
+          <div className="shrink-0 border-t border-[#e3eaf1] bg-[#f8fbff] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
+            <p className="flex items-center mb-3 text-[0.75rem] text-[#94A3B8] sm:mb-0 sm:hidden"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 text-sm text-[#011140] font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-[#0439D9] text-white font-bold text-sm rounded-lg hover:bg-[#0027a2] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
                 >
                   {loading ? (
-                    'GUARDANDO...'
+                    'Registrando...'
                   ) : (
                     <>
-                      <CheckCircle size={16} />
-                      Guardar y Registrar Usuario
+                      <span className="sm:hidden"> + Registrar Usuario</span>
+                      <span className="hidden sm:flex sm:items-center gap-2 "> <Check size={18} strokeWidth={4} aria-hidden="true" className="shrink-0" /> Guardar y Registrar usuario</span>
                     </>
                   )}
                 </button>
               </div>
             </div>
-          </form>
+          </div>
+        </form>
+      </div>
 
-          {/* ==================== SHADOW PLOMO SOLO SOBRE ESTE MODAL ==================== */}
-          {success && (
-            <div className="absolute inset-0 bg-gray-400/5 backdrop-blur-[1px] rounded-2xl z-10"></div>
-          )}
+      {success && (
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md overflow-hidden rounded-t-2xl border border-[#BFDBFE] bg-[#f0f5ff] shadow-2xl sm:rounded-2xl">
+            <div className="flex flex-col items-center px-5 pb-4 pt-8 sm:px-6">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 sm:h-16 sm:w-16">
+                <Check className="text-green-600" size={34} />
+              </div>
+              <h3 className="mb-1 text-center text-base font-bold text-[#011140] sm:text-lg">
+                Usuario registrado correctamente
+              </h3>
+              <p className="text-center text-xs text-gray-600">
+                La cuenta fue creada. Las credenciales se enviaron por correo.
+              </p>
+            </div>
 
-        </div>
-
-        {/* ==================== MODAL SECUNDARIO (ÉXITO) ENCIMA ==================== */}
-        {success && (
-          <div className="absolute inset-0 flex items-center justify-center z-[60] p-4">
-            <div className="bg-[#f0f5ff] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-[#BFDBFE]">
-
-              {/* Header con ícono de éxito */}
-              <div className="flex flex-col items-center pt-8 pb-4 px-6">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                  <CheckCircle className="text-green-600" size={36} />
+            <div className="px-5 pb-4 sm:px-6">
+              <div className="rounded-lg border border-[#BFDBFE] bg-white p-4">
+                <div className="mb-2 flex items-center justify-center gap-2 text-[#0439D9]">
+                  <Mail size={18} aria-hidden="true" />
+                  <p className="text-center text-[0.70rem] font-medium text-[#011140]">
+                    Contraseña enviada a:
+                  </p>
                 </div>
-
-                <h3 className="text-[#011140] font-bold text-lg mb-1">
-                  Usuario registrado correctamente
-                </h3>
-                <p className="text-gray-600 text-xs text-center">
-                  La cuenta fue creada exitosamente.
+                <p className="break-all text-center text-sm font-semibold text-[#011140]">
+                  {registeredEmail}
+                </p>
+                <p className="mt-2 text-center text-[0.65rem] text-gray-500">
+                  Revisa Mailtrap (o el buzón institucional) para entregar la clave al usuario.
                 </p>
               </div>
+            </div>
 
-              {/* Contraseña provisional */}
-              {passwordTemporal && (
-                <div className="px-6 pb-4">
-                  <div className="bg-white border border-[#BFDBFE] rounded-lg p-4">
-                    <p className="text-[0.70rem] text-[#011140] mb-2 text-center font-medium">
-                      Contraseña provisional (entrégala al usuario):
-                    </p>
-                    <div className="flex items-center justify-between gap-3 bg-[#EFF6FF] border border-[#BFDBFE] rounded-md p-3">
-                      <code className="text-base font-bold text-[#011140] tracking-widest flex-1 text-center">
-                        {passwordTemporal}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard.writeText(passwordTemporal)}
-                        className="text-gray-500 hover:text-[#0439D9] transition-colors p-1"
-                        title="Copiar contraseña"
-                      >
-                        <Copy size={18} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Botón Cerrar */}
-              <div className="px-6 pb-6">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full px-6 py-3 bg-[#0439D9] text-white font-bold text-sm rounded-lg hover:bg-[#0027a2] transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-
+            <div className="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full rounded-lg bg-[#0439D9] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2]"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
-        )}
-
-      </div>
-    </>
+        </div>
+      )}
+    </div>
   );
 }

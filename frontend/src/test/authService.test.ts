@@ -37,7 +37,7 @@ describe('authService — loginUser', () => {
 
     await expect(
       loginUser({ email: 'wrong@nexacore.com', password: 'mal' })
-    ).rejects.toThrow('Correo o contraseña incorrectos.')
+    ).rejects.toThrow('Revise su correo o contraseña institucional e intente de nuevo.')
   })
 
   it('lanza error de conexión si el servidor no responde', async () => {
