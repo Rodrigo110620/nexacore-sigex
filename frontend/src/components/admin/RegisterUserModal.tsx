@@ -199,18 +199,19 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             <p className="flex items-center mb-3 text-[0.75rem] text-[#94A3B8] sm:mb-0 sm:hidden"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center"> <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios</p>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+              {/* 🎯 CAMBIO: antes era grid grid-cols-2, ahora es flex flex-col-reverse */}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
+                  className="w-full rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   {loading ? (
                     'Registrando...'

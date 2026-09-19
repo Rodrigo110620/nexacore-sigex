@@ -286,7 +286,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                     type="email"
                     value={form.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    placeholder="usuario@"
+                    placeholder="usuario@cualquierdominio"
                     maxLength={FIELD_LIMITS.email.max}
                     className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
                       errors.email ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
@@ -401,13 +401,6 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.activo ? 'translate-x-6' : 'translate-x-0'}`} />
                     </button>
                   </div>
-                  {/* Credenciales por correo Card */}
-                  {/*<div className="rounded-lg border border-[#DBEAFE] bg-[#F8FBFF] px-3 py-2.5">
-                    <p className="text-[0.70rem] font-semibold text-[#011140]">Credenciales por correo</p>
-                    <p className="text-[0.60rem] text-gray-500 leading-relaxed">
-                      La contraseña provisional se envía automáticamente al correo institucional del usuario. No se muestra en pantalla.
-                    </p>
-                  </div>*/}
                 </div>
 
               </div>
@@ -440,18 +433,19 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
               <p className="hidden text-[0.75rem] text-gray-400 sm:flex sm:items-center">
                 <span className="text-[#3B82F6]"><Dot/></span> Campos con (*) son mandatorios
               </p>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
+              {/* 🎯 CAMBIO: antes era grid grid-cols-2, ahora es flex flex-col-reverse */}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:w-auto sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:px-5 sm:py-2.5"
+                  className="w-full rounded-lg px-4 py-3 text-sm font-medium text-[#011140] transition-colors hover:bg-gray-200 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-2.5"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   {loading ? (
                     'Guardando...'
