@@ -54,7 +54,7 @@ export default function PanelTopBar() {
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
         <div className="hidden min-w-0 lg:block">
-          <p className="truncate text-lg font-bold text-[#011140]">GESTION DE USUARIOS</p>
+          <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
           <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
         </div>
       </div>
