@@ -1,6 +1,6 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -116,11 +116,11 @@ export default function Login__Sesion() {
                 <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-center font-medium text-[0.70rem]">
                         <label className="text-[#011140]">CONTRASEÑA</label>
-                        <button
-                            type="button"
+                        <Link
+                            to="/forgot-password"
                             className="text-[#0439D9] hover:text-[#5086F2] hover:underline transition-colors">
                             ¿Olvidaste tu contraseña?
-                        </button>
+                        </Link>
                     </div>
                     <div className="relative">
                         <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]" size={17} aria-hidden="true" />

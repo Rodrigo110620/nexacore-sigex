@@ -47,3 +47,6 @@ app:
   mail:
     enabled: ${MAIL_ENABLED:true}
     from: ${MAIL_FROM:noreply@sigex.local}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  password-reset:
+    expiration-minutes: ${PASSWORD_RESET_EXPIRATION_MINUTES:30}

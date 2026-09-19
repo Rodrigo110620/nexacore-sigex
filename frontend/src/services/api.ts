@@ -32,13 +32,15 @@ api.interceptors.response.use(
     const status = error.response?.status
     const url = String(error.config?.url ?? '')
     const isLoginRequest = url.includes('/auth/login')
+    const isPasswordRecoveryRequest =
+      url.includes('/auth/forgot-password') || url.includes('/auth/reset-password')
 
     if (!error.response) {
       return Promise.reject(error)
     }
 
-    // ✅ Solo si es 401 Y NO es login → cerrar sesión
-    if (status === 401 && !isLoginRequest) {
+    // ✅ Solo si es 401 Y NO es login/recuperación → cerrar sesión
+    if (status === 401 && !isLoginRequest && !isPasswordRecoveryRequest) {
       localStorage.removeItem('token')
       localStorage.removeItem('nombre')
       localStorage.removeItem('roles')

@@ -98,6 +98,12 @@ class ExamenesApplicationTests {
         assertPublicPath(mockMvc.perform(post("/auth/login")).andReturn());
     }
 
+    @Test
+    void forgotAndResetPasswordPathsArePublic() throws Exception {
+        assertPublicPath(mockMvc.perform(post("/auth/forgot-password")).andReturn());
+        assertPublicPath(mockMvc.perform(post("/auth/reset-password")).andReturn());
+    }
+
     private void assertPublicPath(MvcResult result) {
         int status = result.getResponse().getStatus();
         Assertions.assertNotEquals(HttpStatus.UNAUTHORIZED.value(), status);
