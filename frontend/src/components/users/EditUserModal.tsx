@@ -65,7 +65,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
 
   const handleAddRol = () => {
     if (!nuevoRol.trim()) return;
-    // Lógica opcional para enviar el nuevo rol a tu API o manejarlo localmente
     setNuevoRol('');
   };
 
@@ -134,32 +133,34 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 p-0 sm:items-center sm:p-4 sm:overflow-y-auto">
       
       {/* 1. FORMULARIO PRINCIPAL */}
       {modalState === 'form' && (
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-100 my-auto max-h-[90vh] flex flex-col">
+        <div className="flex h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl sm:my-auto sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border sm:border-gray-100">
           
-          <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex justify-between items-start shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#011140]">Editar Datos del Usuario</h2>
-              <p className="text-xs text-gray-600 font-normal mt-0.5">Modifica los datos del usuario para mantener actualizada su información y sus roles de acceso.</p>
+          {/* Header */}
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-4 sm:pt-6">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-[#011140] sm:text-xl">Editar Datos del Usuario</h2>
+              <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">Modifica los datos del usuario para mantener actualizada su información y sus roles de acceso.</p>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
               <X size={20} />
             </button>
           </div>
 
-          <form onSubmit={handleSave} className="overflow-y-auto flex-1 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Form Scrollable */}
+          <form onSubmit={handleSave} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-900">
-                  <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>
+                  <span className="h-2 w-2 rounded-full bg-[#0439D9]"></span>
                   Información Personal
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Nombres <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -168,13 +169,13 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     maxLength={20}
                     value={formData.nombres}
                     onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.nombres ? 'border-red-500' : 'border-gray-200'}`}
+                    className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.nombres ? 'border-red-500' : 'border-gray-200'}`}
                   />
-                  {errors.nombres && <span className="text-[10px] text-red-500 mt-1 block">{errors.nombres}</span>}
+                  {errors.nombres && <span className="mt-1 block text-[10px] text-red-500">{errors.nombres}</span>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Apellidos Completos <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -183,17 +184,17 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     maxLength={50}
                     value={formData.apellidos}
                     onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.apellidos ? 'border-red-500' : 'border-gray-200'}`}
+                    className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.apellidos ? 'border-red-500' : 'border-gray-200'}`}
                   />
-                  {errors.apellidos && <span className="text-[10px] text-red-500 mt-1 block">{errors.apellidos}</span>}
+                  {errors.apellidos && <span className="mt-1 block text-[10px] text-red-500">{errors.apellidos}</span>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Documento de Identidad <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center">
-                    <span className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-xs font-bold select-none mr-2 shrink-0">
+                    <span className="mr-2 inline-flex shrink-0 select-none items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700">
                       CI
                     </span>
                     <input
@@ -203,21 +204,21 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                       value={formData.ci}
                       onChange={handleChange}
                       placeholder="Nº de carné"
-                      className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.ci ? 'border-red-500' : 'border-gray-200'}`}
+                      className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.ci ? 'border-red-500' : 'border-gray-200'}`}
                     />
                   </div>
-                  {errors.ci && <span className="text-[10px] text-red-500 mt-1 block">{errors.ci}</span>}
+                  {errors.ci && <span className="mt-1 block text-[10px] text-red-500">{errors.ci}</span>}
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-900">
-                  <span className="w-2 h-2 rounded-full bg-[#0439D9]"></span>
+                  <span className="h-2 w-2 rounded-full bg-[#0439D9]"></span>
                   Credenciales y Acceso
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Correo Institucional <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -226,17 +227,17 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                     maxLength={50}
                     value={formData.email}
                     onChange={handleChange}
-                    className={`w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                    className={`w-full rounded-xl border bg-gray-50/50 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
                   />
-                  <span className="text-[10px] text-gray-400 mt-1 block">Dominio permitido: @umss.edu.bo</span>
-                  {errors.email && <span className="text-[10px] text-red-500 mt-1 block">{errors.email}</span>}
+                  <span className="mt-1 block text-[10px] text-gray-400">Dominio permitido: @umss.edu.bo</span>
+                  {errors.email && <span className="mt-1 block text-[10px] text-red-500">{errors.email}</span>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  <label className="mb-2 block text-xs font-semibold text-gray-700">
                     Rol Asignado en Plataforma <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                     {roles.map((role) => {
                       const icons: Record<string, React.ElementType> = { ADMIN: Shield, DOCENTE: BookOpen, CONTROL: Eye };
                       const roleConfig: Record<string, { badgeText: string }> = {
@@ -284,12 +285,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                       value={nuevoRol}
                       onChange={(e) => setNuevoRol(e.target.value)}
                       placeholder="EJ: SUPERVISOR"
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#0439D9] focus:outline-none bg-gray-50/50 uppercase placeholder:text-gray-400"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 text-xs uppercase placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0439D9]"
                     />
                     <button
                       type="button"
                       onClick={handleAddRol}
-                      className="px-4 py-2.5 bg-[#93C5FD] hover:bg-[#60A5FA] text-white rounded-xl transition-all text-xs font-semibold flex items-center gap-1 shrink-0 shadow-sm"
+                      className="flex shrink-0 items-center gap-1 rounded-xl bg-[#93C5FD] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#60A5FA]"
                     >
                       <Plus size={14} /> Agregar
                     </button>
@@ -297,19 +298,19 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                 </div>
 
                 <div className="pt-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-gray-800 block">Estado de cuenta Activo</span>
+                  <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+                    <div className="min-w-0">
+                      <span className="block text-xs font-bold text-gray-800">Estado de cuenta Activo</span>
                       <span className="text-[10px] text-gray-500">Permite acceso inmediato al sistema</span>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                       <input
                         type="checkbox"
                         checked={formData.activo}
                         onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                        className="sr-only peer"
+                        className="peer sr-only"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0439D9]"></div>
+                      <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#0439D9] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
                     </label>
                   </div>
                 </div>
@@ -317,29 +318,30 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
               </div>
             </div>
 
-            <div className="mt-6 px-4 py-3 bg-[#E9F1FF]/60 rounded-xl flex items-center gap-3 text-xs text-[#011140]">
-              <Info size={18} className="text-[#0439D9] shrink-0" />
+            <div className="mt-6 flex items-center gap-3 rounded-xl bg-[#E9F1FF]/60 px-4 py-3 text-xs text-[#011140]">
+              <Info size={18} className="shrink-0 text-[#0439D9]" />
               <span>Los cambios se aplicarán inmediatamente. Toda acción queda auditada bajo la norma de seguridad académica institucional.</span>
             </div>
           </form>
 
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium">
-              <span className="w-2 h-2 rounded-full bg-[#0439D9] inline-block"></span>
+          {/* Footer fijo */}
+          <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500">
+              <span className="inline-block h-2 w-2 rounded-full bg-[#0439D9]"></span>
               Campos con (*) son mandatorios
             </div>
-            <div className="flex gap-3 w-full sm:w-auto">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl bg-white hover:bg-gray-100 transition-all duration-200 text-xs font-semibold"
+                className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex-1 sm:flex-none px-6 py-2.5 bg-[#0439D9] text-white rounded-xl hover:bg-[#032ab0] hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200 text-xs font-semibold shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#0439D9] px-4 py-3 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 transition-colors hover:bg-[#032ab0] sm:px-6 sm:py-2.5"
               >
                 <CheckCircle2 size={16} />
                 Guardar Cambios
@@ -351,19 +353,19 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
 
       {/* 2. MODAL DE EDICIÓN EXITOSA */}
       {modalState === 'success' && (
-        <div className="bg-[#F8FAFC] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 text-center select-none animate-in fade-in zoom-in duration-200">
-          <div className="pt-6 pb-4 px-6">
-            <h3 className="text-xl font-bold text-[#011140] select-none">Actualización exitosa</h3>
+        <div className="w-full max-w-md select-none overflow-hidden rounded-3xl border border-gray-100 bg-[#F8FAFC] text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="px-6 pb-4 pt-6">
+            <h3 className="select-none text-xl font-bold text-[#011140]">Actualización exitosa</h3>
           </div>
           
-          <div className="border-t border-gray-200 py-6 px-6 bg-white">
-            <p className="text-xs text-gray-500 font-medium select-none leading-relaxed mb-6">
+          <div className="border-t border-gray-200 bg-white px-6 py-6">
+            <p className="mb-6 select-none text-xs font-medium leading-relaxed text-gray-500">
               La información y los roles de acceso del usuario fueron actualizados correctamente.
             </p>
             <button
               type="button"
               onClick={handleFinishSuccess}
-              className="w-48 py-3 bg-[#0439D9] text-white rounded-xl hover:bg-[#032ab0] hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200 text-xs font-semibold shadow-sm shadow-blue-500/20 mx-auto block"
+              className="mx-auto block w-48 rounded-xl bg-[#0439D9] py-3 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-[#032ab0]"
             >
               Aceptar
             </button>
@@ -373,24 +375,24 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
 
       {/* 3. MODAL DE EDICIÓN FALLIDA */}
       {modalState === 'error' && (
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 p-6 text-center select-none animate-in fade-in zoom-in duration-200">
-          <AlertTriangle className="mx-auto text-amber-500 mb-3 select-none" size={48} />
-          <h3 className="text-lg font-bold text-[#011140] select-none">Error al actualizar</h3>
-          <p className="text-xs text-gray-600 mt-2 mb-6 px-4 select-none">
+        <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-2xl animate-in fade-in zoom-in duration-200">
+          <AlertTriangle className="mx-auto mb-3 select-none text-amber-500" size={48} />
+          <h3 className="select-none text-lg font-bold text-[#011140]">Error al actualizar</h3>
+          <p className="mt-2 mb-6 select-none px-4 text-xs text-gray-600">
             Ocurrió un problema al intentar guardar los cambios del usuario. La información no fue actualizada.
           </p>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={() => setModalState('form')}
-              className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl bg-white hover:bg-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 text-xs font-semibold"
+              className="flex-1 rounded-xl border border-gray-200 bg-white py-3 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="flex-1 py-2.5 bg-[#0439D9] text-white rounded-xl hover:bg-[#032ab0] hover:shadow-lg hover:shadow-blue-900/40 transition-all duration-200 text-xs font-semibold shadow-sm shadow-blue-500/20"
+              className="flex-1 rounded-xl bg-[#0439D9] py-3 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 transition-colors hover:bg-[#032ab0]"
             >
               Reintentar
             </button>
