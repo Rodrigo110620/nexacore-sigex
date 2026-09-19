@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, GraduationCap, Users, LogOut } from 'lucide-react'
+import { LayoutGrid, BookCheck, Users, UserPlus, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
@@ -12,25 +12,25 @@ interface PanelLayoutProps {
 const NAV_ITEMS = [
   {
     label: 'Inicio',
-    icon: LayoutDashboard,
+    icon: LayoutGrid,
     to: '/dashboard/inicio',
     disabled: true,
   },
   {
     label: 'Examenes',
-    icon: ClipboardList,
+    icon: BookCheck,
     to: '/dashboard/examenes',
     disabled: true,
   },
   {
     label: 'Estudiantes',
-    icon: GraduationCap,
+    icon: Users,
     to: '/dashboard/estudiantes',
     disabled: true,
   },
   {
     label: 'Usuarios',
-    icon: Users,
+    icon: UserPlus,
     to: '/dashboard/usuarios',
     disabled: false,
   },
