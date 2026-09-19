@@ -34,7 +34,7 @@ export default function CredentialsSection({
           value={form.email}
           onChange={(e) => onChange('email', e.target.value)}
           onBlur={() => onBlur('email')}
-          placeholder="usuario@"
+          placeholder="usuario@cualquiedominio"
           maxLength={FIELD_LIMITS.email.max}
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${errors.email
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'

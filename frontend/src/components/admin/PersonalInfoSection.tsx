@@ -36,7 +36,7 @@ export default function PersonalInfoSection({
                 : 'text-gray-400'
             }`}
           >
-
+          {form.nombre.length}/{FIELD_LIMITS.nombre.max}
           </span>
         </div>
         <input
@@ -74,6 +74,7 @@ export default function PersonalInfoSection({
                 : 'text-gray-400'
             }`}
           >
+            {form.apellidos.length}/{FIELD_LIMITS.apellidos.max}
           </span>
         </div>
         <input
