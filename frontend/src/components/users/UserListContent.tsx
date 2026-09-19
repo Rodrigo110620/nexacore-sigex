@@ -48,7 +48,7 @@ export default function UserListContent({
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const lastEmittedRef = useRef<UserFilterParams>(initialFilters)
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.rol || draftFilters.estado)
-  const filtersDisabled = loading || error?.kind === 'unauthorized' || error?.kind === 'forbidden'
+  const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
   useEffect(() => {
     if (!onFiltersChange) return

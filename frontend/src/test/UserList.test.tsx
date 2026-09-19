@@ -111,7 +111,7 @@ describe('UserListContent', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Cargando usuarios...')
     expect(screen.queryByText('Sin usuarios')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Buscar usuarios')).toBeDisabled()
+    expect(screen.getByLabelText('Buscar usuarios')).toBeEnabled()
   })
 
   it('muestra el error 403 sin ofrecer reintento', () => {
