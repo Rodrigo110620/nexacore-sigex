@@ -123,6 +123,6 @@ describe('UserFilters', () => {
     const { container } = render(<UserFilters value={initialFilters} onChange={vi.fn()} />)
     expect(container.querySelector('.grid-cols-2')).toBeInTheDocument()
     expect(container.querySelector('.col-span-2')).toBeInTheDocument()
-    expect(container.querySelector('.lg\\:grid-cols-\\[minmax\\(0\\,1fr\\)_12rem_12rem\\]')).toBeInTheDocument()
+    expect(container.querySelector('[class*="min-[960px]:grid-cols-"]')).toBeInTheDocument()
   })
 })

@@ -35,9 +35,9 @@ export default function UsuariosPage() {
   }
 
   return (
-    <PanelLayout>
+    <PanelLayout compactDesktop>
       <div
-        className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+        className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
         style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
       >
         <UserListContent

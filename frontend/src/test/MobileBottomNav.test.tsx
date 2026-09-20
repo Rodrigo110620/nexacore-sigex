@@ -19,7 +19,7 @@ describe('MobileBottomNav', () => {
     renderNav()
 
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
-    expect(navigation).toHaveClass('lg:hidden')
+    expect(navigation).toHaveClass('min-[960px]:hidden')
     expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toHaveAttribute('aria-current', 'page')
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
     expect(within(navigation).queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()

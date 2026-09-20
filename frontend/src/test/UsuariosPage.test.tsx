@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
+import PanelLayout from '../components/layout/PanelLayout'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 
 vi.mock('../hooks/useUsers', () => ({
@@ -60,6 +61,8 @@ describe('UsuariosPage', () => {
 
     expect(screen.getAllByText('GESTIÓN DE USUARIOS')).toHaveLength(2)
     expect(screen.getAllByText('ana.rojas@umss.edu.bo').length).toBeGreaterThan(0)
+    expect(screen.getByRole('complementary')).toHaveClass('min-[960px]:flex')
+    expect(screen.getByRole('navigation', { name: 'Navegación principal móvil' })).toHaveClass('min-[960px]:hidden')
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
 
@@ -83,5 +86,18 @@ describe('UsuariosPage', () => {
     )
 
     expect(screen.getByText('Gestión unificada')).toBeInTheDocument()
+  })
+
+  it('conserva el breakpoint original del layout en otras pantallas', () => {
+    render(
+      <AuthProvider>
+        <MemoryRouter>
+          <PanelLayout><p>Otro panel</p></PanelLayout>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    expect(screen.getByRole('complementary')).toHaveClass('lg:flex')
+    expect(screen.getByRole('complementary')).not.toHaveClass('min-[960px]:flex')
   })
 })

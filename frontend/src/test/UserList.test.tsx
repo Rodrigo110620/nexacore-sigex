@@ -103,7 +103,7 @@ describe('UserListContent', () => {
     expect(actions).toHaveClass('order-first')
     expect(filters.closest('[class*="mb-4"]')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Estadísticas de usuarios' }).parentElement).toHaveClass('order-1')
-    expect(container.querySelector('.lg\\:hidden')).toBeInTheDocument()
+    expect(container.querySelector('[class*="min-[960px]:hidden"]')).toBeInTheDocument()
   })
 
   it('muestra carga sin presentar prematuramente el estado vacío', () => {
