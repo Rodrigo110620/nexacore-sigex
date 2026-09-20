@@ -19,9 +19,9 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
       <h2 id={`${id}-title`} className="sr-only">Filtros de usuarios</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
-        <div className="col-span-2 min-w-0 lg:col-span-1">
-          <label htmlFor={searchId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Buscar usuarios</label>
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 min-[960px]:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+        <div className="col-span-2 min-w-0 min-[960px]:col-span-1">
+          <label htmlFor={searchId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] min-[960px]:not-sr-only min-[960px]:block">Buscar usuarios</label>
           <div className="relative">
             <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]" />
             <input
@@ -39,7 +39,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
         </div>
 
         <div className="min-w-0">
-          <label htmlFor={roleId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Rol</label>
+          <label htmlFor={roleId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] min-[960px]:not-sr-only min-[960px]:block">Rol</label>
           <div className="relative">
             <select
               id={roleId}
@@ -63,7 +63,7 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
         </div>
 
         <div className="min-w-0">
-          <label htmlFor={statusId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] lg:not-sr-only lg:block">Estado</label>
+          <label htmlFor={statusId} className="sr-only mb-1.5 text-sm font-semibold text-[#011140] min-[960px]:not-sr-only min-[960px]:block">Estado</label>
           <div className="relative">
             <select
               id={statusId}

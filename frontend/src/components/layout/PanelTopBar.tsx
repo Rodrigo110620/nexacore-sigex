@@ -10,7 +10,11 @@ function getInitials(nombre: string | null): string {
   return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
 }
 
-export default function PanelTopBar() {
+interface PanelTopBarProps {
+  compactDesktop?: boolean
+}
+
+export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps) {
   const { nombre, roles, logout } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -48,12 +52,12 @@ export default function PanelTopBar() {
 
   return (
     <>
-    <header className="sticky top-0 z-30 flex  w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 p-2 backdrop-blur sm:h-20 sm:px-5 lg:px-6  lg:py-6">
+    <header className={`sticky top-0 z-30 flex w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 p-2 backdrop-blur sm:h-20 sm:px-5 ${compactDesktop ? 'min-[960px]:px-6 min-[960px]:py-6' : 'lg:px-6 lg:py-6'}`}>
       <div className="min-w-0 flex-1">
-        <div className="lg:hidden">
+        <div className={compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}>
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
-        <div className="hidden min-w-0 lg:block">
+        <div className={`hidden min-w-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
           <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
         </div>
@@ -135,7 +139,7 @@ export default function PanelTopBar() {
         )}
       </div>
     </header>
-    <div className="border-b border-[#EDF1F7] bg-white px-4 py-3 lg:hidden">
+    <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
       <p className="text-base font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
       <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
     </div>

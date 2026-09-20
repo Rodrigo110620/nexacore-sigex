@@ -7,6 +7,7 @@ import PanelTopBar from './PanelTopBar'
 
 interface PanelLayoutProps {
   children: ReactNode
+  compactDesktop?: boolean
 }
 
 const NAV_ITEMS = [
@@ -36,7 +37,7 @@ const NAV_ITEMS = [
   },
 ]
 
-export default function PanelLayout({ children }: PanelLayoutProps) {
+export default function PanelLayout({ children, compactDesktop = false }: PanelLayoutProps) {
   const { logout } = useAuth()
   const navigate = useNavigate()
 
@@ -49,7 +50,7 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
     <div className="flex h-dvh overflow-hidden">
       {/* Sidebar fijo al alto del viewport; Cerrar sesión siempre visible */}
       <aside
-        className="hidden h-full w-52 shrink-0 flex-col xl:w-56 lg:flex"
+        className={`hidden h-full shrink-0 flex-col xl:w-56 ${compactDesktop ? 'w-44 min-[960px]:flex lg:w-52' : 'w-52 lg:flex'}`}
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
       >
         <div className="flex shrink-0 items-center border-b border-white/10 px-5 py-5">
@@ -98,9 +99,9 @@ export default function PanelLayout({ children }: PanelLayoutProps) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
-        <PanelTopBar />
+        <PanelTopBar compactDesktop={compactDesktop} />
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
-        <div className="hidden shrink-0 lg:block">
+        <div className={`hidden shrink-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <Footer />
         </div>
       </div>

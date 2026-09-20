@@ -52,7 +52,7 @@ export default function UserStatsCards({ stats }: UserStatsCardsProps) {
   return (
     <section
       aria-label="Estadísticas de usuarios"
-      className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4"
+      className="grid grid-cols-2 gap-2 sm:gap-4 min-[960px]:grid-cols-4"
     >
       {cards.map((card) => {
         const Icon = card.icon

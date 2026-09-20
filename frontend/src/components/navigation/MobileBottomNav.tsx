@@ -11,7 +11,7 @@ export default function MobileBottomNav() {
   return (
     <nav
       aria-label="Navegación principal móvil"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#B8CBEF] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-3px_10px_rgba(1,17,64,0.12)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#B8CBEF] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-3px_10px_rgba(1,17,64,0.12)] min-[960px]:hidden"
     >
       <ul className="mx-auto grid min-h-14 max-w-lg grid-cols-5">
         {unavailableItems.map(({ label, icon: Icon }) => (

@@ -83,8 +83,8 @@ describe('UserCardList', () => {
 
   it('usa variantes responsive y una sola instancia de EmptyState', () => {
     const { container } = render(<UserListContent users={users} />)
-    expect(container.querySelector('.lg\\:hidden')).toBeInTheDocument()
-    expect(container.querySelector('.hidden.lg\\:block')).toBeInTheDocument()
+    expect(container.querySelector('[class*="min-[960px]:hidden"]')).toBeInTheDocument()
+    expect(container.querySelector('.hidden[class*="min-[960px]:block"]')).toBeInTheDocument()
 
     render(<UserListContent users={[]} />)
     expect(screen.getAllByText('Sin usuarios')).toHaveLength(1)
