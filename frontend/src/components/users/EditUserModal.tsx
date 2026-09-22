@@ -2,7 +2,7 @@ import { X, Info, Check, CircleAlert, Mail, Dot, ShieldCheck, BookOpen, Eye, Plu
 import { useState } from 'react';
 import api from '../../services/api';
 import { useRoles } from '../../hooks/useRoles';
-import { FIELD_LIMITS, sanitizeNombreInput } from '../../utils/validators';
+import { ALLOWED_EMAIL_DOMAIN, FIELD_LIMITS, sanitizeNombreInput, validateEmail } from '../../utils/validators';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 
 interface User {
@@ -114,8 +114,8 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     } else if (cleanForm.documento.length < 5 || cleanForm.documento.length > 8) {
       newErrors.documento = 'Debe tener entre 5 y 8 dígitos';
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanForm.email)) newErrors.email = 'El formato del correo no es válido';
+    const emailError = validateEmail(cleanForm.email)
+    if (emailError) newErrors.email = emailError
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
@@ -292,7 +292,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                       errors.email ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
                     }`}
                   />
-                  <p className="text-gray-600 text-[0.60rem]">Dominio permitido: cualquiera · Máximo {FIELD_LIMITS.email.max} caracteres</p>
+                  <p className="text-gray-600 text-[0.60rem]">Dominio permitido: @{ALLOWED_EMAIL_DOMAIN} · Máximo {FIELD_LIMITS.email.max} caracteres</p>
                   {errors.email && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.email}</p>}
                 </div>
 
