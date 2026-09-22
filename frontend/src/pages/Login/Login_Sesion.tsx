@@ -1,5 +1,5 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
-import { validateEmail as validateEmailShared, FIELD_LIMITS } from '../../utils/validators';
+import { validateEmailFormat, FIELD_LIMITS } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
@@ -26,7 +26,7 @@ export default function Login__Sesion() {
 
     const handleEmailBlur = () => {
         if (email.trim()) {
-            setEmailError(validateEmailShared(email));
+            setEmailError(validateEmailFormat(email));
         }
     };
 
@@ -47,7 +47,7 @@ export default function Login__Sesion() {
             return;
         }
 
-        const emailErr = validateEmailShared(email);
+        const emailErr = validateEmailFormat(email);
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
         setPasswordError(passwordErr);
@@ -94,7 +94,7 @@ export default function Login__Sesion() {
                                 if (generalError) setGeneralError('');
                             }}
                             onBlur={handleEmailBlur}
-                            placeholder="usuario@cualquierdominio"
+                            placeholder="usuario@est.umss.edu"
                             maxLength={FIELD_LIMITS.email.max}
                             className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${
                                 emailError
@@ -152,7 +152,11 @@ export default function Login__Sesion() {
                     <div className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
                         <CircleAlert className="text-[#B91C1C] mr-2" size={20} />
                         <div className="flex flex-col gap-0">
-                            <p className="text-[#7F1D1D] text-xs font-bold">Credenciales no válidas</p>
+                            <p className="text-[#7F1D1D] text-xs font-bold">
+                                {generalError.includes('conectar')
+                                    ? 'Sin conexión al servidor'
+                                    : 'Credenciales no válidas'}
+                            </p>
                             <p className="text-[#B91C1C] text-xs">{generalError}</p>
                         </div>
                     </div>

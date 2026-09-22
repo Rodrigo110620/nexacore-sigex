@@ -61,6 +61,12 @@ export const validateDocumento = (value: string): string => {
   return ''
 }
 
+export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
+
+/** Correo institucional: solo @est.umss.edu (también acepta .bo). */
+const INSTITUTIONAL_EMAIL_REGEX =
+  /^[a-zA-Z0-9._%+-]+@est\.umss\.edu(?:\.bo)?$/i
+
 export const validateEmail = (value: string): string => {
   const trimmed = value.trim()
 
@@ -70,11 +76,24 @@ export const validateEmail = (value: string): string => {
     return `Máximo ${FIELD_LIMITS.email.max} caracteres`
   }
 
+  if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) {
+    return `Solo se permiten correos @${ALLOWED_EMAIL_DOMAIN}`
+  }
+
+  return ''
+}
+
+/** Formato de correo genérico (login de cuentas ya existentes). */
+export const validateEmailFormat = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'El correo es obligatorio'
+  if (trimmed.length > FIELD_LIMITS.email.max) {
+    return `Máximo ${FIELD_LIMITS.email.max} caracteres`
+  }
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   if (!emailRegex.test(trimmed)) {
     return 'Formato de correo inválido'
   }
-
   return ''
 }
 

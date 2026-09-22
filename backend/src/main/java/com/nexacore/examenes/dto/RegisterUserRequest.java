@@ -38,6 +38,10 @@ public record RegisterUserRequest(
 
         @NotBlank(message = "El correo electronico es obligatorio")
         @Email(message = "El formato del correo electronico no es valido")
+        @Pattern(
+                regexp = "(?i)^[A-Za-z0-9._%+-]+@est\\.umss\\.edu(\\.bo)?$",
+                message = "Solo se permiten correos @est.umss.edu"
+        )
         @Size(max = 100, message = "El correo no puede superar 100 caracteres")
         String email,
 
