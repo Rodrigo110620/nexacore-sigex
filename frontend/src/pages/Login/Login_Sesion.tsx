@@ -1,9 +1,10 @@
-import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
-import { validateEmailFormat, FIELD_LIMITS } from '../../utils/validators';
+import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { validateEmailFormat, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
+import LoginEmailField from '../../components/auth/LoginEmailField';
 
 export default function Login__Sesion() {
 
@@ -26,7 +27,7 @@ export default function Login__Sesion() {
 
     const handleEmailBlur = () => {
         if (email.trim()) {
-            setEmailError(validateEmailFormat(email));
+            setEmailError(validateEmailFormat(buildLoginEmail(email)));
         }
     };
 
@@ -47,7 +48,7 @@ export default function Login__Sesion() {
             return;
         }
 
-        const emailErr = validateEmailFormat(email);
+        const emailErr = validateEmailFormat(buildLoginEmail(email));
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
         setPasswordError(passwordErr);
@@ -56,7 +57,7 @@ export default function Login__Sesion() {
 
         setLoading(true);
         try {
-            const data = await loginUser({ email, password });
+            const data = await loginUser({ email: buildLoginEmail(email), password });
             login(data.token, data.nombre, data.roles);
             navigate('/dashboard', { replace: true });
         } catch (err: unknown) {
@@ -81,33 +82,15 @@ export default function Login__Sesion() {
             </div>
 
             <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-[#011140]">CORREO ELECTRÓNICO</label>
-                    <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]" size={17} aria-hidden="true" />
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                if (emailError) setEmailError('');
-                                if (generalError) setGeneralError('');
-                            }}
-                            onBlur={handleEmailBlur}
-                            placeholder="usuario@est.umss.edu"
-                            maxLength={FIELD_LIMITS.email.max}
-                            className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${
-                                emailError
-                                    ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
-                                    : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
-                            }`} />
-                    </div>
-                    {emailError && (
-                        <p className="text-[#B91C1C] text-[0.70rem] flex items-center gap-1">
-                            <CircleAlert size={12} /> {emailError}
-                        </p>
-                    )}
-                </div>
+                <LoginEmailField
+                    value={email}
+                    error={emailError}
+                    onChange={(value) => {
+                        setEmail(value);
+                        if (emailError) setEmailError('');
+                        if (generalError) setGeneralError('');
+                    }}
+                    onBlur={handleEmailBlur} />
 
                 <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-center font-medium text-[0.70rem]">
