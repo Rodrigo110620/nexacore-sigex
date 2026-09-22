@@ -152,7 +152,11 @@ export default function Login__Sesion() {
                     <div className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
                         <CircleAlert className="text-[#B91C1C] mr-2" size={20} />
                         <div className="flex flex-col gap-0">
-                            <p className="text-[#7F1D1D] text-xs font-bold">Credenciales no válidas</p>
+                            <p className="text-[#7F1D1D] text-xs font-bold">
+                                {generalError.includes('conectar')
+                                    ? 'Sin conexión al servidor'
+                                    : 'Credenciales no válidas'}
+                            </p>
                             <p className="text-[#B91C1C] text-xs">{generalError}</p>
                         </div>
                     </div>
