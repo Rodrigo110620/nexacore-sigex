@@ -1,6 +1,7 @@
 package com.nexacore.examenes;
 
 import com.nexacore.examenes.models.Rol;
+import com.nexacore.examenes.models.PasswordResetToken;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
@@ -20,8 +21,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -178,5 +184,72 @@ class AuthLoginTests {
 
         Assertions.assertFalse(jwtService.esValido(token + "x"));
         Assertions.assertFalse(jwtService.esValido("token.no.valido"));
+    }
+
+    @Test
+    @DisplayName("Cambio de contraseña rechaza una nueva clave débil")
+    void cambioPasswordRechazaClaveDebil() throws Exception {
+        String token = jwtService.generarToken(EMAIL, List.of("ADMIN"));
+        mockMvc.perform(put("/auth/cambiar-password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"Admin123*\",\"passwordNueva\":\"segura12!\",\"passwordConfirmacion\":\"segura12!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Restablecimiento rechaza una nueva clave débil antes de consumir el token")
+    void resetPasswordRechazaClaveDebil() throws Exception {
+        mockMvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"token-de-prueba\",\"passwordNueva\":\"segura12!\",\"passwordConfirmacion\":\"segura12!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value("La nueva contraseña debe incluir una mayúscula"));
+    }
+
+    @Test
+    @DisplayName("Cambio de contraseña acepta una clave fuerte y permite usarla")
+    void cambioPasswordAceptaClaveFuerte() throws Exception {
+        String token = jwtService.generarToken(EMAIL, List.of("ADMIN"));
+        mockMvc.perform(put("/auth/cambiar-password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"passwordActual\":\"Admin123*\",\"passwordNueva\":\"NuevaClave1!\",\"passwordConfirmacion\":\"NuevaClave1!\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, "NuevaClave1!")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Restablecimiento acepta una clave fuerte y consume el enlace")
+    void resetPasswordAceptaClaveFuerte() throws Exception {
+        String rawToken = "token-de-prueba-fuerte";
+        byte[] hash = MessageDigest.getInstance("SHA-256")
+                .digest(rawToken.getBytes(StandardCharsets.UTF_8));
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUsuario(entityManager.find(Usuario.class, usuario.getId()));
+        resetToken.setTokenHash(HexFormat.of().formatHex(hash));
+        resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(30));
+        entityManager.persist(resetToken);
+        entityManager.flush();
+
+        String body = "{\"token\":\"" + rawToken
+                + "\",\"passwordNueva\":\"NuevaClave1!\",\"passwordConfirmacion\":\"NuevaClave1!\"}";
+        mockMvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, "NuevaClave1!")))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
     }
 }
