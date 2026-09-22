@@ -83,6 +83,17 @@ export const validateEmail = (value: string): string => {
   return ''
 }
 
+/**
+ * Arma el correo del login a partir de lo que escribe el usuario.
+ * Sin '@' se completa con el dominio institucional; con '@' se respeta
+ * tal cual (la cuenta admin usa otro dominio).
+ */
+export const buildLoginEmail = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes('@')) return trimmed
+  return `${trimmed}@${ALLOWED_EMAIL_DOMAIN}`
+}
+
 /** Formato de correo genérico (login de cuentas ya existentes). */
 export const validateEmailFormat = (value: string): string => {
   const trimmed = value.trim()
