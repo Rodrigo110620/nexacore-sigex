@@ -1,4 +1,4 @@
-import { CircleAlert, Download, LoaderCircle, UserPlus } from 'lucide-react'
+import { CircleAlert, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
@@ -74,7 +74,7 @@ export default function UserListContent({
   return (
     <section aria-label="Gestión de usuarios" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-4 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
+        <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
           <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
             <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
               <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
@@ -84,9 +84,9 @@ export default function UserListContent({
                 type="button"
                 disabled
                 aria-label="Exportar usuarios, no disponible"
-                className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:bg-[#F8FAFC] min-[960px]:px-4"
+                className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
               >
-                <Download size={16} aria-hidden="true" />
+                <Upload size={16} aria-hidden="true" />
                 <span className="truncate">Exportar</span>
               </button>
               <button

@@ -1,4 +1,4 @@
-import { Ban, Pencil } from 'lucide-react'
+import { Ban, MoreHorizontal, Pencil } from 'lucide-react'
 import RoleBadge from './RoleBadge'
 import StatusBadge from './StatusBadge'
 import UserAvatar from './UserAvatar'
@@ -20,15 +20,15 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
           <tr>
             <th scope="col" className="px-5 py-3 font-bold">Usuario</th>
             <th scope="col" className="px-5 py-3 font-bold">Email</th>
-            <th scope="col" className="px-5 py-3 font-bold">Rol</th>
-            <th scope="col" className="px-5 py-3 font-bold">Estado</th>
-            <th scope="col" className="px-5 py-3 text-right font-bold">Acciones</th>
+            <th scope="col" className="px-5 py-3 text-center font-bold">Rol</th>
+            <th scope="col" className="px-5 py-3 text-center font-bold">Estado</th>
+            <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EDF1F7] bg-white text-sm text-[#011140]">
           {users.map((user) => (
             <tr key={user.id}>
-              <th scope="row" className="px-5 py-4 font-normal">
+              <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
                   <UserAvatar user={user} />
                   <span>
@@ -37,16 +37,16 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
                   </span>
                 </div>
               </th>
-              <td className="whitespace-nowrap px-5 py-4 text-gray-600">{user.email}</td>
-              <td className="px-5 py-4"><RoleBadge role={user.rol} /></td>
-              <td className="px-5 py-4"><StatusBadge status={user.estado} /></td>
-              <td className="px-5 py-4">
-                <div className="flex justify-end gap-2">
+              <td className="whitespace-nowrap px-5 py-3 text-gray-600">{user.email}</td>
+              <td className="px-5 py-3 text-center"><RoleBadge role={user.rol} /></td>
+              <td className="px-5 py-3 text-center"><StatusBadge status={user.estado} /></td>
+              <td className="px-5 py-3">
+                <div className="flex justify-center gap-1">
                   <button
                     type="button"
                     onClick={() => onEditClick && onEditClick(user)}
                     aria-label={`Editar a ${user.nombre} ${user.apellidos}`}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#D6E4FF] bg-[#F1F6FF] p-0 text-[#3D70C9] hover:bg-[#D6E4FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#3D70C9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
                   >
                     <Pencil size={16} aria-hidden="true" />
                   </button>
@@ -54,9 +54,17 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
                     type="button"
                     disabled
                     aria-label={`Bloquear a ${user.nombre} ${user.apellidos}, no disponible`}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[#BFE8D8] bg-[#ECFDF5] p-0 text-[#159570] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#159570] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
                   >
                     <Ban size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={`Más acciones para ${user.nombre} ${user.apellidos}, no disponible`}
+                    className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-md text-[#627A9B]"
+                  >
+                    <MoreHorizontal size={17} aria-hidden="true" />
                   </button>
                 </div>
               </td>

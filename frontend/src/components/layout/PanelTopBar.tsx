@@ -57,9 +57,12 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
         <div className={compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}>
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
-        <div className={`hidden min-w-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
-          <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
-          <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+        <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
+          <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
+            <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+          </div>
         </div>
       </div>
 
@@ -68,7 +71,7 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
           type="button"
           disabled
           aria-label="Notificaciones, no disponible"
-          className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-[#F1F6FF] text-[#627A9B] sm:hidden"
+          className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-[#F1F6FF] text-[#627A9B] sm:h-10 sm:w-10"
         >
           <Bell size={17} aria-hidden="true" />
         </button>
