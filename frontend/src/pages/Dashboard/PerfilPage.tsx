@@ -15,18 +15,12 @@ import {
 import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
+import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/passwordPolicy'
 import {
   cambiarPassword,
   getMiPerfil,
   type PerfilUsuario,
 } from '../../services/profileService'
-
-function validateNuevaPassword(value: string): string {
-  if (!value.trim()) return 'La nueva contraseña es obligatoria'
-  if (value.length < 6) return 'Mínimo 6 caracteres'
-  if (value.length > 72) return 'Máximo 72 caracteres'
-  return ''
-}
 
 export default function PerfilPage() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null)
@@ -71,7 +65,7 @@ export default function PerfilPage() {
 
     const errors: Record<string, string> = {}
     if (!passwordActual.trim()) errors.passwordActual = 'La contraseña actual es obligatoria'
-    const nuevaError = validateNuevaPassword(passwordNueva)
+    const nuevaError = validateNewPassword(passwordNueva)
     if (nuevaError) errors.passwordNueva = nuevaError
     if (!passwordConfirmacion.trim()) {
       errors.passwordConfirmacion = 'Confirma la nueva contraseña'
@@ -278,7 +272,7 @@ export default function PerfilPage() {
                     {showNueva ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
                 </div>
-                <p className="mt-1 text-[11px] text-gray-400">Mínimo 6 caracteres</p>
+                <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_REQUIREMENTS}</p>
                 {fieldErrors.passwordNueva && (
                   <p className="mt-1 text-[11px] text-red-500">{fieldErrors.passwordNueva}</p>
                 )}

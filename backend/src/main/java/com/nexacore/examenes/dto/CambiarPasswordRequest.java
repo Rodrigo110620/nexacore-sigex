@@ -12,7 +12,7 @@ public record CambiarPasswordRequest(
         String passwordActual,
 
         @NotBlank(message = "La nueva contraseña es obligatoria")
-        @Size(min = 6, max = 72, message = "La nueva contraseña debe tener entre 6 y 72 caracteres")
+        @Size(min = 8, message = "La nueva contraseña debe tener al menos 8 caracteres")
         String passwordNueva,
 
         @NotBlank(message = "La confirmación de contraseña es obligatoria")

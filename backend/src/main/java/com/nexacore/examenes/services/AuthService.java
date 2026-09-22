@@ -17,6 +17,7 @@ import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.repositories.PasswordResetTokenRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.security.JwtService;
+import com.nexacore.examenes.security.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -102,6 +103,7 @@ public class AuthService {
 
     @Transactional
     public void cambiarPassword(String email, CambiarPasswordRequest request) {
+        PasswordPolicy.validate(request.passwordNueva());
         if (!request.passwordNueva().equals(request.passwordConfirmacion())) {
             throw new PasswordConfirmacionException();
         }
@@ -153,6 +155,7 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        PasswordPolicy.validate(request.passwordNueva());
         if (!request.passwordNueva().equals(request.passwordConfirmacion())) {
             throw new PasswordConfirmacionException();
         }

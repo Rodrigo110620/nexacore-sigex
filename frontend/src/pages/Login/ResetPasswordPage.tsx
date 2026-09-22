@@ -3,13 +3,7 @@ import { ArrowLeft, CircleAlert, Eye, EyeOff, LockKeyhole, CheckCircle2 } from '
 import { Link, useSearchParams } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { resetPassword } from '../../services/authService'
-
-function validatePassword(value: string): string {
-  if (!value.trim()) return 'La nueva contraseña es obligatoria'
-  if (value.length < 6) return 'Mínimo 6 caracteres'
-  if (value.length > 72) return 'Máximo 72 caracteres'
-  return ''
-}
+import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/passwordPolicy'
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
@@ -35,7 +29,7 @@ export default function ResetPasswordPage() {
     }
 
     const errors: Record<string, string> = {}
-    const nuevaError = validatePassword(passwordNueva)
+    const nuevaError = validateNewPassword(passwordNueva)
     if (nuevaError) errors.passwordNueva = nuevaError
     if (!passwordConfirmacion.trim()) {
       errors.passwordConfirmacion = 'Confirma la nueva contraseña'
@@ -130,6 +124,7 @@ export default function ResetPasswordPage() {
                       {showNueva ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
                   </div>
+                  <p className="text-[11px] text-gray-500">{PASSWORD_REQUIREMENTS}</p>
                   {fieldErrors.passwordNueva && (
                     <p className="text-[0.70rem] text-[#B91C1C]">{fieldErrors.passwordNueva}</p>
                   )}
