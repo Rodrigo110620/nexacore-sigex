@@ -10,12 +10,14 @@ export const FIELD_LIMITS = {
 } as const
 
 const NOMBRE_REGEX =
-  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
+  /^[A-ZÁÉÍÓÚÜÑ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ]+)*$/
 
+/** Solo letras; convierte a MAYÚSCULAS al escribir (nombres/apellidos). */
 export function sanitizeNombreInput(value: string): string {
   return value
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
     .replace(/\s{2,}/g, ' ')
+    .toLocaleUpperCase('es-BO')
 }
 
 function validateNombrePersona(
@@ -37,8 +39,8 @@ function validateNombrePersona(
   }
   if (!NOMBRE_REGEX.test(trimmed)) {
     return etiqueta === 'nombre'
-      ? 'Ingresa un nombre válido (solo letras)'
-      : 'Ingresa apellidos válidos (solo letras)'
+      ? 'Ingresa un nombre válido (solo letras en mayúsculas)'
+      : 'Ingresa apellidos válidos (solo letras en mayúsculas)'
   }
   return ''
 }

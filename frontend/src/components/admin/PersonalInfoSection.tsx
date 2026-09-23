@@ -44,17 +44,18 @@ export default function PersonalInfoSection({
           value={form.nombre}
           onChange={(e) => onChange('nombre', sanitizeNombreInput(e.target.value))}
           onBlur={() => onBlur('nombre')}
-          placeholder="Ej. Roberto Carlos"
+          placeholder="Ej. ROBERTO CARLOS"
           maxLength={FIELD_LIMITS.nombre.max}
           autoComplete="given-name"
-          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+          autoCapitalize="characters"
+          className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
             errors.nombre
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
         <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres
+          Solo letras en mayúsculas · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
         {errors.nombre && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>
@@ -82,17 +83,18 @@ export default function PersonalInfoSection({
           value={form.apellidos}
           onChange={(e) => onChange('apellidos', sanitizeNombreInput(e.target.value))}
           onBlur={() => onBlur('apellidos')}
-          placeholder="Ej. Méndez Quispe"
+          placeholder="Ej. MÉNDEZ QUISPE"
           maxLength={FIELD_LIMITS.apellidos.max}
           autoComplete="family-name"
-          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+          autoCapitalize="characters"
+          className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
             errors.apellidos
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
         <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres
+          Solo letras en mayúsculas · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
         {errors.apellidos && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>

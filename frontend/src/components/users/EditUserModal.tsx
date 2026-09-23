@@ -130,8 +130,8 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
 
     const cleanForm = {
       ...form,
-      nombre: form.nombre.trim(),
-      apellidos: form.apellidos.trim(),
+      nombre: sanitizeNombreInput(form.nombre.trim()),
+      apellidos: sanitizeNombreInput(form.apellidos.trim()),
       documento: form.documento.trim(),
       email: form.email.trim(),
     };
@@ -254,13 +254,14 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                     type="text"
                     value={form.nombre}
                     onChange={(e) => handleChange('nombre', sanitizeNombreInput(e.target.value))}
-                    placeholder="Ej. Roberto Carlos"
+                    placeholder="Ej. ROBERTO CARLOS"
                     maxLength={FIELD_LIMITS.nombre.max}
-                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                    autoCapitalize="characters"
+                    className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
                       errors.nombre ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
                     }`}
                   />
-                  <p className="text-gray-600 text-[0.60rem]">Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres</p>
+                  <p className="text-gray-600 text-[0.60rem]">Solo letras en mayúsculas · Máximo {FIELD_LIMITS.nombre.max} caracteres</p>
                   {errors.nombre && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>}
                 </div>
 
@@ -278,13 +279,14 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                     type="text"
                     value={form.apellidos}
                     onChange={(e) => handleChange('apellidos', sanitizeNombreInput(e.target.value))}
-                    placeholder="Ej. Méndez Quispe"
+                    placeholder="Ej. MÉNDEZ QUISPE"
                     maxLength={FIELD_LIMITS.apellidos.max}
-                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                    autoCapitalize="characters"
+                    className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
                       errors.apellidos ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
                     }`}
                   />
-                  <p className="text-gray-600 text-[0.60rem]">Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres</p>
+                  <p className="text-gray-600 text-[0.60rem]">Solo letras en mayúsculas · Máximo {FIELD_LIMITS.apellidos.max} caracteres</p>
                   {errors.apellidos && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>}
                 </div>
 

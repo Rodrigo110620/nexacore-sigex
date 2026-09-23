@@ -7,7 +7,7 @@ import {
   type FormErrors,
   type Rol,
 } from '../../types/usuario.types';
-import { validateForm, hasErrors, validateNombre, validateApellidos, validateDocumento, validateEmail, validateRol } from '../../utils/validators';
+import { validateForm, hasErrors, validateNombre, validateApellidos, validateDocumento, validateEmail, validateRol, sanitizeNombreInput } from '../../utils/validators';
 import PersonalInfoSection from './PersonalInfoSection';
 import CredentialsSection from './CredentialsSection';
 
@@ -66,8 +66,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     //BUG1: Limpiar espacios al inicio/final de los campos de texto
     const cleanForm = {
       ...form,
-      nombre: form.nombre.trim(),
-      apellidos: form.apellidos.trim(),
+      nombre: sanitizeNombreInput(form.nombre.trim()),
+      apellidos: sanitizeNombreInput(form.apellidos.trim()),
       documento: form.documento.trim(),
       email: form.email.trim(),
     };
