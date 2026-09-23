@@ -18,19 +18,15 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "asistencia_examen")
-public class AsistenciaExamen {
+@Table(name = "inscripcion_paralelo")
+public class InscripcionParalelo {
 
     @EmbeddedId
-    private AsistenciaExamenId id;
+    private InscripcionParaleloId id;
 
     @NotNull
     @Column(name = "id_usuario", nullable = false)
     private Integer idUsuario;
-
-    @NotNull
-    @Column(name = "id_paralelo", nullable = false)
-    private Integer idParalelo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumns({
@@ -41,26 +37,17 @@ public class AsistenciaExamen {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumns({
-        @JoinColumn(name = "id_examen", referencedColumnName = "id_examen", insertable = false, updatable = false),
-        @JoinColumn(name = "id_paralelo", referencedColumnName = "id_paralelo", insertable = false, updatable = false)
+        @JoinColumn(name = "id_paralelo", referencedColumnName = "id_paralelo", insertable = false, updatable = false),
+        @JoinColumn(name = "id_materia", referencedColumnName = "id_materia", insertable = false, updatable = false),
+        @JoinColumn(name = "id_docente", referencedColumnName = "id_docente", insertable = false, updatable = false)
     })
-    private Examen examen;
+    private Paralelo paralelo;
 
-    @ColumnDefault("true")
-    @Column(name = "habilitado")
-    private Boolean habilitado;
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "fecha_inscripcion")
+    private Instant fechaInscripcion;
 
-    @Column(name = "motivo_inhabilitacion")
-    private String motivoInhabilitacion;
-
-    @Column(name = "fecha_hora_ingreso")
-    private Instant fechaHoraIngreso;
-
-    /** Ambiente real de ingreso (null si aún no ingresó). */
-    @Column(name = "id_ambiente_ingreso")
-    private Integer idAmbienteIngreso;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_ambiente_ingreso", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
-    private Ambiente ambienteIngreso;
+    @ColumnDefault("'inscrito'")
+    @Column(name = "estado")
+    private String estado;
 }
