@@ -28,8 +28,8 @@ public class Paralelo {
 
     @MapsId("idDocente")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_docente", nullable = false)
-    private Usuario docente;
+    @JoinColumn(name = "id_docente", referencedColumnName = "id_usuario", nullable = false)
+    private Docente docente;
 
     @NotNull
     @Column(name = "nombre_grupo", nullable = false)
