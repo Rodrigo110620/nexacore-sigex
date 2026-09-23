@@ -43,7 +43,10 @@ export default function PersonalInfoSection({
           type="text"
           value={form.nombre}
           onChange={(e) => onChange('nombre', sanitizeNombreInput(e.target.value))}
-          onBlur={() => onBlur('nombre')}
+          onBlur={() => {
+            onChange('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true }))
+            onBlur('nombre')
+          }}
           placeholder="Ej. ROBERTO CARLOS"
           maxLength={FIELD_LIMITS.nombre.max}
           autoComplete="given-name"
@@ -82,7 +85,10 @@ export default function PersonalInfoSection({
           type="text"
           value={form.apellidos}
           onChange={(e) => onChange('apellidos', sanitizeNombreInput(e.target.value))}
-          onBlur={() => onBlur('apellidos')}
+          onBlur={() => {
+            onChange('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true }))
+            onBlur('apellidos')
+          }}
           placeholder="Ej. MÉNDEZ QUISPE"
           maxLength={FIELD_LIMITS.apellidos.max}
           autoComplete="family-name"

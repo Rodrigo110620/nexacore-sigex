@@ -7,6 +7,8 @@ interface CredentialsSectionProps {
   errors: { email?: string; rol?: string };
   onChange: (field: keyof RegisterUserFormState, value: string | boolean | Rol) => void;
   onBlur: (field: keyof RegisterUserFormState) => void;
+  /** En registro se muestra el aviso de contraseña por correo. */
+  showPasswordNotice?: boolean;
 }
 
 export default function CredentialsSection({
@@ -14,6 +16,7 @@ export default function CredentialsSection({
   errors,
   onChange,
   onBlur,
+  showPasswordNotice = true,
 }: CredentialsSectionProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -84,6 +87,7 @@ export default function CredentialsSection({
           </button>
         </div>
 
+        {showPasswordNotice && (
         <div className="rounded-lg border border-[#DBEAFE] bg-[#F8FBFF] px-3 py-2.5">
           <p className="text-[0.70rem] font-semibold text-[#011140]">
             Credenciales por correo
@@ -92,6 +96,7 @@ export default function CredentialsSection({
             La contraseña provisional se envía automáticamente al correo institucional del usuario. No se muestra en pantalla.
           </p>
         </div>
+        )}
       </div>
     </div>
   );

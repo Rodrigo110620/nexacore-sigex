@@ -18,16 +18,16 @@ public record RegisterUserRequest(
         @NotBlank(message = "El nombre es obligatorio")
         @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
         @Pattern(
-                regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$",
-                message = "El nombre solo puede contener letras (sin numeros ni simbolos)"
+                regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,}(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,})*$",
+                message = "El nombre solo puede contener letras; cada palabra minimo 2 letras"
         )
         String nombre,
 
         @NotBlank(message = "Los apellidos son obligatorios")
         @Size(min = 2, max = 80, message = "Los apellidos deben tener entre 2 y 80 caracteres")
         @Pattern(
-                regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$",
-                message = "Los apellidos solo pueden contener letras (sin numeros ni simbolos)"
+                regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,}(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,})*$",
+                message = "Los apellidos solo pueden contener letras; cada palabra minimo 2 letras"
         )
         String apellidos,
 
