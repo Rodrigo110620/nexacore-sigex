@@ -9,15 +9,37 @@ export const FIELD_LIMITS = {
   rol: { min: 2, max: 30 },
 } as const
 
+/** Cada palabra ≥ 2 letras; separadores: espacio, apóstrofe o guion. */
 const NOMBRE_REGEX =
-  /^[A-ZÁÉÍÓÚÜÑ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ]+)*$/
+  /^[A-ZÁÉÍÓÚÜÑ]{2,}(?:[ '-][A-ZÁÉÍÓÚÜÑ]{2,})*$/
 
-/** Solo letras; convierte a MAYÚSCULAS al escribir (nombres/apellidos). */
-export function sanitizeNombreInput(value: string): string {
-  return value
+/**
+ * Solo letras (con tildes), espacio, ' y -; mayúsculas.
+ * Quita espacios iniciales y colapsa espacios dobles.
+ * Con `trimEnds` también elimina el espacio final (blur/submit).
+ */
+export function sanitizeNombreInput(
+  value: string,
+  options?: { trimEnds?: boolean },
+): string {
+  let cleaned = value
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
+    .replace(/^\s+/, '')
     .replace(/\s{2,}/g, ' ')
     .toLocaleUpperCase('es-BO')
+
+  if (options?.trimEnds) {
+    cleaned = cleaned.trimEnd()
+  }
+  return cleaned
+}
+
+/** True si, ignorando separadores, todas las letras son la misma (ej. JJJJJJJJJ). */
+export function esMismaLetraRepetida(value: string): boolean {
+  const letters = value.replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ]/g, '').toLocaleUpperCase('es-BO')
+  if (letters.length < 2) return false
+  const first = letters[0]
+  return [...letters].every((c) => c === first)
 }
 
 function validateNombrePersona(
@@ -37,10 +59,18 @@ function validateNombrePersona(
       ? 'El nombre no puede contener números'
       : 'Los apellidos no pueden contener números'
   }
+  if (/\s{2,}/.test(trimmed)) {
+    return 'No se permiten espacios consecutivos'
+  }
+  if (esMismaLetraRepetida(trimmed)) {
+    return etiqueta === 'nombre'
+      ? 'El nombre no puede ser la misma letra repetida'
+      : 'Los apellidos no pueden ser la misma letra repetida'
+  }
   if (!NOMBRE_REGEX.test(trimmed)) {
     return etiqueta === 'nombre'
-      ? 'Ingresa un nombre válido (solo letras en mayúsculas)'
-      : 'Ingresa apellidos válidos (solo letras en mayúsculas)'
+      ? 'Ingresa un nombre válido (solo letras; cada palabra mínimo 2)'
+      : 'Ingresa apellidos válidos (solo letras; cada palabra mínimo 2)'
   }
   return ''
 }

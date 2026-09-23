@@ -259,11 +259,32 @@ public class UsuarioService {
         );
     }
 
-    /** Guarda nombres y apellidos siempre en mayúsculas (formato único en el sistema). */
+    /**
+     * Guarda nombres y apellidos siempre en mayúsculas (formato único en el sistema).
+     * Elimina espacios extremos, colapsa espacios dobles y rechaza la misma letra repetida.
+     */
     private static String normalizarNombre(String valor) {
         if (valor == null) {
             return null;
         }
-        return valor.trim().toUpperCase(Locale.forLanguageTag("es-BO"));
+        String normalizado = valor.trim()
+                .replaceAll("\\s{2,}", " ")
+                .toUpperCase(Locale.forLanguageTag("es-BO"));
+        String soloLetras = normalizado.replaceAll("[^A-ZÁÉÍÓÚÜÑ]", "");
+        if (soloLetras.length() >= 2) {
+            char primera = soloLetras.charAt(0);
+            boolean mismaLetra = true;
+            for (int i = 1; i < soloLetras.length(); i++) {
+                if (soloLetras.charAt(i) != primera) {
+                    mismaLetra = false;
+                    break;
+                }
+            }
+            if (mismaLetra) {
+                throw new IllegalArgumentException(
+                        "El nombre o apellido no puede ser la misma letra repetida");
+            }
+        }
+        return normalizado;
     }
 }
