@@ -74,8 +74,8 @@ public class UsuarioService {
         }
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
@@ -119,9 +119,9 @@ public class UsuarioService {
         String rolNombre = request.rol().toUpperCase();
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        // 4. Actualizar campos personales y de estado
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
+        // 4. Actualizar campos personales y de estado (nombre/apellidos siempre en mayúsculas)
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
@@ -257,5 +257,13 @@ public class UsuarioService {
                 activos,
                 inactivos
         );
+    }
+
+    /** Guarda nombres y apellidos siempre en mayúsculas (formato único en el sistema). */
+    private static String normalizarNombre(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        return valor.trim().toUpperCase(Locale.forLanguageTag("es-BO"));
     }
 }
