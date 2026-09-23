@@ -66,8 +66,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     //BUG1: Limpiar espacios al inicio/final de los campos de texto
     const cleanForm = {
       ...form,
-      nombre: form.nombre.trim(),
-      apellidos: form.apellidos.trim(),
+      nombre: form.nombre.trim().toUpperCase(),
+      apellidos: form.apellidos.trim().toUpperCase(),
       documento: form.documento.trim(),
       email: form.email.trim(),
     };

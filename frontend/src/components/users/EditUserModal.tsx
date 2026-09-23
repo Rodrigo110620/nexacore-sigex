@@ -2,9 +2,8 @@ import { X, Info, Check, CircleAlert, Mail, Dot, ShieldCheck, BookOpen, Eye, Plu
 import { useState } from 'react';
 import api from '../../services/api';
 import { useRoles } from '../../hooks/useRoles';
-import { ALLOWED_EMAIL_DOMAIN, FIELD_LIMITS, sanitizeNombreInput, validateEmail } from '../../utils/validators';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
-
+import { FIELD_LIMITS, sanitizeNombreInput, validateEmail, validateNombre, validateApellidos, validateDocumento, ALLOWED_EMAIL_DOMAIN } from '../../utils/validators';
 interface User {
   id?: string | number;
   nombre?: string;
@@ -123,7 +122,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError('');
     setSuccess(false);
@@ -135,17 +134,24 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       documento: form.documento.trim(),
       email: form.email.trim(),
     };
-
+    
     const newErrors: { nombre?: string; apellidos?: string; documento?: string; email?: string } = {};
-    if (!cleanForm.nombre) newErrors.nombre = 'El nombre es obligatorio';
-    if (!cleanForm.apellidos) newErrors.apellidos = 'Los apellidos son obligatorios';
+    
+    // Validación usando las reglas centralizadas
+    const nombreError = validateNombre(cleanForm.nombre);
+    if (nombreError) newErrors.nombre = nombreError;
+
+    const apellidosError = validateApellidos(cleanForm.apellidos);
+    if (apellidosError) newErrors.apellidos = apellidosError;
+
     if (!cleanForm.documento) {
       newErrors.documento = 'El documento es obligatorio';
     } else if (cleanForm.documento.length < 5 || cleanForm.documento.length > 8) {
       newErrors.documento = 'Debe tener entre 5 y 8 dígitos';
     }
-    const emailError = validateEmail(cleanForm.email)
-    if (emailError) newErrors.email = emailError
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanForm.email)) newErrors.email = 'El formato del correo no es válido';
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
@@ -253,10 +259,10 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                   <input
                     type="text"
                     value={form.nombre}
-                    onChange={(e) => handleChange('nombre', sanitizeNombreInput(e.target.value))}
+                    onChange={(e) => handleChange('nombre', sanitizeNombreInput(e.target.value).toUpperCase())}
                     placeholder="Ej. Roberto Carlos"
                     maxLength={FIELD_LIMITS.nombre.max}
-                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                    className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
                       errors.nombre ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
                     }`}
                   />
@@ -277,10 +283,10 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                   <input
                     type="text"
                     value={form.apellidos}
-                    onChange={(e) => handleChange('apellidos', sanitizeNombreInput(e.target.value))}
+                    onChange={(e) => handleChange('apellidos', sanitizeNombreInput(e.target.value).toUpperCase())}
                     placeholder="Ej. Méndez Quispe"
                     maxLength={FIELD_LIMITS.apellidos.max}
-                    className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
+                    className={`text-xs border rounded-md py-2.5 px-3 uppercase focus:outline-none focus:ring-1 transition-colors ${
                       errors.apellidos ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]' : 'border-gray-300 focus:ring-[#E1ECFF]'
                     }`}
                   />

@@ -2,8 +2,8 @@ import type { FormErrors, RegisterUserFormState } from '../types/usuario.types';
 
 /** Límites de longitud alineados con el backend (@Size). */
 export const FIELD_LIMITS = {
-  nombre: { min: 2, max: 30 },
-  apellidos: { min: 2, max: 40 },
+  nombre: { min: 3, max: 30 },
+  apellidos: { min: 3, max: 40 },
   email: { min: 5, max: 50 }, 
   documento: { min: 7, max: 8 },
   rol: { min: 2, max: 30 },
