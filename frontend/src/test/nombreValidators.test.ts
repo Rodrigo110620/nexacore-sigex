@@ -7,25 +7,31 @@ import {
 } from '../utils/validators'
 
 describe('sanitizeNombreInput', () => {
-  it('permite compuestos, tildes y un espacio; colapsa dobles; quita iniciales', () => {
-    expect(sanitizeNombreInput('  roberto  carlos')).toBe('ROBERTO CARLOS')
-    expect(sanitizeNombreInput('maría josé')).toBe('MARÍA JOSÉ')
+  it('formatea a Título: primera mayúscula, resto minúsculas', () => {
+    expect(sanitizeNombreInput('  roberto  carlos')).toBe('Roberto Carlos')
+    expect(sanitizeNombreInput('MARÍA JOSÉ')).toBe('María José')
+    expect(sanitizeNombreInput('rodrigo figueroa camacho')).toBe('Rodrigo Figueroa Camacho')
   })
 
   it('elimina números y caracteres especiales', () => {
-    expect(sanitizeNombreInput('Ana123@#')).toBe('ANA')
+    expect(sanitizeNombreInput('Ana123@#')).toBe('Ana')
   })
 
   it('con trimEnds quita el espacio final', () => {
-    expect(sanitizeNombreInput('ANA ', { trimEnds: true })).toBe('ANA')
+    expect(sanitizeNombreInput('Ana ', { trimEnds: true })).toBe('Ana')
+  })
+
+  it('respeta guion y apóstrofe', () => {
+    expect(sanitizeNombreInput("maría-josé")).toBe('María-José')
+    expect(sanitizeNombreInput("o'connor")).toBe("O'Connor")
   })
 })
 
 describe('validateNombre / validateApellidos', () => {
-  it('acepta nombres compuestos válidos', () => {
-    expect(validateNombre('ROBERTO CARLOS')).toBe('')
-    expect(validateApellidos('DE LA CRUZ')).toBe('')
-    expect(validateNombre('MARÍA-JOSÉ')).toBe('')
+  it('acepta nombres compuestos válidos en formato Título', () => {
+    expect(validateNombre('Roberto Carlos')).toBe('')
+    expect(validateApellidos('De La Cruz')).toBe('')
+    expect(validateNombre('María-José')).toBe('')
   })
 
   it('rechaza palabra de una sola letra', () => {
@@ -35,12 +41,12 @@ describe('validateNombre / validateApellidos', () => {
 
   it('rechaza la misma letra repetida', () => {
     expect(esMismaLetraRepetida('JJJJJJJJJ')).toBe(true)
-    expect(validateApellidos('JJJJJJJJJ')).toContain('misma letra')
-    expect(validateNombre('AAAA')).toContain('misma letra')
+    expect(validateApellidos('Jjjjjjjjj')).toContain('misma letra')
+    expect(validateNombre('Aaaa')).toContain('misma letra')
   })
 
   it('rechaza números y caracteres inválidos', () => {
-    expect(validateNombre('ANA2')).toContain('números')
-    expect(validateNombre('ANA@')).toContain('válido')
+    expect(validateNombre('Ana2')).toContain('números')
+    expect(validateNombre('Ana@')).toContain('válido')
   })
 })

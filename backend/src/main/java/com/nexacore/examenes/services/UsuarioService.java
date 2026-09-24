@@ -119,7 +119,7 @@ public class UsuarioService {
         String rolNombre = request.rol().toUpperCase();
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        // 4. Actualizar campos personales y de estado (nombre/apellidos siempre en mayúsculas)
+        // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
         usuario.setNombre(normalizarNombre(request.nombre()));
         usuario.setApellidos(normalizarNombre(request.apellidos()));
         usuario.setCi(request.ci());
@@ -260,22 +260,24 @@ public class UsuarioService {
     }
 
     /**
-     * Guarda nombres y apellidos siempre en mayúsculas (formato único en el sistema).
+     * Guarda nombres y apellidos en formato Título (ej. Rodrigo Figueroa).
      * Elimina espacios extremos, colapsa espacios dobles y rechaza la misma letra repetida.
      */
     private static String normalizarNombre(String valor) {
         if (valor == null) {
             return null;
         }
-        String normalizado = valor.trim()
-                .replaceAll("\\s{2,}", " ")
-                .toUpperCase(Locale.forLanguageTag("es-BO"));
-        String soloLetras = normalizado.replaceAll("[^A-ZÁÉÍÓÚÜÑ]", "");
+        Locale locale = Locale.forLanguageTag("es-BO");
+        String normalizado = aFormatoTitulo(
+                valor.trim().replaceAll("\\s{2,}", " "),
+                locale);
+        String soloLetras = normalizado.replaceAll("[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", "");
         if (soloLetras.length() >= 2) {
-            char primera = soloLetras.charAt(0);
+            String upper = soloLetras.toUpperCase(locale);
+            char primera = upper.charAt(0);
             boolean mismaLetra = true;
-            for (int i = 1; i < soloLetras.length(); i++) {
-                if (soloLetras.charAt(i) != primera) {
+            for (int i = 1; i < upper.length(); i++) {
+                if (upper.charAt(i) != primera) {
                     mismaLetra = false;
                     break;
                 }
@@ -286,5 +288,28 @@ public class UsuarioService {
             }
         }
         return normalizado;
+    }
+
+    /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+    private static String aFormatoTitulo(String valor, Locale locale) {
+        StringBuilder out = new StringBuilder(valor.length());
+        boolean nuevaPalabra = true;
+        for (int i = 0; i < valor.length(); ) {
+            int cp = valor.codePointAt(i);
+            i += Character.charCount(cp);
+            if (cp == ' ' || cp == '\'' || cp == '-') {
+                out.appendCodePoint(cp);
+                nuevaPalabra = true;
+                continue;
+            }
+            String ch = new String(Character.toChars(cp));
+            if (nuevaPalabra) {
+                out.append(ch.toUpperCase(locale));
+                nuevaPalabra = false;
+            } else {
+                out.append(ch.toLowerCase(locale));
+            }
+        }
+        return out.toString();
     }
 }
