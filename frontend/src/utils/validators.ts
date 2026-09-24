@@ -9,12 +9,30 @@ export const FIELD_LIMITS = {
   rol: { min: 2, max: 30 },
 } as const
 
-/** Cada palabra ≥ 2 letras; separadores: espacio, apóstrofe o guion. */
+/** Cada palabra ≥ 2 letras; formato Título (primera mayúscula, resto minúsculas). */
 const NOMBRE_REGEX =
-  /^[A-ZÁÉÍÓÚÜÑ]{2,}(?:[ '-][A-ZÁÉÍÓÚÜÑ]{2,})*$/
+  /^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/
+
+const LOCALE_NOMBRE = 'es-BO'
+
+/** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+function toTitleCaseNombre(value: string): string {
+  return value.replace(
+    /[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:['-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*/g,
+    (word) =>
+      word
+        .split(/(['-])/)
+        .map((part) => {
+          if (part === "'" || part === '-' || !part) return part
+          const lower = part.toLocaleLowerCase(LOCALE_NOMBRE)
+          return lower.charAt(0).toLocaleUpperCase(LOCALE_NOMBRE) + lower.slice(1)
+        })
+        .join(''),
+  )
+}
 
 /**
- * Solo letras (con tildes), espacio, ' y -; mayúsculas.
+ * Solo letras (con tildes), espacio, ' y -; formato Título.
  * Quita espacios iniciales y colapsa espacios dobles.
  * Con `trimEnds` también elimina el espacio final (blur/submit).
  */
@@ -26,7 +44,8 @@ export function sanitizeNombreInput(
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
     .replace(/^\s+/, '')
     .replace(/\s{2,}/g, ' ')
-    .toLocaleUpperCase('es-BO')
+
+  cleaned = toTitleCaseNombre(cleaned)
 
   if (options?.trimEnds) {
     cleaned = cleaned.trimEnd()
@@ -34,9 +53,9 @@ export function sanitizeNombreInput(
   return cleaned
 }
 
-/** True si, ignorando separadores, todas las letras son la misma (ej. JJJJJJJJJ). */
+/** True si, ignorando separadores, todas las letras son la misma (ej. Jjjjjjjjj). */
 export function esMismaLetraRepetida(value: string): boolean {
-  const letters = value.replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ]/g, '').toLocaleUpperCase('es-BO')
+  const letters = value.replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ]/g, '').toLocaleUpperCase(LOCALE_NOMBRE)
   if (letters.length < 2) return false
   const first = letters[0]
   return [...letters].every((c) => c === first)
