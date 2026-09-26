@@ -11,6 +11,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
+import IdentificacionPage from '../pages/Control/IdentificacionPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -72,6 +73,16 @@ export default function AppRouter() {
           element={
             <ProtectedRoute>
               <ExamenesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Control de ingreso: identificar estudiante (CONTROL y ADMIN; el rol lo valida el backend) */}
+        <Route
+          path="/dashboard/control/:idExamen/identificar"
+          element={
+            <ProtectedRoute>
+              <IdentificacionPage />
             </ProtectedRoute>
           }
         />
