@@ -32,7 +32,7 @@ public class ExamenController {
         this.examenService = examenService;
     }
 
-    @Operation(summary = "Listar exámenes", description = "Lista exámenes ordenados por fecha. ADMIN, DOCENTE y CONTROL.")
+    @Operation(summary = "Listar exámenes", description = "ADMIN y CONTROL ven todos. DOCENTE solo los que tiene asignados.")
     @PreAuthorize("hasAnyRole('ADMIN','DOCENTE','CONTROL')")
     @GetMapping
     public ResponseEntity<List<ExamenResponse>> listar() {

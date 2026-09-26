@@ -13,6 +13,8 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
 
     List<Examen> findAllByOrderByFechaDescHoraInicioDesc();
 
+    List<Examen> findByIdDocenteOrderByFechaDescHoraInicioDesc(Integer idDocente);
+
     @Query("""
             SELECT e FROM Examen e
             WHERE e.idAmbiente = :idAmbiente AND e.fecha = :fecha
