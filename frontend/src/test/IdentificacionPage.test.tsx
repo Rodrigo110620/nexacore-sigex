@@ -10,6 +10,7 @@ vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolv
 const mockedIdentificar = vi.mocked(identificarEstudiante)
 
 const estudiante = (estado: EstudianteIdentificado['estado']): EstudianteIdentificado => ({
+  idEstudiante: 23,
   nombre: 'María José',
   apellidos: 'González Flores',
   codigoSis: '202104010',
@@ -25,6 +26,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/dashboard/control/7/identificar']}>
         <Routes>
           <Route path="/dashboard/control/:idExamen/identificar" element={<IdentificacionPage />} />
+          <Route path="/dashboard/control-ingresos/:idEstudiante/:idExamen" element={<p>Flujo ACCS-02</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -71,5 +73,15 @@ describe('IdentificacionPage', () => {
     expect(screen.queryByText('María José González Flores')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('')
     expect(continuar()).toBeDisabled()
+  })
+
+  it('Continúa hacia ACCS-02 con los identificadores del estudiante y del examen', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage()
+    await buscarEstudiante()
+
+    fireEvent.click(continuar())
+
+    expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
   })
 })

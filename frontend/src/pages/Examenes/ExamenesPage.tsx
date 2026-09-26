@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookCheck, Pencil, Plus, Search, XCircle } from 'lucide-react'
+import { ArrowRight, BookCheck, Pencil, Plus, Search, XCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
@@ -9,7 +10,8 @@ import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/e
 
 /** Listado de exámenes y modal de registro. */
 export default function ExamenesPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, roles } = useAuth()
+  const isControl = roles.includes('CONTROL')
   const [query, setQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editExamen, setEditExamen] = useState<ExamenDto | null>(null)
@@ -61,9 +63,13 @@ export default function ExamenesPage() {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6">
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">Exámenes</h1>
+              <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">
+                {isControl ? 'Control de ingreso' : 'Exámenes'}
+              </h1>
               <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                Registra y configura exámenes, ambientes y normas.
+                {isControl
+                  ? 'Selecciona el examen para identificar estudiantes y registrar su ingreso.'
+                  : 'Registra y configura exámenes, ambientes y normas.'}
               </p>
             </div>
             {isAdmin && (
@@ -151,6 +157,16 @@ export default function ExamenesPage() {
                             <XCircle size={15} />
                           </button>
                         </>
+                      )}
+                      {isControl && e.estado !== 'cancelado' && (
+                        <Link
+                          to={`/dashboard/control/${e.idExamen}/identificar`}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#032db0]"
+                          aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                        >
+                          Iniciar control
+                          <ArrowRight size={14} aria-hidden="true" />
+                        </Link>
                       )}
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
@@ -12,6 +12,7 @@ import type { EstudianteIdentificado, TipoIdentificacion } from '../../services/
 
 /** Control de ingreso: identificar al estudiante por código universitario o CI dentro de un examen. */
 export default function IdentificacionPage() {
+  const navigate = useNavigate()
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<TipoIdentificacion>('codigo')
@@ -47,8 +48,9 @@ export default function IdentificacionPage() {
   // HABILITADO y DESHABILITADO llegan como "encontrado"; NO_VINCULADO no permite continuar.
   const estudiante = busqueda.status === 'encontrado' ? busqueda.estudiante : null
 
-  // TODO(Fernando): abrir aquí el modal de verificación (UI 2); si está DESHABILITADO muestra el motivo.
-  const onContinuar = (_estudiante: EstudianteIdentificado) => {}
+  const onContinuar = (estudianteSeleccionado: EstudianteIdentificado) => {
+    navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}`)
+  }
 
   return (
     <PanelLayout>

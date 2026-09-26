@@ -52,7 +52,7 @@ public class IdentificacionService {
     private IdentificacionResponse responder(Optional<EstudianteExamenFila> resultado, String campo, String valor) {
         EstudianteExamenFila fila = resultado.orElseThrow(() -> new EstudianteNoEncontradoException(campo, valor));
         // fotoUrl queda en null: todavía no hay columna de foto en usuario ni en estudiante.
-        return new IdentificacionResponse(fila.nombre(), fila.apellidos(), fila.codigoSis(), fila.ci(),
+        return new IdentificacionResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(), fila.ci(),
                 fila.carrera(), null, estadoDe(fila));
     }
 

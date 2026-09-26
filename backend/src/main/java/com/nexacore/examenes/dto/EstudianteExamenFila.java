@@ -10,6 +10,7 @@ package com.nexacore.examenes.dto;
  * Uso interno entre repositorio y service; no se expone en la API.
  */
 public record EstudianteExamenFila(
+        Integer idEstudiante,
         String nombre,
         String apellidos,
         String codigoSis,

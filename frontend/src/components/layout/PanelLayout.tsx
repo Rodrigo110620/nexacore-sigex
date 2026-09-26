@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutGrid, BookCheck, Users, UserPlus, LogOut } from 'lucide-react'
+import { LayoutGrid, BookCheck, ClipboardCheck, Users, UserPlus, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
@@ -8,11 +8,14 @@ import PanelTopBar from './PanelTopBar'
 interface PanelLayoutProps {
   children: ReactNode
   compactDesktop?: boolean
+  title?: string
+  description?: string
 }
 
-export default function PanelLayout({ children, compactDesktop = false }: PanelLayoutProps) {
-  const { logout, isAdmin } = useAuth()
+export default function PanelLayout({ children, compactDesktop = false, title, description }: PanelLayoutProps) {
+  const { logout, isAdmin, roles } = useAuth()
   const navigate = useNavigate()
+  const isControl = roles.includes('CONTROL')
 
   const handleLogout = () => {
     logout()
@@ -22,7 +25,13 @@ export default function PanelLayout({ children, compactDesktop = false }: PanelL
   // Ítems de navegación filtrados por rol
   const navItems = [
     { label: 'Inicio', icon: LayoutGrid, to: '/dashboard/inicio', disabled: true, show: true },
-    { label: 'Exámenes', icon: BookCheck, to: '/dashboard/examenes', disabled: false, show: true },
+    {
+      label: isControl ? 'Control' : 'Exámenes',
+      icon: isControl ? ClipboardCheck : BookCheck,
+      to: '/dashboard/examenes',
+      disabled: false,
+      show: true,
+    },
     { label: 'Estudiantes', icon: Users, to: '/dashboard/estudiantes', disabled: true, show: true },
     { label: 'Usuarios', icon: UserPlus, to: '/dashboard/usuarios', disabled: false, show: isAdmin },
   ].filter((item) => item.show)
@@ -80,7 +89,7 @@ export default function PanelLayout({ children, compactDesktop = false }: PanelL
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
-        <PanelTopBar compactDesktop={compactDesktop} />
+        <PanelTopBar compactDesktop={compactDesktop} title={title} description={description} />
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
         <div className={`hidden shrink-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <Footer />

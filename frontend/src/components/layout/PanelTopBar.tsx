@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ChevronDown, LogOut, UserRound, X } from 'lucide-react'
+import { Bell, ChevronDown, ClipboardCheck, LogOut, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -12,9 +12,15 @@ function getInitials(nombre: string | null): string {
 
 interface PanelTopBarProps {
   compactDesktop?: boolean
+  title?: string
+  description?: string
 }
 
-export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps) {
+export default function PanelTopBar({
+  compactDesktop = false,
+  title,
+  description,
+}: PanelTopBarProps) {
   const { nombre, roles, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -23,6 +29,8 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
   const pageSubtitle = isExamenes
     ? 'Administra los exámenes programados y su habilitación.'
     : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
+  const effectiveTitle = title ?? pageTitle
+  const effectiveDescription = description ?? pageSubtitle
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -64,10 +72,14 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
         <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
-          <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
+          {effectiveTitle === 'CONTROL DE INGRESO' ? (
+            <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#D8E3F5] bg-[#F1F6FF] text-[#0439D9] shadow-sm"><ClipboardCheck size={24} /></span>
+          ) : (
+            <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
+          )}
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-[#011140]">{pageTitle}</p>
-            <p className="truncate text-sm text-[#627A9B]">{pageSubtitle}</p>
+            <p className="truncate text-lg font-bold text-[#011140]">{effectiveTitle}</p>
+            <p className="truncate text-sm text-[#627A9B]">{effectiveDescription}</p>
           </div>
         </div>
       </div>
@@ -149,8 +161,8 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
       </div>
     </header>
     <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
-      <p className="text-base font-bold text-[#011140]">{pageTitle}</p>
-      <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{pageSubtitle}</p>
+      <p className="text-base font-bold text-[#011140]">{effectiveTitle}</p>
+      <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{effectiveDescription}</p>
     </div>
   </>
 

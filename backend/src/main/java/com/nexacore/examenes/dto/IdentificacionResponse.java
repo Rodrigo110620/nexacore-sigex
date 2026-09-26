@@ -9,6 +9,7 @@ package com.nexacore.examenes.dto;
  * verificación (que muestra el motivo); con NO_VINCULADO muestra el modal de aviso.
  */
 public record IdentificacionResponse(
+        Integer idEstudiante,
         String nombre,
         String apellidos,
         String codigoSis,

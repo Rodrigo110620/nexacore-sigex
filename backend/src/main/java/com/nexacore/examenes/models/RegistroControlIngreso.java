@@ -15,7 +15,7 @@ import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -65,5 +65,5 @@ public class RegistroControlIngreso {
     @NotNull
     @ColumnDefault("now()")
     @Column(name = "fecha_hora", nullable = false)
-    private Instant fechaHora;
+    private LocalDateTime fechaHora;
 }

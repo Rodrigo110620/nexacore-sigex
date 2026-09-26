@@ -12,6 +12,8 @@ import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
+import ControlRoute from './ControlRoute'
+import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -66,7 +68,6 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
-
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}
         <Route
           path="/dashboard/examenes"
@@ -84,6 +85,15 @@ export default function AppRouter() {
             <ProtectedRoute>
               <IdentificacionPage />
             </ProtectedRoute>
+          }
+        />
+        {/* ACCS-02: registrar el control y autorizar o denegar el ingreso. */}
+        <Route
+          path="/dashboard/control-ingresos/:idEstudiante/:idExamen"
+          element={
+            <ControlRoute>
+              <ControlIngresoPage />
+            </ControlRoute>
           }
         />
       </Routes>
