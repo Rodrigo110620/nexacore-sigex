@@ -35,6 +35,7 @@ interface UserPaginationProps {
   pageSize: number
   onPageChange: (page: number) => void
   disabled?: boolean
+  itemLabel?: string
 }
 
 export default function UserPagination({
@@ -44,6 +45,7 @@ export default function UserPagination({
   pageSize,
   onPageChange,
   disabled = false,
+  itemLabel = 'usuarios',
 }: UserPaginationProps) {
   if (totalRecords === 0 || totalPages <= 1) return null
 
@@ -66,7 +68,7 @@ export default function UserPagination({
       <p className="text-center text-xs text-[#011140] sm:text-left sm:text-sm">
         Mostrando <span className="font-semibold">{firstRecord}–{lastRecord}</span> de{' '}
         <span className="font-semibold">{totalRecords}</span>
-        <span> usuarios</span>
+        <span> {itemLabel}</span>
       </p>
 
       <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end">

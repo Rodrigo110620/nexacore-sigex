@@ -20,6 +20,7 @@ export interface ExamenDto {
   idExamen: number
   idParalelo: number
   asignatura: string
+  sigla?: string
   docente: string
   fecha: string
   horaInicio: string

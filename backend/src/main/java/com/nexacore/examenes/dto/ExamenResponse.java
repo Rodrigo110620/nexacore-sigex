@@ -8,6 +8,7 @@ public record ExamenResponse(
         Integer idExamen,
         Integer idParalelo,
         String asignatura,
+        String sigla,
         String docente,
         LocalDate fecha,
         LocalTime horaInicio,
