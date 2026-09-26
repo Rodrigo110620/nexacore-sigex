@@ -15,13 +15,18 @@ import com.nexacore.examenes.models.ExamenId;
 import com.nexacore.examenes.models.Materia;
 import com.nexacore.examenes.models.Paralelo;
 import com.nexacore.examenes.models.ParaleloId;
+import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.DocenteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +47,7 @@ public class ExamenService {
     private final MateriaRepository materiaRepository;
     private final DocenteRepository docenteRepository;
     private final ParaleloRepository paraleloRepository;
+    private final UsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
@@ -56,20 +62,45 @@ public class ExamenService {
             MateriaRepository materiaRepository,
             DocenteRepository docenteRepository,
             ParaleloRepository paraleloRepository,
+            UsuarioRepository usuarioRepository,
             ObjectMapper objectMapper) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.materiaRepository = materiaRepository;
         this.docenteRepository = docenteRepository;
         this.paraleloRepository = paraleloRepository;
+        this.usuarioRepository = usuarioRepository;
         this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)
     public List<ExamenResponse> listar() {
-        return examenRepository.findAllByOrderByFechaDescHoraInicioDesc().stream()
+        return examenesVisibles().stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private List<Examen> examenesVisibles() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (tieneRol(auth, "ROLE_DOCENTE") && !tieneRol(auth, "ROLE_ADMIN")) {
+            Integer idDocente = usuarioRepository.findByEmail(auth.getName())
+                    .map(Usuario::getId)
+                    .orElse(-1);
+            return examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(idDocente);
+        }
+        return examenRepository.findAllByOrderByFechaDescHoraInicioDesc();
+    }
+
+    private static boolean tieneRol(Authentication auth, String role) {
+        if (auth == null) {
+            return false;
+        }
+        for (GrantedAuthority authority : auth.getAuthorities()) {
+            if (role.equals(authority.getAuthority())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Transactional
