@@ -21,7 +21,7 @@ const NAV_ITEMS = [
     label: 'Examenes',
     icon: BookCheck,
     to: '/dashboard/examenes',
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Estudiantes',

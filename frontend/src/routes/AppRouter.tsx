@@ -10,6 +10,7 @@ import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
+import ExamenesPage from '../pages/Examenes/ExamenesPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -61,6 +62,16 @@ export default function AppRouter() {
           element={
             <AdminRoute>
               <UsuariosPage />
+            </AdminRoute>
+          }
+        />
+
+        {/* Exámenes (MAST-03): admin autentificado; UI shell Parte 1 */}
+        <Route
+          path="/dashboard/examenes"
+          element={
+            <AdminRoute>
+              <ExamenesPage />
             </AdminRoute>
           }
         />
