@@ -71,12 +71,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
      * estudiante sin fila en asistencia_examen igual se devuelve, con idExamen y
      * habilitado en null (NO_VINCULADO). Los dos métodos comparten esta parte y solo
      * cambian el WHERE, para que cada búsqueda use su índice único (uq_codigo_sis / uq_ci).
+     * La carrera también va con LEFT JOIN (id_carrera es opcional y único en carrera).
      */
     String IDENTIFICACION_ESTUDIANTE = """
             SELECT new com.nexacore.examenes.dto.EstudianteExamenFila(
-                   u.nombre, u.apellidos, e.codigoSis, u.ci, a.id.idExamen, a.habilitado)
+                   u.nombre, u.apellidos, e.codigoSis, u.ci, c.nombre, a.id.idExamen, a.habilitado)
             FROM Estudiante e
             JOIN e.idUsuario u
+            LEFT JOIN Carrera c ON c.id.idCarrera = e.idCarrera
             LEFT JOIN AsistenciaExamen a
                    ON a.id.idEstudiante = e.id.idEstudiante AND a.id.idExamen = :idExamen
             """;
