@@ -11,6 +11,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
+import ExamenDetallePage from '../pages/Examenes/ExamenDetallePage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
 
 function LoginRoute() {
@@ -68,6 +69,14 @@ export default function AppRouter() {
         />
 
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}
+        <Route
+          path="/dashboard/examenes/:idExamen/:idParalelo"
+          element={
+            <ProtectedRoute>
+              <ExamenDetallePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard/examenes"
           element={
