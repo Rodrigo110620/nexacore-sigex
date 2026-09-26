@@ -2,6 +2,7 @@ package com.nexacore.examenes.exceptions;
 
 import com.nexacore.examenes.dto.ErrorResponse;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -164,6 +165,19 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage());
         return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** FK u otra restricción de BD (p. ej. docente con exámenes asignados). */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> manejarIntegridad(DataIntegrityViolationException ex) {
+        String detalle = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : "";
+        String mensaje = detalle != null && detalle.contains("fk_paralelo_docente")
+                ? "No se puede quitar el rol DOCENTE porque este usuario tiene exámenes o paralelos asignados."
+                : "No se pudo guardar el cambio porque hay datos relacionados que lo impiden.";
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), mensaje);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
     /** Usuario autenticado pero sin permisos suficientes (403). */
