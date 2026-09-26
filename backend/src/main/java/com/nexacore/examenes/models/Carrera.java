@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Catálogo de carreras por facultad (MAST-01).
+ * Catálogo de carreras por facultad.
  * PK compuesta {@code (id_carrera, id_facultad)} — mismo patrón que paralelo.
  */
 @Getter

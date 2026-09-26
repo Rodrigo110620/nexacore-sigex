@@ -18,7 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 /**
- * Gestión de usuarios del sistema (HU#2).
+ * Gestión de usuarios del sistema.
  *
  * Todos los endpoints requieren rol ADMIN (verificado con @PreAuthorize).
  * La URL final incluye el context-path /api/v1 definido en application.yml:

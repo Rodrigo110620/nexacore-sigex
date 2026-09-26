@@ -6,7 +6,7 @@ import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 
-/** MAST-03: listado de exámenes + modal de registro. */
+/** Listado de exámenes y modal de registro. */
 export default function ExamenesPage() {
   const { isAdmin } = useAuth()
   const [query, setQuery] = useState('')
@@ -59,7 +59,7 @@ export default function ExamenesPage() {
             <div>
               <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">Exámenes</h1>
               <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                Registra y configura exámenes, ambientes y normas (MAST-03).
+                Registra y configura exámenes, ambientes y normas.
               </p>
             </div>
             {isAdmin && (
