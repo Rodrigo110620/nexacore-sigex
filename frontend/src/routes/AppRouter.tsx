@@ -66,7 +66,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Exámenes (MAST-03): admin autentificado; UI shell Parte 1 */}
+        {/* Exámenes (MAST-03): solo ADMIN */}
         <Route
           path="/dashboard/examenes"
           element={

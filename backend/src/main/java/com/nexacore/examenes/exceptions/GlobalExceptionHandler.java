@@ -93,6 +93,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
+    /** Ambiente (aula) con nombre ya existente. */
+    @ExceptionHandler(AmbienteDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarAmbienteDuplicado(AmbienteDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    /** Conflicto de horario/ambiente al registrar examen (MAST-03). */
+    @ExceptionHandler(ConflictoAmbienteException.class)
+    public ResponseEntity<ErrorResponse> manejarConflictoAmbiente(ConflictoAmbienteException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
     /** Rol enviado no existe o no esta permitido (HU#2). */
     @ExceptionHandler(RolInvalidoException.class)
     public ResponseEntity<ErrorResponse> manejarRolInvalido(RolInvalidoException ex) {

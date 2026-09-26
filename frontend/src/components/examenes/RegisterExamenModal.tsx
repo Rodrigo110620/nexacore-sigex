@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   X,
   Info,
@@ -8,27 +8,54 @@ import {
   Pencil,
   Trash2,
   Plus,
+  ShieldCheck,
+  UserRoundCheck,
+  BookOpen,
+  User,
+  Lock,
+  ChevronsDown,
 } from 'lucide-react'
 import {
-  AMBIENTES_MOCK,
   INITIAL_EXAMEN_FORM,
   type NormaGeneral,
   type NormaParticular,
   type RegisterExamenFormErrors,
   type RegisterExamenFormState,
 } from '../../types/examen.types'
+import { crearAmbiente, listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
+import { crearExamen } from '../../services/examenService'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
+}
+
+function parseHora24(value: string): { h: number; m: number } | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
+  if (!match) return null
+  const h = Number(match[1])
+  const m = Number(match[2])
+  if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null
+  return { h, m }
+}
+
+function formatHora24(h: number, m: number): string {
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Solo dígitos; inserta `:` tras la hora (máx. HH:MM, 24 h). */
+function sanitizeHoraInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
 function minutesBetween(start: string, end: string): number | null {
-  if (!start || !end) return null
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
-  const diff = eh * 60 + em - (sh * 60 + sm)
+  const a = parseHora24(start)
+  const b = parseHora24(end)
+  if (!a || !b) return null
+  const diff = b.h * 60 + b.m - (a.h * 60 + a.m)
   return diff > 0 ? diff : null
 }
 
@@ -37,21 +64,36 @@ function validateExamenForm(form: RegisterExamenFormState): RegisterExamenFormEr
   if (!form.asignatura.trim()) errors.asignatura = 'La asignatura es obligatoria'
   if (!form.docente.trim()) errors.docente = 'El docente responsable es obligatorio'
   if (!form.fecha) errors.fecha = 'La fecha es obligatoria'
-  if (!form.horaInicio) errors.horaInicio = 'La hora de inicio es obligatoria'
-  if (!form.horaFin) errors.horaFin = 'La hora de fin es obligatoria'
+  if (!form.horaInicio.trim()) {
+    errors.horaInicio = 'La hora de inicio es obligatoria'
+  } else if (!parseHora24(form.horaInicio)) {
+    errors.horaInicio = 'Usa formato 24 h (ej. 08:00 o 13:30)'
+  }
+  if (!form.horaFin.trim()) {
+    errors.horaFin = 'La hora de fin es obligatoria'
+  } else if (!parseHora24(form.horaFin)) {
+    errors.horaFin = 'Usa formato 24 h (ej. 10:00 o 15:00)'
+  }
   if (!form.idAmbiente) errors.idAmbiente = 'Selecciona un ambiente'
-  const dur = minutesBetween(form.horaInicio, form.horaFin)
-  if (form.horaInicio && form.horaFin && dur === null) {
-    errors.horaFin = 'La hora de fin debe ser posterior al inicio'
+  if (!errors.horaInicio && !errors.horaFin) {
+    const dur = minutesBetween(form.horaInicio, form.horaFin)
+    if (dur === null) {
+      errors.horaFin = 'La hora de fin debe ser posterior al inicio'
+    }
   }
   return errors
 }
 
-export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenModalProps) {
+export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
+  const [loadingAmbientes, setLoadingAmbientes] = useState(false)
+  const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
+  const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -64,11 +106,84 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
   const [nuevaParticularEst, setNuevaParticularEst] = useState('')
   const [nuevaParticularTexto, setNuevaParticularTexto] = useState('')
   const [showAddParticular, setShowAddParticular] = useState(false)
+  const [editingGeneralId, setEditingGeneralId] = useState<string | null>(null)
+  const [ambienteFilter, setAmbienteFilter] = useState('')
+  const [ambienteListOpen, setAmbienteListOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ambienteBoxRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!ambienteListOpen) return
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (ambienteBoxRef.current && !ambienteBoxRef.current.contains(target)) {
+        setAmbienteListOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+    }
+  }, [ambienteListOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    const handle = window.setTimeout(() => {
+      setLoadingAmbientes(true)
+      setGeneralError('')
+      listarAmbientes()
+        .then((data) => {
+          if (!cancelled) setAmbientes(data)
+        })
+        .catch(() => {
+          if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingAmbientes(false)
+        })
+    }, 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(handle)
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
-  const sinSolapamiento = Boolean(form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && !errors.horaFin)
+  const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
+  const sinSolapamientoUi = Boolean(
+    form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && duracion !== null,
+  )
+  const ambientesFiltrados = ambientes.filter((a) => {
+    const q = ambienteFilter.trim().toLowerCase()
+    if (!q) return true
+    return (
+      a.nombre.toLowerCase().includes(q) ||
+      (a.ubicacion ?? '').toLowerCase().includes(q)
+    )
+  })
+
+  const fieldClass = (hasError?: string) =>
+    `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
+      hasError ? 'border-red-400' : 'border-gray-200'
+    }`
+
+  const inputWithIconClass = (hasError?: string) =>
+    `w-full rounded-lg border bg-white py-2.5 pl-3 pr-10 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
+      hasError ? 'border-red-400' : 'border-gray-200'
+    }`
+
+  const sectionCardClass = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
 
   const handleChange = (field: keyof RegisterExamenFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -82,36 +197,107 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
     setErrors({})
     setGeneralError('')
     setSuccess(false)
+    setSaving(false)
     setShowAddGeneral(false)
     setShowAddParticular(false)
+    setShowNuevoAmbiente(false)
     setNuevaNormaGeneral('')
     setNuevaParticularEst('')
     setNuevaParticularTexto('')
+    setNuevoAmbienteNombre('')
+    setEditingGeneralId(null)
+    setAmbienteFilter('')
+    setAmbienteListOpen(false)
+    setNormasGenerales([
+      {
+        id: 'ng-1',
+        texto: 'No se permite el uso de calculadora programable ni dispositivos electrónicos.',
+      },
+    ])
+    setNormasParticulares([])
   }
 
   const handleClose = () => {
+    if (saving) return
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
     resetAll()
     onClose()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const nextErrors = validateExamenForm(form)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
-      setGeneralError('Completa los campos obligatorios del examen (asignatura, fecha, hora, duración y ambiente).')
+      setGeneralError(
+        'Completa los campos obligatorios del examen (asignatura, fecha, hora, duración y ambiente).',
+      )
       setSuccess(false)
       return
     }
-    // UI mockup: sin API aún (próximo PR backend)
+
+    const duracion = minutesBetween(form.horaInicio, form.horaFin)
+    if (duracion === null) {
+      setGeneralError('La hora de fin debe ser posterior al inicio.')
+      return
+    }
+
+    setSaving(true)
     setGeneralError('')
-    setSuccess(true)
+    try {
+      await crearExamen({
+        asignatura: form.asignatura.trim(),
+        docente: form.docente.trim(),
+        fecha: form.fecha,
+        horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
+        duracionMinutos: duracion,
+        idAmbiente: Number(form.idAmbiente),
+        normasGenerales: normasGenerales.map((n) => n.texto),
+        normasParticulares: normasParticulares.map((n) => ({
+          estudiante: n.estudiante,
+          texto: n.texto,
+        })),
+      })
+      setSuccess(true)
+      onSuccess?.()
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = setTimeout(() => {
+        resetAll()
+        onClose()
+        closeTimerRef.current = null
+      }, 900)
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { mensaje?: string } }
+      }
+      const status = error.response?.status
+      const mensaje = error.response?.data?.mensaje
+      if (status === 409) {
+        setGeneralError(mensaje ?? 'Conflicto de ambiente u horario.')
+      } else if (status === 400) {
+        setGeneralError(mensaje ?? 'Verifica los datos del examen.')
+      } else {
+        setGeneralError(mensaje ?? 'No se pudo registrar el examen. Intenta más tarde.')
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const addNormaGeneral = () => {
     const texto = nuevaNormaGeneral.trim()
     if (!texto) return
-    setNormasGenerales((prev) => [...prev, { id: `ng-${Date.now()}`, texto }])
+    if (editingGeneralId) {
+      setNormasGenerales((prev) =>
+        prev.map((n) => (n.id === editingGeneralId ? { ...n, texto } : n)),
+      )
+      setEditingGeneralId(null)
+    } else {
+      setNormasGenerales((prev) => [...prev, { id: `ng-${Date.now()}`, texto }])
+    }
     setNuevaNormaGeneral('')
     setShowAddGeneral(false)
   }
@@ -129,14 +315,9 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
     setShowAddParticular(false)
   }
 
-  const fieldClass = (hasError?: string) =>
-    `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-      hasError ? 'border-red-400' : 'border-gray-200'
-    }`
-
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:bg-black/45 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="register-examen-title"
@@ -161,15 +342,16 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
           <button
             type="button"
             onClick={handleClose}
+            disabled={saving}
             aria-label="Cerrar"
-            className="rounded-lg p-2 text-[#627A9B] hover:bg-gray-100"
+            className="rounded-lg p-2 text-[#627A9B] hover:bg-gray-100 disabled:opacity-50"
           >
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex items-start gap-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
               <Info size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
               <p className="text-[11px] leading-relaxed text-[#011140] sm:text-xs">
@@ -179,35 +361,50 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
               </p>
             </div>
 
-            <section>
-              <h3 className="mb-3 text-[11px] font-bold tracking-wide text-[#0439D9]">
-                INFORMACIÓN BÁSICA DEL EXAMEN
+            <section className={sectionCardClass}>
+              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
+                1. INFORMACIÓN BÁSICA DEL EXAMEN
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
+                <div className="min-w-0">
                   <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Asignatura <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    value={form.asignatura}
-                    onChange={(e) => handleChange('asignatura', e.target.value)}
-                    placeholder="Ej. Algoritmos y Estructuras de Datos"
-                    className={fieldClass(errors.asignatura)}
-                  />
+                  <div className="relative">
+                    <input
+                      value={form.asignatura}
+                      onChange={(e) => handleChange('asignatura', e.target.value)}
+                      placeholder="Ej. Algoritmos y Estructuras de Datos"
+                      className={inputWithIconClass(errors.asignatura)}
+                    />
+                    <BookOpen
+                      size={16}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </div>
                   {errors.asignatura && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.asignatura}</p>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    value={form.docente}
-                    onChange={(e) => handleChange('docente', e.target.value)}
-                    placeholder="Ej. Mg. Elena Rostova"
-                    className={fieldClass(errors.docente)}
-                  />
+                  <div className="relative">
+                    <input
+                      value={form.docente}
+                      onChange={(e) => handleChange('docente', e.target.value)}
+                      placeholder="Ej. Mg. Elena Rostova"
+                      className={inputWithIconClass(errors.docente)}
+                    />
+                    <User
+                      size={16}
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  </div>
                   {errors.docente && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>
                   )}
@@ -215,12 +412,13 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
               </div>
             </section>
 
-            <section>
-              <h3 className="mb-3 text-[11px] font-bold tracking-wide text-[#0439D9]">
-                PROGRAMACIÓN Y AMBIENTE
+            <section className={sectionCardClass}>
+              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
+                2. PROGRAMACIÓN Y AMBIENTE
               </h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="min-w-0">
                   <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
@@ -232,28 +430,45 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                   />
                   {errors.fecha && <p className="mt-1 text-[10px] text-red-500">{errors.fecha}</p>}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Hora de Inicio <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="08:00"
+                    maxLength={5}
                     value={form.horaInicio}
-                    onChange={(e) => handleChange('horaInicio', e.target.value)}
+                    onChange={(e) => handleChange('horaInicio', sanitizeHoraInput(e.target.value))}
+                    onBlur={() => {
+                      const parsed = parseHora24(form.horaInicio)
+                      if (parsed) handleChange('horaInicio', formatHora24(parsed.h, parsed.m))
+                    }}
                     className={fieldClass(errors.horaInicio)}
                   />
+                  <p className="mt-1 text-[10px] text-gray-400">24 h · mañana 08:00 · tarde 13:00</p>
                   {errors.horaInicio && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.horaInicio}</p>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="mb-1 block text-xs font-semibold text-gray-700">
                     Hora de Fin / Duración <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="10:00"
+                    maxLength={5}
                     value={form.horaFin}
-                    onChange={(e) => handleChange('horaFin', e.target.value)}
+                    onChange={(e) => handleChange('horaFin', sanitizeHoraInput(e.target.value))}
+                    onBlur={() => {
+                      const parsed = parseHora24(form.horaFin)
+                      if (parsed) handleChange('horaFin', formatHora24(parsed.h, parsed.m))
+                    }}
                     className={fieldClass(errors.horaFin)}
                   />
                   {duracion !== null && (
@@ -266,39 +481,166 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
               </div>
 
               <div className="mt-3">
-                <label className="mb-1 block text-xs font-semibold text-gray-700">
-                  Ambiente / Aula Asignada <span className="text-red-500">*</span>
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    value={form.idAmbiente}
-                    onChange={(e) => handleChange('idAmbiente', e.target.value)}
-                    className={`${fieldClass(errors.idAmbiente)} sm:flex-1`}
-                  >
-                    <option value="">Seleccionar ambiente…</option>
-                    {AMBIENTES_MOCK.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                  {sinSolapamiento && (
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-                      <Check size={14} aria-hidden="true" />
-                      Sin solapamiento detectado
-                    </span>
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <label className="block text-xs font-semibold text-gray-700" htmlFor="ambiente-buscar">
+                    Ambiente / Aula Asignada <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {sinSolapamientoUi && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                        <Check size={12} aria-hidden="true" />
+                        Sin solapamiento detectado
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowNuevoAmbiente((v) => !v)}
+                      className="text-[11px] font-semibold text-[#0439D9] hover:underline"
+                    >
+                      + Nuevo ambiente
+                    </button>
+                  </div>
+                </div>
+                {showNuevoAmbiente && (
+                  <div className="mb-2 flex gap-2">
+                    <input
+                      value={nuevoAmbienteNombre}
+                      onChange={(e) => setNuevoAmbienteNombre(e.target.value)}
+                      placeholder="Código o nombre (ej. 692F, INFLAB)"
+                      className={fieldClass()}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nombre = nuevoAmbienteNombre.trim()
+                        if (!nombre) return
+                        try {
+                          const creado = await crearAmbiente({ nombre })
+                          setAmbientes((prev) =>
+                            [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+                          )
+                          handleChange('idAmbiente', String(creado.id))
+                          setAmbienteFilter(creado.nombre)
+                          setAmbienteListOpen(false)
+                          setNuevoAmbienteNombre('')
+                          setShowNuevoAmbiente(false)
+                        } catch {
+                          setGeneralError('No se pudo crear el ambiente (¿nombre duplicado?).')
+                        }
+                      }}
+                      className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                )}
+
+                <div ref={ambienteBoxRef} className="relative">
+                  <div className="relative">
+                    <input
+                      id="ambiente-buscar"
+                      type="text"
+                      autoComplete="off"
+                      disabled={loadingAmbientes}
+                      value={
+                        ambienteListOpen || !ambienteSeleccionado
+                          ? ambienteFilter
+                          : ambienteSeleccionado.ubicacion
+                            ? `${ambienteSeleccionado.nombre} — ${ambienteSeleccionado.ubicacion}`
+                            : ambienteSeleccionado.nombre
+                      }
+                      placeholder={
+                        loadingAmbientes
+                          ? 'Cargando ambientes…'
+                          : 'Buscar aula (ej. 692F, INFLAB)…'
+                      }
+                      onFocus={() => {
+                        setAmbienteListOpen(true)
+                        if (ambienteSeleccionado) {
+                          setAmbienteFilter(ambienteSeleccionado.nombre)
+                        }
+                      }}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setAmbienteFilter(value)
+                        setAmbienteListOpen(true)
+                        if (form.idAmbiente) handleChange('idAmbiente', '')
+                      }}
+                      className={`${fieldClass(errors.idAmbiente)} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-label={ambienteListOpen ? 'Cerrar lista de ambientes' : 'Abrir lista de ambientes'}
+                      disabled={loadingAmbientes}
+                      onClick={() => {
+                        if (ambienteListOpen) {
+                          setAmbienteListOpen(false)
+                          return
+                        }
+                        setAmbienteListOpen(true)
+                        if (ambienteSeleccionado) {
+                          setAmbienteFilter(ambienteSeleccionado.nombre)
+                        }
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-[#0439D9]"
+                    >
+                      <ChevronsDown size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {ambienteListOpen && !loadingAmbientes && (
+                    <ul
+                      role="listbox"
+                      className="mt-1 max-h-40 overflow-y-auto overscroll-contain rounded-lg border border-[#D8E3F5] bg-white py-1 shadow-md"
+                    >
+                      {ambientesFiltrados.length === 0 ? (
+                        <li className="px-3 py-2 text-xs text-gray-400">Sin coincidencias</li>
+                      ) : (
+                        ambientesFiltrados.map((a) => (
+                          <li key={a.id}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={form.idAmbiente === String(a.id)}
+                              className={`flex w-full flex-col px-3 py-2 text-left text-xs hover:bg-[#E9F1FF] ${
+                                form.idAmbiente === String(a.id) ? 'bg-[#F8FBFF]' : ''
+                              }`}
+                              onClick={() => {
+                                handleChange('idAmbiente', String(a.id))
+                                setAmbienteFilter(a.nombre)
+                                setAmbienteListOpen(false)
+                              }}
+                            >
+                              <span className="font-semibold text-[#011140]">{a.nombre}</span>
+                              {a.ubicacion && (
+                                <span className="text-[10px] text-gray-500">{a.ubicacion}</span>
+                              )}
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
                   )}
                 </div>
+
+                {!loadingAmbientes && ambientes.length === 0 && (
+                  <p className="mt-1 text-[10px] text-amber-600">
+                    No hay ambientes en el catálogo. Agrega uno con “+ Nuevo ambiente” o aplica
+                    la migración V8.
+                  </p>
+                )}
                 {errors.idAmbiente && (
                   <p className="mt-1 text-[10px] text-red-500">{errors.idAmbiente}</p>
                 )}
               </div>
             </section>
 
-            <section>
+            <section className={sectionCardClass}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                    <ShieldCheck size={14} className="shrink-0" aria-hidden="true" />
                     NORMAS GENERALES DEL EXAMEN
                   </h3>
                   <p className="text-[10px] text-gray-500">
@@ -307,10 +649,17 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddGeneral((v) => !v)}
+                  onClick={() => {
+                    setShowAddGeneral((v) => !v)
+                    if (showAddGeneral) {
+                      setEditingGeneralId(null)
+                      setNuevaNormaGeneral('')
+                    }
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-[#0439D9] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF]"
                 >
-                  <Plus size={14} /> Agregar norma general
+                  <Plus size={14} />{' '}
+                  {editingGeneralId ? 'Editando norma…' : 'Agregar norma general'}
                 </button>
               </div>
               {showAddGeneral && (
@@ -326,7 +675,7 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                     onClick={addNormaGeneral}
                     className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
                   >
-                    Añadir
+                    {editingGeneralId ? 'Guardar' : 'Añadir'}
                   </button>
                 </div>
               )}
@@ -334,21 +683,24 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                 {normasGenerales.map((n, idx) => (
                   <li
                     key={n.id}
-                    className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-[#F8FBFF] px-3 py-2"
+                    className="flex items-start justify-between gap-2 rounded-lg border border-[#E8EEF7] bg-white px-3 py-2.5"
                   >
-                    <p className="text-xs text-[#011140]">
-                      <span className="font-bold text-[#0439D9]">{idx + 1}.</span> {n.texto}
-                    </p>
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#FEF3C7] text-[10px] font-bold text-[#B45309]">
+                        {idx + 1}
+                      </span>
+                      <p className="text-xs leading-relaxed text-[#011140]">{n.texto}</p>
+                    </div>
                     <div className="flex shrink-0 gap-1">
                       <button
                         type="button"
                         aria-label="Editar norma"
                         onClick={() => {
                           setNuevaNormaGeneral(n.texto)
-                          setNormasGenerales((prev) => prev.filter((x) => x.id !== n.id))
+                          setEditingGeneralId(n.id)
                           setShowAddGeneral(true)
                         }}
-                        className="rounded p-1 text-gray-400 hover:bg-white hover:text-[#0439D9]"
+                        className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-[#0439D9]"
                       >
                         <Pencil size={14} />
                       </button>
@@ -358,7 +710,7 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                         onClick={() =>
                           setNormasGenerales((prev) => prev.filter((x) => x.id !== n.id))
                         }
-                        className="rounded p-1 text-gray-400 hover:bg-white hover:text-red-500"
+                        className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-red-500"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -368,10 +720,11 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
               </ul>
             </section>
 
-            <section>
+            <section className={sectionCardClass}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                    <UserRoundCheck size={14} className="shrink-0" aria-hidden="true" />
                     NORMAS PARTICULARES POR ESTUDIANTE
                   </h3>
                   <p className="text-[10px] text-gray-500">
@@ -418,7 +771,7 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                   {normasParticulares.map((n) => (
                     <li
                       key={n.id}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2"
+                      className="flex items-start justify-between gap-2 rounded-lg border border-[#E8EEF7] bg-white px-3 py-2"
                     >
                       <p className="text-xs text-[#011140]">
                         <span className="font-semibold">{n.estudiante}:</span> {n.texto}
@@ -448,32 +801,33 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
             {success && (
               <div className="flex items-start rounded-md border border-emerald-200 bg-emerald-50 p-3">
                 <Check className="mr-2 mt-0.5 shrink-0 text-emerald-700" size={18} />
-                <p className="text-xs text-emerald-800">
-                  Formulario válido (mockup UI). La API de registro se conectará en el siguiente
-                  paso.
-                </p>
+                <p className="text-xs text-emerald-800">Examen registrado correctamente.</p>
               </div>
             )}
           </div>
 
           <div className="shrink-0 border-t border-[#e3eaf1] bg-[#f8fbff] px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="hidden text-[11px] text-gray-400 sm:block">
+              <p className="hidden items-center gap-1.5 text-[11px] text-gray-400 sm:flex">
+                <Lock size={12} aria-hidden="true" />
                 Todos los exámenes son registrados y auditados en SIGEX.
               </p>
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50 sm:w-auto"
+                  disabled={saving}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] sm:w-auto"
+                  disabled={saving}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:opacity-60 sm:w-auto"
                 >
-                  Guardar y Registrar Examen
+                  {!saving && <Check size={16} aria-hidden="true" />}
+                  {saving ? 'Guardando…' : 'Guardar y Registrar Examen'}
                 </button>
               </div>
             </div>
