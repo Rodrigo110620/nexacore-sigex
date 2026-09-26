@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "Ambientes", description = "Catálogo de aulas / ambientes de evaluación (MAST-03)")
+@Tag(name = "Ambientes", description = "Catálogo de aulas / ambientes de evaluación")
 @RestController
 @RequestMapping("/ambientes")
 public class AmbienteController {

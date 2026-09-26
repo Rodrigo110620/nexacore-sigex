@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Datos para registrar o actualizar un usuario del sistema (HU#2).
+ * Datos para registrar o actualizar un usuario del sistema.
  *
  * El admin NO envía contraseña: el sistema genera una clave provisional
  * y la envía solo por correo al usuario. No se expone en la respuesta HTTP.

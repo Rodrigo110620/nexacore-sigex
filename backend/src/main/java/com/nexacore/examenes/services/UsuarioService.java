@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 /**
- * Lógica de negocio para la gestión de usuarios (HU#2).
+ * Lógica de negocio para la gestión de usuarios.
  *
  * Orden de validaciones en registrar():
  *   1. Rol válido  → 400 si no es ADMIN/DOCENTE/CONTROL

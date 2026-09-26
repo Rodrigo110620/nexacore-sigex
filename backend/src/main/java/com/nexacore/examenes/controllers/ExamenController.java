@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "Exámenes", description = "Registro y consulta de exámenes (MAST-03)")
+@Tag(name = "Exámenes", description = "Registro y consulta de exámenes")
 @RestController
 @RequestMapping("/examenes")
 public class ExamenController {

@@ -357,7 +357,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               <p className="text-[11px] leading-relaxed text-[#011140] sm:text-xs">
                 <span className="font-semibold">Validación de Ambiente y Horarios en Tiempo Real:</span>{' '}
                 El sistema audita automáticamente la disponibilidad del aula para prevenir
-                solapamientos o cruces con otros exámenes (Criterio CA-03).
+                solapamientos o cruces con otros exámenes.
               </p>
             </div>
 

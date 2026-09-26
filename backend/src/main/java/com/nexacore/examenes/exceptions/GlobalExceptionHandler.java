@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(cuerpo);
     }
 
-    /** Email ya registrado en la base de datos (HU#2). */
+    /** Email ya registrado en la base de datos. */
     @ExceptionHandler(EmailDuplicadoException.class)
     public ResponseEntity<ErrorResponse> manejarEmailDuplicado(EmailDuplicadoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
@@ -102,7 +102,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
-    /** Conflicto de horario/ambiente al registrar examen (MAST-03). */
+    /** Conflicto de horario/ambiente al registrar examen. */
     @ExceptionHandler(ConflictoAmbienteException.class)
     public ResponseEntity<ErrorResponse> manejarConflictoAmbiente(ConflictoAmbienteException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
@@ -111,7 +111,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
-    /** Rol enviado no existe o no esta permitido (HU#2). */
+    /** Rol enviado no existe o no esta permitido. */
     @ExceptionHandler(RolInvalidoException.class)
     public ResponseEntity<ErrorResponse> manejarRolInvalido(RolInvalidoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(

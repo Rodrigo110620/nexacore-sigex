@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Catálogo de facultades. Agrupa carreras (escalable multi-facultad / MAST-01).
+ * Catálogo de facultades. Agrupa carreras (escalable multi-facultad).
  */
 @Getter
 @Setter
