@@ -137,20 +137,23 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    setLoadingAmbientes(true)
-    setGeneralError('')
-    listarAmbientes()
-      .then((data) => {
-        if (!cancelled) setAmbientes(data)
-      })
-      .catch(() => {
-        if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingAmbientes(false)
-      })
+    const handle = window.setTimeout(() => {
+      setLoadingAmbientes(true)
+      setGeneralError('')
+      listarAmbientes()
+        .then((data) => {
+          if (!cancelled) setAmbientes(data)
+        })
+        .catch(() => {
+          if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingAmbientes(false)
+        })
+    }, 0)
     return () => {
       cancelled = true
+      window.clearTimeout(handle)
     }
   }, [isOpen])
 

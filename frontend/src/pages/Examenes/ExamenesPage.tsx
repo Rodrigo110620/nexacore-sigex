@@ -28,7 +28,10 @@ export default function ExamenesPage() {
   }, [])
 
   useEffect(() => {
-    void load()
+    const handle = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(handle)
   }, [load])
 
   const filtered = examenes.filter((e) => {
