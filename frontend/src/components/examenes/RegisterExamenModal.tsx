@@ -17,10 +17,12 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
+import { crearExamen } from '../../services/examenService'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
 }
 
 function minutesBetween(start: string, end: string): number | null {
@@ -47,11 +49,12 @@ function validateExamenForm(form: RegisterExamenFormState): RegisterExamenFormEr
   return errors
 }
 
-export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenModalProps) {
+export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
   const [loadingAmbientes, setLoadingAmbientes] = useState(false)
   const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
@@ -117,18 +120,62 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
     onClose()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const nextErrors = validateExamenForm(form)
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
-      setGeneralError('Completa los campos obligatorios del examen (asignatura, fecha, hora, duración y ambiente).')
+      setGeneralError(
+        'Completa los campos obligatorios del examen (asignatura, fecha, hora, duración y ambiente).',
+      )
       setSuccess(false)
       return
     }
-    // UI mockup: sin API aún (próximo PR backend)
+
+    const duracion = minutesBetween(form.horaInicio, form.horaFin)
+    if (duracion === null) {
+      setGeneralError('La hora de fin debe ser posterior al inicio.')
+      return
+    }
+
+    setSaving(true)
     setGeneralError('')
-    setSuccess(true)
+    try {
+      await crearExamen({
+        asignatura: form.asignatura.trim(),
+        docente: form.docente.trim(),
+        fecha: form.fecha,
+        horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
+        duracionMinutos: duracion,
+        idAmbiente: Number(form.idAmbiente),
+        normasGenerales: normasGenerales.map((n) => n.texto),
+        normasParticulares: normasParticulares.map((n) => ({
+          estudiante: n.estudiante,
+          texto: n.texto,
+        })),
+      })
+      setSuccess(true)
+      onSuccess?.()
+      setTimeout(() => {
+        resetAll()
+        onClose()
+      }, 900)
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { mensaje?: string } }
+      }
+      const status = error.response?.status
+      const mensaje = error.response?.data?.mensaje
+      if (status === 409) {
+        setGeneralError(mensaje ?? 'Conflicto de ambiente u horario.')
+      } else if (status === 400) {
+        setGeneralError(mensaje ?? 'Verifica los datos del examen.')
+      } else {
+        setGeneralError(mensaje ?? 'No se pudo registrar el examen. Intenta más tarde.')
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const addNormaGeneral = () => {
@@ -515,10 +562,7 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
             {success && (
               <div className="flex items-start rounded-md border border-emerald-200 bg-emerald-50 p-3">
                 <Check className="mr-2 mt-0.5 shrink-0 text-emerald-700" size={18} />
-                <p className="text-xs text-emerald-800">
-                  Formulario válido (mockup UI). La API de registro se conectará en el siguiente
-                  paso.
-                </p>
+                <p className="text-xs text-emerald-800">Examen registrado correctamente.</p>
               </div>
             )}
           </div>
@@ -538,9 +582,10 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
                 </button>
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] sm:w-auto"
+                  disabled={saving}
+                  className="w-full rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:opacity-60 sm:w-auto"
                 >
-                  Guardar y Registrar Examen
+                  {saving ? 'Guardando…' : 'Guardar y Registrar Examen'}
                 </button>
               </div>
             </div>
