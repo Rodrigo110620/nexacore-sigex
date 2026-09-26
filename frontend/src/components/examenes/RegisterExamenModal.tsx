@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   X,
   Info,
@@ -10,13 +10,13 @@ import {
   Plus,
 } from 'lucide-react'
 import {
-  AMBIENTES_MOCK,
   INITIAL_EXAMEN_FORM,
   type NormaGeneral,
   type NormaParticular,
   type RegisterExamenFormErrors,
   type RegisterExamenFormState,
 } from '../../types/examen.types'
+import { crearAmbiente, listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -52,6 +52,10 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
+  const [loadingAmbientes, setLoadingAmbientes] = useState(false)
+  const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
+  const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -64,6 +68,25 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
   const [nuevaParticularEst, setNuevaParticularEst] = useState('')
   const [nuevaParticularTexto, setNuevaParticularTexto] = useState('')
   const [showAddParticular, setShowAddParticular] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    setLoadingAmbientes(true)
+    listarAmbientes()
+      .then((data) => {
+        if (!cancelled) setAmbientes(data)
+      })
+      .catch(() => {
+        if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAmbientes(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -266,19 +289,63 @@ export default function RegisterExamenModal({ isOpen, onClose }: RegisterExamenM
               </div>
 
               <div className="mt-3">
-                <label className="mb-1 block text-xs font-semibold text-gray-700">
-                  Ambiente / Aula Asignada <span className="text-red-500">*</span>
-                </label>
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Ambiente / Aula Asignada <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNuevoAmbiente((v) => !v)}
+                    className="text-[11px] font-semibold text-[#0439D9] hover:underline"
+                  >
+                    + Nuevo ambiente
+                  </button>
+                </div>
+                {showNuevoAmbiente && (
+                  <div className="mb-2 flex gap-2">
+                    <input
+                      value={nuevoAmbienteNombre}
+                      onChange={(e) => setNuevoAmbienteNombre(e.target.value)}
+                      placeholder="Código o nombre (ej. 692F, INFLAB)"
+                      className={fieldClass()}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nombre = nuevoAmbienteNombre.trim()
+                        if (!nombre) return
+                        try {
+                          const creado = await crearAmbiente({ nombre })
+                          setAmbientes((prev) =>
+                            [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+                          )
+                          handleChange('idAmbiente', String(creado.id))
+                          setNuevoAmbienteNombre('')
+                          setShowNuevoAmbiente(false)
+                        } catch {
+                          setGeneralError('No se pudo crear el ambiente (¿nombre duplicado?).')
+                        }
+                      }}
+                      className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                )}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <select
                     value={form.idAmbiente}
                     onChange={(e) => handleChange('idAmbiente', e.target.value)}
+                    disabled={loadingAmbientes}
                     className={`${fieldClass(errors.idAmbiente)} sm:flex-1`}
                   >
-                    <option value="">Seleccionar ambiente…</option>
-                    {AMBIENTES_MOCK.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}
+                    <option value="">
+                      {loadingAmbientes ? 'Cargando ambientes…' : 'Seleccionar ambiente…'}
+                    </option>
+                    {ambientes.map((a) => (
+                      <option key={a.id} value={String(a.id)}>
+                        {a.nombre}
+                        {a.ubicacion ? ` — ${a.ubicacion}` : ''}
                       </option>
                     ))}
                   </select>

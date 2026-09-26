@@ -35,10 +35,3 @@ export const INITIAL_EXAMEN_FORM: RegisterExamenFormState = {
   horaFin: '',
   idAmbiente: '',
 }
-
-/** Ambientes mock hasta conectar API de catálogo. */
-export const AMBIENTES_MOCK = [
-  { id: '1', label: 'Aula 204 (Disponible · Aforo: 50 · Pabellón B)' },
-  { id: '2', label: 'Lab. Redes (Disponible · Aforo: 30 · Pabellón A)' },
-  { id: '3', label: 'Aula Magna (Disponible · Aforo: 120 · Campus)' },
-] as const
