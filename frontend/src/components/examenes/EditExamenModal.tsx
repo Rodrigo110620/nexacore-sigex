@@ -21,7 +21,7 @@ import {
   type RegisterExamenFormErrors,
   type RegisterExamenFormState,
 } from '../../types/examen.types'
-import { crearAmbiente, listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
+import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { actualizarExamen, type ExamenDto } from '../../services/examenService'
 
 interface EditExamenModalProps {
@@ -189,6 +189,25 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     }, 0)
     return () => { cancelled = true; window.clearTimeout(handle) }
   }, [isOpen])
+
+  // Refrescar disponibilidad cuando cambian fecha, hora o duración (excluyendo el propio examen)
+  useEffect(() => {
+    const dur = minutesBetween(form.horaInicio, form.horaFin)
+    if (!form.fecha || !form.horaInicio || dur === null || !examen) return
+    let cancelled = false
+    const handle = window.setTimeout(() => {
+      listarAmbientesConDisponibilidad({
+        fecha: form.fecha,
+        horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
+        duracionMinutos: dur,
+        idExamenExcluido: examen.idExamen,
+        idParaleloExcluido: examen.idParalelo,
+      })
+        .then((data) => { if (!cancelled) setAmbientes(data) })
+        .catch(() => { /* silencioso */ })
+    }, 400)
+    return () => { cancelled = true; window.clearTimeout(handle) }
+  }, [form.fecha, form.horaInicio, form.horaFin, examen])
 
   if (!isOpen || !examen) return null
 
@@ -538,7 +557,16 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                               setAmbienteListOpen(false)
                             }}
                           >
-                            <span className="font-semibold text-[#011140]">{a.nombre}</span>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-[#011140]">{a.nombre}</span>
+                              {a.disponible !== undefined && (
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                  a.disponible ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                                }`}>
+                                  {a.disponible ? 'Disponible' : 'Ocupado'}
+                                </span>
+                              )}
+                            </div>
                             {a.ubicacion && <span className="text-[10px] text-gray-500">{a.ubicacion}</span>}
                           </button>
                         </li>
