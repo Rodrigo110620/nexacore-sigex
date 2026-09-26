@@ -90,7 +90,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
         rol: cleanForm.rol,
         activo: cleanForm.activo,
         notificarEmail: true,
-      });
+      }, { _skipAutoLogout: true } as object);
       setRegisteredEmail(cleanForm.email);
       setSuccess(true);
       onSuccess?.();

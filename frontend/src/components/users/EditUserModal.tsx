@@ -120,7 +120,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
         rol: cleanForm.rol,
         activo: cleanForm.activo,
         notificarEmail: false,
-      });
+      }, { _skipAutoLogout: true } as object);
       setRegisteredEmail(cleanForm.email);
       setSuccess(true);
       onSaveSuccess?.(cleanForm);

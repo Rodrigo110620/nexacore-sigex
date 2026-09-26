@@ -3,6 +3,7 @@ package com.nexacore.examenes.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nexacore.examenes.dto.ActualizarExamenRequest;
 import com.nexacore.examenes.dto.CrearExamenRequest;
 import com.nexacore.examenes.dto.ExamenResponse;
 import com.nexacore.examenes.dto.NormaParticularRequest;
@@ -96,6 +97,70 @@ public class ExamenService {
         examen.setNormas(serializarNormas(request.normasGenerales(), request.normasParticulares()));
 
         return toResponse(examenRepository.save(examen));
+    }
+
+    @Transactional
+    public ExamenResponse actualizar(Integer idExamen, Integer idParalelo, ActualizarExamenRequest request) {
+        ExamenId examenId = new ExamenId();
+        examenId.setIdExamen(idExamen);
+        examenId.setIdParalelo(idParalelo);
+
+        Examen examen = examenRepository.findById(examenId)
+                .orElseThrow(() -> new IllegalArgumentException("El examen indicado no existe"));
+
+        Ambiente ambiente = ambienteRepository.findById(request.idAmbiente())
+                .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
+
+        // Validar conflicto excluyendo el propio examen
+        validarSinConflictoExcluyendo(
+                request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
+                idExamen, idParalelo);
+
+        Materia materia = resolverMateria(request.asignatura().trim());
+        Docente docente = resolverDocente(request.docente().trim());
+
+        examen.setIdMateria(materia.getId());
+        examen.setIdDocente(docente.getIdUsuario());
+        examen.setFecha(request.fecha());
+        examen.setHoraInicio(request.horaInicio());
+        examen.setDuracionMinutos(request.duracionMinutos());
+        examen.setIdAmbiente(ambiente.getId());
+        examen.setNormas(serializarNormas(request.normasGenerales(), request.normasParticulares()));
+
+        return toResponse(examenRepository.save(examen));
+    }
+
+    @Transactional
+    public void cancelar(Integer idExamen, Integer idParalelo) {
+        ExamenId examenId = new ExamenId();
+        examenId.setIdExamen(idExamen);
+        examenId.setIdParalelo(idParalelo);
+
+        Examen examen = examenRepository.findById(examenId)
+                .orElseThrow(() -> new IllegalArgumentException("El examen indicado no existe"));
+        examen.setEstado("cancelado");
+        examenRepository.save(examen);
+    }
+
+    private void validarSinConflictoExcluyendo(
+            Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+            Integer idExamenExcluido, Integer idParaleloExcluido) {
+        LocalTime fin = inicio.plusMinutes(duracionMinutos);
+        for (Examen otro : examenRepository.findByAmbienteAndFecha(idAmbiente, fecha)) {
+            if (otro.getId().getIdExamen().equals(idExamenExcluido)
+                    && otro.getId().getIdParalelo().equals(idParaleloExcluido)) {
+                continue; // es el propio examen editado
+            }
+            LocalTime otroInicio = otro.getHoraInicio();
+            LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
+            boolean solapa = inicio.isBefore(otroFin) && otroInicio.isBefore(fin);
+            if (solapa) {
+                throw new ConflictoAmbienteException(
+                        "El ambiente ya tiene un examen el " + fecha
+                                + " entre " + otroInicio + " y " + otroFin
+                                + ". Elige otro horario o ambiente.");
+            }
+        }
     }
 
     private void validarSinConflicto(

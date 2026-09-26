@@ -40,3 +40,27 @@ export async function crearExamen(payload: CrearExamenPayload): Promise<ExamenDt
   const { data } = await api.post<ExamenDto>('/examenes', payload)
   return data
 }
+
+export interface ActualizarExamenPayload {
+  asignatura: string
+  docente: string
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  idAmbiente: number
+  normasGenerales: string[]
+  normasParticulares: NormaParticularDto[]
+}
+
+export async function actualizarExamen(
+  idExamen: number,
+  idParalelo: number,
+  payload: ActualizarExamenPayload,
+): Promise<ExamenDto> {
+  const { data } = await api.put<ExamenDto>(`/examenes/${idExamen}/${idParalelo}`, payload)
+  return data
+}
+
+export async function cancelarExamen(idExamen: number, idParalelo: number): Promise<void> {
+  await api.delete(`/examenes/${idExamen}/${idParalelo}`)
+}

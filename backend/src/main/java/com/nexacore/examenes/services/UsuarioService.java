@@ -13,9 +13,12 @@ import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
+import com.nexacore.examenes.repositories.DocenteRepository;
 import com.nexacore.examenes.repositories.RolRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -43,16 +46,22 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
+    private final DocenteRepository docenteRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           UsuarioRolRepository usuarioRolRepository,
+                          DocenteRepository docenteRepository,
                           PasswordEncoder passwordEncoder,
                           EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
+        this.docenteRepository = docenteRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
@@ -89,6 +98,8 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
@@ -137,6 +148,8 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el nuevo rol es DOCENTE, crear/mantener fila en tabla docente
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -288,6 +301,26 @@ public class UsuarioService {
             }
         }
         return normalizado;
+    }
+
+    /**
+     * Mantiene sincronía entre el rol del usuario y la tabla docente:
+     * - Si el rol es DOCENTE y no tiene fila en docente → la crea.
+     * - Si el rol NO es DOCENTE y tiene fila en docente → la elimina.
+     * Usa SQL nativo para evitar problemas con el mapeo @MapsId de la entidad Docente.
+     */
+    @Transactional
+    private void sincronizarDocente(Usuario usuario, String rolNombre) {
+        boolean esDocente = "DOCENTE".equals(rolNombre);
+        boolean yaEsDocente = docenteRepository.existsById(usuario.getId());
+        if (esDocente && !yaEsDocente) {
+            entityManager.createNativeQuery(
+                    "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
+                    .setParameter("id", usuario.getId())
+                    .executeUpdate();
+        } else if (!esDocente && yaEsDocente) {
+            docenteRepository.deleteById(usuario.getId());
+        }
     }
 
     /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
