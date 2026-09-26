@@ -7,6 +7,7 @@ export interface EstudianteIdentificado {
   apellidos: string
   codigoSis: string
   ci: string
+  carrera: string | null
   fotoUrl: string | null
   estado: 'HABILITADO' | 'DESHABILITADO' | 'NO_VINCULADO'
 }
