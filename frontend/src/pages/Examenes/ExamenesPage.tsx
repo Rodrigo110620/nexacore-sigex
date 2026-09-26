@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookCheck, Plus, Search } from 'lucide-react'
+import { BookCheck, Pencil, Plus, Search, XCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
+import EditExamenModal from '../../components/examenes/EditExamenModal'
 import { useAuth } from '../../context/AuthContext'
-import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
 
 /** Listado de exámenes y modal de registro. */
 export default function ExamenesPage() {
   const { isAdmin } = useAuth()
   const [query, setQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editExamen, setEditExamen] = useState<ExamenDto | null>(null)
+  const [cancelConfirm, setCancelConfirm] = useState<ExamenDto | null>(null)
+  const [cancelling, setCancelling] = useState(false)
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -120,9 +124,35 @@ export default function ExamenesPage() {
                       <p className="text-sm font-bold text-[#011140]">{e.asignatura}</p>
                       <p className="text-xs text-gray-500">{e.docente}</p>
                     </div>
-                    <span className="rounded-full bg-[#E9F1FF] px-2.5 py-0.5 text-[10px] font-semibold uppercase text-[#0439D9]">
-                      {e.estado}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${
+                        e.estado === 'cancelado'
+                          ? 'bg-red-50 text-red-600'
+                          : 'bg-[#E9F1FF] text-[#0439D9]'
+                      }`}>
+                        {e.estado}
+                      </span>
+                      {isAdmin && e.estado !== 'cancelado' && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label={`Editar examen ${e.asignatura}`}
+                            onClick={() => setEditExamen(e)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-[#E9F1FF] hover:text-[#0439D9]"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Cancelar examen ${e.asignatura}`}
+                            onClick={() => setCancelConfirm(e)}
+                            className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <p className="mt-2 text-xs text-gray-600">
                     {e.fecha} · {(e.horaInicio ?? '').slice(0, 5)} · {e.duracionMinutos} min ·{' '}
@@ -147,6 +177,55 @@ export default function ExamenesPage() {
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => void load()}
         />
+        <EditExamenModal
+          isOpen={editExamen !== null}
+          examen={editExamen}
+          onClose={() => setEditExamen(null)}
+          onSuccess={() => { setEditExamen(null); void load() }}
+        />
+        {/* Diálogo confirmar cancelar */}
+        {cancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl">
+              <h3 className="text-base font-bold text-[#011140]">¿Cancelar examen?</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Se marcará como <span className="font-semibold text-red-600">cancelado</span> el examen de{' '}
+                <span className="font-semibold">{cancelConfirm.asignatura}</span> ({cancelConfirm.fecha}).
+                Esta acción no se puede deshacer desde aquí.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={() => setCancelConfirm(null)}
+                  className="flex-1 rounded-lg border border-gray-200 bg-white py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Volver
+                </button>
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={async () => {
+                    setCancelling(true)
+                    try {
+                      await cancelarExamen(cancelConfirm.idExamen, cancelConfirm.idParalelo)
+                      setCancelConfirm(null)
+                      void load()
+                    } catch {
+                      setError('No se pudo cancelar el examen. Intenta de nuevo.')
+                      setCancelConfirm(null)
+                    } finally {
+                      setCancelling(false)
+                    }
+                  }}
+                  className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                >
+                  {cancelling ? 'Cancelando…' : 'Sí, cancelar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PanelLayout>
   )

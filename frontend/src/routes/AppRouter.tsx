@@ -66,13 +66,13 @@ export default function AppRouter() {
           }
         />
 
-        {/* Exámenes: solo ADMIN */}
+        {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}
         <Route
           path="/dashboard/examenes"
           element={
-            <AdminRoute>
+            <ProtectedRoute>
               <ExamenesPage />
-            </AdminRoute>
+            </ProtectedRoute>
           }
         />
       </Routes>

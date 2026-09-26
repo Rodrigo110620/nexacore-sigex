@@ -1,7 +1,10 @@
 import { Ellipsis, FileText, GraduationCap, House, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 export default function MobileBottomNav() {
+  const { isAdmin } = useAuth()
+
   return (
     <nav
       aria-label="Navegación principal móvil"
@@ -48,20 +51,33 @@ export default function MobileBottomNav() {
           </button>
         </li>
 
+        {/* Usuarios: solo ADMIN */}
         <li className="flex min-w-0">
-          <NavLink
-            to="/dashboard/usuarios"
-            className={({ isActive }) =>
-              `flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-bold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs ${
-                isActive
-                  ? 'border-t-2 border-[#0439D9] text-[#0439D9]'
-                  : 'text-[#627A9B]'
-              }`
-            }
-          >
-            <Users size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
-            <span className="max-w-full truncate">Usuarios</span>
-          </NavLink>
+          {isAdmin ? (
+            <NavLink
+              to="/dashboard/usuarios"
+              className={({ isActive }) =>
+                `flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-bold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs ${
+                  isActive
+                    ? 'border-t-2 border-[#0439D9] text-[#0439D9]'
+                    : 'text-[#627A9B]'
+                }`
+              }
+            >
+              <Users size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
+              <span className="max-w-full truncate">Usuarios</span>
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              disabled
+              aria-label="Usuarios, solo administrador"
+              className="flex min-h-14 w-full cursor-not-allowed flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-semibold leading-tight text-gray-300 min-[360px]:text-[10px] sm:text-xs"
+            >
+              <Users size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
+              <span className="max-w-full truncate">Usuarios</span>
+            </button>
+          )}
         </li>
 
         <li className="flex min-w-0">
