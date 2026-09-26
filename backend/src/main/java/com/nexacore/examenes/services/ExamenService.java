@@ -25,11 +25,14 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class ExamenService {
@@ -40,6 +43,9 @@ public class ExamenService {
     private final DocenteRepository docenteRepository;
     private final ParaleloRepository paraleloRepository;
     private final ObjectMapper objectMapper;
+
+    private static final Set<String> PALABRAS_VACIAS = Set.of(
+            "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "AL", "PARA", "POR", "CON");
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -180,21 +186,94 @@ public class ExamenService {
     }
 
     private Materia resolverMateria(String nombre) {
-        return materiaRepository.findByNombreIgnoreCase(nombre).orElseGet(() -> {
-            Materia m = new Materia();
-            String sigla = nombre.length() <= 12
-                    ? nombre.toUpperCase(Locale.ROOT).replaceAll("\\s+", "")
-                    : nombre.substring(0, 12).toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
-            String base = sigla.isBlank() ? "MAT" : sigla;
-            String unique = base;
-            int i = 1;
-            while (materiaRepository.findBySiglaIgnoreCase(unique).isPresent()) {
-                unique = base + i++;
+        return materiaRepository.findByNombreIgnoreCase(nombre)
+                .map(this::corregirSiglaSiEsNombre)
+                .orElseGet(() -> {
+                    Materia m = new Materia();
+                    m.setSigla(siglaUnicaDesdeNombre(nombre));
+                    m.setNombre(nombre.toUpperCase(Locale.forLanguageTag("es-BO")));
+                    return materiaRepository.save(m);
+                });
+    }
+
+    private Materia corregirSiglaSiEsNombre(Materia materia) {
+        if (!siglaEsNombreConcatenado(materia.getSigla(), materia.getNombre())) {
+            return materia;
+        }
+        materia.setSigla(siglaUnicaDesdeNombre(materia.getNombre()));
+        return materiaRepository.save(materia);
+    }
+
+    private boolean siglaEsNombreConcatenado(String sigla, String nombre) {
+        if (sigla == null || sigla.isBlank() || sigla.contains("-")) {
+            return false;
+        }
+        String compacta = compactar(sigla);
+        if (compacta.length() <= 4) {
+            return false;
+        }
+        String compactaNombre = compactar(nombre);
+        return compactaNombre.startsWith(compacta)
+                || compacta.startsWith(compactaNombre.substring(0, Math.min(8, compactaNombre.length())));
+    }
+
+    private String siglaUnicaDesdeNombre(String nombre) {
+        String prefijo = prefijoDesdeNombre(nombre);
+        int n = 101;
+        String candidata = prefijo + "-" + n;
+        while (materiaRepository.findBySiglaIgnoreCase(candidata).isPresent()) {
+            n++;
+            candidata = prefijo + "-" + n;
+        }
+        return candidata;
+    }
+
+    private String prefijoDesdeNombre(String nombre) {
+        String normalizado = Normalizer.normalize(nombre, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9\\s]", " ");
+        List<String> palabras = new ArrayList<>();
+        for (String palabra : normalizado.trim().split("\\s+")) {
+            if (palabra.isBlank() || PALABRAS_VACIAS.contains(palabra) || esNivel(palabra)) {
+                continue;
             }
-            m.setSigla(unique);
-            m.setNombre(nombre.toUpperCase(Locale.forLanguageTag("es-BO")));
-            return materiaRepository.save(m);
-        });
+            palabras.add(palabra);
+        }
+        if (palabras.isEmpty()) {
+            return "MAT";
+        }
+        if (palabras.size() == 1) {
+            String unica = palabras.get(0);
+            return unica.length() >= 3 ? unica.substring(0, 3) : unica;
+        }
+        StringBuilder iniciales = new StringBuilder();
+        for (String palabra : palabras) {
+            iniciales.append(palabra.charAt(0));
+        }
+        if (iniciales.length() >= 3) {
+            return iniciales.substring(0, 3);
+        }
+        String ultima = palabras.get(palabras.size() - 1);
+        for (int i = 1; i < ultima.length() && iniciales.length() < 3; i++) {
+            iniciales.append(ultima.charAt(i));
+        }
+        String primera = palabras.get(0);
+        for (int i = 1; i < primera.length() && iniciales.length() < 3; i++) {
+            iniciales.append(primera.charAt(i));
+        }
+        return iniciales.toString();
+    }
+
+    private boolean esNivel(String palabra) {
+        return palabra.matches("I|II|III|IV|V|VI|VII|VIII|IX|X") || palabra.matches("\\d+");
+    }
+
+    private String compactar(String texto) {
+        return Normalizer.normalize(texto, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]", "");
     }
 
     private Docente resolverDocente(String texto) {
@@ -260,7 +339,9 @@ public class ExamenService {
             }
         }
 
-        var materia = materiaRepository.findById(examen.getIdMateria()).orElse(null);
+        var materia = materiaRepository.findById(examen.getIdMateria())
+                .map(this::corregirSiglaSiEsNombre)
+                .orElse(null);
         String asignatura = materia != null ? materia.getNombre() : "—";
         String sigla = materia != null ? materia.getSigla() : "—";
         String docenteNombre = docenteRepository.findById(examen.getIdDocente())

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ChevronDown, LogOut, UserRound, X } from 'lucide-react'
+import { Bell, BookCheck, ChevronDown, LogOut, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -64,7 +64,13 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
           <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
         </div>
         <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
-          <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
+          {isExamenes ? (
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9] shadow-sm">
+              <BookCheck size={26} aria-hidden="true" />
+            </span>
+          ) : (
+            <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
+          )}
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-[#011140]">{pageTitle}</p>
             <p className="truncate text-sm text-[#627A9B]">{pageSubtitle}</p>
