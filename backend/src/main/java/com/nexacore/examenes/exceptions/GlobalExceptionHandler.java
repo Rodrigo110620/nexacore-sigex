@@ -103,6 +103,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(cuerpo);
     }
 
+    /** Ningún estudiante tiene el código universitario o CI buscado (ACCS-01). */
+    @ExceptionHandler(EstudianteNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarEstudianteNoEncontrado(EstudianteNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
+    }
+
     /** Contraseña actual incorrecta al cambiarla. */
     @ExceptionHandler(PasswordActualIncorrectaException.class)
     public ResponseEntity<ErrorResponse> manejarPasswordActual(PasswordActualIncorrectaException ex) {

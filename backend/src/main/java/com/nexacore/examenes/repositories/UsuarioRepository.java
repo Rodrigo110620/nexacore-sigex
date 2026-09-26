@@ -1,5 +1,6 @@
 package com.nexacore.examenes.repositories;
 
+import com.nexacore.examenes.dto.EstudianteExamenFila;
 import com.nexacore.examenes.models.Usuario;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -62,4 +63,31 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
             """)
     long countByRolNombre(@Param("rolNombre") String rolNombre);
     long countByEstado(String estado);
+
+    /**
+     * Estudiante y su habilitación en un examen, en una sola consulta (HU ACCS-01).
+     *
+     * El filtro del examen va en el ON del LEFT JOIN y no en el WHERE: así el
+     * estudiante sin fila en asistencia_examen igual se devuelve, con idExamen y
+     * habilitado en null (NO_VINCULADO). Los dos métodos comparten esta parte y solo
+     * cambian el WHERE, para que cada búsqueda use su índice único (uq_codigo_sis / uq_ci).
+     */
+    String IDENTIFICACION_ESTUDIANTE = """
+            SELECT new com.nexacore.examenes.dto.EstudianteExamenFila(
+                   u.nombre, u.apellidos, e.codigoSis, u.ci, a.id.idExamen, a.habilitado)
+            FROM Estudiante e
+            JOIN e.idUsuario u
+            LEFT JOIN AsistenciaExamen a
+                   ON a.id.idEstudiante = e.id.idEstudiante AND a.id.idExamen = :idExamen
+            """;
+
+    /** Identifica por código universitario (estudiante.codigo_sis), coincidencia exacta. */
+    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE e.codigoSis = :codigoSis")
+    Optional<EstudianteExamenFila> identificarPorCodigoSis(@Param("codigoSis") String codigoSis,
+                                                         @Param("idExamen") Integer idExamen);
+
+    /** Identifica por CI (usuario.ci), coincidencia exacta; solo usuarios que son estudiantes. */
+    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE u.ci = :ci")
+    Optional<EstudianteExamenFila> identificarPorCi(@Param("ci") String ci,
+                                                  @Param("idExamen") Integer idExamen);
 }
