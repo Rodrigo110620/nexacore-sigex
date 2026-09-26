@@ -12,8 +12,8 @@ public record ForgotPasswordRequest(
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "Formato de correo inválido")
         @Pattern(
-                regexp = "(?i)^[A-Za-z0-9._%+-]+@est\\.umss\\.edu(\\.bo)?$",
-                message = "Solo se permiten correos @est.umss.edu"
+                regexp = "(?i)^[A-Za-z0-9._%+-]+@(est\\.)?umss\\.edu(\\.bo)?$",
+                message = "Solo se permiten correos institucionales UMSS"
         )
         String email
 ) {}

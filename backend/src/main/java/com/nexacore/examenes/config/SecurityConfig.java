@@ -81,6 +81,9 @@ public class SecurityConfig {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
             .authorizeHttpRequests(auth -> {
                 auth.requestMatchers(AUTH_PUBLIC_PATHS).permitAll();
+                // /error sin JWT: OncePerRequestFilter no revalida el token en el
+                // dispatch de error y un 500 acababa respondiendo 401.
+                auth.requestMatchers("/error").permitAll();
                 if (swaggerEnabled) {
                     auth.requestMatchers(SWAGGER_PATHS).permitAll();
                 }
