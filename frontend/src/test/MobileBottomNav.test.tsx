@@ -1,7 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { AuthProvider } from '../context/AuthContext'
 import MobileBottomNav from '../components/navigation/MobileBottomNav'
 
 // Mock useAuth para controlar el rol en tests

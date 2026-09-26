@@ -128,28 +128,31 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       (examen.horaInicio ?? '').slice(0, 5),
       examen.duracionMinutos ?? 0,
     )
-    setForm({
-      asignatura: examen.asignatura ?? '',
-      docente: examen.docente ?? '',
-      fecha: examen.fecha ?? '',
-      horaInicio: (examen.horaInicio ?? '').slice(0, 5),
-      horaFin,
-      idAmbiente: String(examen.idAmbiente ?? ''),
-    })
-    setAmbienteFilter(examen.ambienteNombre ?? '')
-    setNormasGenerales(
-      (examen.normasGenerales ?? []).map((t, i) => ({ id: `ng-${i}`, texto: t })),
-    )
-    setNormasParticulares(
-      (examen.normasParticulares ?? []).map((n, i) => ({
-        id: `np-${i}`,
-        estudiante: n.estudiante,
-        texto: n.texto,
-      })),
-    )
-    setErrors({})
-    setGeneralError('')
-    setSuccess(false)
+    const handle = window.setTimeout(() => {
+      setForm({
+        asignatura: examen.asignatura ?? '',
+        docente: examen.docente ?? '',
+        fecha: examen.fecha ?? '',
+        horaInicio: (examen.horaInicio ?? '').slice(0, 5),
+        horaFin,
+        idAmbiente: String(examen.idAmbiente ?? ''),
+      })
+      setAmbienteFilter(examen.ambienteNombre ?? '')
+      setNormasGenerales(
+        (examen.normasGenerales ?? []).map((t, i) => ({ id: `ng-${i}`, texto: t })),
+      )
+      setNormasParticulares(
+        (examen.normasParticulares ?? []).map((n, i) => ({
+          id: `np-${i}`,
+          estudiante: n.estudiante,
+          texto: n.texto,
+        })),
+      )
+      setErrors({})
+      setGeneralError('')
+      setSuccess(false)
+    }, 0)
+    return () => window.clearTimeout(handle)
   }, [examen])
 
   useEffect(() => {
