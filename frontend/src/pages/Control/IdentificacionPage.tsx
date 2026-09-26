@@ -6,6 +6,7 @@ import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
 import MecanismoSelector from '../../components/control/MecanismoSelector'
 import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteForm'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
+import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import type { EstudianteIdentificado, TipoIdentificacion } from '../../services/identificacionService'
@@ -70,19 +71,13 @@ export default function IdentificacionPage() {
                 onBuscar={(valor) => void buscar(tipo, valor)}
               />
               <div aria-live="polite" className="flex flex-col gap-3 text-sm text-[#011140]">
-                {busqueda.status !== 'idle' && (
+                {busqueda.status !== 'idle' && busqueda.status !== 'no_vinculado' && (
                   <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#D8E3F5] after:h-px after:flex-1 after:bg-[#D8E3F5]">
                     Resultado
                   </p>
                 )}
                 {busqueda.status === 'loading' && <p>Buscando…</p>}
                 {estudiante && <ResultadoEstudianteCard estudiante={estudiante} />}
-                {/* Placeholder hasta el modal de no vinculado. */}
-                {busqueda.status === 'no_vinculado' && (
-                  <p>
-                    {busqueda.estudiante.nombre} {busqueda.estudiante.apellidos} — {busqueda.estudiante.estado}
-                  </p>
-                )}
                 {(busqueda.status === 'no_encontrado' || busqueda.status === 'error') && (
                   <p className="text-[#B91C1C]">{busqueda.mensaje}</p>
                 )}
@@ -106,6 +101,15 @@ export default function IdentificacionPage() {
                   <ArrowRight size={16} aria-hidden="true" />
                 </button>
               </div>
+              {/* Fuera del aria-live: el diálogo se anuncia solo al recibir el foco. */}
+              {busqueda.status === 'no_vinculado' && (
+                <EstudianteNoVinculadoModal
+                  estudiante={busqueda.estudiante}
+                  materia={examen?.asignatura}
+                  aula={examen?.ambienteNombre}
+                  onCerrar={cambiarEstudiante}
+                />
+              )}
             </div>
           ) : (
             <p className="p-6 text-sm text-[#B91C1C]">El examen indicado no es válido.</p>
