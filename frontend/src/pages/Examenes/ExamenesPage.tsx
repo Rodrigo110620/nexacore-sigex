@@ -35,10 +35,10 @@ export default function ExamenesPage() {
     const q = query.trim().toLowerCase()
     if (!q) return true
     return (
-      e.asignatura.toLowerCase().includes(q) ||
-      e.ambienteNombre.toLowerCase().includes(q) ||
-      e.fecha.includes(q) ||
-      e.docente.toLowerCase().includes(q)
+      (e.asignatura ?? '').toLowerCase().includes(q) ||
+      (e.ambienteNombre ?? '').toLowerCase().includes(q) ||
+      (e.fecha ?? '').includes(q) ||
+      (e.docente ?? '').toLowerCase().includes(q)
     )
   })
 
@@ -122,7 +122,7 @@ export default function ExamenesPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-gray-600">
-                    {e.fecha} · {e.horaInicio.slice(0, 5)} · {e.duracionMinutos} min ·{' '}
+                    {e.fecha} · {(e.horaInicio ?? '').slice(0, 5)} · {e.duracionMinutos} min ·{' '}
                     {e.ambienteNombre}
                   </p>
                   {e.normasGenerales?.length > 0 && (

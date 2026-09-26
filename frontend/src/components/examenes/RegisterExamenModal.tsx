@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   X,
   Info,
@@ -71,11 +71,39 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [nuevaParticularEst, setNuevaParticularEst] = useState('')
   const [nuevaParticularTexto, setNuevaParticularTexto] = useState('')
   const [showAddParticular, setShowAddParticular] = useState(false)
+  const [editingGeneralId, setEditingGeneralId] = useState<string | null>(null)
+  const [ambienteFilter, setAmbienteFilter] = useState('')
+  const [ambienteListOpen, setAmbienteListOpen] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ambienteBoxRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!ambienteListOpen) return
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (ambienteBoxRef.current && !ambienteBoxRef.current.contains(target)) {
+        setAmbienteListOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+    }
+  }, [ambienteListOpen])
 
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
     setLoadingAmbientes(true)
+    setGeneralError('')
     listarAmbientes()
       .then((data) => {
         if (!cancelled) setAmbientes(data)
@@ -94,7 +122,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   if (!isOpen) return null
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
-  const sinSolapamiento = Boolean(form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && !errors.horaFin)
+  const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
+  const ambientesFiltrados = ambientes.filter((a) => {
+    const q = ambienteFilter.trim().toLowerCase()
+    if (!q) return true
+    return (
+      a.nombre.toLowerCase().includes(q) ||
+      (a.ubicacion ?? '').toLowerCase().includes(q)
+    )
+  })
 
   const handleChange = (field: keyof RegisterExamenFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -108,14 +144,32 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setErrors({})
     setGeneralError('')
     setSuccess(false)
+    setSaving(false)
     setShowAddGeneral(false)
     setShowAddParticular(false)
+    setShowNuevoAmbiente(false)
     setNuevaNormaGeneral('')
     setNuevaParticularEst('')
     setNuevaParticularTexto('')
+    setNuevoAmbienteNombre('')
+    setEditingGeneralId(null)
+    setAmbienteFilter('')
+    setAmbienteListOpen(false)
+    setNormasGenerales([
+      {
+        id: 'ng-1',
+        texto: 'No se permite el uso de calculadora programable ni dispositivos electrónicos.',
+      },
+    ])
+    setNormasParticulares([])
   }
 
   const handleClose = () => {
+    if (saving) return
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
     resetAll()
     onClose()
   }
@@ -156,9 +210,11 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       })
       setSuccess(true)
       onSuccess?.()
-      setTimeout(() => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = setTimeout(() => {
         resetAll()
         onClose()
+        closeTimerRef.current = null
       }, 900)
     } catch (err: unknown) {
       const error = err as {
@@ -181,7 +237,14 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const addNormaGeneral = () => {
     const texto = nuevaNormaGeneral.trim()
     if (!texto) return
-    setNormasGenerales((prev) => [...prev, { id: `ng-${Date.now()}`, texto }])
+    if (editingGeneralId) {
+      setNormasGenerales((prev) =>
+        prev.map((n) => (n.id === editingGeneralId ? { ...n, texto } : n)),
+      )
+      setEditingGeneralId(null)
+    } else {
+      setNormasGenerales((prev) => [...prev, { id: `ng-${Date.now()}`, texto }])
+    }
     setNuevaNormaGeneral('')
     setShowAddGeneral(false)
   }
@@ -206,7 +269,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:bg-black/45 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="register-examen-title"
@@ -231,8 +294,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           <button
             type="button"
             onClick={handleClose}
+            disabled={saving}
             aria-label="Cerrar"
-            className="rounded-lg p-2 text-[#627A9B] hover:bg-gray-100"
+            className="rounded-lg p-2 text-[#627A9B] hover:bg-gray-100 disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -243,9 +307,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             <div className="flex items-start gap-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
               <Info size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
               <p className="text-[11px] leading-relaxed text-[#011140] sm:text-xs">
-                <span className="font-semibold">Validación de Ambiente y Horarios en Tiempo Real:</span>{' '}
-                El sistema audita automáticamente la disponibilidad del aula para prevenir
-                solapamientos o cruces con otros exámenes (Criterio CA-03).
+                <span className="font-semibold">Validación de ambiente y horario (CA-03):</span>{' '}
+                al guardar, el sistema comprueba que el aula no se solape con otro examen en la
+                misma fecha y franja. Si hay conflicto, no se registra.
               </p>
             </div>
 
@@ -275,9 +339,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   <input
                     value={form.docente}
                     onChange={(e) => handleChange('docente', e.target.value)}
-                    placeholder="Ej. Mg. Elena Rostova"
+                    placeholder="Nombre como en el sistema (usuario DOCENTE)"
                     className={fieldClass(errors.docente)}
                   />
+                  <p className="mt-1 text-[10px] text-gray-400">
+                    Debe coincidir con un usuario registrado con rol DOCENTE.
+                  </p>
                   {errors.docente && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>
                   )}
@@ -337,7 +404,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
               <div className="mt-3">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <label className="block text-xs font-semibold text-gray-700">
+                  <label className="block text-xs font-semibold text-gray-700" htmlFor="ambiente-buscar">
                     Ambiente / Aula Asignada <span className="text-red-500">*</span>
                   </label>
                   <button
@@ -367,6 +434,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                             [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)),
                           )
                           handleChange('idAmbiente', String(creado.id))
+                          setAmbienteFilter('')
+                          setAmbienteListOpen(false)
                           setNuevoAmbienteNombre('')
                           setShowNuevoAmbiente(false)
                         } catch {
@@ -379,30 +448,92 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     </button>
                   </div>
                 )}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    value={form.idAmbiente}
-                    onChange={(e) => handleChange('idAmbiente', e.target.value)}
-                    disabled={loadingAmbientes}
-                    className={`${fieldClass(errors.idAmbiente)} sm:flex-1`}
-                  >
-                    <option value="">
-                      {loadingAmbientes ? 'Cargando ambientes…' : 'Seleccionar ambiente…'}
-                    </option>
-                    {ambientes.map((a) => (
-                      <option key={a.id} value={String(a.id)}>
-                        {a.nombre}
-                        {a.ubicacion ? ` — ${a.ubicacion}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {sinSolapamiento && (
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
-                      <Check size={14} aria-hidden="true" />
-                      Sin solapamiento detectado
-                    </span>
+
+                {/* Picker propio: evita el salto del <select> nativo en el modal */}
+                <div ref={ambienteBoxRef} className="relative">
+                  {ambienteSeleccionado && !ambienteListOpen ? (
+                    <button
+                      type="button"
+                      disabled={loadingAmbientes}
+                      onClick={() => {
+                        setAmbienteListOpen(true)
+                        setAmbienteFilter('')
+                      }}
+                      className={`${fieldClass(errors.idAmbiente)} flex items-center justify-between text-left`}
+                    >
+                      <span className="truncate">
+                        <span className="font-semibold">{ambienteSeleccionado.nombre}</span>
+                        {ambienteSeleccionado.ubicacion
+                          ? ` — ${ambienteSeleccionado.ubicacion}`
+                          : ''}
+                      </span>
+                      <span className="ml-2 shrink-0 text-[10px] font-semibold text-[#0439D9]">
+                        Cambiar
+                      </span>
+                    </button>
+                  ) : (
+                    <input
+                      id="ambiente-buscar"
+                      type="text"
+                      autoComplete="off"
+                      disabled={loadingAmbientes}
+                      value={ambienteFilter}
+                      placeholder={
+                        loadingAmbientes
+                          ? 'Cargando ambientes…'
+                          : 'Buscar aula (ej. 692F, INFLAB)…'
+                      }
+                      onFocus={() => setAmbienteListOpen(true)}
+                      onChange={(e) => {
+                        setAmbienteFilter(e.target.value)
+                        setAmbienteListOpen(true)
+                        if (form.idAmbiente) handleChange('idAmbiente', '')
+                      }}
+                      className={fieldClass(errors.idAmbiente)}
+                    />
+                  )}
+
+                  {ambienteListOpen && !loadingAmbientes && (
+                    <ul
+                      role="listbox"
+                      className="mt-1 max-h-40 overflow-y-auto overscroll-contain rounded-lg border border-[#D8E3F5] bg-white py-1 shadow-md"
+                    >
+                      {ambientesFiltrados.length === 0 ? (
+                        <li className="px-3 py-2 text-xs text-gray-400">Sin coincidencias</li>
+                      ) : (
+                        ambientesFiltrados.map((a) => (
+                          <li key={a.id}>
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={form.idAmbiente === String(a.id)}
+                              className={`flex w-full flex-col px-3 py-2 text-left text-xs hover:bg-[#E9F1FF] ${
+                                form.idAmbiente === String(a.id) ? 'bg-[#F8FBFF]' : ''
+                              }`}
+                              onClick={() => {
+                                handleChange('idAmbiente', String(a.id))
+                                setAmbienteFilter('')
+                                setAmbienteListOpen(false)
+                              }}
+                            >
+                              <span className="font-semibold text-[#011140]">{a.nombre}</span>
+                              {a.ubicacion && (
+                                <span className="text-[10px] text-gray-500">{a.ubicacion}</span>
+                              )}
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
                   )}
                 </div>
+
+                {!loadingAmbientes && ambientes.length === 0 && (
+                  <p className="mt-1 text-[10px] text-amber-600">
+                    No hay ambientes en el catálogo. Agrega uno con “+ Nuevo ambiente” o aplica
+                    la migración V8.
+                  </p>
+                )}
                 {errors.idAmbiente && (
                   <p className="mt-1 text-[10px] text-red-500">{errors.idAmbiente}</p>
                 )}
@@ -421,10 +552,17 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddGeneral((v) => !v)}
+                  onClick={() => {
+                    setShowAddGeneral((v) => !v)
+                    if (showAddGeneral) {
+                      setEditingGeneralId(null)
+                      setNuevaNormaGeneral('')
+                    }
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-[#0439D9] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF]"
                 >
-                  <Plus size={14} /> Agregar norma general
+                  <Plus size={14} />{' '}
+                  {editingGeneralId ? 'Editando norma…' : 'Agregar norma general'}
                 </button>
               </div>
               {showAddGeneral && (
@@ -440,7 +578,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     onClick={addNormaGeneral}
                     className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
                   >
-                    Añadir
+                    {editingGeneralId ? 'Guardar' : 'Añadir'}
                   </button>
                 </div>
               )}
@@ -459,7 +597,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                         aria-label="Editar norma"
                         onClick={() => {
                           setNuevaNormaGeneral(n.texto)
-                          setNormasGenerales((prev) => prev.filter((x) => x.id !== n.id))
+                          setEditingGeneralId(n.id)
                           setShowAddGeneral(true)
                         }}
                         className="rounded p-1 text-gray-400 hover:bg-white hover:text-[#0439D9]"
@@ -576,7 +714,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50 sm:w-auto"
+                  disabled={saving}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50 disabled:opacity-50 sm:w-auto"
                 >
                   Cancelar
                 </button>
