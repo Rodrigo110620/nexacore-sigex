@@ -260,9 +260,9 @@ public class ExamenService {
             }
         }
 
-        String asignatura = materiaRepository.findById(examen.getIdMateria())
-                .map(Materia::getNombre)
-                .orElse("—");
+        var materia = materiaRepository.findById(examen.getIdMateria()).orElse(null);
+        String asignatura = materia != null ? materia.getNombre() : "—";
+        String sigla = materia != null ? materia.getSigla() : "—";
         String docenteNombre = docenteRepository.findById(examen.getIdDocente())
                 .map(d -> d.getUsuario().getNombre() + " " + d.getUsuario().getApellidos())
                 .orElse("—");
@@ -274,6 +274,7 @@ public class ExamenService {
                 examen.getId().getIdExamen(),
                 examen.getId().getIdParalelo(),
                 asignatura,
+                sigla,
                 docenteNombre,
                 examen.getFecha(),
                 examen.getHoraInicio(),

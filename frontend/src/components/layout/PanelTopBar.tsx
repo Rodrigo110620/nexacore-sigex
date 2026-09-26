@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell, ChevronDown, LogOut, UserRound, X } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 function getInitials(nombre: string | null): string {
@@ -17,6 +17,12 @@ interface PanelTopBarProps {
 export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps) {
   const { nombre, roles, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const isExamenes = pathname.startsWith('/dashboard/examenes')
+  const pageTitle = isExamenes ? 'GESTIÓN DE EXÁMENES' : 'GESTIÓN DE USUARIOS'
+  const pageSubtitle = isExamenes
+    ? 'Administra los exámenes programados y su habilitación.'
+    : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -60,8 +66,8 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
         <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
           <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
-            <p className="truncate text-sm text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+            <p className="truncate text-lg font-bold text-[#011140]">{pageTitle}</p>
+            <p className="truncate text-sm text-[#627A9B]">{pageSubtitle}</p>
           </div>
         </div>
       </div>
@@ -143,8 +149,8 @@ export default function PanelTopBar({ compactDesktop = false }: PanelTopBarProps
       </div>
     </header>
     <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
-      <p className="text-base font-bold text-[#011140]">GESTIÓN DE USUARIOS</p>
-      <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.</p>
+      <p className="text-base font-bold text-[#011140]">{pageTitle}</p>
+      <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{pageSubtitle}</p>
     </div>
   </>
 
