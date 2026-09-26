@@ -22,5 +22,12 @@ public class Estudiante {
     @Column(name = "codigo_sis", nullable = false, length = Integer.MAX_VALUE)
     private String codigoSis;
 
+    /** Carrera del estudiante (FK compuesta con {@link #idFacultad}). */
+    @Column(name = "id_carrera")
+    private Integer idCarrera;
+
+    /** Facultad del estudiante (FK compuesta con {@link #idCarrera}). */
+    @Column(name = "id_facultad")
+    private Integer idFacultad;
 
 }

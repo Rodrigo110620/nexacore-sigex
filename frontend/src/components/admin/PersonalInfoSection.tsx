@@ -43,10 +43,14 @@ export default function PersonalInfoSection({
           type="text"
           value={form.nombre}
           onChange={(e) => onChange('nombre', sanitizeNombreInput(e.target.value))}
-          onBlur={() => onBlur('nombre')}
+          onBlur={() => {
+            onChange('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true }))
+            onBlur('nombre')
+          }}
           placeholder="Ej. Roberto Carlos"
           maxLength={FIELD_LIMITS.nombre.max}
           autoComplete="given-name"
+          autoCapitalize="words"
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
             errors.nombre
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
@@ -54,7 +58,7 @@ export default function PersonalInfoSection({
           }`}
         />
         <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Solo letras · Máximo {FIELD_LIMITS.nombre.max} caracteres
+          Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
         {errors.nombre && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>
@@ -81,10 +85,14 @@ export default function PersonalInfoSection({
           type="text"
           value={form.apellidos}
           onChange={(e) => onChange('apellidos', sanitizeNombreInput(e.target.value))}
-          onBlur={() => onBlur('apellidos')}
+          onBlur={() => {
+            onChange('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true }))
+            onBlur('apellidos')
+          }}
           placeholder="Ej. Méndez Quispe"
           maxLength={FIELD_LIMITS.apellidos.max}
           autoComplete="family-name"
+          autoCapitalize="words"
           className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
             errors.apellidos
               ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
@@ -92,7 +100,7 @@ export default function PersonalInfoSection({
           }`}
         />
         <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Solo letras · Máximo {FIELD_LIMITS.apellidos.max} caracteres
+          Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
         {errors.apellidos && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>

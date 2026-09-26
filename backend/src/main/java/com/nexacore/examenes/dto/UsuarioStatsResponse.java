@@ -1,7 +1,7 @@
 package com.nexacore.examenes.dto;
 
 /**
- * Estadísticas agregadas de usuarios del sistema (HU#2).
+ * Estadísticas agregadas de usuarios del sistema.
  * Usado por el panel de administración para mostrar contadores.
  */
 public record UsuarioStatsResponse(

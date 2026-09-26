@@ -56,6 +56,22 @@ public class AsistenciaExamen {
     @Column(name = "fecha_hora_ingreso")
     private Instant fechaHoraIngreso;
 
-    @Column(name = "ambiente_ingreso")
-    private String ambienteIngreso;
+    /** Ambiente real de ingreso (null si aún no ingresó). */
+    @Column(name = "id_ambiente_ingreso")
+    private Integer idAmbienteIngreso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_ambiente_ingreso", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
+    private Ambiente ambienteIngreso;
+
+    /** Usuario CONTROL que autorizó el último ingreso efectivo. */
+    @Column(name = "id_usuario_control")
+    private Integer idUsuarioControl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_usuario_control", referencedColumnName = "id_usuario", insertable = false, updatable = false)
+    private Usuario usuarioControl;
+
+    @Column(name = "observaciones_control")
+    private String observacionesControl;
 }

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 
 /**
  * Instancia base de axios para todos los requests al backend.
@@ -12,6 +12,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 12000, // 12 s — evita que SMTP colgado bloquee indefinidamente
 })
 
 // Interceptor de request: adjunta el JWT si existe en localStorage
@@ -23,17 +24,24 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Interceptor de response: redirige al login si el token expiró.
-// No redirige en /auth/login: un 401 ahí es "credenciales incorrectas",
-// no sesión vencida (el form debe mostrar el error).
+// Interceptor de response: redirige al login SOLO si el token expiró.
+// Regla: un 401 en rutas de autenticación propias (login, recovery) es un
+// error de credenciales/flujo, no sesión vencida → el formulario debe mostrarlo.
+// Un 401 en cualquier otra ruta significa que la sesión real expiró → logout.
+// Excepción adicional: si la request lleva _skipAutoLogout=true (ej. creación de
+// usuarios donde el backend a veces tarda por SMTP), se muestra el error en el
+// componente en lugar de forzar un cierre de sesión.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status
     const url = String(error.config?.url ?? '')
+    const config = error.config as InternalAxiosRequestConfig & { _skipAutoLogout?: boolean }
+
     const isLoginRequest = url.includes('/auth/login')
     const isPasswordRecoveryRequest =
       url.includes('/auth/forgot-password') || url.includes('/auth/reset-password')
+    const skipAutoLogout = config?._skipAutoLogout === true
 
     if (!error.response) {
       return Promise.reject(error)
@@ -45,7 +53,8 @@ api.interceptors.response.use(
       status === 401 &&
       !isLoginRequest &&
       !isPasswordRecoveryRequest &&
-      !isTestEnv  
+      !skipAutoLogout &&
+      !isTestEnv
     ) {
       localStorage.removeItem('token')
       localStorage.removeItem('nombre')
@@ -55,6 +64,5 @@ api.interceptors.response.use(
 
     return Promise.reject(error)
   },
-
 )
 export default api

@@ -25,7 +25,8 @@ export default function DashboardPage() {
           Rol: {roles.length > 0 ? roles.join(', ') : 'sin rol asignado'}
         </p>
         <p className="text-xs text-gray-400">
-          Módulos de Exámenes y Estudiantes estarán disponibles en siguientes sprints.
+          El módulo de Exámenes ya está disponible para administradores. Estudiantes llegará en
+          siguientes sprints.
         </p>
       </div>
       <MobileBottomNav />

@@ -27,11 +27,22 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: 4000
+          timeout: 4000
+          writetimeout: 4000
 
 server:
   port: ${SERVER_PORT:8080}
   servlet:
     context-path: /api/v1
+  # Detrás de nginx/HTTPS: respeta X-Forwarded-Proto
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
 
 app:
   security:
@@ -39,11 +50,19 @@ app:
       # Sin default: si falta JWT_SECRET en .env, la app no arranca.
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    # true en producción para cerrar Swagger
+    swagger-enabled: ${SWAGGER_ENABLED:true}
+    # true solo detrás de HTTPS (proxy TLS). En local déjalo false.
+    require-https: ${REQUIRE_HTTPS:false}
+    rate-limit:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      max-requests: ${AUTH_RATE_LIMIT_MAX:10}
+      window-ms: ${AUTH_RATE_LIMIT_WINDOW_MS:60000}
   cors:
-    # Orígenes exactos opcionales (coma-separados). Vacío = solo patterns.
+    # Orígenes exactos opcionales (coma-separados).
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
-    # localhost / 127.0.0.1 / LAN privada, cualquier puerto (3000, 3001, ...)
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://192.168.*.*:*,http://10.*.*.*:*,http://172.16.*.*:*,http://172.17.*.*:*,http://172.18.*.*:*,http://172.19.*.*:*,http://172.20.*.*:*,http://172.21.*.*:*,http://172.22.*.*:*,http://172.23.*.*:*,http://172.24.*.*:*,http://172.25.*.*:*,http://172.26.*.*:*,http://172.27.*.*:*,http://172.28.*.*:*,http://172.29.*.*:*,http://172.30.*.*:*,http://172.31.*.*:*}
+    # Default: solo localhost. Para móvil/LAN añade patterns en .env.
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   mail:
     enabled: ${MAIL_ENABLED:true}
     from: ${MAIL_FROM:noreply@sigex.local}

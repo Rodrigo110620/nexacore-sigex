@@ -9,13 +9,56 @@ export const FIELD_LIMITS = {
   rol: { min: 2, max: 30 },
 } as const
 
+/** Cada palabra ≥ 2 letras; formato Título (primera mayúscula, resto minúsculas). */
 const NOMBRE_REGEX =
-  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
+  /^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/
 
-export function sanitizeNombreInput(value: string): string {
-  return value
+const LOCALE_NOMBRE = 'es-BO'
+
+/** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+function toTitleCaseNombre(value: string): string {
+  return value.replace(
+    /[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:['-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*/g,
+    (word) =>
+      word
+        .split(/(['-])/)
+        .map((part) => {
+          if (part === "'" || part === '-' || !part) return part
+          const lower = part.toLocaleLowerCase(LOCALE_NOMBRE)
+          return lower.charAt(0).toLocaleUpperCase(LOCALE_NOMBRE) + lower.slice(1)
+        })
+        .join(''),
+  )
+}
+
+/**
+ * Solo letras (con tildes), espacio, ' y -; formato Título.
+ * Quita espacios iniciales y colapsa espacios dobles.
+ * Con `trimEnds` también elimina el espacio final (blur/submit).
+ */
+export function sanitizeNombreInput(
+  value: string,
+  options?: { trimEnds?: boolean },
+): string {
+  let cleaned = value
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
+    .replace(/^\s+/, '')
     .replace(/\s{2,}/g, ' ')
+
+  cleaned = toTitleCaseNombre(cleaned)
+
+  if (options?.trimEnds) {
+    cleaned = cleaned.trimEnd()
+  }
+  return cleaned
+}
+
+/** True si, ignorando separadores, todas las letras son la misma (ej. Jjjjjjjjj). */
+export function esMismaLetraRepetida(value: string): boolean {
+  const letters = value.replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ]/g, '').toLocaleUpperCase(LOCALE_NOMBRE)
+  if (letters.length < 2) return false
+  const first = letters[0]
+  return [...letters].every((c) => c === first)
 }
 
 function validateNombrePersona(
@@ -35,10 +78,18 @@ function validateNombrePersona(
       ? 'El nombre no puede contener números'
       : 'Los apellidos no pueden contener números'
   }
+  if (/\s{2,}/.test(trimmed)) {
+    return 'No se permiten espacios consecutivos'
+  }
+  if (esMismaLetraRepetida(trimmed)) {
+    return etiqueta === 'nombre'
+      ? 'El nombre no puede ser la misma letra repetida'
+      : 'Los apellidos no pueden ser la misma letra repetida'
+  }
   if (!NOMBRE_REGEX.test(trimmed)) {
     return etiqueta === 'nombre'
-      ? 'Ingresa un nombre válido (solo letras)'
-      : 'Ingresa apellidos válidos (solo letras)'
+      ? 'Ingresa un nombre válido (solo letras; cada palabra mínimo 2)'
+      : 'Ingresa apellidos válidos (solo letras; cada palabra mínimo 2)'
   }
   return ''
 }

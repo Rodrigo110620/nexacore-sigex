@@ -58,8 +58,12 @@ public class Examen {
     private Integer duracionMinutos;
 
     @NotNull
-    @Column(name = "ambiente_asignado", nullable = false)
-    private String ambienteAsignado;
+    @Column(name = "id_ambiente", nullable = false)
+    private Integer idAmbiente;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id_ambiente", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
+    private Ambiente ambiente;
 
     @Column(name = "normas")
     private String normas;

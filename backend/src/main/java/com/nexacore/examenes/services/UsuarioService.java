@@ -13,9 +13,12 @@ import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
+import com.nexacore.examenes.repositories.DocenteRepository;
 import com.nexacore.examenes.repositories.RolRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -27,7 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 /**
- * Lógica de negocio para la gestión de usuarios (HU#2).
+ * Lógica de negocio para la gestión de usuarios.
  *
  * Orden de validaciones en registrar():
  *   1. Rol válido  → 400 si no es ADMIN/DOCENTE/CONTROL
@@ -43,16 +46,22 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
+    private final DocenteRepository docenteRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           UsuarioRolRepository usuarioRolRepository,
+                          DocenteRepository docenteRepository,
                           PasswordEncoder passwordEncoder,
                           EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
+        this.docenteRepository = docenteRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
@@ -74,8 +83,8 @@ public class UsuarioService {
         }
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
@@ -89,6 +98,8 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
@@ -119,9 +130,9 @@ public class UsuarioService {
         String rolNombre = request.rol().toUpperCase();
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        // 4. Actualizar campos personales y de estado
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
+        // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
         usuario.setCi(request.ci());
         usuario.setEmail(request.email());
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
@@ -137,6 +148,8 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el nuevo rol es DOCENTE, crear/mantener fila en tabla docente
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -257,5 +270,79 @@ public class UsuarioService {
                 activos,
                 inactivos
         );
+    }
+
+    /**
+     * Guarda nombres y apellidos en formato Título (ej. Rodrigo Figueroa).
+     * Elimina espacios extremos, colapsa espacios dobles y rechaza la misma letra repetida.
+     */
+    private static String normalizarNombre(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        Locale locale = Locale.forLanguageTag("es-BO");
+        String normalizado = aFormatoTitulo(
+                valor.trim().replaceAll("\\s{2,}", " "),
+                locale);
+        String soloLetras = normalizado.replaceAll("[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", "");
+        if (soloLetras.length() >= 2) {
+            String upper = soloLetras.toUpperCase(locale);
+            char primera = upper.charAt(0);
+            boolean mismaLetra = true;
+            for (int i = 1; i < upper.length(); i++) {
+                if (upper.charAt(i) != primera) {
+                    mismaLetra = false;
+                    break;
+                }
+            }
+            if (mismaLetra) {
+                throw new IllegalArgumentException(
+                        "El nombre o apellido no puede ser la misma letra repetida");
+            }
+        }
+        return normalizado;
+    }
+
+    /**
+     * Mantiene sincronía entre el rol del usuario y la tabla docente:
+     * - Si el rol es DOCENTE y no tiene fila en docente → la crea.
+     * - Si el rol NO es DOCENTE y tiene fila en docente → la elimina.
+     * Usa SQL nativo para evitar problemas con el mapeo @MapsId de la entidad Docente.
+     */
+    @Transactional
+    private void sincronizarDocente(Usuario usuario, String rolNombre) {
+        boolean esDocente = "DOCENTE".equals(rolNombre);
+        boolean yaEsDocente = docenteRepository.existsById(usuario.getId());
+        if (esDocente && !yaEsDocente) {
+            entityManager.createNativeQuery(
+                    "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
+                    .setParameter("id", usuario.getId())
+                    .executeUpdate();
+        } else if (!esDocente && yaEsDocente) {
+            docenteRepository.deleteById(usuario.getId());
+        }
+    }
+
+    /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+    private static String aFormatoTitulo(String valor, Locale locale) {
+        StringBuilder out = new StringBuilder(valor.length());
+        boolean nuevaPalabra = true;
+        for (int i = 0; i < valor.length(); ) {
+            int cp = valor.codePointAt(i);
+            i += Character.charCount(cp);
+            if (cp == ' ' || cp == '\'' || cp == '-') {
+                out.appendCodePoint(cp);
+                nuevaPalabra = true;
+                continue;
+            }
+            String ch = new String(Character.toChars(cp));
+            if (nuevaPalabra) {
+                out.append(ch.toUpperCase(locale));
+                nuevaPalabra = false;
+            } else {
+                out.append(ch.toLowerCase(locale));
+            }
+        }
+        return out.toString();
     }
 }

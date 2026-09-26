@@ -10,6 +10,7 @@ import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
+import ExamenesPage from '../pages/Examenes/ExamenesPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -62,6 +63,16 @@ export default function AppRouter() {
             <AdminRoute>
               <UsuariosPage />
             </AdminRoute>
+          }
+        />
+
+        {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}
+        <Route
+          path="/dashboard/examenes"
+          element={
+            <ProtectedRoute>
+              <ExamenesPage />
+            </ProtectedRoute>
           }
         />
       </Routes>
