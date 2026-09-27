@@ -75,7 +75,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
      */
     String IDENTIFICACION_ESTUDIANTE = """
             SELECT new com.nexacore.examenes.dto.EstudianteExamenFila(
-                   u.nombre, u.apellidos, e.codigoSis, u.ci, c.nombre, a.id.idExamen, a.habilitado)
+                   e.id.idEstudiante, u.nombre, u.apellidos, e.codigoSis, u.ci, c.nombre,
+                   a.id.idExamen, a.habilitado)
             FROM Estudiante e
             JOIN e.idUsuario u
             LEFT JOIN Carrera c ON c.id.idCarrera = e.idCarrera
