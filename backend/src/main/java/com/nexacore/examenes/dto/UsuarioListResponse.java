@@ -13,5 +13,6 @@ public record UsuarioListResponse(
         String email,
         String ci,
         String rol,
-        String estado
+        String estado,
+        String titulo
 ) {}

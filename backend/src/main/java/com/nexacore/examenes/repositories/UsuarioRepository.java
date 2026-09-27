@@ -84,13 +84,16 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
                    ON a.id.idEstudiante = e.id.idEstudiante AND a.id.idExamen = :idExamen
             """;
 
+    /** Un estudiante no tiene roles: quien tiene ADMIN, DOCENTE o CONTROL nunca se identifica como estudiante. */
+    String ESTUDIANTE_SIN_ROLES = " AND NOT EXISTS (SELECT ur FROM UsuarioRol ur WHERE ur.idUsuario = u)";
+
     /** Identifica por código universitario (estudiante.codigo_sis), coincidencia exacta. */
-    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE e.codigoSis = :codigoSis")
+    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE e.codigoSis = :codigoSis" + ESTUDIANTE_SIN_ROLES)
     Optional<EstudianteExamenFila> identificarPorCodigoSis(@Param("codigoSis") String codigoSis,
                                                          @Param("idExamen") Integer idExamen);
 
     /** Identifica por CI (usuario.ci), coincidencia exacta; solo usuarios que son estudiantes. */
-    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE u.ci = :ci")
+    @Query(IDENTIFICACION_ESTUDIANTE + "WHERE u.ci = :ci" + ESTUDIANTE_SIN_ROLES)
     Optional<EstudianteExamenFila> identificarPorCi(@Param("ci") String ci,
                                                   @Param("idExamen") Integer idExamen);
 }
