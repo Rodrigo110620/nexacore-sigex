@@ -13,7 +13,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Estudian
     @Query("""
             SELECT e FROM Estudiante e
             JOIN FETCH e.idUsuario u
-            WHERE e.codigoSis = :identificador OR u.ci = :identificador
+            WHERE (e.codigoSis = :identificador OR u.ci = :identificador)
+              AND NOT EXISTS (SELECT ur FROM UsuarioRol ur WHERE ur.idUsuario = u)
             """)
     Optional<Estudiante> findByCodigoSisOrCi(@Param("identificador") String identificador);
+
+    @Query("SELECT COUNT(e) > 0 FROM Estudiante e WHERE e.id.idUsuario = :idUsuario")
+    boolean esEstudiante(@Param("idUsuario") Integer idUsuario);
 }
