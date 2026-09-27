@@ -30,5 +30,9 @@ public record CrearExamenRequest(
 
         List<String> normasGenerales,
 
-        List<NormaParticularRequest> normasParticulares
+        List<NormaParticularRequest> normasParticulares,
+
+        Integer idMateria,
+
+        Integer idDocente
 ) {}
