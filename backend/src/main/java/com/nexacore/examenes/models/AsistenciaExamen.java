@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -54,7 +54,7 @@ public class AsistenciaExamen {
     private String motivoInhabilitacion;
 
     @Column(name = "fecha_hora_ingreso")
-    private Instant fechaHoraIngreso;
+    private LocalDateTime fechaHoraIngreso;
 
     /** Ambiente real de ingreso (null si aún no ingresó). */
     @Column(name = "id_ambiente_ingreso")
