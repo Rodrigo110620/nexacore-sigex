@@ -25,6 +25,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ControlIngresoException.class)
+    public ResponseEntity<ErrorResponse> manejarControlIngreso(ControlIngresoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(ex.getStatus().value(), ex.getMessage());
+        return ResponseEntity.status(ex.getStatus()).body(cuerpo);
+    }
+
     /** Falla alguna anotacion de validacion del LoginRequest. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> manejarValidaciones(MethodArgumentNotValidException ex) {
