@@ -1,7 +1,8 @@
 import { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutGrid, BookCheck, ClipboardCheck, Users, UserPlus, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { navItemsFor } from '../navigation/navItems'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
 
@@ -13,29 +14,22 @@ interface PanelLayoutProps {
   topBarVariant?: 'default' | 'control'
 }
 
-export default function PanelLayout({ children, compactDesktop = false, title, description, topBarVariant = 'default' }: PanelLayoutProps) {
-  const { logout, isAdmin, roles } = useAuth()
+export default function PanelLayout({
+  children,
+  compactDesktop = false,
+  title,
+  description,
+  topBarVariant = 'default',
+}: PanelLayoutProps) {
+  const { logout, roles } = useAuth()
   const navigate = useNavigate()
-  const isControl = roles.includes('CONTROL')
 
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
   }
 
-  // Ítems de navegación filtrados por rol
-  const navItems = [
-    { label: 'Inicio', icon: LayoutGrid, to: '/dashboard/inicio', disabled: true, show: true },
-    {
-      label: isControl ? 'Control' : 'Exámenes',
-      icon: isControl ? ClipboardCheck : BookCheck,
-      to: '/dashboard/examenes',
-      disabled: false,
-      show: true,
-    },
-    { label: 'Estudiantes', icon: Users, to: '/dashboard/estudiantes', disabled: true, show: true },
-    { label: 'Usuarios', icon: UserPlus, to: '/dashboard/usuarios', disabled: false, show: isAdmin },
-  ].filter((item) => item.show)
+  const navItems = navItemsFor(roles)
 
   return (
     <div className="flex h-dvh overflow-hidden">

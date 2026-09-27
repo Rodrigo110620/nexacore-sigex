@@ -166,10 +166,12 @@ export default function PanelTopBar({
         )}
       </div>
     </header>
+    {!isExamenes && (
     <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
       <p className="text-base font-bold text-[#011140]">{effectiveTitle}</p>
       <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{effectiveDescription}</p>
     </div>
+    )}
   </>
 
   )
