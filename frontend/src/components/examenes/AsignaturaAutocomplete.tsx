@@ -1,23 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, User } from 'lucide-react'
-import { getUsers } from '../../services/userService'
-import type { UserListItem } from '../../types/user'
+import { BookOpen, Loader2 } from 'lucide-react'
+import { buscarMaterias, type MateriaDto } from '../../services/materiaService'
 import { sanitizeCatalogQuery } from '../../utils/examFormUtils'
 
-interface DocenteAutocompleteProps {
+interface AsignaturaAutocompleteProps {
   id: string
   value: string
   error?: string
   onChange: (value: string) => void
-  onSelect: (docente: UserListItem) => void
+  onSelect: (materia: MateriaDto) => void
 }
 
 const MIN_CHARS = 3
 
-export default function DocenteAutocomplete({ id, value, error, onChange, onSelect }: DocenteAutocompleteProps) {
+export default function AsignaturaAutocomplete({
+  id,
+  value,
+  error,
+  onChange,
+  onSelect,
+}: AsignaturaAutocompleteProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<UserListItem[]>([])
+  const [results, setResults] = useState<MateriaDto[]>([])
   const [searchedQuery, setSearchedQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const boxRef = useRef<HTMLDivElement | null>(null)
@@ -28,8 +33,8 @@ export default function DocenteAutocomplete({ id, value, error, onChange, onSele
     const controller = new AbortController()
     const handle = window.setTimeout(() => {
       setLoading(true)
-      getUsers({ search: q, rol: 'DOCENTE', estado: 'activo', size: 8 }, controller.signal)
-        .then((page) => setResults(page.contenido))
+      buscarMaterias(q, controller.signal)
+        .then((lista) => setResults(lista))
         .catch(() => { if (!controller.signal.aborted) setResults([]) })
         .finally(() => {
           if (controller.signal.aborted) return
@@ -93,7 +98,7 @@ export default function DocenteAutocomplete({ id, value, error, onChange, onSele
         {loading ? (
           <Loader2 size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#0439D9]" aria-hidden="true" />
         ) : (
-          <User size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <BookOpen size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
         )}
       </div>
 
@@ -105,37 +110,28 @@ export default function DocenteAutocomplete({ id, value, error, onChange, onSele
         >
           {results.length === 0 || (pending && searchedQuery === '') ? (
             <li className="px-3 py-2 text-xs text-gray-400">
-              {pending ? 'Buscando docentes…' : 'No hay docentes con ese nombre'}
+              {pending ? 'Buscando asignaturas…' : 'No hay asignaturas con ese nombre'}
             </li>
           ) : (
-            results.map((d) => {
-              const nombreCompleto = `${d.nombre} ${d.apellidos}`.trim()
-              const titulo = d.titulo?.trim()
-              return (
-                <li key={d.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={value === nombreCompleto}
-                    onClick={() => {
-                      onSelect(d)
-                      setOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-[#E9F1FF]"
-                  >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EAF2FF] text-[10px] font-bold text-[#0439D9]">
-                      {`${d.nombre.charAt(0)}${d.apellidos.charAt(0)}`.toUpperCase()}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-[#011140]">
-                        {titulo ? `${titulo} ${nombreCompleto}` : nombreCompleto}
-                      </span>
-                      <span className="block truncate text-[10px] text-gray-500">{d.email}</span>
-                    </span>
-                  </button>
-                </li>
-              )
-            })
+            results.map((m) => (
+              <li key={m.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value === m.nombre}
+                  onClick={() => {
+                    onSelect(m)
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-[#E9F1FF]"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-[#011140]">{m.nombre}</span>
+                    <span className="block truncate text-[10px] text-gray-500">Cód: {m.sigla}</span>
+                  </span>
+                </button>
+              </li>
+            ))
           )}
         </ul>
       )}

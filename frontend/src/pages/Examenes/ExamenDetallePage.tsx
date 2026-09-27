@@ -357,7 +357,14 @@ export default function ExamenDetallePage() {
           isOpen={editOpen}
           examen={examen}
           onClose={() => setEditOpen(false)}
-          onSuccess={() => { setEditOpen(false); void load() }}
+          onSuccess={(actualizado) => {
+            setEditOpen(false)
+            if (actualizado.idParalelo !== idParalelo) {
+              navigate(`/dashboard/examenes/${actualizado.idExamen}/${actualizado.idParalelo}`, { replace: true })
+            } else {
+              void load()
+            }
+          }}
         />
         {cancelOpen && examen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
