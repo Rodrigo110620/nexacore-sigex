@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
@@ -8,11 +8,15 @@ import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteF
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
+import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import type { EstudianteIdentificado, TipoIdentificacion } from '../../services/identificacionService'
 
 /** Control de ingreso: identificar al estudiante por código universitario o CI dentro de un examen. */
 export default function IdentificacionPage() {
+  const { roles } = useAuth()
+  const navigate = useNavigate()
+  const puedeContinuar = roles.includes('CONTROL')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<TipoIdentificacion>('codigo')
@@ -48,8 +52,9 @@ export default function IdentificacionPage() {
   // HABILITADO y DESHABILITADO llegan como "encontrado"; NO_VINCULADO no permite continuar.
   const estudiante = busqueda.status === 'encontrado' ? busqueda.estudiante : null
 
-  // TODO(Fernando): abrir aquí el modal de verificación (UI 2); si está DESHABILITADO muestra el motivo.
-  const onContinuar = (_estudiante: EstudianteIdentificado) => {}
+  const onContinuar = (estudianteSeleccionado: EstudianteIdentificado) => {
+    navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}`)
+  }
 
   return (
     <PanelLayout>
@@ -93,8 +98,9 @@ export default function IdentificacionPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={!estudiante}
+                  disabled={!estudiante || !puedeContinuar}
                   onClick={() => estudiante && onContinuar(estudiante)}
+                  title={!puedeContinuar ? 'Se requiere el rol CONTROL para continuar' : undefined}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continuar

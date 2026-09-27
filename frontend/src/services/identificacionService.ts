@@ -3,6 +3,7 @@ import api from './api'
 export type TipoIdentificacion = 'codigo' | 'ci'
 
 export interface EstudianteIdentificado {
+  idEstudiante: number
   nombre: string
   apellidos: string
   codigoSis: string
