@@ -14,6 +14,8 @@ export interface CrearExamenPayload {
   idAmbiente: number
   normasGenerales: string[]
   normasParticulares: NormaParticularDto[]
+  idMateria?: number | null
+  idDocente?: number | null
 }
 
 export interface ExamenDto {
@@ -30,6 +32,8 @@ export interface ExamenDto {
   estado: string
   normasGenerales: string[]
   normasParticulares: NormaParticularDto[]
+  idMateria?: number | null
+  idDocente?: number | null
 }
 
 export async function listarExamenes(): Promise<ExamenDto[]> {
@@ -51,6 +55,10 @@ export interface ActualizarExamenPayload {
   idAmbiente: number
   normasGenerales: string[]
   normasParticulares: NormaParticularDto[]
+  idMateria?: number | null
+  idDocente?: number | null
+  normasGeneralesEliminadas?: string[]
+  normasParticularesEliminadas?: NormaParticularDto[]
 }
 
 export async function actualizarExamen(

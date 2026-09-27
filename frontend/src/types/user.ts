@@ -27,4 +27,5 @@ export interface UserListItem {
   ci: string
   rol: UserRole
   estado: UserStatus
+  titulo?: string | null
 }
