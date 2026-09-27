@@ -58,11 +58,27 @@ describe('MobileBottomNav', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('CONTROL: solo Inicio y Exámenes', () => {
+  it('CONTROL: muestra el acceso de exámenes como Control', () => {
     renderNav('/dashboard/examenes', ['CONTROL'])
 
-    expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('ADMIN + CONTROL conserva Usuarios y muestra Control', () => {
+    renderNav('/dashboard/examenes', ['ADMIN', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
+  })
+
+  it('DOCENTE + CONTROL muestra Control sin acceso a Usuarios', () => {
+    renderNav('/dashboard/examenes', ['DOCENTE', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 })

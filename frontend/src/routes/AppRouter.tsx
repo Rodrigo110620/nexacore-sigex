@@ -13,6 +13,9 @@ import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
 import ExamenDetallePage from '../pages/Examenes/ExamenDetallePage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
+import ControlRoute from './ControlRoute'
+import IdentificacionRoute from './IdentificacionRoute'
+import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -67,7 +70,6 @@ export default function AppRouter() {
             </AdminRoute>
           }
         />
-
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}
         <Route
           path="/dashboard/examenes/:idExamen/:idParalelo"
@@ -86,13 +88,22 @@ export default function AppRouter() {
           }
         />
 
-        {/* Control de ingreso: identificar estudiante (CONTROL y ADMIN; el rol lo valida el backend) */}
+        {/* Identificación ACCS-01: disponible para ADMIN y CONTROL. */}
         <Route
           path="/dashboard/control/:idExamen/identificar"
           element={
-            <ProtectedRoute>
+            <IdentificacionRoute>
               <IdentificacionPage />
-            </ProtectedRoute>
+            </IdentificacionRoute>
+          }
+        />
+        {/* ACCS-02: registrar el control y autorizar o denegar el ingreso. */}
+        <Route
+          path="/dashboard/control-ingresos/:idEstudiante/:idExamen"
+          element={
+            <ControlRoute>
+              <ControlIngresoPage />
+            </ControlRoute>
           }
         />
       </Routes>

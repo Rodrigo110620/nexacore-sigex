@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { BookCheck, ChevronDown, Eye, Plus, Search, Upload } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, BookCheck, ChevronDown, Eye, Plus, Search, Upload } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
@@ -31,7 +31,8 @@ function initialsOf(examen: ExamenDto): string {
 }
 
 export default function ExamenesPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, roles } = useAuth()
+  const isControl = roles.includes('CONTROL')
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
@@ -218,6 +219,13 @@ export default function ExamenesPage() {
                           <span className="h-2 w-2 rounded-full bg-[#22C55E]" aria-hidden="true" />
                           {estadoLabel(e.estado)}
                         </span>
+{isControl && e.estado !== 'cancelado' && (
+                          <Link to={`/dashboard/control/${e.idExamen}/identificar`}
+                            aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">
+                            Iniciar control <ArrowRight size={14} aria-hidden="true" />
+                          </Link>
+                        )}
                         <button
                           type="button"
                           onClick={() => navigate(`/dashboard/examenes/${e.idExamen}/${e.idParalelo}`)}
@@ -274,7 +282,14 @@ export default function ExamenesPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex items-center justify-center">
+                            <div className="flex items-center justify-center gap-2">
+                        {isControl && e.estado !== 'cancelado' && (
+                          <Link to={`/dashboard/control/${e.idExamen}/identificar`}
+                            aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">
+                            Iniciar control <ArrowRight size={14} aria-hidden="true" />
+                          </Link>
+                        )}
                               <button
                                 type="button"
                                 onClick={() => navigate(`/dashboard/examenes/${e.idExamen}/${e.idParalelo}`)}
