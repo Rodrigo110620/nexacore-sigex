@@ -10,7 +10,6 @@ import {
   Plus,
   ShieldCheck,
   UserRoundCheck,
-  BookOpen,
   Lock,
   ChevronsDown,
 } from 'lucide-react'
@@ -22,22 +21,27 @@ import {
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { actualizarExamen, type ExamenDto } from '../../services/examenService'
+import {
+  formatAmPm,
+  formatFechaDisplay,
+  isNetworkError,
+  isOffline,
+  minutesBetween,
+  parseHora24,
+  NORMA_MAX,
+  todayISO,
+  validateExamenForm,
+  validateNormaTexto,
+} from '../../utils/examFormUtils'
+import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
+import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 
 interface EditExamenModalProps {
   isOpen: boolean
   examen: ExamenDto | null
   onClose: () => void
-  onSuccess?: () => void
-}
-
-function parseHora24(value: string): { h: number; m: number } | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
-  if (!match) return null
-  const h = Number(match[1])
-  const m = Number(match[2])
-  if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null
-  return { h, m }
+  onSuccess?: (actualizado: ExamenDto) => void
 }
 
 function formatHora24(h: number, m: number): string {
@@ -50,45 +54,12 @@ function sanitizeHoraInput(raw: string): string {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
-function minutesBetween(start: string, end: string): number | null {
-  const a = parseHora24(start)
-  const b = parseHora24(end)
-  if (!a || !b) return null
-  const diff = b.h * 60 + b.m - (a.h * 60 + a.m)
-  return diff > 0 ? diff : null
-}
-
 /** Calcula horaFin a partir de horaInicio + duracionMinutos */
 function calcHoraFin(horaInicio: string, duracionMinutos: number): string {
   const parsed = parseHora24(horaInicio)
   if (!parsed) return ''
   const totalMin = parsed.h * 60 + parsed.m + duracionMinutos
   return formatHora24(Math.floor(totalMin / 60) % 24, totalMin % 60)
-}
-
-function validateExamenForm(form: RegisterExamenFormState): RegisterExamenFormErrors {
-  const errors: RegisterExamenFormErrors = {}
-  if (!form.asignatura.trim()) errors.asignatura = 'La asignatura es obligatoria'
-  if (!form.docente.trim()) errors.docente = 'El docente responsable es obligatorio'
-  if (!form.fecha) errors.fecha = 'La fecha es obligatoria'
-  if (!form.horaInicio.trim()) {
-    errors.horaInicio = 'La hora de inicio es obligatoria'
-  } else if (!parseHora24(form.horaInicio)) {
-    errors.horaInicio = 'Usa formato 24 h (ej. 08:00 o 13:30)'
-  }
-  if (!form.horaFin.trim()) {
-    errors.horaFin = 'La hora de fin es obligatoria'
-  } else if (!parseHora24(form.horaFin)) {
-    errors.horaFin = 'Usa formato 24 h (ej. 10:00 o 15:00)'
-  }
-  if (!form.idAmbiente) errors.idAmbiente = 'Selecciona un ambiente'
-  if (!errors.horaInicio && !errors.horaFin) {
-    const dur = minutesBetween(form.horaInicio, form.horaFin)
-    if (dur === null) {
-      errors.horaFin = 'La hora de fin debe ser posterior al inicio'
-    }
-  }
-  return errors
 }
 
 export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: EditExamenModalProps) {
@@ -120,10 +91,20 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
   const [ambienteListOpen, setAmbienteListOpen] = useState(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ambienteBoxRef = useRef<HTMLDivElement | null>(null)
+  const [asignaturaOk, setAsignaturaOk] = useState(false)
+  const [docenteOk, setDocenteOk] = useState(false)
+  const [idMateria, setIdMateria] = useState<number | null>(null)
+  const [idDocente, setIdDocente] = useState<number | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const [offlineOpen, setOfflineOpen] = useState(false)
+  const [expandedNormas, setExpandedNormas] = useState<Record<string, boolean>>({})
+  const [normaGeneralError, setNormaGeneralError] = useState('')
+  const [normaParticularError, setNormaParticularError] = useState('')
 
   // Pre-populate form when examen changes
   useEffect(() => {
-    if (!examen) return
+    if (!examen || !isOpen) return
     const horaFin = calcHoraFin(
       (examen.horaInicio ?? '').slice(0, 5),
       examen.duracionMinutos ?? 0,
@@ -151,9 +132,27 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       setErrors({})
       setGeneralError('')
       setSuccess(false)
+      setAsignaturaOk(true)
+      setDocenteOk(true)
+      setIdMateria(examen.idMateria ?? null)
+      setIdDocente(examen.idDocente ?? null)
+      setDirty(false)
+      setConfirmClose(false)
+      setOfflineOpen(false)
+      setExpandedNormas({})
+      setNormaGeneralError('')
+      setNormaParticularError('')
+      setNuevaNormaGeneral('')
+      setShowAddGeneral(false)
+      setEditingGeneralId(null)
+      setNuevaParticularEst('')
+      setNuevaParticularTexto('')
+      setShowAddParticular(false)
+      setNuevoAmbienteNombre('')
+      setShowNuevoAmbiente(false)
     }, 0)
     return () => window.clearTimeout(handle)
-  }, [examen])
+  }, [examen, isOpen])
 
   useEffect(() => {
     return () => {
@@ -226,14 +225,13 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
       hasError ? 'border-red-400' : 'border-gray-200'
     }`
-  const inputWithIconClass = (hasError?: string) =>
-    `w-full rounded-lg border bg-white py-2.5 pl-3 pr-10 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-      hasError ? 'border-red-400' : 'border-gray-200'
-    }`
   const sectionCardClass = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
 
   const handleChange = (field: keyof RegisterExamenFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+    setDirty(true)
+    if (field === 'asignatura') { setAsignaturaOk(false); setIdMateria(null) }
+    if (field === 'docente') { setDocenteOk(false); setIdDocente(null) }
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
     if (generalError) setGeneralError('')
     if (success) setSuccess(false)
@@ -245,9 +243,27 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     onClose()
   }
 
+  const requestClose = () => {
+    if (saving) return
+    if (dirty) {
+      setConfirmClose(true)
+      return
+    }
+    handleClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const nextErrors = validateExamenForm(form)
+    if (isOffline()) {
+      setOfflineOpen(true)
+      return
+    }
+    const nextErrors = validateExamenForm(form, {
+      asignaturaSeleccionada: asignaturaOk,
+      docenteSeleccionado: docenteOk,
+      validarPasado:
+        form.fecha !== examen.fecha || form.horaInicio !== (examen.horaInicio ?? '').slice(0, 5),
+    })
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
       setGeneralError('Completa los campos obligatorios.')
@@ -259,21 +275,40 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     setSaving(true)
     setGeneralError('')
     try {
-      await actualizarExamen(examen.idExamen, examen.idParalelo, {
+      const actualizado = await actualizarExamen(examen.idExamen, examen.idParalelo, {
         asignatura: form.asignatura.trim(),
         docente: form.docente.trim(),
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: dur,
         idAmbiente: Number(form.idAmbiente),
-        normasGenerales: normasGenerales.map((n) => n.texto),
-        normasParticulares: normasParticulares.map((n) => ({ estudiante: n.estudiante, texto: n.texto })),
+        normasGenerales: normasGenerales.filter((n) => n.activa !== false).map((n) => n.texto),
+        normasParticulares: normasParticulares.filter((n) => n.activa !== false).map((n) => ({
+          estudiante: n.estudiante,
+          texto: n.texto,
+        })),
+        idMateria,
+        idDocente,
+        normasGeneralesEliminadas: normasGenerales.filter((n) => n.activa === false).map((n) => n.texto),
+        normasParticularesEliminadas: normasParticulares.filter((n) => n.activa === false).map((n) => ({
+          estudiante: n.estudiante,
+          texto: n.texto,
+        })),
       })
       setSuccess(true)
-      onSuccess?.()
+      setDirty(false)
+      onSuccess?.(actualizado)
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = setTimeout(() => { onClose(); closeTimerRef.current = null }, 900)
+      closeTimerRef.current = setTimeout(() => {
+        setSuccess(false)
+        onClose()
+        closeTimerRef.current = null
+      }, 900)
     } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        setOfflineOpen(true)
+        return
+      }
       const error = err as { response?: { status?: number; data?: { mensaje?: string } } }
       const status = error.response?.status
       const mensaje = error.response?.data?.mensaje
@@ -286,8 +321,14 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
   }
 
   const addNormaGeneral = () => {
-    const texto = nuevaNormaGeneral.trim()
-    if (!texto) return
+    const texto = nuevaNormaGeneral
+    const otras = normasGenerales
+      .filter((n) => n.activa !== false && n.id !== editingGeneralId)
+      .map((n) => n.texto)
+    const error = validateNormaTexto(texto, otras)
+    setNormaGeneralError(error ?? '')
+    if (error) return
+    setDirty(true)
     if (editingGeneralId) {
       setNormasGenerales((prev) => prev.map((n) => (n.id === editingGeneralId ? { ...n, texto } : n)))
       setEditingGeneralId(null)
@@ -300,8 +341,14 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
 
   const addNormaParticular = () => {
     const estudiante = nuevaParticularEst.trim()
-    const texto = nuevaParticularTexto.trim()
-    if (!estudiante || !texto) return
+    const texto = nuevaParticularTexto
+    const otras = normasParticulares
+      .filter((n) => n.activa !== false && n.estudiante.toLowerCase() === estudiante.toLowerCase())
+      .map((n) => n.texto)
+    const error = !estudiante ? 'Indica el estudiante' : validateNormaTexto(texto, otras)
+    setNormaParticularError(error ?? '')
+    if (error) return
+    setDirty(true)
     setNormasParticulares((prev) => [...prev, { id: `np-${Date.now()}`, estudiante, texto }])
     setNuevaParticularEst('')
     setNuevaParticularTexto('')
@@ -315,7 +362,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       aria-modal="true"
       aria-labelledby="edit-examen-title"
     >
-      <div className="flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
+      <div className="relative flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-5">
           <div className="min-w-0 flex-1">
             <div aria-hidden="true" className="mx-auto mb-3 h-1 w-11 rounded-full bg-[#C4D2E7] sm:hidden" />
@@ -335,7 +382,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
           </div>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={requestClose}
             disabled={saving}
             aria-label="Cerrar"
             className="mt-4 shrink-0 rounded-full bg-[#F1F6FF] p-2 text-[#627A9B] transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 sm:mt-0 sm:rounded-lg sm:bg-transparent"
@@ -344,7 +391,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex items-start gap-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
               <Info size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
@@ -361,18 +408,20 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="editar-asignatura" className="mb-1 block text-xs font-semibold text-gray-700">
                     Asignatura <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      value={form.asignatura}
-                      onChange={(e) => handleChange('asignatura', e.target.value)}
-                      placeholder="Ej. Algoritmos y Estructuras de Datos"
-                      className={inputWithIconClass(errors.asignatura)}
-                    />
-                    <BookOpen size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-                  </div>
+                  <AsignaturaAutocomplete
+                    id="editar-asignatura"
+                    value={form.asignatura}
+                    error={errors.asignatura}
+                    onChange={(value) => handleChange('asignatura', value)}
+                    onSelect={(materia) => {
+                      handleChange('asignatura', materia.nombre)
+                      setAsignaturaOk(true)
+                      setIdMateria(materia.id)
+                    }}
+                  />
                   {errors.asignatura && <p className="mt-1 text-[10px] text-red-500">{errors.asignatura}</p>}
                 </div>
                 <div className="min-w-0">
@@ -384,6 +433,11 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     value={form.docente}
                     error={errors.docente}
                     onChange={(value) => handleChange('docente', value)}
+                    onSelect={(docente) => {
+                      handleChange('docente', `${docente.nombre} ${docente.apellidos}`.trim())
+                      setDocenteOk(true)
+                      setIdDocente(docente.id)
+                    }}
                   />
                   {errors.docente && <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>}
                 </div>
@@ -402,10 +456,14 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   </label>
                   <input
                     type="date"
+                    min={todayISO()}
                     value={form.fecha}
                     onChange={(e) => handleChange('fecha', e.target.value)}
                     className={fieldClass(errors.fecha)}
                   />
+                  {form.fecha && (
+                    <p className="mt-1 text-[10px] text-[#627A9B]">{formatFechaDisplay(form.fecha)}</p>
+                  )}
                   {errors.fecha && <p className="mt-1 text-[10px] text-red-500">{errors.fecha}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">
@@ -427,6 +485,9 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     }}
                     className={fieldClass(errors.horaInicio)}
                   />
+                  {form.horaInicio && parseHora24(form.horaInicio) && (
+                    <p className="mt-1 text-[10px] font-semibold text-[#0439D9]">{formatAmPm(form.horaInicio)}</p>
+                  )}
                   {errors.horaInicio && <p className="mt-1 text-[10px] text-red-500">{errors.horaInicio}</p>}
                 </div>
                 <div className="min-w-0">
@@ -447,6 +508,9 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     }}
                     className={fieldClass(errors.horaFin)}
                   />
+                  {form.horaFin && parseHora24(form.horaFin) && (
+                    <p className="mt-1 text-[10px] font-semibold text-[#0439D9]">{formatAmPm(form.horaFin)}</p>
+                  )}
                   {duracion !== null && <p className="mt-1 text-[10px] text-gray-500">{duracion} minutos</p>}
                   {errors.horaFin && <p className="mt-1 text-[10px] text-red-500">{errors.horaFin}</p>}
                 </div>
@@ -604,23 +668,36 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                 </button>
               </div>
               {showAddGeneral && (
-                <div className="mb-2 flex gap-2">
-                  <input value={nuevaNormaGeneral} onChange={(e) => setNuevaNormaGeneral(e.target.value)} placeholder="Escribe la norma…" className={fieldClass()} />
-                  <button type="button" onClick={addNormaGeneral} className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white">
-                    {editingGeneralId ? 'Guardar' : 'Añadir'}
-                  </button>
+                <div className="mb-2">
+                  <div className="flex gap-2">
+                    <input value={nuevaNormaGeneral} onChange={(e) => { setNuevaNormaGeneral(e.target.value); if (normaGeneralError) setNormaGeneralError('') }} placeholder="Escribe la norma… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaGeneralError)} className={fieldClass(normaGeneralError)} />
+                    <button type="button" onClick={addNormaGeneral} className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white">
+                      {editingGeneralId ? 'Guardar' : 'Añadir'}
+                    </button>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-2 text-[10px]">
+                    <span className="text-red-600">{normaGeneralError}</span>
+                    <span className="shrink-0 text-gray-400">{nuevaNormaGeneral.length}/{NORMA_MAX}</span>
+                  </div>
                 </div>
               )}
               <ul className="space-y-2">
-                {normasGenerales.map((n, idx) => (
+                {normasGenerales.filter((n) => n.activa !== false).map((n, idx) => (
                   <li key={n.id} className="flex items-start justify-between gap-2 rounded-lg border border-[#E8EEF7] bg-white px-3 py-2.5">
                     <div className="flex min-w-0 items-start gap-2.5">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#FEF3C7] text-[10px] font-bold text-[#B45309]">{idx + 1}</span>
-                      <p className="text-xs leading-relaxed text-[#011140]">{n.texto}</p>
+                      <NormaTexto
+                        texto={n.texto}
+                        expanded={Boolean(expandedNormas[n.id])}
+                        onToggle={() => setExpandedNormas((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
+                      />
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <button type="button" aria-label="Editar" onClick={() => { setNuevaNormaGeneral(n.texto); setEditingGeneralId(n.id); setShowAddGeneral(true) }} className="rounded p-1 text-gray-400 hover:text-[#0439D9]"><Pencil size={14} /></button>
-                      <button type="button" aria-label="Eliminar" onClick={() => setNormasGenerales((prev) => prev.filter((x) => x.id !== n.id))} className="rounded p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      <button type="button" aria-label="Eliminar" onClick={() => {
+                        setDirty(true)
+                        setNormasGenerales((prev) => prev.map((x) => (x.id === n.id ? { ...x, activa: false } : x)))
+                      }} className="rounded p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </li>
                 ))}
@@ -649,41 +726,57 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                 </button>
               </div>
               {showAddParticular && (
-                <div className="mb-2 grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-                  <input value={nuevaParticularEst} onChange={(e) => setNuevaParticularEst(e.target.value)} placeholder="Estudiante / código" className={fieldClass()} />
-                  <input value={nuevaParticularTexto} onChange={(e) => setNuevaParticularTexto(e.target.value)} placeholder="Norma o adaptación…" className={fieldClass()} />
-                  <button type="button" onClick={addNormaParticular} className="rounded-lg bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">Añadir</button>
+                <div className="mb-2">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                    <input value={nuevaParticularEst} onChange={(e) => { setNuevaParticularEst(e.target.value); if (normaParticularError) setNormaParticularError('') }} placeholder="Estudiante / código" maxLength={100} className={fieldClass()} />
+                    <input value={nuevaParticularTexto} onChange={(e) => { setNuevaParticularTexto(e.target.value); if (normaParticularError) setNormaParticularError('') }} placeholder="Norma o adaptación… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaParticularError)} className={fieldClass(normaParticularError)} />
+                    <button type="button" onClick={addNormaParticular} className="rounded-lg bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">Añadir</button>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-2 text-[10px]">
+                    <span className="text-red-600">{normaParticularError}</span>
+                    <span className="shrink-0 text-gray-400">{nuevaParticularTexto.length}/{NORMA_MAX}</span>
+                  </div>
                 </div>
               )}
-              {normasParticulares.length === 0 ? (
+              {normasParticulares.filter((n) => n.activa !== false).length === 0 ? (
                 <p className="rounded-lg border border-dashed border-[#B8CBEF] bg-white px-3 py-4 text-center text-[11px] text-gray-400">Sin normas particulares.</p>
               ) : (
                 <ul className="space-y-2">
-                  {normasParticulares.map((n) => (
+                  {normasParticulares.filter((n) => n.activa !== false).map((n, idx) => (
                     <li key={n.id} className="flex items-start justify-between gap-2 rounded-lg border border-[#E8EEF7] bg-white px-3 py-2">
-                      <p className="text-xs text-[#011140]"><span className="font-semibold">{n.estudiante}:</span> {n.texto}</p>
-                      <button type="button" aria-label="Eliminar" onClick={() => setNormasParticulares((prev) => prev.filter((x) => x.id !== n.id))} className="rounded p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold text-[#627A9B]">{idx + 1}. {n.estudiante}</p>
+                        <NormaTexto
+                          texto={n.texto}
+                          expanded={Boolean(expandedNormas[n.id])}
+                          onToggle={() => setExpandedNormas((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
+                        />
+                      </div>
+                      <button type="button" aria-label="Eliminar" onClick={() => {
+                        setDirty(true)
+                        setNormasParticulares((prev) => prev.map((x) => (x.id === n.id ? { ...x, activa: false } : x)))
+                      }} className="rounded p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </li>
                   ))}
                 </ul>
               )}
             </section>
 
+          </div>
+
+          <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
             {generalError && (
-              <div className="flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-3">
-                <CircleAlert className="mr-2 mt-0.5 shrink-0 text-[#B91C1C]" size={18} />
+              <div role="alert" className="mb-2 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-2.5">
+                <CircleAlert className="mr-2 mt-0.5 shrink-0 text-[#B91C1C]" size={16} />
                 <p className="text-xs text-[#B91C1C]">{generalError}</p>
               </div>
             )}
             {success && (
-              <div className="flex items-start rounded-md border border-emerald-200 bg-emerald-50 p-3">
-                <Check className="mr-2 mt-0.5 shrink-0 text-emerald-700" size={18} />
+              <div role="status" className="mb-2 flex items-start rounded-md border border-emerald-200 bg-emerald-50 p-2.5">
+                <Check className="mr-2 mt-0.5 shrink-0 text-emerald-700" size={16} />
                 <p className="text-xs text-emerald-800">Examen actualizado correctamente.</p>
               </div>
             )}
-          </div>
-
-          <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="hidden items-center text-[0.75rem] text-gray-400 sm:flex">
                 <Lock size={12} aria-hidden="true" className="mr-1.5" />
@@ -692,7 +785,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={requestClose}
                   disabled={saving}
                   className="w-full rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5 sm:text-[#011140]"
                 >
@@ -719,6 +812,12 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
             </div>
           </div>
         </form>
+        <ConfirmDiscardDialog
+          open={confirmClose}
+          onStay={() => setConfirmClose(false)}
+          onLeave={handleClose}
+        />
+        <OfflineDialog open={offlineOpen} onClose={() => setOfflineOpen(false)} />
       </div>
     </div>
   )
