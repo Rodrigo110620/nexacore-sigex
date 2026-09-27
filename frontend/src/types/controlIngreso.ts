@@ -3,6 +3,7 @@ export interface ContextoControlIngreso {
   estudiante: string
   codigoSis: string
   documento: string
+  carrera?: string | null
   idExamen: number
   asignatura: string
   fecha: string

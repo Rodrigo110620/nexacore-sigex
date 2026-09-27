@@ -44,6 +44,13 @@ public class ControlIngresoController {
         return ResponseEntity.unprocessableEntity().body(response);
     }
 
+    @PreAuthorize("hasRole('CONTROL')")
+    @PostMapping("/denegar")
+    public ResponseEntity<AutorizarIngresoResponse> denegar(
+            @Valid @RequestBody AutorizarIngresoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(service.denegar(request, authentication.getName()));
+    }
+
     @Operation(summary = "Consultar historial", description = "Devuelve autorizaciones y denegaciones registradas para el estudiante y examen.")
     @PreAuthorize("hasRole('CONTROL')")
     @GetMapping("/{idEstudiante}/{idExamen}")

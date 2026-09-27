@@ -61,17 +61,47 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void deniegaPorDecisionControlSinAutorizarAsistencia() {
+        var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", List.of(), List.of());
+        var response = service.denegar(request, "control@umss.edu.bo");
+        assertFalse(response.autorizado());
+        assertEquals("DENEGADO_CONTROL", response.resultado());
+        assertEquals("Documento inválido", response.causa());
+        assertNotNull(response.fechaHoraIngreso());
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
+        verify(registroRepository).registrar(20, 40, 10, 30, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
+    }
+
+    @Test
+    void denegacionExigeMotivo() {
+        assertThrows(ControlIngresoException.class, () -> service.denegar(requestVacio(), "control@umss.edu.bo"));
+        verifyNoInteractions(registroRepository);
+    }
+
+    @Test
+    void denegacionManualBloqueaAutorizacionPosterior() {
+        service.denegar(new AutorizarIngresoRequest(10, 20, "Fuera de tiempo", List.of(), List.of()), "control@umss.edu.bo");
+        assertFalse(asistencia.getHabilitado());
+        verify(asistenciaRepository).save(asistencia);
+        var response = service.autorizar(new AutorizarIngresoRequest(10, 20, null,
+                List.of(ControlIngresoService.VERIFICACION_IDENTIDAD), List.of()), "control@umss.edu.bo");
+        assertFalse(response.autorizado());
+        assertTrue(response.causa().contains("Fuera de tiempo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
+    }
+
+    @Test
     void autorizaConTimestampServidorYEvidencia() {
         var request = new AutorizarIngresoRequest(
                 10, 20, "  Sin novedades  ",
-                List.of("Identidad verificada", " Material revisado "),
+                List.of(ControlIngresoService.VERIFICACION_IDENTIDAD, " Material revisado "),
                 List.of());
 
         var response = service.autorizar(request, "control@umss.edu.bo");
 
         assertNotNull(response.fechaHoraIngreso());
         assertEquals("Sin novedades", response.observaciones());
-        assertEquals(List.of("Identidad verificada", "Material revisado"), response.verificacionesAdicionales());
+        assertEquals(List.of(ControlIngresoService.VERIFICACION_IDENTIDAD, "Material revisado"), response.verificacionesAdicionales());
         assertEquals(7, asistencia.getIdUsuarioControl());
         assertEquals(5, asistencia.getIdAmbienteIngreso());
         assertEquals(response.fechaHoraIngreso(), asistencia.getFechaHoraIngreso());
@@ -79,7 +109,7 @@ class ControlIngresoServiceTests {
         assertEquals("AUTORIZADO", response.resultado());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, "Sin novedades");
         verify(registroRepository).registrar(20, 40, 10, 30, 7, "AUTORIZADO", null,
-                "[\"Identidad verificada\",\"Material revisado\"]", "Sin novedades");
+                "[\"Identidad biométrica cotejada / Carnet físico verificado\",\"Material revisado\"]", "Sin novedades");
     }
 
     @Test
@@ -134,7 +164,7 @@ class ControlIngresoServiceTests {
         when(catalogoRepository.findById(3)).thenReturn(Optional.of(tipo));
         when(asistenciaRepository.autorizarConFechaServidor(10, 20, 5, 7, "Material observado")).thenReturn(1);
         var request = new AutorizarIngresoRequest(
-                10, 20, "Material observado", List.of(),
+                10, 20, "Material observado", List.of(ControlIngresoService.VERIFICACION_IDENTIDAD),
                 List.of(new com.nexacore.examenes.dto.IncidenciaIngresoRequest(3, "Celular apagado")));
 
         var response = service.autorizar(request, "control@umss.edu.bo");
@@ -190,6 +220,23 @@ class ControlIngresoServiceTests {
         verify(registroRepository).registrar(
                 20, 40, 10, 30, 7, "DENEGADO",
                 "El estudiante no está habilitado: Deuda pendiente", "[]", "Se notificó la causa");
+    }
+
+    @Test
+    void impideAutorizarSinVerificacionSinEscribirDatos() {
+        var error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(requestVacio(), "control@umss.edu.bo"));
+        assertTrue(error.getMessage().contains("verificación de identidad"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
+        verifyNoInteractions(registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void unaVerificacionDistintaNoReemplazaLaVerificacionDeIdentidad() {
+        var request = new AutorizarIngresoRequest(10, 20, null, List.of("Normas comunicadas", "  "), List.of());
+        assertThrows(ControlIngresoException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
+        verifyNoInteractions(registroRepository, incidenciaRepository);
     }
 
     private AutorizarIngresoRequest requestVacio() {

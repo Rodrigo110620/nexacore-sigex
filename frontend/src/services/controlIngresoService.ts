@@ -22,6 +22,11 @@ export async function obtenerTiposIncidencia() {
   return data
 }
 
+export async function denegarIngreso(payload: AutorizarIngresoPayload) {
+  const { data } = await api.post<AutorizarIngresoResultado>('/control-ingresos/denegar', payload)
+  return data
+}
+
 export async function obtenerHistorialControl(idEstudiante: number, idExamen: number) {
   const { data } = await api.get<RegistroControlIngreso[]>(`/control-ingresos/${idEstudiante}/${idExamen}`)
   return data

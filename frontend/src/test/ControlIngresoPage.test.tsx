@@ -10,6 +10,7 @@ vi.mock('../components/layout/PanelLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 vi.mock('../services/controlIngresoService')
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ nombre: 'Carla Control' }) }))
 
 const contextoBase: ContextoControlIngreso = {
   idEstudiante: 10,
@@ -33,11 +34,11 @@ const contextoBase: ContextoControlIngreso = {
 function renderPage(contexto: ContextoControlIngreso = contextoBase) {
   vi.mocked(service.obtenerContextoControl).mockResolvedValue(contexto)
   vi.mocked(service.obtenerTiposIncidencia).mockResolvedValue([
-    { id: 3, nombre: 'PROBLEMA_IDENTIFICACION', descripcion: null },
+    { id: 3, nombre: 'DOCUMENTO_MAL_ESTADO', descripcion: null },
   ])
   return render(
     <MemoryRouter initialEntries={['/control/10/20']}>
-      <Routes><Route path="/control/:idEstudiante/:idExamen" element={<ControlIngresoPage />} /></Routes>
+      <Routes><Route path="/control/:idEstudiante/:idExamen" element={<ControlIngresoPage />} /><Route path="/dashboard/control/:idExamen/identificar" element={<p>Identificación del examen</p>} /></Routes>
     </MemoryRouter>,
   )
 }
@@ -56,6 +57,13 @@ describe('ControlIngresoPage', () => {
     expect(screen.getByText('Tiempo adicional')).toBeInTheDocument()
   })
 
+  it('permite volver a identificar cuando el ingreso ya está registrado', async () => {
+    renderPage({ ...contextoBase, ingresoRegistrado: true })
+    await screen.findByText('El ingreso ya fue registrado para este examen.')
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a identificar estudiante' }))
+    expect(await screen.findByText('Identificación del examen')).toBeInTheDocument()
+  })
+
   it('autoriza enviando observaciones, verificaciones e incidencia', async () => {
     vi.mocked(service.autorizarIngreso).mockResolvedValue({
       autorizado: true, resultado: 'AUTORIZADO', causa: null,
@@ -63,39 +71,46 @@ describe('ControlIngresoPage', () => {
     })
     renderPage()
     await screen.findByText('Laura Paredes')
-    fireEvent.change(screen.getByPlaceholderText('Registra observaciones relevantes del control...'), { target: { value: 'Sin novedades' } })
-    fireEvent.click(screen.getByLabelText('Identidad contrastada'))
+    fireEvent.change(screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla'), { target: { value: 'Sin novedades' } })
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByLabelText('Documento en mal estado'))
     fireEvent.change(screen.getByPlaceholderText('Opcional: describe la incidencia...'), { target: { value: 'Documento deteriorado' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Autorizar ingreso' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
 
     await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith({
       idEstudiante: 10,
       idExamen: 20,
       observaciones: 'Sin novedades',
-      verificacionesAdicionales: ['Identidad contrastada'],
+      verificacionesAdicionales: ['Identidad biométrica cotejada / Carnet físico verificado'],
       incidencias: [{ idTipoIncidencia: 3, descripcion: 'Documento deteriorado' }],
     }))
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
   })
 
   it('permite registrar una denegación sin mostrar el botón de autorizar', async () => {
-    vi.mocked(service.autorizarIngreso).mockResolvedValue({
-      autorizado: false, resultado: 'DENEGADO_NO_HABILITADO', causa: 'Deuda pendiente',
+    vi.mocked(service.denegarIngreso).mockResolvedValue({
+      autorizado: false, resultado: 'DENEGADO_CONTROL', causa: 'Deuda pendiente',
       fechaHoraIngreso: '2026-09-26T18:00:00Z', autorizadoPor: 'Carla Control',
     })
     renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
 
     expect(await screen.findByText('Deuda pendiente')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Autorizar ingreso' })).not.toBeInTheDocument()
-    fireEvent.change(screen.getByPlaceholderText('Registra observaciones relevantes del control...'), { target: { value: 'Se informó al estudiante' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar control denegado' }))
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
+    fireEvent.change(screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla'), { target: { value: 'Se informó al estudiante' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Denegar' }))
+    expect(screen.getByRole('button', { name: 'Confirmar Denegación' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Deuda pendiente' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
 
-    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(service.denegarIngreso).toHaveBeenCalledWith(expect.objectContaining({
       idEstudiante: 10,
       idExamen: 20,
-      observaciones: 'Se informó al estudiante',
+      observaciones: 'Deuda pendiente — Se informó al estudiante',
     })))
     expect(await screen.findByText('Ingreso denegado')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar resultado' }))
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
   })
 
   it('consulta y muestra el historial con los campos disponibles', async () => {
@@ -117,7 +132,7 @@ describe('ControlIngresoPage', () => {
     expect(await screen.findByText('Personal de control: Carla Control')).toBeInTheDocument()
     expect(screen.getByText('Causa: Matrícula observada')).toBeInTheDocument()
     expect(screen.getByText('Observaciones: Se informó al estudiante')).toBeInTheDocument()
-    expect(screen.getAllByText('Identidad contrastada')).toHaveLength(2)
+    expect(screen.getAllByText('Identidad contrastada')).toHaveLength(1)
   })
 
   it('muestra errores de carga sin presentar datos incompletos', async () => {

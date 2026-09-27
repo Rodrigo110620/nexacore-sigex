@@ -28,6 +28,7 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
+    public static final String VERIFICACION_IDENTIDAD = "Identidad biométrica cotejada / Carnet físico verificado";
     private final AsistenciaExamenRepository asistenciaRepository;
     private final CatalogoIncidenciaRepository catalogoRepository;
     private final IncidenciaRepository incidenciaRepository;
@@ -79,6 +80,14 @@ public class ControlIngresoService {
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora, 0);
         }
 
+        boolean identidadVerificada = request.verificacionesAdicionales().stream()
+                .map(ControlIngresoService::limpiar)
+                .anyMatch(VERIFICACION_IDENTIDAD::equals);
+        if (!identidadVerificada) {
+            throw new ControlIngresoException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Confirma la verificación de identidad antes de autorizar");
+        }
+
         int actualizados = asistenciaRepository.autorizarConFechaServidor(
                 request.idEstudiante(), request.idExamen(), asistencia.getExamen().getIdAmbiente(),
                 control.getId(), limpiar(request.observaciones()));
@@ -100,6 +109,25 @@ public class ControlIngresoService {
         guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size());
+    }
+
+    @Transactional
+    public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
+        String causa = limpiar(request.observaciones());
+        if (causa == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");
+        Usuario control = usuarioRepository.findByEmail(emailControl)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        AsistenciaExamen asistencia = asistenciaRepository.buscarParaAutorizar(request.idEstudiante(), request.idExamen())
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "El estudiante no está asociado al examen seleccionado"));
+        LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
+        if (asistencia.getFechaHoraIngreso() == null) {
+            asistencia.setHabilitado(false);
+            asistencia.setMotivoInhabilitacion("Ingreso denegado por CONTROL: " + causa);
+            asistenciaRepository.save(asistencia);
+        }
+        registrarIncidencias(asistencia, control, request.incidencias(), ahora);
+        guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+        return crearRespuesta(asistencia, control, request, false, "DENEGADO_CONTROL", causa, ahora, request.incidencias().size());
     }
 
     private void registrarIncidencias(
@@ -142,7 +170,9 @@ public class ControlIngresoService {
                 Boolean.TRUE.equals(asistencia.getHabilitado()),
                 asistencia.getMotivoInhabilitacion(),
                 asistencia.getFechaHoraIngreso() != null,
-                asistencia.getFechaHoraIngreso());
+                asistencia.getFechaHoraIngreso(),
+                usuarioRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen)
+                        .map(com.nexacore.examenes.dto.EstudianteExamenFila::carrera).orElse(null));
     }
 
     @Transactional(readOnly = true)

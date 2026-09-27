@@ -21,6 +21,7 @@ public record ContextoControlIngresoResponse(
         boolean habilitado,
         String motivoInhabilitacion,
         boolean ingresoRegistrado,
-        LocalDateTime fechaHoraIngreso
+        LocalDateTime fechaHoraIngreso,
+        String carrera
 ) {
 }
