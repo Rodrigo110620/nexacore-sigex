@@ -8,9 +8,12 @@ import PanelTopBar from './PanelTopBar'
 interface PanelLayoutProps {
   children: ReactNode
   compactDesktop?: boolean
+  title?: string
+  description?: string
+  topBarVariant?: 'default' | 'control'
 }
 
-export default function PanelLayout({ children, compactDesktop = false }: PanelLayoutProps) {
+export default function PanelLayout({ children, compactDesktop = false, title, description, topBarVariant = 'default' }: PanelLayoutProps) {
   const { logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -80,7 +83,7 @@ export default function PanelLayout({ children, compactDesktop = false }: PanelL
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
-        <PanelTopBar compactDesktop={compactDesktop} />
+        <PanelTopBar compactDesktop={compactDesktop} title={title} description={description} variant={topBarVariant} />
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
         <div className={`hidden shrink-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <Footer />
