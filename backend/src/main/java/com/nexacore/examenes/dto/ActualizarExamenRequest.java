@@ -30,5 +30,13 @@ public record ActualizarExamenRequest(
 
         List<String> normasGenerales,
 
-        List<NormaParticularRequest> normasParticulares
+        List<NormaParticularRequest> normasParticulares,
+
+        Integer idMateria,
+
+        Integer idDocente,
+
+        List<String> normasGeneralesEliminadas,
+
+        List<NormaParticularRequest> normasParticularesEliminadas
 ) {}

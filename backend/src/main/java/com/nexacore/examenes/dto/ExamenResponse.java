@@ -17,5 +17,7 @@ public record ExamenResponse(
         String ambienteNombre,
         String estado,
         List<String> normasGenerales,
-        List<NormaParticularRequest> normasParticulares
+        List<NormaParticularRequest> normasParticulares,
+        Integer idMateria,
+        Integer idDocente
 ) {}

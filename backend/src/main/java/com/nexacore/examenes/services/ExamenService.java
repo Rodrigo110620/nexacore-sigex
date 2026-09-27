@@ -34,10 +34,12 @@ import java.text.Normalizer;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 public class ExamenService {
@@ -108,10 +110,11 @@ public class ExamenService {
         Ambiente ambiente = ambienteRepository.findById(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
+        validarNoPasado(request.fecha(), request.horaInicio());
         validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos());
 
-        Materia materia = resolverMateria(request.asignatura().trim());
-        Docente docente = resolverDocente(request.docente().trim());
+        Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
+        Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
         Paralelo paralelo = resolverParalelo(materia, docente);
 
         Integer idExamen = ((Number) entityManager
@@ -131,9 +134,17 @@ public class ExamenService {
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
         examen.setEstado("programado");
-        examen.setNormas(serializarNormas(request.normasGenerales(), request.normasParticulares()));
+        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), NormasGuardadas.VACIAS);
+        examen.setNormas(serializarNormas(new NormasGuardadas(
+                listaSegura(request.normasGenerales()), listaSegura(request.normasParticulares()),
+                List.of(), List.of())));
 
-        return toResponse(examenRepository.save(examen));
+        Examen guardado = examenRepository.save(examen);
+        registrarAuditoria("EXAMEN_CREADO", Map.of(
+                "idExamen", guardado.getId().getIdExamen(),
+                "idParalelo", guardado.getId().getIdParalelo(),
+                "examen", resumen(guardado)));
+        return toResponse(guardado);
     }
 
     @Transactional
@@ -148,23 +159,90 @@ public class ExamenService {
         Ambiente ambiente = ambienteRepository.findById(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
+        boolean cambiaHorario = !request.fecha().equals(examen.getFecha())
+                || !request.horaInicio().equals(examen.getHoraInicio());
+        if (cambiaHorario) {
+            validarNoPasado(request.fecha(), request.horaInicio());
+        }
+
         // Validar conflicto excluyendo el propio examen
         validarSinConflictoExcluyendo(
                 request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
                 idExamen, idParalelo);
 
-        Materia materia = resolverMateria(request.asignatura().trim());
-        Docente docente = resolverDocente(request.docente().trim());
+        Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
+        Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
 
-        examen.setIdMateria(materia.getId());
-        examen.setIdDocente(docente.getIdUsuario());
+        Map<String, Object> antes = resumen(examen);
+        NormasGuardadas previas = leerNormas(examen.getNormas());
+        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), previas);
+        String normas = serializarNormas(combinarEliminadas(previas, request));
+
+        boolean cambiaParalelo = !materia.getId().equals(examen.getIdMateria())
+                || !docente.getIdUsuario().equals(examen.getIdDocente());
+        if (cambiaParalelo) {
+            examen = moverAParalelo(examen, resolverParalelo(materia, docente));
+        }
+
         examen.setFecha(request.fecha());
         examen.setHoraInicio(request.horaInicio());
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
-        examen.setNormas(serializarNormas(request.normasGenerales(), request.normasParticulares()));
+        examen.setNormas(normas);
 
-        return toResponse(examenRepository.save(examen));
+        Examen guardado = examenRepository.save(examen);
+        registrarAuditoria("EXAMEN_MODIFICADO", Map.of(
+                "idExamen", idExamen,
+                "idParaleloAnterior", idParalelo,
+                "idParalelo", guardado.getId().getIdParalelo(),
+                "antes", antes,
+                "despues", resumen(guardado)));
+        return toResponse(guardado);
+    }
+
+    /**
+     * id_paralelo forma parte de la PK del examen y de la FK compuesta a paralelo
+     * (id_paralelo, id_materia, id_docente), así que cambiar asignatura o docente
+     * exige mover el examen al paralelo correspondiente.
+     */
+    private Examen moverAParalelo(Examen examen, Paralelo destino) {
+        Integer idExamen = examen.getId().getIdExamen();
+        Integer idParaleloActual = examen.getId().getIdParalelo();
+        Number dependientes = (Number) entityManager.createNativeQuery("""
+                SELECT (SELECT COUNT(*) FROM public.asistencia_examen WHERE id_examen = :e AND id_paralelo = :p)
+                     + (SELECT COUNT(*) FROM public.intento_ingreso WHERE id_examen = :e AND id_paralelo = :p)
+                     + (SELECT COUNT(*) FROM public.registro_control_ingreso WHERE id_examen = :e AND id_paralelo = :p)
+                     + (SELECT COUNT(*) FROM public.incidencia WHERE id_examen = :e AND id_paralelo = :p)
+                """)
+                .setParameter("e", idExamen)
+                .setParameter("p", idParaleloActual)
+                .getSingleResult();
+        if (dependientes.longValue() > 0) {
+            throw new ConflictoAmbienteException(
+                    "No se puede cambiar la asignatura o el docente: el examen ya tiene estudiantes habilitados "
+                            + "o registros de ingreso. Registra un examen nuevo para la otra asignatura.");
+        }
+
+        ParaleloId destinoId = destino.getId();
+        entityManager.flush();
+        entityManager.detach(examen);
+        entityManager.createNativeQuery("""
+                UPDATE public.examen
+                   SET id_paralelo = :np, id_materia = :m, id_docente = :d
+                 WHERE id_examen = :e AND id_paralelo = :p
+                """)
+                .setParameter("np", destinoId.getIdParalelo())
+                .setParameter("m", destinoId.getIdMateria())
+                .setParameter("d", destinoId.getIdDocente())
+                .setParameter("e", idExamen)
+                .setParameter("p", idParaleloActual)
+                .executeUpdate();
+
+        ExamenId nuevoId = new ExamenId();
+        nuevoId.setIdExamen(idExamen);
+        nuevoId.setIdParalelo(destinoId.getIdParalelo());
+        return examenRepository.findById(nuevoId)
+                .orElseThrow(() -> new IllegalStateException("No se pudo mover el examen al nuevo paralelo"));
     }
 
     @Transactional
@@ -175,8 +253,13 @@ public class ExamenService {
 
         Examen examen = examenRepository.findById(examenId)
                 .orElseThrow(() -> new IllegalArgumentException("El examen indicado no existe"));
+        String estadoAnterior = examen.getEstado();
         examen.setEstado("cancelado");
         examenRepository.save(examen);
+        registrarAuditoria("EXAMEN_CANCELADO", Map.of(
+                "idExamen", idExamen,
+                "idParalelo", idParalelo,
+                "estadoAnterior", estadoAnterior == null ? "" : estadoAnterior));
     }
 
     private void validarSinConflictoExcluyendo(
@@ -216,15 +299,30 @@ public class ExamenService {
         }
     }
 
-    private Materia resolverMateria(String nombre) {
-        return materiaRepository.findByNombreIgnoreCase(nombre)
+    private void validarNoPasado(java.time.LocalDate fecha, LocalTime horaInicio) {
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        if (fecha.isBefore(hoy)) {
+            throw new IllegalArgumentException("No se permite registrar un examen con fecha anterior a hoy.");
+        }
+        if (fecha.isEqual(hoy) && horaInicio.isBefore(LocalTime.now().withSecond(0).withNano(0))) {
+            throw new IllegalArgumentException("Para hoy, la hora de inicio no puede ser anterior a la hora actual.");
+        }
+    }
+
+    private Materia resolverMateria(Integer idMateria, String nombre) {
+        if (idMateria != null) {
+            return materiaRepository.findById(idMateria)
+                    .map(this::corregirSiglaSiEsNombre)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "La asignatura seleccionada no existe en el catálogo institucional."));
+        }
+        String texto = nombre == null ? "" : nombre.trim();
+        return materiaRepository.findByNombreIgnoreCase(texto)
+                .or(() -> materiaRepository.findBySiglaIgnoreCase(texto))
                 .map(this::corregirSiglaSiEsNombre)
-                .orElseGet(() -> {
-                    Materia m = new Materia();
-                    m.setSigla(siglaUnicaDesdeNombre(nombre));
-                    m.setNombre(nombre.toUpperCase(Locale.forLanguageTag("es-BO")));
-                    return materiaRepository.save(m);
-                });
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No se encontró una asignatura en el catálogo institucional: " + texto
+                                + ". Selecciona una sugerencia válida."));
     }
 
     private Materia corregirSiglaSiEsNombre(Materia materia) {
@@ -307,7 +405,12 @@ public class ExamenService {
                 .replaceAll("[^A-Z0-9]", "");
     }
 
-    private Docente resolverDocente(String texto) {
+    private Docente resolverDocente(Integer idDocente, String texto) {
+        if (idDocente != null) {
+            return docenteRepository.findById(idDocente)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "El docente seleccionado no está registrado como DOCENTE."));
+        }
         List<Docente> matches = docenteRepository.findByNombreCompletoContaining(texto);
         if (matches.isEmpty()) {
             throw new IllegalArgumentException(
@@ -337,11 +440,53 @@ public class ExamenService {
                 });
     }
 
-    private String serializarNormas(
-            List<String> generales, List<NormaParticularRequest> particulares) {
+    /** Normas activas más las eliminadas lógicamente, que se conservan como historial. */
+    private record NormasGuardadas(
+            List<String> generales,
+            List<NormaParticularRequest> particulares,
+            List<String> generalesEliminadas,
+            List<NormaParticularRequest> particularesEliminadas) {
+        static final NormasGuardadas VACIAS = new NormasGuardadas(List.of(), List.of(), List.of(), List.of());
+    }
+
+    private static final int NORMA_MIN = 10;
+    private static final int NORMA_MAX = 60;
+    private static final Pattern LETRA = Pattern.compile("\\p{L}");
+
+    private static <T> List<T> listaSegura(List<T> lista) {
+        return lista == null ? List.of() : lista;
+    }
+
+    private NormasGuardadas leerNormas(String json) {
+        if (json == null || json.isBlank()) {
+            return NormasGuardadas.VACIAS;
+        }
+        try {
+            Map<String, Object> map = objectMapper.readValue(json, new TypeReference<>() {});
+            return new NormasGuardadas(
+                    textos(map.get("generales")),
+                    particulares(map.get("particulares")),
+                    textos(map.get("generalesEliminadas")),
+                    particulares(map.get("particularesEliminadas")));
+        } catch (JsonProcessingException e) {
+            return new NormasGuardadas(List.of(json), List.of(), List.of(), List.of());
+        }
+    }
+
+    private static List<String> textos(Object valor) {
+        return valor instanceof List<?> list ? list.stream().map(String::valueOf).toList() : List.of();
+    }
+
+    private List<NormaParticularRequest> particulares(Object valor) {
+        return valor == null ? List.of() : objectMapper.convertValue(valor, new TypeReference<>() {});
+    }
+
+    private String serializarNormas(NormasGuardadas normas) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("generales", generales == null ? List.of() : generales);
-        payload.put("particulares", particulares == null ? List.of() : particulares);
+        payload.put("generales", normas.generales());
+        payload.put("particulares", normas.particulares());
+        payload.put("generalesEliminadas", normas.generalesEliminadas());
+        payload.put("particularesEliminadas", normas.particularesEliminadas());
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
@@ -349,26 +494,127 @@ public class ExamenService {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private ExamenResponse toResponse(Examen examen) {
-        List<String> generales = List.of();
-        List<NormaParticularRequest> particulares = List.of();
-        if (examen.getNormas() != null && !examen.getNormas().isBlank()) {
-            try {
-                Map<String, Object> map = objectMapper.readValue(
-                        examen.getNormas(), new TypeReference<>() {});
-                Object g = map.get("generales");
-                if (g instanceof List<?> list) {
-                    generales = list.stream().map(String::valueOf).toList();
-                }
-                Object p = map.get("particulares");
-                if (p != null) {
-                    particulares = objectMapper.convertValue(p, new TypeReference<>() {});
-                }
-            } catch (JsonProcessingException ignored) {
-                generales = List.of(examen.getNormas());
+    /**
+     * Solo se registran como eliminadas las normas que estaban guardadas; las que se agregaron
+     * y quitaron en la misma edición nunca existieron en la base de datos.
+     */
+    private NormasGuardadas combinarEliminadas(NormasGuardadas previas, ActualizarExamenRequest request) {
+        List<String> generalesEliminadas = new ArrayList<>(previas.generalesEliminadas());
+        for (String texto : listaSegura(request.normasGeneralesEliminadas())) {
+            if (previas.generales().contains(texto)) {
+                generalesEliminadas.add(texto);
             }
         }
+        List<NormaParticularRequest> particularesEliminadas = new ArrayList<>(previas.particularesEliminadas());
+        for (NormaParticularRequest norma : listaSegura(request.normasParticularesEliminadas())) {
+            if (previas.particulares().contains(norma)) {
+                particularesEliminadas.add(norma);
+            }
+        }
+        return new NormasGuardadas(
+                listaSegura(request.normasGenerales()),
+                listaSegura(request.normasParticulares()),
+                generalesEliminadas,
+                particularesEliminadas);
+    }
+
+    /**
+     * Las normas ya guardadas no se revalidan, para no bloquear la edición de exámenes
+     * registrados antes de estas reglas.
+     */
+    private void validarNormasNuevas(
+            List<String> generales, List<NormaParticularRequest> particulares, NormasGuardadas previas) {
+        Set<String> vistas = new HashSet<>();
+        for (String texto : listaSegura(generales)) {
+            if (!previas.generales().contains(texto)) {
+                validarTextoNorma(texto, "general");
+            }
+            if (texto != null && !vistas.add(texto.trim().toLowerCase())) {
+                throw new IllegalArgumentException("La norma general \"" + texto + "\" está repetida.");
+            }
+        }
+        Set<String> vistasParticulares = new HashSet<>();
+        for (NormaParticularRequest norma : listaSegura(particulares)) {
+            if (norma.estudiante() == null || norma.estudiante().isBlank()) {
+                throw new IllegalArgumentException("Cada norma particular debe indicar el estudiante.");
+            }
+            if (!previas.particulares().contains(norma)) {
+                validarTextoNorma(norma.texto(), "particular");
+            }
+            String clave = norma.estudiante().trim().toLowerCase() + "|" + norma.texto().trim().toLowerCase();
+            if (!vistasParticulares.add(clave)) {
+                throw new IllegalArgumentException(
+                        "La norma particular \"" + norma.texto() + "\" está repetida para " + norma.estudiante() + ".");
+            }
+        }
+    }
+
+    private static void validarTextoNorma(String texto, String tipo) {
+        String prefijo = "Norma " + tipo + ": ";
+        if (texto == null || texto.isBlank()) {
+            throw new IllegalArgumentException(prefijo + "no puede estar vacía.");
+        }
+        if (!texto.equals(texto.strip())) {
+            throw new IllegalArgumentException(prefijo + "no se permiten espacios al inicio ni al final.");
+        }
+        if (texto.matches("(?s).*\\s{2,}.*")) {
+            throw new IllegalArgumentException(prefijo + "no se permiten espacios dobles.");
+        }
+        if (texto.length() < NORMA_MIN || texto.length() > NORMA_MAX) {
+            throw new IllegalArgumentException(
+                    prefijo + "debe tener entre " + NORMA_MIN + " y " + NORMA_MAX + " caracteres.");
+        }
+        if (texto.matches("[\\d\\s]+")) {
+            throw new IllegalArgumentException(prefijo + "no puede contener solo números.");
+        }
+        if (!LETRA.matcher(texto).find()) {
+            throw new IllegalArgumentException(prefijo + "debe contener texto descriptivo.");
+        }
+        if (texto.replaceAll("\\s", "").matches("(?i)(.)\\1+")) {
+            throw new IllegalArgumentException(prefijo + "no puede ser un mismo carácter repetido.");
+        }
+    }
+
+    private Map<String, Object> resumen(Examen examen) {
+        Map<String, Object> datos = new HashMap<>();
+        datos.put("idMateria", examen.getIdMateria());
+        datos.put("idDocente", examen.getIdDocente());
+        datos.put("idAmbiente", examen.getIdAmbiente());
+        datos.put("fecha", String.valueOf(examen.getFecha()));
+        datos.put("horaInicio", String.valueOf(examen.getHoraInicio()));
+        datos.put("duracionMinutos", examen.getDuracionMinutos());
+        datos.put("estado", examen.getEstado());
+        datos.put("normas", examen.getNormas());
+        return datos;
+    }
+
+    private void registrarAuditoria(String accion, Map<String, Object> detalles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return;
+        }
+        Integer idUsuario = usuarioRepository.findByEmail(auth.getName()).map(Usuario::getId).orElse(null);
+        if (idUsuario == null) {
+            return;
+        }
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(detalles);
+        } catch (JsonProcessingException e) {
+            json = String.valueOf(detalles);
+        }
+        entityManager.createNativeQuery(
+                        "INSERT INTO public.auditoria_operacion (id_usuario, accion, detalles) VALUES (:u, :a, :d)")
+                .setParameter("u", idUsuario)
+                .setParameter("a", accion)
+                .setParameter("d", json)
+                .executeUpdate();
+    }
+
+    private ExamenResponse toResponse(Examen examen) {
+        NormasGuardadas normas = leerNormas(examen.getNormas());
+        List<String> generales = normas.generales();
+        List<NormaParticularRequest> particulares = normas.particulares();
 
         var materia = materiaRepository.findById(examen.getIdMateria())
                 .map(this::corregirSiglaSiEsNombre)
@@ -395,6 +641,8 @@ public class ExamenService {
                 ambienteNombre,
                 examen.getEstado(),
                 generales,
-                particulares);
+                particulares,
+                examen.getIdMateria(),
+                examen.getIdDocente());
     }
 }
