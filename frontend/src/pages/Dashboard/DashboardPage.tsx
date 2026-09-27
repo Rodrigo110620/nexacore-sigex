@@ -5,14 +5,18 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 
 /**
  * /dashboard:
- * - ADMIN → va a gestión de usuarios
- * - Otros roles → panel de inicio (evita bucle con AdminRoute)
+ * - ADMIN → gestión de usuarios
+ * - DOCENTE / CONTROL → exámenes
+ * - Sin rol → aviso (evita bucle con AdminRoute)
  */
 export default function DashboardPage() {
   const { isAdmin, nombre, roles } = useAuth()
 
   if (isAdmin) {
     return <Navigate to="/dashboard/usuarios" replace />
+  }
+  if (roles.includes('DOCENTE') || roles.includes('CONTROL')) {
+    return <Navigate to="/dashboard/examenes" replace />
   }
 
   return (
@@ -21,12 +25,8 @@ export default function DashboardPage() {
         <h1 className="mb-2 text-xl font-bold text-[#011140]">
           Bienvenido{nombre ? `, ${nombre}` : ''}
         </h1>
-        <p className="mb-2 text-sm text-gray-500">
-          Rol: {roles.length > 0 ? roles.join(', ') : 'sin rol asignado'}
-        </p>
-        <p className="text-xs text-gray-400">
-          El módulo de Exámenes ya está disponible para administradores. Estudiantes llegará en
-          siguientes sprints.
+        <p className="text-sm text-gray-500">
+          Tu cuenta aún no tiene un rol asignado. Contacta al administrador.
         </p>
       </div>
       <MobileBottomNav />
