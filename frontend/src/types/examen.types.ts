@@ -1,12 +1,14 @@
 export interface NormaGeneral {
   id: string
   texto: string
+  activa?: boolean
 }
 
 export interface NormaParticular {
   id: string
   estudiante: string
   texto: string
+  activa?: boolean
 }
 
 export interface RegisterExamenFormState {
