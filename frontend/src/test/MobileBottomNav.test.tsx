@@ -14,11 +14,12 @@ vi.mock('../context/AuthContext', async (importOriginal) => {
 
 import { useAuth } from '../context/AuthContext'
 
-function renderNav(path = '/dashboard/usuarios', isAdmin = false) {
+function renderNav(path = '/dashboard/usuarios', roles: string[] = ['DOCENTE']) {
+  const isAdmin = roles.includes('ADMIN')
   vi.mocked(useAuth).mockReturnValue({
     isAdmin,
     isAuthenticated: true,
-    roles: isAdmin ? ['ADMIN'] : ['DOCENTE'],
+    roles,
     token: 'tok',
     nombre: 'Test',
     login: vi.fn(),
@@ -35,7 +36,7 @@ describe('MobileBottomNav', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   it('ADMIN: muestra Usuarios como link activo', () => {
-    renderNav('/dashboard/usuarios', true)
+    renderNav('/dashboard/usuarios', ['ADMIN'])
 
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
     expect(navigation).toHaveClass('min-[960px]:hidden')
@@ -47,7 +48,7 @@ describe('MobileBottomNav', () => {
   })
 
   it('DOCENTE: Usuarios aparece deshabilitado (no link)', () => {
-    renderNav('/dashboard/examenes', false)
+    renderNav('/dashboard/examenes', ['DOCENTE'])
 
     expect(screen.getByRole('link', { name: 'Exámenes' })).toHaveAttribute('aria-current', 'page')
     // Para DOCENTE Usuarios es un botón deshabilitado, no un link
@@ -57,5 +58,27 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('button', { name: 'Estudiantes, no disponible' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Más, no disponible' })).toBeDisabled()
     expect(screen.getAllByRole('link')).toHaveLength(1)
+  })
+
+  it('CONTROL: muestra el acceso de exámenes como Control', () => {
+    renderNav('/dashboard/examenes', ['CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
+  })
+
+  it('ADMIN + CONTROL conserva Usuarios y muestra Control', () => {
+    renderNav('/dashboard/examenes', ['ADMIN', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
+  })
+
+  it('DOCENTE + CONTROL muestra Control sin acceso a Usuarios', () => {
+    renderNav('/dashboard/examenes', ['DOCENTE', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Usuarios, solo administrador' })).toBeDisabled()
   })
 })

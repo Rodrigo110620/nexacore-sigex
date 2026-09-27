@@ -45,13 +45,14 @@ class IdentificacionServiceTests {
     void resuelveElEstadoSegunLaHabilitacionEnElExamen(Integer idExamen, Boolean habilitado,
                                                        IdentificacionResponse.Estado esperado) {
         when(usuarioRepository.identificarPorCi("7845123", ID_EXAMEN)).thenReturn(Optional.of(
-                new EstudianteExamenFila("Zoe", "Quispe Luna", "201901234", "7845123",
+                new EstudianteExamenFila(23, "Zoe", "Quispe Luna", "201901234", "7845123",
                         "Ingeniería de Sistemas", idExamen, habilitado)));
 
         // tipo y valor llegan con espacios y mayúsculas, como podría enviarlos el formulario
         IdentificacionResponse respuesta = identificacionService.identificar(ID_EXAMEN, " CI ", " 7845123 ");
 
         assertEquals(esperado, respuesta.estado());
+        assertEquals(23, respuesta.idEstudiante());
         assertEquals("Zoe", respuesta.nombre());
         assertEquals("201901234", respuesta.codigoSis());
         assertEquals("Ingeniería de Sistemas", respuesta.carrera());
