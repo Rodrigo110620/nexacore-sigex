@@ -1,5 +1,5 @@
 import type { RegisterUserFormState, Rol } from '../../types/usuario.types';
-import { FIELD_LIMITS, ALLOWED_EMAIL_DOMAIN } from '../../utils/validators';
+import { FIELD_LIMITS } from '../../utils/validators';
 import RoleSelector from './RoleSelector';
 
 interface CredentialsSectionProps {
@@ -45,7 +45,7 @@ export default function CredentialsSection({
             }`}
         />
         <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Dominio permitido: @{ALLOWED_EMAIL_DOMAIN} · Máximo {FIELD_LIMITS.email.max} caracteres
+          Dominio permitido: @est.umss.edu o @umss.edu.bo · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
         {errors.email && (
           <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.email}</p>

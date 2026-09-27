@@ -103,6 +103,9 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     };
 
     const formErrors = validateForm(cleanForm);
+    if (user?.email && cleanForm.email.toLowerCase() === user.email.toLowerCase()) {
+      delete formErrors.email;
+    }
     setErrors(formErrors);
 
     if (hasErrors(formErrors)) {
@@ -159,7 +162,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       } else if (status === 401) {
         setGeneralError('Sesión expirada. Inicia sesión nuevamente.');
       } else {
-        setGeneralError('Ocurrió un problema al intentar guardar los cambios. Intenta más tarde.');
+        setGeneralError(data?.mensaje ?? 'Ocurrió un problema al intentar guardar los cambios. Intenta más tarde.');
       }
     } finally {
       setLoading(false);

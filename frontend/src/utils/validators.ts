@@ -114,9 +114,9 @@ export const validateDocumento = (value: string): string => {
 
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 
-/** Correo institucional: solo @est.umss.edu (también acepta .bo). */
+/** Personal: @umss.edu.bo. Estudiantes: @est.umss.edu / @est.umss.edu.bo. */
 const INSTITUTIONAL_EMAIL_REGEX =
-  /^[a-zA-Z0-9._%+-]+@est\.umss\.edu(?:\.bo)?$/i
+  /^[a-zA-Z0-9._%+-]+@(est\.)?umss\.edu(?:\.bo)?$/i
 
 export const validateEmail = (value: string): string => {
   const trimmed = value.trim()
@@ -128,7 +128,7 @@ export const validateEmail = (value: string): string => {
   }
 
   if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) {
-    return `Solo se permiten correos @${ALLOWED_EMAIL_DOMAIN}`
+    return 'Solo se permiten correos institucionales UMSS'
   }
 
   return ''

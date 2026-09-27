@@ -304,23 +304,19 @@ public class UsuarioService {
     }
 
     /**
-     * Mantiene sincronía entre el rol del usuario y la tabla docente:
-     * - Si el rol es DOCENTE y no tiene fila en docente → la crea.
-     * - Si el rol NO es DOCENTE y tiene fila en docente → la elimina.
-     * Usa SQL nativo para evitar problemas con el mapeo @MapsId de la entidad Docente.
+     * Si el rol es DOCENTE y no tiene fila en docente, la crea.
+     * No borra la fila al pasar a ADMIN/CONTROL: paralelo y examen siguen
+     * apuntando a ese docente y un DELETE rompe la FK.
      */
     @Transactional
     private void sincronizarDocente(Usuario usuario, String rolNombre) {
-        boolean esDocente = "DOCENTE".equals(rolNombre);
-        boolean yaEsDocente = docenteRepository.existsById(usuario.getId());
-        if (esDocente && !yaEsDocente) {
-            entityManager.createNativeQuery(
-                    "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
-                    .setParameter("id", usuario.getId())
-                    .executeUpdate();
-        } else if (!esDocente && yaEsDocente) {
-            docenteRepository.deleteById(usuario.getId());
+        if (!"DOCENTE".equals(rolNombre) || docenteRepository.existsById(usuario.getId())) {
+            return;
         }
+        entityManager.createNativeQuery(
+                "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
+                .setParameter("id", usuario.getId())
+                .executeUpdate();
     }
 
     /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ChevronDown, ClipboardCheck, LogOut, UserRound, X } from 'lucide-react'
+import { Bell, BookCheck, ChevronDown, ClipboardCheck, LogOut, UserRound, X } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -74,6 +74,10 @@ export default function PanelTopBar({
         <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
           {effectiveTitle === 'CONTROL DE INGRESO' ? (
             <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#D8E3F5] bg-[#F1F6FF] text-[#0439D9] shadow-sm"><ClipboardCheck size={24} /></span>
+          ) : isExamenes ? (
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9] shadow-sm">
+              <BookCheck size={26} aria-hidden="true" />
+            </span>
           ) : (
             <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
           )}
