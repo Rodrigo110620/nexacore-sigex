@@ -1,9 +1,11 @@
-import { Ellipsis, FileText, GraduationCap, House, Users } from 'lucide-react'
+import { ClipboardCheck, Ellipsis, FileText, GraduationCap, House, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export default function MobileBottomNav() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, roles } = useAuth()
+  const isControl = roles.includes('CONTROL')
+  const ExamIcon = isControl ? ClipboardCheck : FileText
 
   return (
     <nav
@@ -34,8 +36,8 @@ export default function MobileBottomNav() {
               }`
             }
           >
-            <FileText size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
-            <span className="max-w-full truncate">Exámenes</span>
+            <ExamIcon size={18} className="sm:h-5 sm:w-5" aria-hidden="true" />
+            <span className="max-w-full truncate">{isControl ? 'Control' : 'Exámenes'}</span>
           </NavLink>
         </li>
 
