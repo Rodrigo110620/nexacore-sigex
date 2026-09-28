@@ -8,7 +8,7 @@ import com.nexacore.examenes.dto.ResumenEstudiantesResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
 import com.nexacore.examenes.repositories.ExamenRepository;
-import com.nexacore.examenes.repositories.UsuarioRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.services.IdentificacionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +44,7 @@ class IdentificacionServiceTests {
     private static final int ID_EXAMEN = 7;
 
     @Mock
-    private UsuarioRepository usuarioRepository;
+    private EstudianteRepository estudianteRepository;
 
     @Mock
     private ExamenRepository examenRepository;
@@ -68,7 +68,7 @@ class IdentificacionServiceTests {
     void resuelveElEstadoSegunLaHabilitacionEnElExamen(Integer idExamen, Boolean habilitado,
                                                        IdentificacionResponse.Estado esperado) {
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
-        when(usuarioRepository.identificarPorCi("7845123", ID_EXAMEN)).thenReturn(Optional.of(fila(idExamen, habilitado, null)));
+        when(estudianteRepository.identificarPorCi("7845123", ID_EXAMEN)).thenReturn(Optional.of(fila(idExamen, habilitado, null)));
 
         // tipo y valor llegan con espacios y mayúsculas, como podría enviarlos el formulario
         IdentificacionResponse respuesta = identificacionService.identificar(ID_EXAMEN, " CI ", " 7845123 ");
@@ -85,7 +85,7 @@ class IdentificacionServiceTests {
     @Test
     void rechazaEstudianteInexistenteYTipoInvalido() {
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
-        when(usuarioRepository.identificarPorCodigoSis("209999999", ID_EXAMEN)).thenReturn(Optional.empty());
+        when(estudianteRepository.identificarPorCodigoSis("209999999", ID_EXAMEN)).thenReturn(Optional.empty());
 
         EstudianteNoEncontradoException noEncontrado = assertThrows(EstudianteNoEncontradoException.class,
                 () -> identificacionService.identificar(ID_EXAMEN, "codigo", "209999999"));
@@ -102,7 +102,7 @@ class IdentificacionServiceTests {
     void listaAsignadosConEstadoPorDefectoYLosLimitesDePaginaDeUsuarios() {
         PageRequest pagina = PageRequest.of(0, 100);
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
-        when(usuarioRepository.listarAsignadosAlExamen(ID_EXAMEN, "TODOS", pagina)).thenReturn(new PageImpl<>(
+        when(estudianteRepository.listarAsignadosAlExamen(ID_EXAMEN, "TODOS", pagina)).thenReturn(new PageImpl<>(
                 List.of(fila(ID_EXAMEN, false, LocalDateTime.now()), fila(ID_EXAMEN, null, null)), pagina, 2));
 
         // estado null → TODOS; página negativa → 0; tamaño mayor a 100 → 100
@@ -123,7 +123,7 @@ class IdentificacionServiceTests {
     void resumeLosTotalesDelExamen() {
         ResumenEstudiantesResponse resumen = new ResumenEstudiantesResponse(3, 2, 1, 1);
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
-        when(usuarioRepository.resumirAsignadosAlExamen(ID_EXAMEN)).thenReturn(resumen);
+        when(estudianteRepository.resumirAsignadosAlExamen(ID_EXAMEN)).thenReturn(resumen);
 
         assertEquals(resumen, identificacionService.resumir(ID_EXAMEN));
     }
@@ -143,6 +143,6 @@ class IdentificacionServiceTests {
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
             assertEquals("No se encontró el examen 99", ex.getMessage());
         }
-        verifyNoInteractions(usuarioRepository);
+        verifyNoInteractions(estudianteRepository);
     }
 }

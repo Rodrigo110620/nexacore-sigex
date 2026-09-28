@@ -6,6 +6,7 @@ import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.*;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.CatalogoIncidenciaRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.IncidenciaRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
@@ -42,6 +43,7 @@ class ControlIngresoServiceTests {
                 catalogoRepository,
                 incidenciaRepository,
                 usuarioRepository,
+                mock(EstudianteRepository.class),
                 registroRepository,
                 new ObjectMapper());
         asistencia = crearAsistencia();
@@ -69,7 +71,7 @@ class ControlIngresoServiceTests {
         assertEquals("Documento inválido", response.causa());
         assertNotNull(response.fechaHoraIngreso());
         verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
-        verify(registroRepository).registrar(20, 40, 10, 30, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
+        verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
     }
 
     @Test
@@ -124,7 +126,7 @@ class ControlIngresoServiceTests {
         assertTrue(response.autorizado());
         assertEquals("AUTORIZADO", response.resultado());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, "Sin novedades");
-        verify(registroRepository).registrar(20, 40, 10, 30, 7, "AUTORIZADO", null,
+        verify(registroRepository).registrar(20, 40, 10, 7, "AUTORIZADO", null,
                 "[\"Identidad confirmada\",\"Material revisado\"]", "Sin novedades");
     }
 
@@ -139,7 +141,7 @@ class ControlIngresoServiceTests {
         assertEquals("DENEGADO_NO_HABILITADO", response.resultado());
         assertTrue(response.causa().contains("Matrícula observada"));
         verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
-        verify(registroRepository).registrar(20, 40, 10, 30, 7, "DENEGADO",
+        verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO",
                 "El estudiante no está habilitado: Matrícula observada", "[]", null);
     }
 
@@ -153,13 +155,13 @@ class ControlIngresoServiceTests {
         assertEquals("DENEGADO_DUPLICADO", response.resultado());
         assertTrue(response.causa().contains("ya fue autorizado"));
         verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
-        verify(registroRepository).registrar(20, 40, 10, 30, 7, "DENEGADO",
+        verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO",
                 "El ingreso de este estudiante al examen ya fue autorizado", "[]", null);
     }
 
     @Test
     void obtieneNormasGeneralesYParticularesDesdeJsonDelExamen() {
-        asistencia.getEstudiante().getIdUsuario().setCi("74839201");
+        asistencia.getEstudiante().setCi("74839201");
         asistencia.getExamen().setNormas("""
                 {"generales":["Presentar CI","No usar celular"],
                  "particulares":[{"estudiante":"Laura Paredes","texto":"Tiempo adicional de 30 minutos"}]}
@@ -187,7 +189,7 @@ class ControlIngresoServiceTests {
 
         assertEquals(1, response.incidenciasRegistradas());
         verify(incidenciaRepository).registrar(
-                20, 10, 7, 3, 30, 40, "Celular apagado", LocalDateTime.parse("2026-09-25T16:00:00"));
+                20, 10, 7, 3, 40, "Celular apagado", LocalDateTime.parse("2026-09-25T16:00:00"));
     }
 
     @Test
@@ -198,7 +200,7 @@ class ControlIngresoServiceTests {
         var response = service.autorizar(requestConIncidencia(false), "control@umss.edu.bo");
 
         assertEquals(1, response.incidenciasRegistradas());
-        verify(incidenciaRepository).registrar(eq(20), eq(10), eq(7), eq(3), eq(30), eq(40),
+        verify(incidenciaRepository).registrar(eq(20), eq(10), eq(7), eq(3), eq(40),
                 eq("Documento observado"), any(LocalDateTime.class));
     }
 
@@ -243,7 +245,6 @@ class ControlIngresoServiceTests {
         id.setIdEstudiante(10);
         id.setIdExamen(20);
         id.setIdParalelo(40);
-        id.setIdUsuario(30);
         RegistroControlIngreso registro = new RegistroControlIngreso();
         registro.setId(id);
         registro.setIdUsuarioControl(7);
@@ -280,7 +281,7 @@ class ControlIngresoServiceTests {
         assertFalse(response.autorizado());
         assertEquals(LocalDateTime.parse("2026-09-25T16:00:00"), response.fechaHoraIngreso());
         verify(registroRepository).registrar(
-                20, 40, 10, 30, 7, "DENEGADO",
+                20, 40, 10, 7, "DENEGADO",
                 "El estudiante no está habilitado: Deuda pendiente", "[]", "Se notificó la causa");
     }
 
@@ -318,12 +319,9 @@ class ControlIngresoServiceTests {
     }
 
     private AsistenciaExamen crearAsistencia() {
-        Usuario usuarioEstudiante = new Usuario();
-        usuarioEstudiante.setNombre("Laura");
-        usuarioEstudiante.setApellidos("Paredes");
-
         Estudiante estudiante = new Estudiante();
-        estudiante.setIdUsuario(usuarioEstudiante);
+        estudiante.setNombre("Laura");
+        estudiante.setApellidos("Paredes");
         estudiante.setCodigoSis("20261234");
 
         Materia materia = new Materia();
@@ -349,7 +347,6 @@ class ControlIngresoServiceTests {
 
         AsistenciaExamen registro = new AsistenciaExamen();
         registro.setId(id);
-        registro.setIdUsuario(30);
         registro.setIdParalelo(40);
         registro.setEstudiante(estudiante);
         registro.setExamen(examen);
