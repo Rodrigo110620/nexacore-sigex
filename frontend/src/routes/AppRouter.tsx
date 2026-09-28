@@ -13,6 +13,8 @@ import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
 import ExamenDetallePage from '../pages/Examenes/ExamenDetallePage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
+import ControlExamenPage from '../pages/Control/ControlExamenPage'
+import ControlInicioPage from '../pages/Control/ControlInicioPage'
 import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
@@ -88,6 +90,24 @@ export default function AppRouter() {
           }
         />
 
+        {/* Inicio del rol CONTROL: exámenes en curso y del día (ACCS-01). */}
+        <Route
+          path="/dashboard/inicio"
+          element={
+            <ControlRoute>
+              <ControlInicioPage />
+            </ControlRoute>
+          }
+        />
+        {/* Control del examen ACCS-01: estudiantes asignados; disponible para ADMIN y CONTROL. */}
+        <Route
+          path="/dashboard/control/:idExamen"
+          element={
+            <IdentificacionRoute>
+              <ControlExamenPage />
+            </IdentificacionRoute>
+          }
+        />
         {/* Identificación ACCS-01: disponible para ADMIN y CONTROL. */}
         <Route
           path="/dashboard/control/:idExamen/identificar"

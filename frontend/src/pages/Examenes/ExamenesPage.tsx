@@ -319,7 +319,7 @@ export default function ExamenesPage() {
                           <div className="mt-1 flex items-center justify-end gap-2">
                             {isControl && e.estado !== 'cancelado' && (
                               <Link
-                                to={`/dashboard/control/${e.idExamen}/identificar`}
+                                to={`/dashboard/control/${e.idExamen}`}
                                 aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
                                 className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-2 py-1 text-[11px] font-semibold text-white"
                               >
@@ -377,7 +377,7 @@ export default function ExamenesPage() {
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-center gap-2">
                         {isControl && e.estado !== 'cancelado' && (
-                          <Link to={`/dashboard/control/${e.idExamen}/identificar`}
+                          <Link to={`/dashboard/control/${e.idExamen}`}
                             aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
                             className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">
                             Iniciar control <ArrowRight size={14} aria-hidden="true" />

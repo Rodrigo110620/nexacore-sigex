@@ -19,7 +19,8 @@ export function navItemsFor(roles: string[]): NavItem[] {
   const isAdmin = roles.includes('ADMIN')
   const isControl = roles.includes('CONTROL')
   const items: NavItem[] = [
-    { label: 'Inicio', to: '/dashboard/inicio', icon: LayoutGrid, disabled: true },
+    // Inicio es el panel de control de ingreso: solo lo tiene habilitado CONTROL.
+    { label: 'Inicio', to: '/dashboard/inicio', icon: LayoutGrid, disabled: !isControl },
   ]
   if (roles.some((rol) => EXAM_ROLES.includes(rol))) {
     items.push({

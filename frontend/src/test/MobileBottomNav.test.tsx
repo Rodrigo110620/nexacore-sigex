@@ -45,6 +45,7 @@ describe('MobileBottomNav', () => {
     )
     expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Estudiantes, no disponible' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(4)
   })
 
@@ -58,9 +59,10 @@ describe('MobileBottomNav', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('CONTROL: muestra el acceso de exámenes como Control', () => {
+  it('CONTROL: Inicio habilitado hacia su panel y el acceso de exámenes como Control', () => {
     renderNav('/dashboard/examenes', ['CONTROL'])
 
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
     expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()

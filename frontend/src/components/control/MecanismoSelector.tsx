@@ -39,14 +39,14 @@ export default function MecanismoSelector({ value, onChange }: MecanismoSelector
               type="button"
               aria-pressed={activo}
               onClick={() => onChange(valor)}
-              className={`relative flex h-20 flex-col items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border py-2 text-sm font-semibold transition-colors sm:h-20 sm:gap-2 sm:py-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50 ${
                 activo
                   ? 'border-[#0439D9] bg-[#E9F1FF] text-[#0439D9]'
                   : 'border-[#D8E3F5] bg-white text-[#011140] enabled:hover:bg-[#F1F6FF]'
               }`}
             >
               {activo && (
-                <span aria-hidden="true" className="absolute right-2 top-2 text-[10px] font-bold text-[#166534]">
+                <span aria-hidden="true" className="text-[10px] font-bold text-[#166534] sm:absolute sm:right-2 sm:top-2">
                   ● ACTIVO
                 </span>
               )}

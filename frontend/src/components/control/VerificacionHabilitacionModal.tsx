@@ -40,16 +40,9 @@ export default function VerificacionHabilitacionModal(p: Props) {
   const fTxt = [f, h].filter(Boolean).join(' - ')
   const mTxt = [p.materia, p.aula ? `Aula ${p.aula}` : ''].filter(Boolean).join(' - ')
 
+  // El motivo se muestra completo, tal como viene del backend; sin motivo no se inventa ninguno.
   const rawMotivo = p.estudiante.motivoInhabilitacion?.trim()
-  const motivos: string[] = rawMotivo
-    ? rawMotivo
-        .split(/(?:,|\n|\r|\s+o\s+)/i)
-        .map((m) => m.trim())
-        .filter(Boolean)
-    : [
-        'Error de habilitación académica',
-        'Bloqueo de registro en sistema',
-      ]
+  const motivo = rawMotivo ? `Motivo: ${rawMotivo}` : 'Sin motivo registrado'
 
   return (
     <div
@@ -151,17 +144,10 @@ export default function VerificacionHabilitacionModal(p: Props) {
             </h3>
 
             <div className="mt-3 flex flex-col items-center gap-2">
-              {motivos.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#FECDD3] shadow-sm max-w-full"
-                >
-                  <AlertTriangle size={13} className="shrink-0 text-[#E11D48]" />
-                  <span className="text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] truncate">
-                    Motivo: {item}
-                  </span>
-                </div>
-              ))}
+              <div className="inline-flex items-start gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-[#FECDD3] shadow-sm max-w-full">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-[#E11D48]" />
+                <span className="text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] break-words">{motivo}</span>
+              </div>
             </div>
           </div>
         )}
