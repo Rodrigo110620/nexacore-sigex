@@ -7,6 +7,7 @@ import MecanismoSelector from '../../components/control/MecanismoSelector'
 import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteForm'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
+import VerificacionHabilitacionModal from '../../components/control/VerificacionHabilitacionModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
@@ -23,6 +24,7 @@ export default function IdentificacionPage() {
   const [reinicios, setReinicios] = useState(0)
   const [examen, setExamen] = useState<ExamenDto>()
   const { busqueda, buscar, reset } = useIdentificacion(idExamen)
+  const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
 
   // TODO: no hay GET /examenes/{id}; mientras tanto se busca en el listado (CONTROL tiene acceso).
   useEffect(() => {
@@ -99,7 +101,7 @@ export default function IdentificacionPage() {
                 <button
                   type="button"
                   disabled={!estudiante || !puedeContinuar}
-                  onClick={() => estudiante && onContinuar(estudiante)}
+                  onClick={() => estudiante && setModalVerificacionOpen(true)}
                   title={!puedeContinuar ? 'Se requiere el rol CONTROL para continuar' : undefined}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -114,6 +116,17 @@ export default function IdentificacionPage() {
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
                   onCerrar={cambiarEstudiante}
+                />
+              )}
+              {modalVerificacionOpen && estudiante && (
+                <VerificacionHabilitacionModal
+                  estudiante={estudiante}
+                  materia={examen?.asignatura}
+                  aula={examen?.ambienteNombre}
+                  fecha={examen?.fecha}
+                  hora={examen?.horaInicio}
+                  onVolver={() => setModalVerificacionOpen(false)}
+                  onContinuar={() => onContinuar(estudiante)}
                 />
               )}
             </div>
