@@ -3,23 +3,24 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
-import MecanismoSelector from '../../components/control/MecanismoSelector'
+import MecanismoSelector, { type Mecanismo } from '../../components/control/MecanismoSelector'
 import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteForm'
+import EscanerQr from '../../components/control/EscanerQr'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import type { EstudianteIdentificado, TipoIdentificacion } from '../../services/identificacionService'
+import type { EstudianteIdentificado } from '../../services/identificacionService'
 
-/** Control de ingreso: identificar al estudiante por código universitario o CI dentro de un examen. */
+/** Control de ingreso: identificar al estudiante por código universitario, CI o QR dentro de un examen. */
 export default function IdentificacionPage() {
   const { roles } = useAuth()
   const navigate = useNavigate()
   const puedeContinuar = roles.includes('CONTROL')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
-  const [tipo, setTipo] = useState<TipoIdentificacion>('codigo')
+  const [tipo, setTipo] = useState<Mecanismo>('codigo')
   const [reinicios, setReinicios] = useState(0)
   const [examen, setExamen] = useState<ExamenDto>()
   const { busqueda, buscar, reset } = useIdentificacion(idExamen)
@@ -38,7 +39,7 @@ export default function IdentificacionPage() {
     }
   }, [idExamen, idValido])
 
-  const cambiarMecanismo = (nuevo: TipoIdentificacion) => {
+  const cambiarMecanismo = (nuevo: Mecanismo) => {
     setTipo(nuevo)
     reset()
   }
@@ -69,12 +70,20 @@ export default function IdentificacionPage() {
           {idValido ? (
             <div className="flex flex-col gap-5 p-6">
               <MecanismoSelector value={tipo} onChange={cambiarMecanismo} />
-              <BusquedaEstudianteForm
-                key={`${tipo}-${reinicios}`}
-                tipo={tipo}
-                buscando={busqueda.status === 'loading'}
-                onBuscar={(valor) => void buscar(tipo, valor)}
-              />
+              {tipo === 'qr' ? (
+                <EscanerQr
+                  key={reinicios}
+                  onLeer={(codigo) => void buscar('codigo', codigo)}
+                  onReescanear={cambiarEstudiante}
+                />
+              ) : (
+                <BusquedaEstudianteForm
+                  key={`${tipo}-${reinicios}`}
+                  tipo={tipo}
+                  buscando={busqueda.status === 'loading'}
+                  onBuscar={(valor) => void buscar(tipo, valor)}
+                />
+              )}
               <div aria-live="polite" className="flex flex-col gap-3 text-sm text-[#011140]">
                 {busqueda.status !== 'idle' && busqueda.status !== 'no_vinculado' && (
                   <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#D8E3F5] after:h-px after:flex-1 after:bg-[#D8E3F5]">

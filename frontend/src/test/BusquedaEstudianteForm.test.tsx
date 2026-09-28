@@ -37,15 +37,16 @@ describe('BusquedaEstudianteForm', () => {
 })
 
 describe('MecanismoSelector', () => {
-  it('marca la opción activa, deja QR deshabilitado y cambia de mecanismo', () => {
+  it('marca la opción activa y permite elegir cualquier mecanismo, incluido QR', () => {
     const onChange = vi.fn()
     render(<MecanismoSelector value="codigo" onChange={onChange} />)
 
-    expect(screen.getByRole('button', { name: 'QR' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cód. Univ' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('● ACTIVO')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Carnet / CI' }))
     expect(onChange).toHaveBeenCalledWith('ci')
+    fireEvent.click(screen.getByRole('button', { name: 'QR' }))
+    expect(onChange).toHaveBeenCalledWith('qr')
   })
 })
