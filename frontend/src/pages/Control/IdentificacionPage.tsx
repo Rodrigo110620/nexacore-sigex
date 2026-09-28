@@ -58,15 +58,9 @@ export default function IdentificacionPage() {
     navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}`)
   }
 
+  // Continuar siempre pasa por la verificación de habilitación (ACCS-03/04).
   const manejarContinuar = () => {
-    if (!estudiante) return
-    // Si corre vitest/testing-library, navega directo para cumplir la aserción del test
-    if (import.meta.env.MODE === 'test') {
-      onContinuar(estudiante)
-    } else {
-      // En la app real en el navegador, abre el modal de verificación
-      setModalVerificacionOpen(true)
-    }
+    if (estudiante) setModalVerificacionOpen(true)
   }
 
   return (

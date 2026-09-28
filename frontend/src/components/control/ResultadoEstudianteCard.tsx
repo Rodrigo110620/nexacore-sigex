@@ -10,7 +10,7 @@ interface ResultadoEstudianteCardProps {
 /** Estudiante encontrado en el examen. DESHABILITADO se muestra como "NO HABILITADO". */
 export default function ResultadoEstudianteCard({ estudiante }: ResultadoEstudianteCardProps) {
   return (
-    <article className="flex items-center justify-between gap-4 rounded-xl border border-[#B8CBEF] bg-white p-4">
+    <article className="flex flex-col gap-3 rounded-xl border border-[#B8CBEF] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="flex min-w-0 items-center gap-3">
         <span
           aria-hidden="true"
@@ -30,7 +30,7 @@ export default function ResultadoEstudianteCard({ estudiante }: ResultadoEstudia
           </p>
         </div>
       </div>
-      <dl className="flex shrink-0 flex-col gap-1 text-xs text-[#627A9B]">
+      <dl className="flex flex-col gap-1 pl-14 text-xs text-[#627A9B] sm:shrink-0 sm:pl-0">
         <div className="flex items-center gap-1.5">
           <IdCard size={14} aria-hidden="true" />
           <dt>CI:</dt>

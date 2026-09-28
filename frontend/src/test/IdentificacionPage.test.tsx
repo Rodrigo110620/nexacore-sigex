@@ -46,6 +46,7 @@ async function buscarEstudiante() {
 }
 
 const continuar = () => screen.getByRole('button', { name: 'Continuar' })
+const verificacion = () => screen.getByRole('dialog', { name: 'Verificación de Habilitación' })
 
 describe('IdentificacionPage', () => {
   beforeEach(() => {
@@ -81,14 +82,36 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeDisabled()
   })
 
-  it('Continúa hacia ACCS-02 con los identificadores del estudiante y del examen', async () => {
+  it('HABILITADO: Continuar abre la verificación y su Continuar lleva a ACCS-02', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()
     await buscarEstudiante()
 
     fireEvent.click(continuar())
+    fireEvent.click(within(verificacion()).getByRole('button', { name: 'Continuar' }))
 
     expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['con motivo', 'Deuda en biblioteca, multa pendiente o documentos incompletos',
+      'Motivo: Deuda en biblioteca, multa pendiente o documentos incompletos'],
+    ['sin motivo', null, 'Sin motivo registrado'],
+  ])('DESHABILITADO %s: la verificación muestra el motivo real, sin Continuar, y CERRAR no navega', async (_caso, motivo, texto) => {
+    mockedIdentificar.mockResolvedValue({ ...estudiante('DESHABILITADO'), motivoInhabilitacion: motivo })
+    renderPage()
+    await buscarEstudiante()
+
+    fireEvent.click(continuar())
+    expect(within(verificacion()).getByText('Estudiante No Habilitado')).toBeInTheDocument()
+    expect(within(verificacion()).getByText(texto)).toBeInTheDocument()
+    expect(within(verificacion()).queryByText(/Error de habilitación académica/)).not.toBeInTheDocument()
+    expect(within(verificacion()).queryByRole('button', { name: /Continuar/ })).not.toBeInTheDocument()
+
+    fireEvent.click(within(verificacion()).getByRole('button', { name: 'CERRAR' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Flujo ACCS-02')).not.toBeInTheDocument()
+    expect(screen.getByText('María José González Flores')).toBeInTheDocument()
   })
 
   it('ADMIN sin CONTROL puede identificar pero no continuar a ACCS-02', async () => {
