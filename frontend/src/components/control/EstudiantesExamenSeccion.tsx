@@ -37,14 +37,14 @@ export default function EstudiantesExamenSeccion({
         <h2 id="estudiantes-examen" className="text-sm font-bold uppercase text-[#011140] sm:text-base">
           Estudiantes del examen
         </h2>
-        <div role="group" aria-label="Filtrar por estado" className="flex rounded-lg bg-[#F1F6FF] p-1">
+        <div role="group" aria-label="Filtrar por estado" className="grid grid-cols-3 gap-1 rounded-lg bg-[#F1F6FF] p-1 sm:flex sm:gap-0">
           {PESTANAS.map(({ valor, label, cuenta }) => (
             <button
               key={valor}
               type="button"
               aria-pressed={estado === valor}
               onClick={() => cambiarEstado(valor)}
-              className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold ${
+              className={`flex-1 rounded-md px-1 py-1.5 text-xs font-semibold sm:whitespace-nowrap sm:px-3 ${
                 estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B] hover:text-[#011140]'
               }`}
             >
