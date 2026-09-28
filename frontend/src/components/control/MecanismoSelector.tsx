@@ -1,13 +1,15 @@
 import { Hash, IdCard, QrCode, type LucideIcon } from 'lucide-react'
 import type { TipoIdentificacion } from '../../services/identificacionService'
 
+/** El QR trae el código universitario: se busca con tipo "codigo". */
+export type Mecanismo = TipoIdentificacion | 'qr'
+
 interface Opcion {
-  valor: TipoIdentificacion | 'qr'
+  valor: Mecanismo
   label: string
   icon: LucideIcon
 }
 
-// QR queda visible pero deshabilitado: está pospuesto.
 const OPCIONES: Opcion[] = [
   { valor: 'qr', label: 'QR', icon: QrCode },
   { valor: 'codigo', label: 'Cód. Univ', icon: Hash },
@@ -15,8 +17,8 @@ const OPCIONES: Opcion[] = [
 ]
 
 interface MecanismoSelectorProps {
-  value: TipoIdentificacion
-  onChange: (tipo: TipoIdentificacion) => void
+  value: Mecanismo
+  onChange: (mecanismo: Mecanismo) => void
 }
 
 export default function MecanismoSelector({ value, onChange }: MecanismoSelectorProps) {
@@ -36,8 +38,7 @@ export default function MecanismoSelector({ value, onChange }: MecanismoSelector
               key={valor}
               type="button"
               aria-pressed={activo}
-              disabled={valor === 'qr'}
-              onClick={() => valor !== 'qr' && onChange(valor)}
+              onClick={() => onChange(valor)}
               className={`relative flex h-20 flex-col items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50 ${
                 activo
                   ? 'border-[#0439D9] bg-[#E9F1FF] text-[#0439D9]'
