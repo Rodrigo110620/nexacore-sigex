@@ -1,3 +1,4 @@
+
 import api from './api'
 
 export type TipoIdentificacion = 'codigo' | 'ci'
@@ -11,6 +12,7 @@ export interface EstudianteIdentificado {
   carrera: string | null
   fotoUrl: string | null
   estado: 'HABILITADO' | 'DESHABILITADO' | 'NO_VINCULADO'
+  motivoInhabilitacion?: string | null
 }
 
 /** 200 con el estado del estudiante en el examen; 404 si el estudiante no existe. */
