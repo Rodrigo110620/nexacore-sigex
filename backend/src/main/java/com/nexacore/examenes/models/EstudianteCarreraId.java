@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -15,17 +14,19 @@ import java.io.Serializable;
 @Setter
 @EqualsAndHashCode
 @Embeddable
-public class EstudianteId implements Serializable {
+public class EstudianteCarreraId implements Serializable {
     @Serial
-    private static final long serialVersionUID = -340800540926221047L;
+    private static final long serialVersionUID = 1L;
+
     @NotNull
-    @ColumnDefault("nextval('estudiante_id_estudiante_seq')")
     @Column(name = "id_estudiante", nullable = false)
     private Integer idEstudiante;
 
     @NotNull
-    @Column(name = "id_usuario", nullable = false)
-    private Integer idUsuario;
+    @Column(name = "id_carrera", nullable = false)
+    private Integer idCarrera;
 
-
+    @NotNull
+    @Column(name = "id_facultad", nullable = false)
+    private Integer idFacultad;
 }

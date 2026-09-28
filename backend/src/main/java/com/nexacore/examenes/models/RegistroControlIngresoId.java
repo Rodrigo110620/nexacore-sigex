@@ -32,10 +32,6 @@ public class RegistroControlIngresoId implements Serializable {
     private Integer idEstudiante;
 
     @NotNull
-    @Column(name = "id_usuario", nullable = false)
-    private Integer idUsuario;
-
-    @NotNull
     @ColumnDefault("nextval('registro_control_ingreso_id_control_seq')")
     @Column(name = "id_control", nullable = false)
     private Integer idControl;

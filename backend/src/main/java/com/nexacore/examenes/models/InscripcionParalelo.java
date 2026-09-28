@@ -8,7 +8,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
@@ -24,15 +23,8 @@ public class InscripcionParalelo {
     @EmbeddedId
     private InscripcionParaleloId id;
 
-    @NotNull
-    @Column(name = "id_usuario", nullable = false)
-    private Integer idUsuario;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumns({
-        @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false),
-        @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false)
     private Estudiante estudiante;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

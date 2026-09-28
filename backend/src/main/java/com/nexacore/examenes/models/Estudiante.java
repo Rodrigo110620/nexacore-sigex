@@ -5,29 +5,37 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * Estudiante. No inicia sesión, por eso no es un usuario del sistema:
+ * guarda sus propios datos personales.
+ */
 @Getter
 @Setter
 @Entity
 @Table(name = "estudiante")
 public class Estudiante {
-    @EmbeddedId
-    private com.nexacore.examenes.models.EstudianteId id;
-
-    @MapsId("idUsuario")
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_usuario", nullable = false)
-    private com.nexacore.examenes.models.Usuario idUsuario;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_estudiante", nullable = false)
+    private Integer id;
 
     @NotNull
     @Column(name = "codigo_sis", nullable = false, length = Integer.MAX_VALUE)
     private String codigoSis;
 
-    /** Carrera del estudiante (FK compuesta con {@link #idFacultad}). */
-    @Column(name = "id_carrera")
-    private Integer idCarrera;
+    @NotNull
+    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    private String nombre;
 
-    /** Facultad del estudiante (FK compuesta con {@link #idCarrera}). */
-    @Column(name = "id_facultad")
-    private Integer idFacultad;
+    @NotNull
+    @Column(name = "apellidos", nullable = false, length = Integer.MAX_VALUE)
+    private String apellidos;
+
+    @NotNull
+    @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
+    private String ci;
+
+    @Column(name = "email", length = Integer.MAX_VALUE)
+    private String email;
 
 }
