@@ -1,6 +1,7 @@
 package com.nexacore.examenes.repositories;
 
 import com.nexacore.examenes.dto.EstudianteExamenFila;
+import com.nexacore.examenes.dto.ResumenEstudiantesResponse;
 import com.nexacore.examenes.models.Usuario;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -73,16 +74,19 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
      * cambian el WHERE, para que cada búsqueda use su índice único (uq_codigo_sis / uq_ci).
      * La carrera también va con LEFT JOIN (id_carrera es opcional y único en carrera).
      */
-    String IDENTIFICACION_ESTUDIANTE = """
+    String FILA_ESTUDIANTE_EXAMEN = """
             SELECT new com.nexacore.examenes.dto.EstudianteExamenFila(
                    e.id.idEstudiante, u.nombre, u.apellidos, e.codigoSis, u.ci, c.nombre,
-                   a.id.idExamen, a.habilitado)
+                   a.id.idExamen, a.habilitado, a.motivoInhabilitacion, a.fechaHoraIngreso)
+            """;
+    String ESTUDIANTE_EN_EXAMEN = """
             FROM Estudiante e
             JOIN e.idUsuario u
             LEFT JOIN Carrera c ON c.id.idCarrera = e.idCarrera
             LEFT JOIN AsistenciaExamen a
                    ON a.id.idEstudiante = e.id.idEstudiante AND a.id.idExamen = :idExamen
             """;
+    String IDENTIFICACION_ESTUDIANTE = FILA_ESTUDIANTE_EXAMEN + ESTUDIANTE_EN_EXAMEN;
 
     /** Un estudiante no tiene roles: quien tiene ADMIN, DOCENTE o CONTROL nunca se identifica como estudiante. */
     String ESTUDIANTE_SIN_ROLES = " AND NOT EXISTS (SELECT ur FROM UsuarioRol ur WHERE ur.idUsuario = u)";
@@ -96,4 +100,32 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     @Query(IDENTIFICACION_ESTUDIANTE + "WHERE u.ci = :ci" + ESTUDIANTE_SIN_ROLES)
     Optional<EstudianteExamenFila> identificarPorCi(@Param("ci") String ci,
                                                   @Param("idExamen") Integer idExamen);
+
+    /** Asignados al examen: el mismo FROM exigiendo fila en asistencia_examen (el LEFT JOIN actúa como INNER). */
+    String ASIGNADOS_AL_EXAMEN = ESTUDIANTE_EN_EXAMEN + "WHERE a.id.idExamen IS NOT NULL" + ESTUDIANTE_SIN_ROLES;
+
+    /** habilitado NULL cuenta como HABILITADO (DEFAULT true de la columna). */
+    String FILTRO_ESTADO = """
+             AND (:estado = 'TODOS'
+                  OR (:estado = 'HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = true))
+                  OR (:estado = 'NO_HABILITADOS' AND a.habilitado = false))
+            """;
+
+    /** estado llega validado por el service (TODOS, HABILITADOS o NO_HABILITADOS). */
+    @Query(value = FILA_ESTUDIANTE_EXAMEN + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO
+            + "ORDER BY u.apellidos, u.nombre, e.id.idEstudiante",
+            countQuery = "SELECT COUNT(e.id.idEstudiante) " + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO)
+    Page<EstudianteExamenFila> listarAsignadosAlExamen(@Param("idExamen") Integer idExamen,
+                                                      @Param("estado") String estado,
+                                                      Pageable pageable);
+
+    /** Totales con las mismas reglas: COUNT ignora los NULL del CASE y de fecha_hora_ingreso. */
+    @Query("""
+            SELECT new com.nexacore.examenes.dto.ResumenEstudiantesResponse(
+                   COUNT(e.id.idEstudiante),
+                   COUNT(CASE WHEN a.habilitado IS NULL OR a.habilitado = true THEN 1 END),
+                   COUNT(CASE WHEN a.habilitado = false THEN 1 END),
+                   COUNT(a.fechaHoraIngreso))
+            """ + ASIGNADOS_AL_EXAMEN)
+    ResumenEstudiantesResponse resumirAsignadosAlExamen(@Param("idExamen") Integer idExamen);
 }

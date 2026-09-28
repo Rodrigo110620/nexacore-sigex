@@ -1,10 +1,12 @@
 package com.nexacore.examenes.dto;
 
+import java.time.LocalDateTime;
+
 /**
- * Resultado de la consulta de identificación (HU ACCS-01): datos del estudiante
+ * Resultado de la identificación y del listado del examen (HU ACCS-01): datos del estudiante
  * y su fila de asistencia_examen para un examen dado.
  *
- * idExamen y habilitado llegan en null cuando el estudiante no tiene fila en
+ * Los campos desde idExamen llegan en null cuando el estudiante no tiene fila en
  * asistencia_examen para ese examen (LEFT JOIN sin coincidencia). carrera llega
  * en null si el estudiante no tiene una asignada.
  * Uso interno entre repositorio y service; no se expone en la API.
@@ -17,5 +19,7 @@ public record EstudianteExamenFila(
         String ci,
         String carrera,
         Integer idExamen,
-        Boolean habilitado
+        Boolean habilitado,
+        String motivoInhabilitacion,
+        LocalDateTime fechaHoraIngreso
 ) {}
