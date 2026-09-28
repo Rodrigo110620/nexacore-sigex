@@ -14,6 +14,20 @@ export function addMinutes(horaInicio: string, duracionMinutos: number): string 
   return `${hh}:${mm}`
 }
 
+/** YYYY-MM-DD en hora local (toISOString da la fecha UTC: en Bolivia, después de las 20:00 ya es mañana). */
+export function fechaLocal(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  return `${fecha.getFullYear()}-${mes}-${String(fecha.getDate()).padStart(2, '0')}`
+}
+
+/** El examen es de la fecha de `ahora` y la hora actual está entre su inicio y su fin. */
+export function estaEnCurso(examen: Pick<ExamenDto, 'fecha' | 'horaInicio' | 'duracionMinutos'>, ahora: Date): boolean {
+  const [horas, minutos] = horaCorta(examen.horaInicio).split(':').map(Number)
+  const inicio = horas * 60 + minutos
+  const actual = ahora.getHours() * 60 + ahora.getMinutes()
+  return examen.fecha === fechaLocal(ahora) && actual >= inicio && actual < inicio + examen.duracionMinutos
+}
+
 export function horaCorta(horaInicio: string): string {
   return (horaInicio ?? '').slice(0, 5) || '—'
 }
