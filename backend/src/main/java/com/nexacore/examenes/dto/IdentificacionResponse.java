@@ -4,7 +4,7 @@ package com.nexacore.examenes.dto;
  * Estudiante identificado en el control de ingreso (HU ACCS-01).
  *
  * fotoUrl es null mientras la base de datos no tenga una columna de foto;
- * carrera es null si el estudiante no tiene una asignada; motivoInhabilitacion solo viene con DESHABILITADO.
+ * carrera trae sus carreras separadas por coma, o null si no tiene ninguna; motivoInhabilitacion solo viene con DESHABILITADO.
  * Con HABILITADO o DESHABILITADO el frontend habilita "Continuar" hacia la
  * verificación (que muestra el motivo); con NO_VINCULADO muestra el modal de aviso.
  */
