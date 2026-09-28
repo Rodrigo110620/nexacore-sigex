@@ -32,14 +32,14 @@ export default function ControlIngresoHeader({ materia, aula, fecha, hora }: Con
   ]
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-[#D8E3F5] bg-[#F8FAFC] px-6 py-4">
-      <h1 className="flex min-w-0 items-center gap-2 text-base font-bold text-[#011140]">
+    <header className="flex flex-col gap-2 border-b border-[#D8E3F5] bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-4">
+      <h1 className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#011140] sm:text-base">
         <UserCheck size={18} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
-        <span className="truncate">
+        <span className="min-w-0 sm:truncate">
           CONTROL DE INGRESO · {materia ?? SIN_DATO} · {aula ?? SIN_DATO}
         </span>
       </h1>
-      <dl className="flex shrink-0 items-center gap-4 text-xs text-[#627A9B]">
+      <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#627A9B] sm:shrink-0">
         {detalles.map(({ label, valor }) => (
           <div key={label} className="flex gap-1">
             <dt>{label}:</dt>

@@ -21,11 +21,11 @@ const estudiante = (estado: EstudianteIdentificado['estado']): EstudianteIdentif
   estado,
 })
 
-function renderPage(roles: string[] = ['CONTROL']) {
+function renderPage(roles: string[] = ['CONTROL'], ruta = '/dashboard/control/7/identificar') {
   localStorage.setItem('roles', JSON.stringify(roles))
   render(
     <AuthProvider>
-      <MemoryRouter initialEntries={['/dashboard/control/7/identificar']}>
+      <MemoryRouter initialEntries={[ruta]}>
         <Routes>
           <Route path="/dashboard/control/:idExamen/identificar" element={<IdentificacionPage />} />
           <Route path="/dashboard/control-ingresos/:idEstudiante/:idExamen" element={<p>Flujo ACCS-02</p>} />
@@ -147,5 +147,16 @@ describe('IdentificacionPage', () => {
     expect(await screen.findByText(mensaje)).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(continuar()).toBeDisabled()
+  })
+
+  it('con ?codigo= busca una sola vez por código universitario y deja el valor en el input', async () => {
+    mockedIdentificar.mockClear()
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage(['CONTROL'], '/dashboard/control/7/identificar?codigo=202104010')
+
+    await screen.findByText('María José González Flores')
+    expect(mockedIdentificar).toHaveBeenCalledTimes(1)
+    expect(mockedIdentificar).toHaveBeenCalledWith(7, 'codigo', '202104010')
+    expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('202104010')
   })
 })

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
@@ -10,8 +10,8 @@ import ResultadoEstudianteCard from '../../components/control/ResultadoEstudiant
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import VerificacionHabilitacionModal from '../../components/control/VerificacionHabilitacionModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
+import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
-import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 
 /** Control de ingreso: identificar al estudiante por código universitario, CI o QR dentro de un examen. */
@@ -23,32 +23,31 @@ export default function IdentificacionPage() {
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
   const [reinicios, setReinicios] = useState(0)
-  const [examen, setExamen] = useState<ExamenDto>()
+  const examen = useExamen(idExamen)
   const { busqueda, buscar, reset } = useIdentificacion(idExamen)
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
 
-  // TODO: no hay GET /examenes/{id}; mientras tanto se busca en el listado (CONTROL tiene acceso).
+  // El ojo de "Control del examen" llega con ?codigo=: se busca una sola vez por código universitario.
+  const [searchParams] = useSearchParams()
+  const codigoUrl = searchParams.get('codigo')?.trim() ?? ''
+  const [valorInicial, setValorInicial] = useState(codigoUrl)
+  const buscoCodigoUrl = useRef(false)
   useEffect(() => {
-    if (!idValido) return
-    let vigente = true
-    listarExamenes()
-      .then((examenes) => {
-        if (vigente) setExamen(examenes.find((e) => e.idExamen === idExamen))
-      })
-      .catch(() => undefined) // sin datos, el encabezado muestra "—"
-    return () => {
-      vigente = false
-    }
-  }, [idExamen, idValido])
+    if (buscoCodigoUrl.current || !codigoUrl || !idValido) return
+    buscoCodigoUrl.current = true
+    void buscar('codigo', codigoUrl)
+  }, [codigoUrl, idValido, buscar])
 
   const cambiarMecanismo = (nuevo: Mecanismo) => {
     setTipo(nuevo)
+    setValorInicial('')
     reset()
   }
 
   // Cambiar la key remonta el formulario con el input vacío, sin tocar el mecanismo.
   const cambiarEstudiante = () => {
     reset()
+    setValorInicial('')
     setReinicios((n) => n + 1)
   }
 
@@ -71,7 +70,7 @@ export default function IdentificacionPage() {
   }
 
   return (
-    <PanelLayout>
+    <PanelLayout title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
       <div className="mx-auto w-full max-w-5xl px-6 py-6">
         <section className="overflow-hidden rounded-2xl border border-[#D8E3F5] bg-white shadow-sm">
           <ControlIngresoHeader
@@ -94,6 +93,7 @@ export default function IdentificacionPage() {
                   key={`${tipo}-${reinicios}`}
                   tipo={tipo}
                   buscando={busqueda.status === 'loading'}
+                  valorInicial={valorInicial}
                   onBuscar={(valor) => void buscar(tipo, valor)}
                 />
               )}

@@ -34,7 +34,7 @@ describe('acceso CONTROL desde el listado integrado', () => {
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
     const accesos = await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })
     expect(accesos).toHaveLength(2)
-    accesos.forEach(link => expect(link).toHaveAttribute('href', '/dashboard/control/7/identificar'))
+    accesos.forEach(link => expect(link).toHaveAttribute('href', '/dashboard/control/7'))
     expect(screen.queryByRole('link', { name: /Iniciar control.*Cancelado/ })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Ver detalle' })).toHaveLength(4)
     expect(screen.getAllByLabelText('Filtrar por ambiente').length).toBeGreaterThan(0)

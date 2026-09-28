@@ -10,6 +10,8 @@ const ETIQUETAS: Record<TipoIdentificacion, string> = {
 interface BusquedaEstudianteFormProps {
   tipo: TipoIdentificacion
   buscando?: boolean
+  /** Valor con el que se monta el input (p. ej. el código que llega por ?codigo=). */
+  valorInicial?: string
   onBuscar: (valor: string) => void
 }
 
@@ -17,8 +19,8 @@ interface BusquedaEstudianteFormProps {
  * Formulario de búsqueda por código universitario o CI. Enter también busca.
  * La página lo monta con key={tipo}: al cambiar de mecanismo se remonta y el input queda vacío.
  */
-export default function BusquedaEstudianteForm({ tipo, buscando = false, onBuscar }: BusquedaEstudianteFormProps) {
-  const [valor, setValor] = useState('')
+export default function BusquedaEstudianteForm({ tipo, buscando = false, valorInicial = '', onBuscar }: BusquedaEstudianteFormProps) {
+  const [valor, setValor] = useState(valorInicial)
   const valorLimpio = valor.trim()
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
