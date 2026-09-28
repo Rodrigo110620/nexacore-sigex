@@ -25,18 +25,11 @@ public class AsistenciaExamen {
     private AsistenciaExamenId id;
 
     @NotNull
-    @Column(name = "id_usuario", nullable = false)
-    private Integer idUsuario;
-
-    @NotNull
     @Column(name = "id_paralelo", nullable = false)
     private Integer idParalelo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumns({
-        @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false),
-        @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false)
     private Estudiante estudiante;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

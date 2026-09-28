@@ -7,8 +7,8 @@ import java.time.LocalDateTime;
  * y su fila de asistencia_examen para un examen dado.
  *
  * Los campos desde idExamen llegan en null cuando el estudiante no tiene fila en
- * asistencia_examen para ese examen (LEFT JOIN sin coincidencia). carrera llega
- * en null si el estudiante no tiene una asignada.
+ * asistencia_examen para ese examen (LEFT JOIN sin coincidencia). carrera trae
+ * todas las carreras del estudiante separadas por coma, o null si no tiene ninguna.
  * Uso interno entre repositorio y service; no se expone en la API.
  */
 public record EstudianteExamenFila(

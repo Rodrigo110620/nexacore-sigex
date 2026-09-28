@@ -16,7 +16,6 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     String CONSULTA_CONTEXTO = """
             SELECT a FROM AsistenciaExamen a
             JOIN FETCH a.estudiante e
-            JOIN FETCH e.idUsuario
             JOIN FETCH a.examen x
             JOIN FETCH x.paralelo p
             JOIN FETCH p.materia

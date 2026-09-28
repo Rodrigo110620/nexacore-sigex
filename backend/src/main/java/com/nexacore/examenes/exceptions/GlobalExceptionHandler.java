@@ -182,8 +182,6 @@ public class GlobalExceptionHandler {
         String mensaje;
         if (detalle != null && detalle.contains("fk_paralelo_docente")) {
             mensaje = "No se puede quitar el rol DOCENTE porque este usuario tiene exámenes o paralelos asignados.";
-        } else if (detalle != null && detalle.contains("un estudiante no puede tener roles")) {
-            mensaje = "Un estudiante no puede tener roles (ADMIN, DOCENTE o CONTROL).";
         } else {
             mensaje = "No se pudo guardar el cambio porque hay datos relacionados que lo impiden.";
         }

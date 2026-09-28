@@ -7,8 +7,8 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.ResumenEstudiantesResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
-import com.nexacore.examenes.repositories.UsuarioRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * Identificación del estudiante en el control de ingreso (HU ACCS-01).
  *
- * Busca por código universitario (estudiante.codigo_sis) o por CI (usuario.ci)
+ * Busca por código universitario (estudiante.codigo_sis) o por CI (estudiante.ci)
  * y resuelve su estado en el examen según asistencia_examen:
  *   sin fila           → NO_VINCULADO
  *   habilitado = false → DESHABILITADO
@@ -34,11 +34,11 @@ public class IdentificacionService {
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS");
 
-    private final UsuarioRepository usuarioRepository;
+    private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
 
-    public IdentificacionService(UsuarioRepository usuarioRepository, ExamenRepository examenRepository) {
-        this.usuarioRepository = usuarioRepository;
+    public IdentificacionService(EstudianteRepository estudianteRepository, ExamenRepository examenRepository) {
+        this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
     }
 
@@ -61,8 +61,8 @@ public class IdentificacionService {
         }
         verificarExamen(idExamen);
         return tipoBusqueda.equals("codigo")
-                ? responder(usuarioRepository.identificarPorCodigoSis(buscado, idExamen), "código universitario", buscado)
-                : responder(usuarioRepository.identificarPorCi(buscado, idExamen), "CI", buscado);
+                ? responder(estudianteRepository.identificarPorCodigoSis(buscado, idExamen), "código universitario", buscado)
+                : responder(estudianteRepository.identificarPorCi(buscado, idExamen), "CI", buscado);
     }
 
     /** Asignados al examen con el mismo PageResponse y límites de página que el listado de usuarios. */
@@ -74,14 +74,14 @@ public class IdentificacionService {
         }
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
-        return PageResponse.de(usuarioRepository.listarAsignadosAlExamen(idExamen, filtro, pagina).map(this::aAsignado));
+        return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina).map(this::aAsignado));
     }
 
     /** @throws ControlIngresoException si el examen no existe (404) */
     @Transactional(readOnly = true)
     public ResumenEstudiantesResponse resumir(Integer idExamen) {
         verificarExamen(idExamen);
-        return usuarioRepository.resumirAsignadosAlExamen(idExamen);
+        return estudianteRepository.resumirAsignadosAlExamen(idExamen);
     }
 
     private void verificarExamen(Integer idExamen) {
@@ -93,7 +93,7 @@ public class IdentificacionService {
     private IdentificacionResponse responder(Optional<EstudianteExamenFila> resultado, String campo, String valor) {
         EstudianteExamenFila fila = resultado.orElseThrow(() -> new EstudianteNoEncontradoException(campo, valor));
         IdentificacionResponse.Estado estado = estadoDe(fila);
-        // fotoUrl queda en null: todavía no hay columna de foto en usuario ni en estudiante.
+        // fotoUrl queda en null: todavía no hay columna de foto en estudiante.
         return new IdentificacionResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(), fila.ci(),
                 fila.carrera(), null, estado, motivoDe(fila, estado));
     }

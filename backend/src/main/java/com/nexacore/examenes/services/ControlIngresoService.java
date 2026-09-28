@@ -15,6 +15,7 @@ import com.nexacore.examenes.models.CatalogoIncidencia;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.CatalogoIncidenciaRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.IncidenciaRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
@@ -32,6 +33,7 @@ public class ControlIngresoService {
     private final CatalogoIncidenciaRepository catalogoRepository;
     private final IncidenciaRepository incidenciaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EstudianteRepository estudianteRepository;
     private final RegistroControlIngresoRepository registroRepository;
     private final ObjectMapper objectMapper;
 
@@ -40,12 +42,14 @@ public class ControlIngresoService {
             CatalogoIncidenciaRepository catalogoRepository,
             IncidenciaRepository incidenciaRepository,
             UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
             RegistroControlIngresoRepository registroRepository,
             ObjectMapper objectMapper) {
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
         this.incidenciaRepository = incidenciaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.estudianteRepository = estudianteRepository;
         this.registroRepository = registroRepository;
         this.objectMapper = objectMapper;
     }
@@ -153,13 +157,13 @@ public class ControlIngresoService {
                         "El estudiante no está asociado al examen seleccionado"));
         var examen = asistencia.getExamen();
         var estudiante = asistencia.getEstudiante();
-        var usuario = estudiante.getIdUsuario();
-        NormasExamen normas = leerNormas(examen.getNormas(), (usuario.getNombre() + " " + usuario.getApellidos()).trim());
+        String nombreCompleto = (estudiante.getNombre() + " " + estudiante.getApellidos()).trim();
+        NormasExamen normas = leerNormas(examen.getNormas(), nombreCompleto);
         return new ContextoControlIngresoResponse(
                 idEstudiante,
-                (usuario.getNombre() + " " + usuario.getApellidos()).trim(),
+                nombreCompleto,
                 estudiante.getCodigoSis(),
-                usuario.getCi(),
+                estudiante.getCi(),
                 idExamen,
                 examen.getParalelo().getMateria().getSigla() + " - " + examen.getParalelo().getMateria().getNombre(),
                 examen.getFecha(),
@@ -172,7 +176,7 @@ public class ControlIngresoService {
                 asistencia.getMotivoInhabilitacion(),
                 asistencia.getFechaHoraIngreso() != null,
                 asistencia.getFechaHoraIngreso(),
-                usuarioRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen)
+                estudianteRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen)
                         .map(com.nexacore.examenes.dto.EstudianteExamenFila::carrera).orElse(null));
     }
 
@@ -216,14 +220,13 @@ public class ControlIngresoService {
 
         var examen = asistencia.getExamen();
         var estudiante = asistencia.getEstudiante();
-        var usuarioEstudiante = estudiante.getIdUsuario();
         return new AutorizarIngresoResponse(
                 autorizado,
                 resultado,
                 causa,
                 request.idEstudiante(),
                 request.idExamen(),
-                (usuarioEstudiante.getNombre() + " " + usuarioEstudiante.getApellidos()).trim(),
+                (estudiante.getNombre() + " " + estudiante.getApellidos()).trim(),
                 estudiante.getCodigoSis(),
                 examen.getParalelo().getMateria().getSigla() + " - " + examen.getParalelo().getMateria().getNombre(),
                 examen.getAmbiente().getNombre(),
@@ -243,7 +246,7 @@ public class ControlIngresoService {
             String causa) {
         registroRepository.registrar(
                 asistencia.getId().getIdExamen(), asistencia.getIdParalelo(),
-                asistencia.getId().getIdEstudiante(), asistencia.getIdUsuario(), control.getId(),
+                asistencia.getId().getIdEstudiante(), control.getId(),
                 resultado, causa, serializarVerificaciones(request.verificacionesAdicionales()),
                 limpiar(request.observaciones()));
     }
@@ -297,7 +300,6 @@ public class ControlIngresoService {
                 asistencia.getId().getIdEstudiante(),
                 control.getId(),
                 tipo.getId(),
-                asistencia.getIdUsuario(),
                 asistencia.getIdParalelo(),
                 limpiar(item.descripcion()),
                 ahora);

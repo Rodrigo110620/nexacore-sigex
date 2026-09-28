@@ -15,7 +15,6 @@ import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
 import com.nexacore.examenes.repositories.DocenteRepository;
-import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.RolRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
@@ -49,7 +48,6 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
     private final DocenteRepository docenteRepository;
-    private final EstudianteRepository estudianteRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
@@ -59,14 +57,12 @@ public class UsuarioService {
                           RolRepository rolRepository,
                           UsuarioRolRepository usuarioRolRepository,
                           DocenteRepository docenteRepository,
-                          EstudianteRepository estudianteRepository,
                           PasswordEncoder passwordEncoder,
                           EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
         this.docenteRepository = docenteRepository;
-        this.estudianteRepository = estudianteRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
@@ -135,10 +131,6 @@ public class UsuarioService {
         String rolNombre = request.rol().toUpperCase();
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        if (estudianteRepository.esEstudiante(id)) {
-            throw new IllegalArgumentException(
-                    "Este usuario está registrado como estudiante y un estudiante no puede tener roles.");
-        }
         // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
         usuario.setNombre(normalizarNombre(request.nombre()));
         usuario.setApellidos(normalizarNombre(request.apellidos()));

@@ -36,9 +36,6 @@ public class IntentoIngreso {
     @Column(name = "id_estudiante")
     private Integer idEstudiante;
 
-    @Column(name = "id_usuario")
-    private Integer idUsuario;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumns({
         @JoinColumn(name = "id_examen", referencedColumnName = "id_examen", insertable = false, updatable = false),
@@ -51,10 +48,7 @@ public class IntentoIngreso {
     private Usuario usuarioControl;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumns({
-        @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false),
-        @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false)
     private Estudiante estudiante;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
