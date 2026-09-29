@@ -42,3 +42,13 @@ export interface FacultadOption {
   nombre: string
   codigo?: string
 }
+
+export interface RegistrarEstudiantePayload {
+  nombre: string
+  apellidos: string
+  ci: string
+  email: string
+  codigoSis: string
+  idFacultad: number
+  idCarrera: number
+}

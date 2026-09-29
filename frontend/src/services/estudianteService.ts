@@ -4,6 +4,8 @@ import type {
   EstudianteFilterParams,
   EstudianteListPage,
   FacultadOption,
+  EstudianteListItem,
+  RegistrarEstudiantePayload,
 } from '../types/estudiante'
 
 export interface GetEstudiantesParams extends EstudianteFilterParams {
@@ -43,5 +45,12 @@ export async function getCarreras(
 
 export async function getFacultades(signal?: AbortSignal): Promise<FacultadOption[]> {
   const { data } = await api.get<FacultadOption[]>('/facultades', { signal })
+  return data
+}
+
+export async function registrarEstudiante(
+  payload: RegistrarEstudiantePayload,
+): Promise<EstudianteListItem> {
+  const { data } = await api.post<EstudianteListItem>('/estudiantes', payload)
   return data
 }

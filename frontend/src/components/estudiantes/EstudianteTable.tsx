@@ -30,7 +30,7 @@ export default function EstudianteTable({ estudiantes, onViewClick }: Estudiante
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
             <th scope="col" className="px-5 py-3 font-bold">Estudiante / Código</th>
-            <th scope="col" className="px-5 py-3 font-bold">Documento (DNI)</th>
+            <th scope="col" className="px-5 py-3 font-bold">CI</th>
             <th scope="col" className="px-5 py-3 font-bold">Carrera Profesional</th>
             <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
           </tr>

@@ -13,6 +13,12 @@ import java.util.Optional;
 
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
 
+    boolean existsByCodigoSisIgnoreCase(String codigoSis);
+
+    boolean existsByCiIgnoreCase(String ci);
+
+    boolean existsByEmailIgnoreCase(String email);
+
     /**
      * Estudiante y su habilitación en un examen, en una sola consulta (HU ACCS-01).
      *
