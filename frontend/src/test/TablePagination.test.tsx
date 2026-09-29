@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import UserPagination from '../components/users/UserPagination'
+import UserPagination from '../components/users/TablePagination'
 
 describe('UserPagination', () => {
   it('muestra el rango y navega usando índices base 0', () => {

@@ -28,7 +28,7 @@ function getPaginationItems(currentPage: number, totalPages: number): Pagination
   ]
 }
 
-interface UserPaginationProps {
+interface TablePaginationProps {
   page: number
   totalPages: number
   totalRecords: number
@@ -38,7 +38,7 @@ interface UserPaginationProps {
   itemLabel?: string
 }
 
-export default function UserPagination({
+export default function TablePagination({
   page,
   totalPages,
   totalRecords,
@@ -46,7 +46,7 @@ export default function UserPagination({
   onPageChange,
   disabled = false,
   itemLabel = 'usuarios',
-}: UserPaginationProps) {
+}: TablePaginationProps) {
   if (totalRecords === 0 || totalPages <= 1) return null
 
   const currentPage = Math.min(Math.max(page, 0), totalPages - 1)

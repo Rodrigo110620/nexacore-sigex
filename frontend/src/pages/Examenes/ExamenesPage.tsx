@@ -4,7 +4,7 @@ import { ArrowRight, BookCheck, CalendarDays, ChevronDown, ClipboardList, Clock,
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
-import UserPagination from '../../components/users/UserPagination'
+import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'

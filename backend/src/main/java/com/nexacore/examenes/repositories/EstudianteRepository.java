@@ -75,4 +75,39 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                    COUNT(a.fechaHoraIngreso))
             """ + ASIGNADOS_AL_EXAMEN)
     ResumenEstudiantesResponse resumirAsignadosAlExamen(@Param("idExamen") Integer idExamen);
+
+
+    /**
+ * Listado general de estudiantes con búsqueda y filtros (paginado).
+ * Para la pantalla de Gestión de Estudiantes (HU-01).
+ */
+@Query(value = """
+        SELECT DISTINCT e FROM Estudiante e
+        LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
+        WHERE (:search IS NULL OR :search = '' OR
+               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
+          AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
+        ORDER BY e.apellidos, e.nombre
+        """,
+        countQuery = """
+        SELECT COUNT(DISTINCT e) FROM Estudiante e
+        LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
+        WHERE (:search IS NULL OR :search = '' OR
+               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
+          AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
+        """)
+Page<Estudiante> buscarConFiltros(
+    @Param("search") String search,
+    @Param("idFacultad") Integer idFacultad,
+    @Param("idCarrera") Integer idCarrera,
+    Pageable pageable
+);
 }
