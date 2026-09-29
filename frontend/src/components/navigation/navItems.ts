@@ -31,7 +31,7 @@ export function navItemsFor(roles: string[]): NavItem[] {
   }
   if (isAdmin) {
     items.push(
-      { label: 'Estudiantes', to: '/dashboard/estudiantes', icon: GraduationCap, disabled: true },
+      { label: 'Estudiantes', to: '/dashboard/estudiantes', icon: GraduationCap },
       { label: 'Usuarios', to: '/dashboard/usuarios', icon: Users },
     )
   }

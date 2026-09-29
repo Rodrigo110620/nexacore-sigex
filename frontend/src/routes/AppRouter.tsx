@@ -18,6 +18,7 @@ import ControlInicioPage from '../pages/Control/ControlInicioPage'
 import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
+import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -69,6 +70,15 @@ export default function AppRouter() {
           element={
             <AdminRoute>
               <UsuariosPage />
+            </AdminRoute>
+          }
+        />
+        {/* Gestión de estudiantes (por el momento solo admin)*/}
+        <Route
+          path="/dashboard/estudiantes"
+          element={
+            <AdminRoute>
+              <EstudiantesPage />
             </AdminRoute>
           }
         />

@@ -44,8 +44,8 @@ describe('MobileBottomNav', () => {
       'page',
     )
     expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Estudiantes, no disponible' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
+    expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(4)
   })
 

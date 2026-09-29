@@ -1,4 +1,4 @@
-import UserPagination from '../users/UserPagination'
+import UserPagination from '../users/TablePagination'
 import EstudiantesExamenLista from './EstudiantesExamenLista'
 import type { EstudianteAsignado, FiltroEstado, ResumenEstudiantes } from '../../services/controlExamenService'
 import type { PageResponse } from '../../types/userApi'
