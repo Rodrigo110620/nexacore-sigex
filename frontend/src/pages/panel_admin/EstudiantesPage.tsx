@@ -5,11 +5,13 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import EstudianteTable from '../../components/estudiantes/EstudianteTable'
 import EstudianteFilters from '../../components/estudiantes/EstudianteFilters'
 import RegistrarEstudianteModal from '../../components/estudiantes/RegistrarEstudianteModal'
+import ImportarEstudiantesModal from '../../components/estudiantes/ImportarEstudiantesModal'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import useEstudiantes from '../../hooks/useEstudiantes'
 import type { EstudianteFilterParams, EstudianteListItem } from '../../types/estudiante'
+import type { ImportarEstudiantesResponse } from '../../services/estudianteService'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
@@ -17,6 +19,7 @@ export default function EstudiantesPage() {
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
   const {
@@ -52,6 +55,15 @@ export default function EstudiantesPage() {
     window.setTimeout(() => setSuccessMessage(''), 5000)
   }
 
+  // El modal queda abierto mostrando el detalle; aquí solo se refresca la lista.
+  const handleImported = (result: ImportarEstudiantesResponse) => {
+    if (result.insertados === 0) return
+    setSuccessMessage(`Se importaron ${result.insertados} estudiantes.`)
+    changePage(0)
+    retry()
+    window.setTimeout(() => setSuccessMessage(''), 5000)
+  }
+
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
@@ -78,11 +90,12 @@ export default function EstudiantesPage() {
                 <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
                   <button
                     type="button"
-                    disabled
-                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#627A9B] disabled:cursor-not-allowed disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
+                    onClick={() => setImportOpen(true)}
+                    aria-label="Importar estudiantes"
+                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
                   >
-                    <Upload size={16} aria-hidden="true" />
-                    <span className="truncate">Exportar</span>
+                    <Upload size={16} aria-hidden="true" className="shrink-0" />
+                    <span className="hidden truncate sm:inline">Importar</span>
                   </button>
                   <button
                     type="button"
@@ -90,13 +103,14 @@ export default function EstudiantesPage() {
                     className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate">Registrar Estudiante</span>
+                    <span className="truncate">Nuevo</span>
                   </button>
                 </div>
               </div>
             </div>
 
             <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
+            <ImportarEstudiantesModal open={importOpen} onClose={() => setImportOpen(false)} onImported={handleImported} />
 
             <div className="flex flex-col">
               {loading ? (

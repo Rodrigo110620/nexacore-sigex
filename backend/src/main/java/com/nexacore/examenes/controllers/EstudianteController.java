@@ -2,15 +2,18 @@ package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.CarreraResponse;
 import com.nexacore.examenes.dto.EstudianteListResponse;
+import com.nexacore.examenes.dto.ImportarEstudiantesResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
 import com.nexacore.examenes.services.EstudianteService;
+import com.nexacore.examenes.services.ImportacionEstudiantesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -21,9 +24,14 @@ import java.util.List;
 public class EstudianteController {
 
     private final EstudianteService estudianteService;
+    private final ImportacionEstudiantesService importacionEstudiantesService;
 
-    public EstudianteController(EstudianteService estudianteService) {
+    public EstudianteController(
+        EstudianteService estudianteService,
+        ImportacionEstudiantesService importacionEstudiantesService
+    ) {
         this.estudianteService = estudianteService;
+        this.importacionEstudiantesService = importacionEstudiantesService;
     }
 
     @Operation(summary = "Listar estudiantes",
@@ -60,5 +68,16 @@ public class EstudianteController {
         @Valid @RequestBody RegistrarEstudianteRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED).body(estudianteService.registrar(request));
+    }
+
+    @Operation(summary = "Importar estudiantes masivamente",
+        description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
+            + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping(value = "/importar", consumes = "multipart/form-data")
+    public ResponseEntity<ImportarEstudiantesResponse> importarEstudiantes(
+        @RequestParam("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(importacionEstudiantesService.importar(file));
     }
 }
