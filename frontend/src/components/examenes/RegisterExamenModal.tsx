@@ -12,6 +12,8 @@ import {
   UserRoundCheck,
   Lock,
   ChevronsDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   INITIAL_EXAMEN_FORM,
@@ -44,6 +46,20 @@ interface RegisterExamenModalProps {
   onSuccess?: () => void
 }
 
+type Step = 1 | 2 | 3
+
+const STEPS: { id: Step; titulo: string; detalle: string; campos: (keyof RegisterExamenFormErrors)[] }[] = [
+  { id: 1, titulo: 'Información Básica', detalle: 'Asignatura y docente', campos: ['asignatura', 'docente'] },
+  { id: 2, titulo: 'Programación y Ambiente', detalle: 'Fecha, horario y aula', campos: ['fecha', 'horaInicio', 'horaFin', 'idAmbiente'] },
+  { id: 3, titulo: 'Normas y Confirmación', detalle: 'Reglamento y resumen', campos: [] },
+]
+
+const STEP_DESCRIPCION: Record<Step, string> = {
+  1: 'Seleccione la asignatura y el docente responsable de la evaluación.',
+  2: 'Defina la fecha, el horario y el ambiente donde se rendirá el examen.',
+  3: 'Revise las normas del examen y confirme los datos antes de registrar.',
+}
+
 function formatHora24(h: number, m: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
@@ -56,6 +72,7 @@ function sanitizeHoraInput(raw: string): string {
 }
 
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
+  const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
@@ -189,6 +206,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   }
 
   const resetAll = () => {
+    setStep(1)
     setForm(INITIAL_EXAMEN_FORM)
     setErrors({})
     setGeneralError('')
@@ -242,21 +260,50 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     handleClose()
   }
 
+  const validarTodo = () =>
+    validateExamenForm(form, {
+      asignaturaSeleccionada: asignaturaOk,
+      docenteSeleccionado: docenteOk,
+    })
+
+  const goNext = () => {
+    const campos = STEPS[step - 1].campos
+    const todos = validarTodo()
+    const stepErrors: RegisterExamenFormErrors = {}
+    for (const campo of campos) {
+      if (todos[campo]) stepErrors[campo] = todos[campo]
+    }
+    setErrors(stepErrors)
+    if (Object.keys(stepErrors).length > 0) {
+      setGeneralError('Completa los campos obligatorios de este paso para continuar.')
+      return
+    }
+    setGeneralError('')
+    setStep((s) => (s < 3 ? ((s + 1) as Step) : s))
+  }
+
+  const goBack = () => {
+    setGeneralError('')
+    setErrors({})
+    setStep((s) => (s > 1 ? ((s - 1) as Step) : s))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (step < 3) {
+      goNext()
+      return
+    }
     if (isOffline()) {
       setOfflineOpen(true)
       return
     }
-    const nextErrors = validateExamenForm(form, {
-      asignaturaSeleccionada: asignaturaOk,
-      docenteSeleccionado: docenteOk,
-    })
+    const nextErrors = validarTodo()
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
-      setGeneralError(
-        'Completa los campos obligatorios del examen (asignatura, fecha, hora, duración y ambiente).',
-      )
+      const pasoConError = STEPS.find((s) => s.campos.some((c) => nextErrors[c]))
+      if (pasoConError) setStep(pasoConError.id)
+      setGeneralError('Hay datos del examen por corregir en este paso.')
       setSuccess(false)
       return
     }
@@ -374,9 +421,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 <h2 id="register-examen-title" className="text-base font-bold text-[#011140] sm:text-xl">
                   Registrar Nuevo Examen
                 </h2>
-                <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">
-                  Complete la asignatura, fecha, horario y ambiente para planificar la evaluación.
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded bg-[#E9F1FF] px-2 py-0.5 text-[10px] font-bold text-[#0439D9]">
+                    Paso {step} de {STEPS.length}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">{STEP_DESCRIPCION[step]}</p>
               </div>
             </div>
           </div>
@@ -391,21 +441,54 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           </button>
         </div>
 
+        <ol className="grid shrink-0 grid-cols-3 gap-2 border-b border-gray-100 px-4 py-3 sm:px-6" aria-label="Progreso del registro">
+          {STEPS.map((s) => {
+            const done = step > s.id
+            const current = step === s.id
+            return (
+              <li key={s.id} aria-current={current ? 'step' : undefined} className="min-w-0">
+                <div
+                  className={`mb-2 h-1 rounded-full transition-colors ${
+                    done ? 'bg-emerald-400' : current ? 'bg-[#0439D9]' : 'bg-gray-200'
+                  }`}
+                />
+                <div className="flex items-start gap-2">
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                      done
+                        ? 'bg-emerald-500 text-white'
+                        : current
+                          ? 'bg-[#0439D9] text-white'
+                          : 'bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    {done ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : s.id}
+                  </span>
+                  <div className="min-w-0">
+                    <p
+                      className={`truncate text-[11px] font-semibold ${
+                        current ? 'text-[#011140]' : done ? 'text-emerald-700' : 'text-gray-400'
+                      }`}
+                    >
+                      {s.titulo}
+                    </p>
+                    <p className="hidden truncate text-[10px] text-gray-400 sm:block">
+                      {done ? 'Completado' : current ? s.detalle : 'Pendiente'}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+
         <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
-            <div className="flex items-start gap-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
-              <Info size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
-              <p className="text-[11px] leading-relaxed text-[#011140] sm:text-xs">
-                <span className="font-semibold">Validación de Ambiente y Horarios en Tiempo Real:</span>{' '}
-                El sistema audita automáticamente la disponibilidad del aula para prevenir
-                solapamientos o cruces con otros exámenes.
-              </p>
-            </div>
-
+            {step === 1 && (
             <section className={sectionCardClass}>
               <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
-                1. INFORMACIÓN BÁSICA DEL EXAMEN
+                INFORMACIÓN BÁSICA DEL EXAMEN
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
@@ -448,11 +531,23 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </div>
               </div>
             </section>
+            )}
+
+            {step === 2 && (
+            <>
+            <div className="flex items-start gap-3 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] p-3">
+              <Info size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
+              <p className="text-[11px] leading-relaxed text-[#011140] sm:text-xs">
+                <span className="font-semibold">Validación de Ambiente y Horarios en Tiempo Real:</span>{' '}
+                El sistema audita automáticamente la disponibilidad del aula para prevenir
+                solapamientos o cruces con otros exámenes.
+              </p>
+            </div>
 
             <section className={sectionCardClass}>
               <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
-                2. PROGRAMACIÓN Y AMBIENTE
+                PROGRAMACIÓN Y AMBIENTE
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
@@ -694,6 +789,55 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 )}
               </div>
             </section>
+            </>
+            )}
+
+            {step === 3 && (
+            <>
+            <section className="rounded-xl border border-[#D8E3F5] bg-white p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
+                RESUMEN DEL EXAMEN
+              </h3>
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-2">
+                {[
+                  { label: 'Asignatura', value: form.asignatura, paso: 1 as Step },
+                  { label: 'Docente responsable', value: form.docente, paso: 1 as Step },
+                  { label: 'Fecha', value: form.fecha ? formatFechaDisplay(form.fecha) : '', paso: 2 as Step },
+                  {
+                    label: 'Horario',
+                    value:
+                      form.horaInicio && form.horaFin
+                        ? `${formatAmPm(form.horaInicio)} – ${formatAmPm(form.horaFin)}${duracion !== null ? ` (${duracion} min)` : ''}`
+                        : '',
+                    paso: 2 as Step,
+                  },
+                  {
+                    label: 'Ambiente',
+                    value: ambienteSeleccionado
+                      ? ambienteSeleccionado.ubicacion
+                        ? `${ambienteSeleccionado.nombre} — ${ambienteSeleccionado.ubicacion}`
+                        : ambienteSeleccionado.nombre
+                      : '',
+                    paso: 2 as Step,
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="min-w-0">
+                    <dt className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                      {item.label}
+                      <button
+                        type="button"
+                        onClick={() => { setErrors({}); setGeneralError(''); setStep(item.paso) }}
+                        className="normal-case tracking-normal text-[#0439D9] hover:underline"
+                      >
+                        Editar
+                      </button>
+                    </dt>
+                    <dd className="mt-0.5 truncate font-semibold text-[#011140]">{item.value || '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
 
             <section className={sectionCardClass}>
               <div className="mb-2 flex items-start justify-between gap-2">
@@ -894,7 +1038,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </ul>
               )}
             </section>
-
+            </>
+            )}
           </div>
 
           <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
@@ -918,12 +1063,27 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
-                  onClick={requestClose}
+                  onClick={step === 1 ? requestClose : goBack}
                   disabled={saving}
-                  className="w-full rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5 sm:text-[#011140]"
+                  className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-[#C9D7EC] px-4 py-2 text-sm font-semibold text-[#45628D] transition-colors hover:bg-gray-100 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
-                  Cancelar
+                  {step === 1 ? 'Cancelar' : (
+                    <>
+                      <ChevronLeft size={16} aria-hidden="true" />
+                      Atrás
+                    </>
+                  )}
                 </button>
+                {step < 3 ? (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] sm:w-auto sm:px-6 sm:py-2.5"
+                >
+                  Siguiente paso
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>
+                ) : (
                 <button
                   type="submit"
                   disabled={saving}
@@ -941,6 +1101,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     </>
                   )}
                 </button>
+                )}
               </div>
             </div>
           </div>
