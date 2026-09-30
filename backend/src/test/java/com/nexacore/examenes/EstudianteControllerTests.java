@@ -2,6 +2,7 @@ package com.nexacore.examenes;
 
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.services.EstudianteService;
+import com.nexacore.examenes.services.ImportacionEstudiantesService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -30,6 +31,7 @@ class EstudianteControllerTests {
 
     @Autowired MockMvc mockMvc;
     @MockBean EstudianteService estudianteService;
+    @MockBean ImportacionEstudiantesService importacionEstudiantesService;
 
     @Test
     void exigeAutenticacion() throws Exception {

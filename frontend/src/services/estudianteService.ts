@@ -54,3 +54,20 @@ export async function registrarEstudiante(
   const { data } = await api.post<EstudianteListItem>('/estudiantes', payload)
   return data
 }
+
+export interface ImportarEstudiantesResponse {
+  insertados: number
+  ignorados: number
+  /** Una línea por fila no importada, p. ej. "Fila 3: El CI debe tener 7 u 8 digitos." */
+  errores: string[]
+}
+
+export async function importarEstudiantes(file: File): Promise<ImportarEstudiantesResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  // api usa application/json por defecto; sin esto axios convertiría el FormData a JSON.
+  const { data } = await api.post<ImportarEstudiantesResponse>('/estudiantes/importar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
