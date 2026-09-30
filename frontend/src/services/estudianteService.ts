@@ -71,3 +71,14 @@ export async function importarEstudiantes(file: File): Promise<ImportarEstudiant
   })
   return data
 }
+
+/** Descarga la planilla con los estudiantes registrados (CSV para importar, PDF para imprimir). */
+export async function descargarPlanillaEstudiantes(formato: 'csv' | 'pdf'): Promise<void> {
+  const { data } = await api.get<Blob>(`/estudiantes/planilla.${formato}`, { responseType: 'blob' })
+  const url = URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `planilla_estudiantes.${formato}`
+  link.click()
+  URL.revokeObjectURL(url)
+}

@@ -7,8 +7,12 @@ import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
+import com.nexacore.examenes.services.PlanillaEstudiantesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Tag(name = "Estudiantes", description = "Gestión de estudiantes")
@@ -25,13 +30,16 @@ public class EstudianteController {
 
     private final EstudianteService estudianteService;
     private final ImportacionEstudiantesService importacionEstudiantesService;
+    private final PlanillaEstudiantesService planillaEstudiantesService;
 
     public EstudianteController(
         EstudianteService estudianteService,
-        ImportacionEstudiantesService importacionEstudiantesService
+        ImportacionEstudiantesService importacionEstudiantesService,
+        PlanillaEstudiantesService planillaEstudiantesService
     ) {
         this.estudianteService = estudianteService;
         this.importacionEstudiantesService = importacionEstudiantesService;
+        this.planillaEstudiantesService = planillaEstudiantesService;
     }
 
     @Operation(summary = "Listar estudiantes",
@@ -79,5 +87,30 @@ public class EstudianteController {
         @RequestParam("file") MultipartFile file
     ) {
         return ResponseEntity.ok(importacionEstudiantesService.importar(file));
+    }
+
+    @Operation(summary = "Descargar planilla de estudiantes en CSV",
+        description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/planilla.csv")
+    public ResponseEntity<byte[]> planillaCsv() {
+        return descarga(planillaEstudiantesService.csv(), "planilla_estudiantes.csv",
+            new MediaType("text", "csv", StandardCharsets.UTF_8));
+    }
+
+    @Operation(summary = "Descargar planilla de estudiantes en PDF",
+        description = "Estudiantes registrados con los nombres de su facultad y carrera. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/planilla.pdf")
+    public ResponseEntity<byte[]> planillaPdf() {
+        return descarga(planillaEstudiantesService.pdf(), "planilla_estudiantes.pdf", MediaType.APPLICATION_PDF);
+    }
+
+    private static ResponseEntity<byte[]> descarga(byte[] contenido, String nombreArchivo, MediaType tipo) {
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(nombreArchivo).build().toString())
+            .contentType(tipo)
+            .body(contenido);
     }
 }
