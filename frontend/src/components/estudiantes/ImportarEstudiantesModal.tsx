@@ -1,7 +1,8 @@
 import axios from 'axios'
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, Download, FileUp, LoaderCircle, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, FileText, FileUp, LoaderCircle, X } from 'lucide-react'
 import {
+  descargarPlanillaEstudiantes,
   getCarreras,
   importarEstudiantes,
   type ImportarEstudiantesResponse,
@@ -17,17 +18,6 @@ interface ImportarEstudiantesModalProps {
 const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'email', 'idFacultad', 'idCarrera']
 const MAX_BYTES = 1024 * 1024
 
-/** Plantilla con ';' y BOM para que Excel en español la abra en columnas. */
-function descargarPlantilla() {
-  const contenido = `\uFEFF${COLUMNAS.join(';')}\n202404012;María José;González Flores;7489210;maria.gonzalez@est.umss.edu;1;1\n`
-  const url = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'plantilla_estudiantes.csv'
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function ImportarEstudiantesModal({ open, onClose, onImported }: ImportarEstudiantesModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,6 +25,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
   const [result, setResult] = useState<ImportarEstudiantesResponse | null>(null)
   const [carreras, setCarreras] = useState<CarreraOption[]>([])
   const [showCarreras, setShowCarreras] = useState(false)
+  const [descargando, setDescargando] = useState<'csv' | 'pdf' | null>(null)
 
   useEffect(() => {
     if (!open || !showCarreras || carreras.length > 0) return
@@ -54,6 +45,18 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
     reset()
     setShowCarreras(false)
     onClose()
+  }
+
+  const descargarPlanilla = async (formato: 'csv' | 'pdf') => {
+    setDescargando(formato)
+    setError('')
+    try {
+      await descargarPlanillaEstudiantes(formato)
+    } catch {
+      setError('No se pudo descargar la planilla.')
+    } finally {
+      setDescargando(null)
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,9 +167,24 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
               </p>
               <p className="mt-1 break-words font-mono text-[11px] font-semibold text-[#0439D9]">{COLUMNAS.join(', ')}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                <button type="button" onClick={descargarPlantilla} className="inline-flex items-center gap-1 font-semibold text-[#0439D9] hover:underline">
-                  <Download size={13} aria-hidden="true" /> Descargar plantilla
-                </button>
+                {(['csv', 'pdf'] as const).map((formato) => (
+                  <button
+                    key={formato}
+                    type="button"
+                    onClick={() => void descargarPlanilla(formato)}
+                    disabled={descargando !== null}
+                    className="inline-flex items-center gap-1 font-semibold text-[#0439D9] hover:underline disabled:opacity-60"
+                  >
+                    {descargando === formato ? (
+                      <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />
+                    ) : formato === 'csv' ? (
+                      <Download size={13} aria-hidden="true" />
+                    ) : (
+                      <FileText size={13} aria-hidden="true" />
+                    )}
+                    Descargar planilla {formato.toUpperCase()}
+                  </button>
+                ))}
                 <button type="button" onClick={() => setShowCarreras((v) => !v)} className="font-semibold text-[#0439D9] hover:underline">
                   {showCarreras ? 'Ocultar IDs de carreras' : 'Ver IDs de facultad y carrera'}
                 </button>

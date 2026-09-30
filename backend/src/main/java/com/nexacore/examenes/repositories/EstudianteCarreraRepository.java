@@ -21,4 +21,12 @@ public interface EstudianteCarreraRepository extends JpaRepository<EstudianteCar
         WHERE ec.id.idEstudiante = :idEstudiante
         """)
     List<EstudianteCarrera> findByEstudianteId(@Param("idEstudiante") Integer idEstudiante);
+
+    /** Todas las carreras de todos los estudiantes, con su facultad. Para la planilla de estudiantes. */
+    @Query("""
+        SELECT ec FROM EstudianteCarrera ec
+        JOIN FETCH ec.carrera c
+        JOIN FETCH c.facultad
+        """)
+    List<EstudianteCarrera> findAllConCarreraYFacultad();
 }
