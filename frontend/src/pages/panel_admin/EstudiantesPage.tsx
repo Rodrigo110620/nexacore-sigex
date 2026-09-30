@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { CircleAlert, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CheckCircle2, CircleAlert, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import EstudianteTable from '../../components/estudiantes/EstudianteTable'
 import EstudianteFilters from '../../components/estudiantes/EstudianteFilters'
+import RegistrarEstudianteModal from '../../components/estudiantes/RegistrarEstudianteModal'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -15,6 +16,8 @@ const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idC
 export default function EstudiantesPage() {
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const {
     data,
@@ -31,9 +34,22 @@ export default function EstudiantesPage() {
     // TODO: abrir modal de ficha
   }
 
-  const handleFiltersChange = (next: EstudianteFilterParams) => {
-    setDraftFilters(next)
-    updateFilters({ ...next, search: debouncedSearch.trim() })
+  useEffect(() => {
+    updateFilters({
+      search: debouncedSearch.trim(),
+      idFacultad: draftFilters.idFacultad,
+      idCarrera: draftFilters.idCarrera,
+    })
+  }, [debouncedSearch, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
+
+  const handleFiltersChange = (next: EstudianteFilterParams) => setDraftFilters(next)
+
+  const handleRegistered = (nombre: string) => {
+    setRegisterOpen(false)
+    setSuccessMessage(`${nombre} fue registrado correctamente.`)
+    changePage(0)
+    retry()
+    window.setTimeout(() => setSuccessMessage(''), 5000)
   }
 
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
@@ -47,6 +63,13 @@ export default function EstudiantesPage() {
       >
         <section aria-label="Gestión de estudiantes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
+            <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
+              <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE ESTUDIANTES</h1>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
+                Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados para jornadas de evaluación.
+              </p>
+            </div>
+            {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18}/>{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
                 <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
@@ -63,8 +86,8 @@ export default function EstudiantesPage() {
                   </button>
                   <button
                     type="button"
-                    disabled
-                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0c41e1] disabled:cursor-not-allowed disabled:opacity-70 min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
+                    onClick={() => setRegisterOpen(true)}
+                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
                     <span className="truncate">Registrar Estudiante</span>
@@ -72,6 +95,8 @@ export default function EstudiantesPage() {
                 </div>
               </div>
             </div>
+
+            <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
 
             <div className="flex flex-col">
               {loading ? (

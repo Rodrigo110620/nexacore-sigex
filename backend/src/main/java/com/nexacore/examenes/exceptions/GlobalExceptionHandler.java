@@ -90,6 +90,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
+    @ExceptionHandler(EstudianteDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarEstudianteDuplicado(EstudianteDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
     /** Rol duplicado al intentar crear uno nuevo. */
     @ExceptionHandler(RolDuplicadoException.class)
     public ResponseEntity<ErrorResponse> manejarRolDuplicado(RolDuplicadoException ex) {

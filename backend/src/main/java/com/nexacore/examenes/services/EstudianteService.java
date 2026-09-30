@@ -3,15 +3,20 @@ package com.nexacore.examenes.services;
 import com.nexacore.examenes.dto.CarreraResponse;
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.PageResponse;
+import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
+import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
 import com.nexacore.examenes.models.Carrera;
+import com.nexacore.examenes.models.CarreraId;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteCarrera;
+import com.nexacore.examenes.models.EstudianteCarreraId;
 import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -57,6 +62,60 @@ public class EstudianteService {
                 c.getFacultad().getNombre()
             ))
             .toList();
+    }
+
+    @Transactional
+    public EstudianteListResponse registrar(RegistrarEstudianteRequest request) {
+        String codigoSis = limpiar(request.codigoSis());
+        String ci = limpiar(request.ci());
+        String email = limpiar(request.email()).toLowerCase();
+
+        if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
+            throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
+        }
+        if (estudianteRepository.existsByCiIgnoreCase(ci)) {
+            throw new EstudianteDuplicadoException("Ya existe un estudiante con ese CI.");
+        }
+        if (estudianteRepository.existsByEmailIgnoreCase(email)) {
+            throw new EstudianteDuplicadoException("Ya existe un estudiante con ese correo electrónico.");
+        }
+
+        CarreraId carreraId = new CarreraId();
+        carreraId.setIdCarrera(request.idCarrera());
+        carreraId.setIdFacultad(request.idFacultad());
+        Carrera carrera = carreraRepository.findById(carreraId)
+            .orElseThrow(() -> new IllegalArgumentException("La carrera seleccionada no pertenece a la facultad indicada."));
+
+        Estudiante estudiante = new Estudiante();
+        estudiante.setNombre(limpiar(request.nombre()));
+        estudiante.setApellidos(limpiar(request.apellidos()));
+        estudiante.setCi(ci);
+        estudiante.setEmail(email);
+        estudiante.setCodigoSis(codigoSis);
+        estudiante = estudianteRepository.saveAndFlush(estudiante);
+
+        EstudianteCarreraId relacionId = new EstudianteCarreraId();
+        relacionId.setIdEstudiante(estudiante.getId());
+        relacionId.setIdCarrera(carrera.getId().getIdCarrera());
+        relacionId.setIdFacultad(carrera.getId().getIdFacultad());
+
+        EstudianteCarrera relacion = new EstudianteCarrera();
+        relacion.setId(relacionId);
+        relacion.setEstudiante(estudiante);
+        relacion.setCarrera(carrera);
+        estudianteCarreraRepository.save(relacion);
+
+        return new EstudianteListResponse(
+            estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
+            estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
+                carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
+                carrera.getFacultad().getNombre()
+            ))
+        );
+    }
+
+    private String limpiar(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 
     private EstudianteListResponse toResponse(Estudiante e) {

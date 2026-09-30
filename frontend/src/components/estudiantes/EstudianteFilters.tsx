@@ -62,7 +62,7 @@ export default function EstudianteFilters({ value, onChange, disabled = false }:
               type="search"
               value={value.search}
               onChange={(e) => onChange({ ...value, search: e.target.value })}
-              placeholder="Buscar por nombre, DNI, código universitario"
+              placeholder="Buscar por nombre, CI, código SIS"
               autoComplete="off"
               disabled={disabled }
               className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
