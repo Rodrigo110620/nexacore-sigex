@@ -3,8 +3,8 @@ import { Check, ChevronDown, Plus, Search, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
+import AsociarEstudiantesModal from './AsociarEstudiantesModal'
 import {
-  asociarEstudianteExamen,
   actualizarHabilitacion,
   listarEstudiantesExamen,
   type EstadoHabilitacion,
@@ -61,7 +61,6 @@ export default function EstudiantesHabilitadosTab({
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<number[]>([])
   const [asociarOpen, setAsociarOpen] = useState(false)
-  const [identificador, setIdentificador] = useState('')
   const [saving, setSaving] = useState(false)
   const [cambiar, setCambiar] = useState<EstudianteHabilitacionDto | null>(null)
   const [cambiarEstado, setCambiarEstado] = useState<EstadoHabilitacion>('HABILITADO')
@@ -87,6 +86,8 @@ export default function EstudiantesHabilitadosTab({
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  const asociadosIds = useMemo(() => new Set(estudiantes.map((e) => e.idEstudiante)), [estudiantes])
 
   const facultades = useMemo(
     () => [...new Set(estudiantes.flatMap((e) => e.facultad.split(', ')).filter((f) => f && f !== '—'))].sort(),
@@ -181,11 +182,11 @@ export default function EstudiantesHabilitadosTab({
           {isAdmin && (
             <button
               type="button"
-              onClick={() => { setIdentificador(''); setAsociarOpen(true) }}
+              onClick={() => setAsociarOpen(true)}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1]"
             >
               <Plus size={16} aria-hidden="true" />
-              Asociar Estudiante
+              Asociar Estudiantes
             </button>
           )}
         </div>
@@ -349,43 +350,16 @@ export default function EstudiantesHabilitadosTab({
       )}
 
       {asociarOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form
-            className="w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl"
-            onSubmit={async (event) => {
-              event.preventDefault()
-              setSaving(true)
-              setError('')
-              try {
-                await asociarEstudianteExamen(idExamen, idParalelo, identificador)
-                setAsociarOpen(false)
-                await load()
-              } catch {
-                setError('No se encontró o ya está asociado ese estudiante.')
-              } finally {
-                setSaving(false)
-              }
-            }}
-          >
-            <h3 className="text-base font-bold text-[#011140]">Asociar estudiante</h3>
-            <p className="mt-1 text-sm text-gray-500">Ingresa el código universitario o el CI.</p>
-            <input
-              value={identificador}
-              onChange={(e) => setIdentificador(e.target.value)}
-              required
-              className="mt-4 h-11 w-full rounded-md border border-[#B8CBEF] px-3 text-sm text-[#011140]"
-              placeholder="Ej. 201904725 o 6512340"
-            />
-            <div className="mt-5 flex gap-3">
-              <button type="button" onClick={() => setAsociarOpen(false)} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
-                Cancelar
-              </button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-[#0439D9] py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-                {saving ? 'Asociando…' : 'Asociar'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <AsociarEstudiantesModal
+          idExamen={idExamen}
+          idParalelo={idParalelo}
+          asociados={asociadosIds}
+          onAsociados={(lista) => {
+            setEstudiantes(lista)
+            onCountChange?.(lista.length)
+          }}
+          onClose={() => setAsociarOpen(false)}
+        />
       )}
 
       {cambiar && (
