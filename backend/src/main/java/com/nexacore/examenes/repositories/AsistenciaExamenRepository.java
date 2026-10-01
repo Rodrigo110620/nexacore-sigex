@@ -10,8 +10,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 
 public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExamen, AsistenciaExamenId> {
@@ -58,27 +56,6 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     LocalDateTime obtenerFechaHoraIngreso(
             @Param("idEstudiante") Integer idEstudiante,
             @Param("idExamen") Integer idExamen);
-
-    /** Estudiantes asociados al examen, ordenados por apellidos y nombre (pestaña de habilitación). */
-    @Query("""
-            SELECT a FROM AsistenciaExamen a
-            JOIN FETCH a.estudiante e
-            WHERE a.id.idExamen = :idExamen AND a.idParalelo = :idParalelo
-            ORDER BY e.apellidos, e.nombre, e.id
-            """)
-    List<AsistenciaExamen> listarDelExamen(
-            @Param("idExamen") Integer idExamen,
-            @Param("idParalelo") Integer idParalelo);
-
-    @Query("""
-            SELECT a FROM AsistenciaExamen a
-            WHERE a.id.idExamen = :idExamen AND a.idParalelo = :idParalelo
-              AND a.id.idEstudiante IN :idsEstudiante
-            """)
-    List<AsistenciaExamen> buscarDelExamen(
-            @Param("idExamen") Integer idExamen,
-            @Param("idParalelo") Integer idParalelo,
-            @Param("idsEstudiante") Collection<Integer> idsEstudiante);
 
     @Query(value = "SELECT LOCALTIMESTAMP", nativeQuery = true)
     LocalDateTime obtenerFechaHoraServidor();
