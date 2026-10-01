@@ -12,6 +12,8 @@ import useDebouncedValue from '../../hooks/useDebouncedValue'
 import useEstudiantes from '../../hooks/useEstudiantes'
 import type { EstudianteFilterParams, EstudianteListItem } from '../../types/estudiante'
 import type { ImportarEstudiantesResponse } from '../../services/estudianteService'
+import EstudianteCardList from '../../components/estudiantes/EstudianteCardList'
+import FichaEstudianteModal from '../../components/estudiantes/FichaEstudianteModal'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
@@ -21,6 +23,7 @@ export default function EstudiantesPage() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [fichaEstudiante, setFichaEstudiante] = useState<EstudianteListItem | null>(null)
 
   const {
     data,
@@ -33,8 +36,7 @@ export default function EstudiantesPage() {
   } = useEstudiantes()
 
   const handleViewClick = (estudiante: EstudianteListItem) => {
-    console.log('Ver ficha:', estudiante)
-    // TODO: abrir modal de ficha
+    setFichaEstudiante(estudiante)
   }
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function EstudiantesPage() {
                 Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados para jornadas de evaluación.
               </p>
             </div>
-            {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18}/>{successMessage}</div>}
+            {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
                 <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
@@ -111,6 +113,11 @@ export default function EstudiantesPage() {
 
             <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
             <ImportarEstudiantesModal open={importOpen} onClose={() => setImportOpen(false)} onImported={handleImported} />
+            <FichaEstudianteModal
+              open={Boolean(fichaEstudiante)}
+              estudiante={fichaEstudiante}
+              onClose={() => setFichaEstudiante(null)}
+            />
 
             <div className="flex flex-col">
               {loading ? (
@@ -141,15 +148,22 @@ export default function EstudiantesPage() {
                 </div>
               ) : estudiantes.length > 0 ? (
                 <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
-                  <EstudianteTable estudiantes={estudiantes} onViewClick={handleViewClick} />
-                  <TablePagination
-                    page={data.pagina}
-                    pageSize={data.tamano}
-                    totalRecords={data.totalRegistros}
-                    totalPages={data.totalPaginas}
-                    onPageChange={changePage}
-                    itemLabel="estudiantes matriculados"
-                  />
+                  {/* Móvil: cards */}
+                  <div className="min-[960px]:hidden">
+                    <EstudianteCardList estudiantes={estudiantes} onViewClick={handleViewClick} />
+                  </div>
+                  {/* Desktop: tabla */}
+                  <div className="hidden min-[960px]:block">
+                    <EstudianteTable estudiantes={estudiantes} onViewClick={handleViewClick} />
+                    <TablePagination
+                      page={data.pagina}
+                      pageSize={data.tamano}
+                      totalRecords={data.totalRegistros}
+                      totalPages={data.totalPaginas}
+                      onPageChange={changePage}
+                      itemLabel="estudiantes matriculados"
+                    />
+                  </div>
                 </div>
               ) : (
                 <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes registrados.'} />
