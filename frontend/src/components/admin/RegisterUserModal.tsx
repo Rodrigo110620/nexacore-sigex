@@ -1,4 +1,4 @@
-import { Info, CircleAlert } from 'lucide-react';
+import {CircleAlert } from 'lucide-react';
 import PersonalInfoSection from './PersonalInfoSection';
 import CredentialsSection from './CredentialsSection';
 import RegisterUserHeader from './RegisterUserHeader';
