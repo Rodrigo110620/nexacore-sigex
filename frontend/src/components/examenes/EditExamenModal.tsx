@@ -28,11 +28,13 @@ import {
   isOffline,
   minutesBetween,
   parseHora24,
+  formatearNorma,
   NORMA_MAX,
   todayISO,
   validateExamenForm,
   validateNormaTexto,
 } from '../../utils/examFormUtils'
+import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
@@ -670,7 +672,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               {showAddGeneral && (
                 <div className="mb-2">
                   <div className="flex gap-2">
-                    <input value={nuevaNormaGeneral} onChange={(e) => { setNuevaNormaGeneral(e.target.value); if (normaGeneralError) setNormaGeneralError('') }} placeholder="Escribe la norma… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaGeneralError)} className={fieldClass(normaGeneralError)} />
+                    <input value={nuevaNormaGeneral} onChange={(e) => { setNuevaNormaGeneral(formatearNorma(e.target.value)); if (normaGeneralError) setNormaGeneralError('') }} placeholder="Escribe la norma… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaGeneralError)} className={fieldClass(normaGeneralError)} />
                     <button type="button" onClick={addNormaGeneral} className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white">
                       {editingGeneralId ? 'Guardar' : 'Añadir'}
                     </button>
@@ -728,8 +730,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               {showAddParticular && (
                 <div className="mb-2">
                   <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-                    <input value={nuevaParticularEst} onChange={(e) => { setNuevaParticularEst(e.target.value); if (normaParticularError) setNormaParticularError('') }} placeholder="Estudiante / código" maxLength={100} className={fieldClass()} />
-                    <input value={nuevaParticularTexto} onChange={(e) => { setNuevaParticularTexto(e.target.value); if (normaParticularError) setNormaParticularError('') }} placeholder="Norma o adaptación… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaParticularError)} className={fieldClass(normaParticularError)} />
+                    <input value={nuevaParticularEst} onChange={(e) => { setNuevaParticularEst(toTitleCaseNombre(e.target.value)); if (normaParticularError) setNormaParticularError('') }} placeholder="Estudiante / código" maxLength={100} className={fieldClass()} />
+                    <input value={nuevaParticularTexto} onChange={(e) => { setNuevaParticularTexto(formatearNorma(e.target.value)); if (normaParticularError) setNormaParticularError('') }} placeholder="Norma o adaptación… (10–60)" maxLength={NORMA_MAX} aria-invalid={Boolean(normaParticularError)} className={fieldClass(normaParticularError)} />
                     <button type="button" onClick={addNormaParticular} className="rounded-lg bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">Añadir</button>
                   </div>
                   <div className="mt-1 flex justify-between gap-2 text-[10px]">

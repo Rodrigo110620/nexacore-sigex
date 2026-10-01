@@ -31,11 +31,13 @@ import {
   isOffline,
   minutesBetween,
   parseHora24,
+  formatearNorma,
   NORMA_MAX,
   todayISO,
   validateExamenForm,
   validateNormaTexto,
 } from '../../utils/examFormUtils'
+import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
@@ -876,7 +878,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     <input
                       value={nuevaNormaGeneral}
                       onChange={(e) => {
-                        setNuevaNormaGeneral(e.target.value)
+                        setNuevaNormaGeneral(formatearNorma(e.target.value))
                         if (normaGeneralError) setNormaGeneralError('')
                       }}
                       placeholder="Escribe la norma general… (10–60)"
@@ -971,7 +973,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     <input
                       value={nuevaParticularEst}
                       onChange={(e) => {
-                        setNuevaParticularEst(e.target.value)
+                        setNuevaParticularEst(toTitleCaseNombre(e.target.value))
                         if (normaParticularError) setNormaParticularError('')
                       }}
                       placeholder="Estudiante / código"
@@ -981,7 +983,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     <input
                       value={nuevaParticularTexto}
                       onChange={(e) => {
-                        setNuevaParticularTexto(e.target.value)
+                        setNuevaParticularTexto(formatearNorma(e.target.value))
                         if (normaParticularError) setNormaParticularError('')
                       }}
                       placeholder="Norma o adaptación… (10–60)"
