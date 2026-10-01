@@ -68,6 +68,9 @@ export async function importarEstudiantes(file: File): Promise<ImportarEstudiant
   // api usa application/json por defecto; sin esto axios convertiría el FormData a JSON.
   const { data } = await api.post<ImportarEstudiantesResponse>('/estudiantes/importar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    // Cada fila se guarda en su propia transacción; con una BD remota (Supabase)
+    // la importación tarda bastante más que los 12 s por defecto de api.
+    timeout: 5 * 60 * 1000,
   })
   return data
 }
