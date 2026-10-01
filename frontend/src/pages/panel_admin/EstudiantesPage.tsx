@@ -105,7 +105,7 @@ export default function EstudiantesPage() {
                     className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate">Nuevo</span>
+                    <span className="truncate">Registrar Estudiante</span>
                   </button>
                 </div>
               </div>
@@ -148,22 +148,23 @@ export default function EstudiantesPage() {
                 </div>
               ) : estudiantes.length > 0 ? (
                 <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
-                  {/* Móvil: cards */}
+                  {/* Móvil*/}
                   <div className="min-[960px]:hidden">
                     <EstudianteCardList estudiantes={estudiantes} onViewClick={handleViewClick} />
                   </div>
-                  {/* Desktop: tabla */}
+                  {/* Desktop*/}
                   <div className="hidden min-[960px]:block">
                     <EstudianteTable estudiantes={estudiantes} onViewClick={handleViewClick} />
-                    <TablePagination
-                      page={data.pagina}
-                      pageSize={data.tamano}
-                      totalRecords={data.totalRegistros}
-                      totalPages={data.totalPaginas}
-                      onPageChange={changePage}
-                      itemLabel="estudiantes matriculados"
-                    />
                   </div>
+                  {/*Paginación*/}
+                  <TablePagination
+                    page={data.pagina}
+                    pageSize={data.tamano}
+                    totalRecords={data.totalRegistros}
+                    totalPages={data.totalPaginas}
+                    onPageChange={changePage}
+                    itemLabel="estudiantes matriculados"
+                  />
                 </div>
               ) : (
                 <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes registrados.'} />
