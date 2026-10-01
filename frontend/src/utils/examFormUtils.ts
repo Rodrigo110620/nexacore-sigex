@@ -47,6 +47,12 @@ export function sanitizeCatalogQuery(value: string): string {
     .slice(0, 100)
 }
 
+/** Formato oración, como el registro de usuario: primera letra en mayúscula y el resto en minúscula. */
+export function formatearNorma(value: string): string {
+  const lower = value.toLocaleLowerCase('es-BO')
+  return lower.replace(/[A-Za-záéíóúüñ]/, (letra) => letra.toLocaleUpperCase('es-BO'))
+}
+
 export const NORMA_MIN = 10
 export const NORMA_MAX = 60
 

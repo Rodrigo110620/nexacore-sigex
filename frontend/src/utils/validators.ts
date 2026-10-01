@@ -16,7 +16,7 @@ const NOMBRE_REGEX =
 const LOCALE_NOMBRE = 'es-BO'
 
 /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
-function toTitleCaseNombre(value: string): string {
+export function toTitleCaseNombre(value: string): string {
   return value.replace(
     /[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:['-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*/g,
     (word) =>

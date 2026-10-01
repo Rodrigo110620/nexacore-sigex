@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface EstudianteCarreraRepository extends JpaRepository<EstudianteCarrera, EstudianteCarreraId> {
@@ -29,4 +30,13 @@ public interface EstudianteCarreraRepository extends JpaRepository<EstudianteCar
         JOIN FETCH c.facultad
         """)
     List<EstudianteCarrera> findAllConCarreraYFacultad();
+
+    /** Carreras (con su facultad) de varios estudiantes en una sola consulta. */
+    @Query("""
+        SELECT ec FROM EstudianteCarrera ec
+        JOIN FETCH ec.carrera c
+        JOIN FETCH c.facultad
+        WHERE ec.id.idEstudiante IN :idsEstudiante
+        """)
+    List<EstudianteCarrera> findByEstudianteIds(@Param("idsEstudiante") Collection<Integer> idsEstudiante);
 }

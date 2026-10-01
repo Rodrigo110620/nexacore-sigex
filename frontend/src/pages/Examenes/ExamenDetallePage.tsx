@@ -18,6 +18,7 @@ import {
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import EditExamenModal from '../../components/examenes/EditExamenModal'
+import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabilitadosTab'
 import { useAuth } from '../../context/AuthContext'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
 import {
@@ -93,6 +94,7 @@ export default function ExamenDetallePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [habilitadosCount, setHabilitadosCount] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -220,6 +222,11 @@ export default function ExamenDetallePage() {
                   >
                     <Users size={16} aria-hidden="true" />
                     Estudiantes Habilitados
+                    {habilitadosCount !== null && (
+                      <span className="rounded-full bg-[#E9F1FF] px-2 py-0.5 text-[11px] font-bold text-[#0439D9]">
+                        {habilitadosCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -341,13 +348,12 @@ export default function ExamenDetallePage() {
                   </section>
                 </div>
               ) : (
-                <section className="rounded-2xl border border-dashed border-[#B8CBEF] bg-white px-5 py-12 text-center shadow-sm">
-                  <Users size={32} className="mx-auto text-[#0439D9]/70" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-semibold text-[#011140]">Aún no hay estudiantes habilitados</p>
-                  <p className="mt-1 text-xs text-[#627A9B]">
-                    La habilitación se registra en la inscripción al paralelo (HU4).
-                  </p>
-                </section>
+                <EstudiantesHabilitadosTab
+                  idExamen={examen.idExamen}
+                  idParalelo={examen.idParalelo}
+                  isAdmin={isAdmin}
+                  onCountChange={setHabilitadosCount}
+                />
               )}
             </div>
           )}
