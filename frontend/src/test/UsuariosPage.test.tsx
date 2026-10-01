@@ -67,7 +67,7 @@ describe('UsuariosPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
 
     expect(screen.getByRole('heading', { name: 'Registrar Usuario' })).toBeInTheDocument()
-    expect(screen.getByText('Credenciales por correo')).toBeInTheDocument()
+    expect(screen.queryByText('Credenciales por correo')).not.toBeInTheDocument()
     expect(screen.queryByRole('switch', { name: 'Notificar por email' })).not.toBeInTheDocument()
   })
 
