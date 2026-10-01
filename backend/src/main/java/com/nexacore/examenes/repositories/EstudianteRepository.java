@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
@@ -18,6 +20,10 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     boolean existsByCiIgnoreCase(String ci);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    List<Estudiante> findByCodigoSisIn(Collection<String> codigosSis);
+
+    List<Estudiante> findByCiIn(Collection<String> cis);
 
     /**
      * Estudiante y su habilitación en un examen, en una sola consulta (HU ACCS-01).
@@ -32,7 +38,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     String FILA_ESTUDIANTE_EXAMEN = """
             SELECT new com.nexacore.examenes.dto.EstudianteExamenFila(
                    e.id, e.nombre, e.apellidos, e.codigoSis, e.ci,
-                   (SELECT listagg(c.nombre, ', ') WITHIN GROUP (ORDER BY c.nombre)
+                   (SELECT listagg(cast(c.nombre as String), ', ') WITHIN GROUP (ORDER BY c.nombre)
                       FROM EstudianteCarrera ec JOIN ec.carrera c
                      WHERE ec.id.idEstudiante = e.id),
                    a.id.idExamen, a.habilitado, a.motivoInhabilitacion, a.fechaHoraIngreso)

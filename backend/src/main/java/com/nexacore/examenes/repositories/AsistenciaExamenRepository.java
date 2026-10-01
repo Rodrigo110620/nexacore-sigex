@@ -70,6 +70,10 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
             @Param("idExamen") Integer idExamen,
             @Param("idParalelo") Integer idParalelo);
 
+    /** Ids de los estudiantes ya asociados al examen. */
+    @Query("SELECT a.id.idEstudiante FROM AsistenciaExamen a WHERE a.id.idExamen = :idExamen")
+    List<Integer> idsEstudiantesDelExamen(@Param("idExamen") Integer idExamen);
+
     @Query("""
             SELECT a FROM AsistenciaExamen a
             WHERE a.id.idExamen = :idExamen AND a.idParalelo = :idParalelo

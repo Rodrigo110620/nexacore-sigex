@@ -1,6 +1,8 @@
 package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
+import com.nexacore.examenes.dto.AsociacionLoteResponse;
+import com.nexacore.examenes.dto.AsociarEstudiantesLoteRequest;
 import com.nexacore.examenes.dto.AsociarEstudianteRequest;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
 import com.nexacore.examenes.services.HabilitacionService;
@@ -25,9 +27,12 @@ import java.util.List;
  *
  *   GET  /api/v1/examenes/{idExamen}/{idParalelo}/habilitacion
  *   POST /api/v1/examenes/{idExamen}/{idParalelo}/habilitacion   { identificador }
+ *   POST /api/v1/examenes/{idExamen}/{idParalelo}/habilitacion/lote   { identificadores }
+ *   POST /api/v1/examenes/{idExamen}/{idParalelo}/habilitacion/inscritos
  *   PUT  /api/v1/examenes/{idExamen}/{idParalelo}/habilitacion   { idsEstudiante, estadoHabilitacion, motivo }
  *
- * POST y PUT devuelven el listado actualizado.
+ * Asociar también inscribe al estudiante en el paralelo del examen si no lo estaba.
+ * POST y PUT devuelven el listado actualizado; lote e inscritos lo envuelven con un resumen.
  */
 @Tag(name = "Habilitación", description = "Estudiantes asociados y habilitados para un examen")
 @RestController
@@ -57,6 +62,25 @@ public class HabilitacionController {
             @Valid @RequestBody AsociarEstudianteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(habilitacionService.asociar(idExamen, idParalelo, request.identificador()));
+    }
+
+    @Operation(summary = "Asociar varios estudiantes al examen",
+            description = "Por códigos universitarios o CI. Los ya asociados o inexistentes se informan sin detener al resto.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/lote")
+    public ResponseEntity<AsociacionLoteResponse> asociarLote(
+            @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
+            @Valid @RequestBody AsociarEstudiantesLoteRequest request) {
+        return ResponseEntity.ok(habilitacionService.asociarLote(idExamen, idParalelo, request.identificadores()));
+    }
+
+    @Operation(summary = "Asociar a todos los inscritos del paralelo",
+            description = "Asocia, habilitados, a los inscritos en el paralelo del examen que aún no estén asociados.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/inscritos")
+    public ResponseEntity<AsociacionLoteResponse> asociarInscritos(
+            @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
+        return ResponseEntity.ok(habilitacionService.asociarInscritos(idExamen, idParalelo));
     }
 
     @Operation(summary = "Cambiar habilitación",
