@@ -112,7 +112,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const inputClass = 'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
 
   return (
-    <div className="relative z-20 mt-3 flex w-full justify-center sm:fixed sm:inset-0 sm:mt-0 sm:items-center sm:bg-[#EAF2FF]/85 sm:p-4 sm:backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="register-student-title">
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="register-student-title">
       <div className="w-full overflow-hidden rounded-xl border border-[#D8E3F5] bg-white shadow-xl sm:max-h-[92vh] sm:max-w-[540px] sm:overflow-y-auto sm:rounded-2xl sm:shadow-2xl">
         <header className="flex items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
           <div className="flex gap-3">
