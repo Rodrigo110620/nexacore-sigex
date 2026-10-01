@@ -56,7 +56,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-[#011140] font-medium text-[0.70rem]">
+      <label className="text-[#011140] font-medium text-xs">
         Rol Asignado en Plataforma <span className="text-red-500">*</span>
       </label>
 
@@ -125,7 +125,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
 
       {/* Agregar rol nuevo */}
       <div className="flex flex-col gap-1 mt-1">
-        <p className="text-gray-400 text-[0.60rem] font-medium tracking-wide">AGREGAR ROL</p>
+        <p className="text-gray-400 text-xs font-medium tracking-wide">AGREGAR ROL</p>
         <div className="flex gap-2 items-center">
           <input
             type="text"

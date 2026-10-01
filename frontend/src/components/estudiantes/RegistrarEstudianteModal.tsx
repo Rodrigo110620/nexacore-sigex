@@ -113,7 +113,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="register-student-title">
-      <div className="w-full overflow-hidden rounded-xl border border-[#D8E3F5] bg-white shadow-xl sm:max-h-[92vh] sm:max-w-[540px] sm:overflow-y-auto sm:rounded-2xl sm:shadow-2xl">
+      <div className="w-full overflow-hidden rounded-xl border border-[#D8E3F5] bg-white shadow-xl sm:max-h-[92vh] sm:max-w-2xl sm:overflow-y-auto sm:rounded-2xl sm:shadow-2xl">
         <header className="flex items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
           <div className="flex gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><UserPlus size={19} /></span>
@@ -122,12 +122,12 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
           <button type="button" onClick={close} aria-label="Cerrar" className="rounded p-1 text-[#627A9B] hover:bg-gray-100"><X size={18} /></button>
         </header>
 
-        <div className="grid grid-cols-2 border-b border-[#D8E3F5] px-4 pt-2 text-[10px] font-semibold sm:px-5">
+        <div className="grid grid-cols-2 border-b border-[#D8E3F5] px-4 pt-2 text-[12px] font-semibold sm:px-5">
           <div className={`flex gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0439D9] text-white">{step === 2 ? <Check size={13}/> : '1'}</span><span>Información Personal del Estudiante<br/><small>{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</small></span></div>
           <div className={`flex gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200'}`}>2</span><span>Información Académica<br/><small>{step === 2 ? 'EN CURSO' : 'Pendiente'}</small></span></div>
         </div>
 
-        <div className="space-y-2.5 px-4 py-3 sm:px-5">
+        <div className="space-y-4 px-4 py-3 sm:px-5">
           {apiError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{apiError}</div>}
           {step === 1 ? <>
             <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true }))} placeholder="Ej: María José" className={inputClass}/><FieldError>{errors.nombre}</FieldError></label>

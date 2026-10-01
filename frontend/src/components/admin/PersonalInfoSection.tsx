@@ -23,20 +23,20 @@ export default function PersonalInfoSection({
         </h3>
       </div>
 
-      {/* BUG-C08: Nombres con contador visible */}
+      {/* Nombres */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <label className="text-[#011140] font-medium text-[0.70rem]">
+          <label className="text-[#011140] font-medium text-xs">
             Nombres <span className="text-red-500">*</span>
           </label>
           <span
-            className={`text-[0.65rem] font-medium ${
+            className={`text-xs font-medium ${
               form.nombre.length >= FIELD_LIMITS.nombre.max
                 ? 'text-red-500'
                 : 'text-gray-400'
             }`}
           >
-          {form.nombre.length}/{FIELD_LIMITS.nombre.max}
+            {form.nombre.length}/{FIELD_LIMITS.nombre.max}
           </span>
         </div>
         <input
@@ -57,22 +57,22 @@ export default function PersonalInfoSection({
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
-        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
+        <p className="hidden text-gray-600 text-xs sm:block">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
         {errors.nombre && (
-          <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.nombre}</p>
+          <p className="text-[#B91C1C] text-xs">⚠️ {errors.nombre}</p>
         )}
       </div>
 
-      {/*  BUG-C08: Apellidos con contador visible */}
+      {/* Apellidos */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <label className="text-[#011140] font-medium text-[0.70rem]">
+          <label className="text-[#011140] font-medium text-xs">
             Apellidos Completos <span className="text-red-500">*</span>
           </label>
           <span
-            className={`text-[0.65rem] font-medium ${
+            className={`text-xs font-medium ${
               form.apellidos.length >= FIELD_LIMITS.apellidos.max
                 ? 'text-red-500'
                 : 'text-gray-400'
@@ -99,22 +99,22 @@ export default function PersonalInfoSection({
               : 'border-gray-300 focus:ring-[#E1ECFF]'
           }`}
         />
-        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
+        <p className="hidden text-gray-600 text-xs sm:block">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
         {errors.apellidos && (
-          <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.apellidos}</p>
+          <p className="text-[#B91C1C] text-xs">⚠️ {errors.apellidos}</p>
         )}
       </div>
 
-      {/* BUG-D03: Documento con contador visible */}
+      {/* Documento */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <label className="text-[#011140] font-medium text-[0.70rem]">
+          <label className="text-[#011140] font-medium text-xs">
             Documento de Identidad <span className="text-red-500">*</span>
           </label>
           <span
-            className={`text-[0.65rem] font-medium ${
+            className={`text-xs font-medium ${
               form.documento.length >= FIELD_LIMITS.documento.max
                 ? 'text-red-500'
                 : 'text-gray-400'
@@ -145,11 +145,11 @@ export default function PersonalInfoSection({
             }`}
           />
         </div>
-        <p className="hidden text-gray-600 text-[0.60rem] sm:block">
-          Solo numeros · Máximo {FIELD_LIMITS.documento.max} caracteres
+        <p className="hidden text-gray-600 text-xs sm:block">
+          Solo números · Máximo {FIELD_LIMITS.documento.max} caracteres
         </p>
         {errors.documento && (
-          <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errors.documento}</p>
+          <p className="text-[#B91C1C] text-xs">⚠️ {errors.documento}</p>
         )}
       </div>
     </div>

@@ -1,16 +1,11 @@
 import { Building2, GraduationCap, Mail, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
+import { getAvatarColorById, getInitials } from './avatarColors'
 
 interface Props {
   open: boolean
   estudiante: EstudianteListItem | null
   onClose: () => void
-}
-
-function getInitials(nombre: string, apellidos: string): string {
-  const n = nombre?.charAt(0)?.toUpperCase() ?? ''
-  const a = apellidos?.charAt(0)?.toUpperCase() ?? ''
-  return `${n}${a}` || 'E'
 }
 
 export default function FichaEstudianteModal({ open, estudiante, onClose }: Props) {
@@ -32,14 +27,14 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
           <div className="flex items-start gap-3">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 id="ficha-estudiante-title" className=" px-2 text-base font-bold text-[#011140] sm:text-lg">
+                <h2 id="ficha-estudiante-title" className="px-2 text-base font-bold text-[#011140] sm:text-lg">
                   Ficha del Estudiante
                 </h2>
                 <span className="inline-flex items-center gap-1 rounded bg-[#F1F6FF] px-3 py-0.5 text-[10px] font-bold tracking-wide text-[#627A9B]">
                   MODO SOLO LECTURA
                 </span>
               </div>
-              <p className="text-[11px] px-2 text-[#627A9B] sm:text-xs">
+              <p className="px-2 text-[11px] text-[#627A9B] sm:text-xs">
                 Información registrada en el padrón central de SIGEX.
               </p>
             </div>
@@ -56,9 +51,10 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
 
         {/* ===== CONTENIDO ===== */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+
           {/* Avatar */}
           <div className="mb-5 mx-auto flex items-center justify-center gap-3 p-3">
-            <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#0439D9] text-lg font-bold text-white sm:h-20 sm:w-24 sm:text-xl">
+            <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-lg font-bold sm:h-20 sm:w-24 sm:text-xl ${getAvatarColorById(estudiante.id)}`}>
               {getInitials(estudiante.nombre, estudiante.apellidos)}
             </span>
           </div>
