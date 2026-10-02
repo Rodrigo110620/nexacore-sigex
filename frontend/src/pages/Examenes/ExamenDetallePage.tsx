@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Hourglass,
+  LoaderCircle,
   MapPin,
   Monitor,
   Pencil,
@@ -39,7 +40,7 @@ const PARTICULAR_PALETTES = [
 
 function InfoChip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <li className="flex min-w-0 items-center gap-2 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-2 text-sm text-[#011140]">
+    <li className="flex min-w-0 items-center gap-2 text-sm text-[#011140] min-[960px]:rounded-lg min-[960px]:border min-[960px]:border-[#EDF1F7] min-[960px]:bg-[#F8FAFC] min-[960px]:px-3 min-[960px]:py-2">
       <span className="shrink-0 text-[#627A9B]">{icon}</span>
       <span className="truncate">{children}</span>
     </li>
@@ -141,9 +142,10 @@ export default function ExamenDetallePage() {
           </Link>
 
           {loading ? (
-            <p className="rounded-xl border border-[#D8E3F5] bg-white px-6 py-12 text-center text-sm text-gray-500">
-              Cargando detalle…
-            </p>
+            <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
+              <LoaderCircle className="mx-auto animate-spin text-[#0439D9]" size={30} aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold">Cargando examen...</p>
+            </div>
           ) : error || !examen ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error || 'No se encontró el examen.'}
@@ -151,28 +153,27 @@ export default function ExamenDetallePage() {
           ) : (
             <div className="flex flex-col gap-4">
               <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
-                <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:items-start min-[960px]:justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">{examen.asignatura}</h1>
-                      <EstadoPill cancelado={cancelado} label={estadoLabel(examen.estado)} />
-                      <span className="rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#627A9B]">
+                      <span className="rounded-md border border-[#BFD2F8] bg-[#EAF2FF] px-2 py-0.5 text-[11px] font-semibold text-[#0439D9] min-[960px]:border-[#D8E3F5] min-[960px]:bg-[#F8FAFC] min-[960px]:text-[#627A9B]">
                         {codigoExamen(examen)}
                       </span>
+                      <span className="hidden min-[960px]:inline-flex">
+                        <EstadoPill cancelado={cancelado} label={estadoLabel(examen.estado)} />
+                      </span>
                     </div>
-                    <ul className="mt-3 grid grid-cols-2 gap-2 min-[960px]:flex min-[960px]:flex-wrap">
-                      <InfoChip icon={<CalendarDays size={15} aria-hidden="true" />}>{formatFecha(examen.fecha)}</InfoChip>
-                      <InfoChip icon={<Clock size={15} aria-hidden="true" />}>{horaCorta(examen.horaInicio)} hrs</InfoChip>
-                      <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
-                      <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
-                    </ul>
+                    <div className="mt-2 min-[960px]:hidden">
+                      <EstadoPill cancelado={cancelado} label={estadoLabel(examen.estado)} />
+                    </div>
                   </div>
                   {isAdmin && (
-                    <div className="grid grid-cols-2 gap-2 min-[960px]:flex min-[960px]:shrink-0">
+                    <div className="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setEditOpen(true)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC] min-[960px]:px-4"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-[#F8FAFC] px-3 text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] min-[960px]:bg-white min-[960px]:px-4"
                       >
                         <Pencil size={14} aria-hidden="true" />
                         <span className="min-[960px]:hidden">Editar</span>
@@ -182,15 +183,22 @@ export default function ExamenDetallePage() {
                         <button
                           type="button"
                           onClick={() => setCancelOpen(true)}
-                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-red-100 bg-red-50 px-3 text-sm font-semibold text-red-600 hover:bg-red-100 min-[960px]:px-4"
+                          aria-label="Eliminar examen"
+                          className="inline-flex h-9 w-9 items-center justify-center whitespace-nowrap rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 min-[960px]:w-auto min-[960px]:gap-1.5 min-[960px]:border-red-100 min-[960px]:bg-red-50 min-[960px]:px-4 min-[960px]:text-sm min-[960px]:font-semibold"
                         >
-                          <Trash2 size={14} aria-hidden="true" />
-                          Eliminar
+                          <Trash2 size={15} aria-hidden="true" />
+                          <span className="hidden min-[960px]:inline">Eliminar</span>
                         </button>
                       )}
                     </div>
                   )}
                 </div>
+                <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 min-[960px]:flex min-[960px]:flex-wrap min-[960px]:gap-2">
+                  <InfoChip icon={<CalendarDays size={15} aria-hidden="true" />}>{formatFecha(examen.fecha)}</InfoChip>
+                  <InfoChip icon={<Clock size={15} aria-hidden="true" />}>{horaCorta(examen.horaInicio)}<span className="hidden min-[960px]:inline"> hrs</span></InfoChip>
+                  <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
+                  <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
+                </ul>
               </section>
 
               <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
@@ -243,7 +251,7 @@ export default function ExamenDetallePage() {
                           Datos generales
                         </h2>
                       </div>
-                      <span className="shrink-0 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#627A9B]">
+                      <span className="shrink-0 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-semibold text-[#627A9B]">
                         CONF-{codigoExamen(examen)}
                       </span>
                     </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2, User } from 'lucide-react'
 import { getUsers } from '../../services/userService'
 import type { UserListItem } from '../../types/user'
-import { sanitizeCatalogQuery } from '../../utils/examFormUtils'
+import { sanitizeCatalogQuery, toTitleCaseTexto } from '../../utils/examFormUtils'
 
 interface DocenteAutocompleteProps {
   id: string
@@ -109,7 +109,7 @@ export default function DocenteAutocomplete({ id, value, error, onChange, onSele
             </li>
           ) : (
             results.map((d) => {
-              const nombreCompleto = `${d.nombre} ${d.apellidos}`.trim()
+              const nombreCompleto = toTitleCaseTexto(`${d.nombre} ${d.apellidos}`.trim())
               const titulo = d.titulo?.trim()
               return (
                 <li key={d.id}>

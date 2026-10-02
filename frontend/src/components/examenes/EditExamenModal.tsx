@@ -29,6 +29,7 @@ import {
   minutesBetween,
   parseHora24,
   formatearNorma,
+  toTitleCaseTexto,
   NORMA_MAX,
   todayISO,
   validateExamenForm,
@@ -229,7 +230,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     }`
   const sectionCardClass = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
 
-  const handleChange = (field: keyof RegisterExamenFormState, value: string) => {
+  const handleChange = (field: keyof RegisterExamenFormState, raw: string) => {
+    const value = field === 'asignatura' || field === 'docente' ? toTitleCaseTexto(raw) : raw
     setForm((prev) => ({ ...prev, [field]: value }))
     setDirty(true)
     if (field === 'asignatura') { setAsignaturaOk(false); setIdMateria(null) }
@@ -278,8 +280,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     setGeneralError('')
     try {
       const actualizado = await actualizarExamen(examen.idExamen, examen.idParalelo, {
-        asignatura: form.asignatura.trim(),
-        docente: form.docente.trim(),
+        asignatura: toTitleCaseTexto(form.asignatura.trim()),
+        docente: toTitleCaseTexto(form.docente.trim()),
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: dur,

@@ -47,6 +47,20 @@ export function sanitizeCatalogQuery(value: string): string {
     .slice(0, 100)
 }
 
+const NUMERO_ROMANO = /^(?=[ivxlc]+$)c{0,3}(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$/
+
+/**
+ * Formato Título como el registro de usuario y estudiantes: primera letra de cada palabra
+ * en mayúscula y el resto en minúscula. Los números romanos quedan en mayúscula ("Cálculo II").
+ */
+export function toTitleCaseTexto(value: string): string {
+  return value.replace(/[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+/g, (palabra) => {
+    const lower = palabra.toLocaleLowerCase('es-BO')
+    if (NUMERO_ROMANO.test(lower)) return lower.toLocaleUpperCase('es-BO')
+    return lower.charAt(0).toLocaleUpperCase('es-BO') + lower.slice(1)
+  })
+}
+
 /** Formato oración, como el registro de usuario: primera letra en mayúscula y el resto en minúscula. */
 export function formatearNorma(value: string): string {
   const lower = value.toLocaleLowerCase('es-BO')

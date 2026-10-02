@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -141,7 +141,7 @@ export default function EstudiantesHabilitadosTab({
               type="search"
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(0) }}
-              placeholder="Buscar por nombre, CI, código SIS"
+              placeholder="Buscar por nombre, CI o código…"
               autoComplete="off"
               aria-label="Buscar estudiantes"
               className="h-11 w-full rounded-md border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
@@ -149,7 +149,7 @@ export default function EstudiantesHabilitadosTab({
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm font-medium text-[#627A9B] lg:inline">Filtros:</span>
-            <div className="grid grid-cols-2 gap-2 lg:w-[20rem]">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:w-[20rem] lg:flex-none">
               <div className="relative">
                 <select
                   value={facultad}
@@ -178,17 +178,18 @@ export default function EstudiantesHabilitadosTab({
                 <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
               </div>
             </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setAsociarOpen(true)}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0c41e1] lg:gap-2 lg:px-4"
+              >
+                <Plus size={16} aria-hidden="true" />
+                <span className="lg:hidden">Asociar</span>
+                <span className="hidden lg:inline">Asociar Estudiantes</span>
+              </button>
+            )}
           </div>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setAsociarOpen(true)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1]"
-            >
-              <Plus size={16} aria-hidden="true" />
-              Asociar Estudiantes
-            </button>
-          )}
         </div>
       </div>
 
@@ -197,12 +198,85 @@ export default function EstudiantesHabilitadosTab({
       )}
 
       {loading ? (
-        <p className="rounded-lg border border-[#D8E3F5] bg-white px-6 py-10 text-center text-sm text-gray-500">
-          Cargando estudiantes…
-        </p>
+        <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
+          <LoaderCircle className="mx-auto animate-spin text-[#0439D9]" size={30} aria-hidden="true" />
+          <p className="mt-3 text-sm font-semibold">Cargando estudiantes...</p>
+        </div>
       ) : (
         <>
-          <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
+          <ul className="flex flex-col gap-3 min-[960px]:hidden">
+            {paged.length === 0 ? (
+              <li className="rounded-xl border border-[#D8E3F5] bg-white px-4 py-10 text-center text-sm text-gray-500">
+                {hasActiveFilters
+                  ? 'Sin resultados para los filtros aplicados.'
+                  : 'No hay estudiantes asociados a este examen.'}
+              </li>
+            ) : paged.map((e, index) => {
+              const noHabilitado = e.estadoHabilitacion === 'NO_HABILITADO'
+              return (
+                <li
+                  key={e.idEstudiante}
+                  className={`rounded-xl border bg-white shadow-sm ${noHabilitado ? 'border-[#FBCFD4]' : 'border-[#D8E3F5]'}`}
+                >
+                  <div className="flex items-start gap-3 p-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(e.idEstudiante)}
+                      onChange={(ev) => {
+                        setSelected((prev) => (
+                          ev.target.checked
+                            ? [...prev, e.idEstudiante]
+                            : prev.filter((id) => id !== e.idEstudiante)
+                        ))
+                      }}
+                      aria-label={`Seleccionar a ${e.nombre} ${e.apellidos}`}
+                      className="mt-1 h-4 w-4 shrink-0"
+                    />
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
+                      {initialsOfName(`${e.nombre} ${e.apellidos}`)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[#011140]">{e.nombre} {e.apellidos}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
+                      <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
+                    </div>
+                    {noHabilitado ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#FBCFD4] bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
+                        <X size={12} strokeWidth={3} aria-hidden="true" />
+                        No habilitado
+                      </span>
+                    ) : (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
+                        <Check size={12} strokeWidth={3} aria-hidden="true" />
+                        Habilitado
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-end justify-between gap-3 border-t border-[#EDF1F7] px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Motivo / Razón</p>
+                      <p className={`text-sm ${noHabilitado ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>{e.motivo || '—'}</p>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCambiar(e)
+                          setCambiarEstado(e.estadoHabilitacion)
+                          setCambiarMotivo(e.motivo ?? '')
+                        }}
+                        className="inline-flex h-9 shrink-0 items-center rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC]"
+                      >
+                        Cambiar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+
+          <div className="hidden max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white min-[960px]:block">
             <table className="w-full min-w-[860px] text-left">
               <caption className="sr-only">Estudiantes habilitados del examen</caption>
               <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
@@ -301,38 +375,45 @@ export default function EstudiantesHabilitadosTab({
             </table>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <label className="inline-flex items-center gap-2 text-sm text-[#011140]">
-              <input
-                type="checkbox"
-                checked={filtered.length > 0 && filtered.every((e) => selected.includes(e.idEstudiante))}
-                onChange={(e) => {
-                  setSelected(e.target.checked ? filtered.map((s) => s.idEstudiante) : [])
-                }}
-              />
-              Seleccionar todos
-              <span className="text-[#627A9B]">{selected.length} de {filtered.length} seleccionados</span>
-              <span className="hidden text-[#627A9B] sm:inline">Acciones por bloque</span>
-            </label>
+          <div className="flex flex-col gap-3 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 min-[960px]:flex-row min-[960px]:items-center min-[960px]:justify-between">
+            <div className="flex items-center justify-between gap-2 text-sm text-[#011140] min-[960px]:justify-start">
+              <label className="inline-flex items-center gap-2 font-semibold min-[960px]:font-normal">
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && filtered.every((e) => selected.includes(e.idEstudiante))}
+                  onChange={(e) => {
+                    setSelected(e.target.checked ? filtered.map((s) => s.idEstudiante) : [])
+                  }}
+                  className="h-4 w-4"
+                />
+                Seleccionar todos
+              </label>
+              <span className="text-[#627A9B]">
+                <span className="font-bold text-[#011140]">{selected.length}</span> de {filtered.length} seleccionados
+              </span>
+              <span className="hidden text-[#627A9B] min-[960px]:inline">Acciones por bloque</span>
+            </div>
             {isAdmin && (
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-2 min-[960px]:flex">
                 <button
                   type="button"
                   disabled={selected.length === 0 || saving}
                   onClick={() => void applyEstado(selected, 'HABILITADO', 'Matrícula regular confirmada')}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={15} aria-hidden="true" />
-                  Habilitar seleccionados
+                  <span className="min-[960px]:hidden">Habilitar selección</span>
+                  <span className="hidden min-[960px]:inline">Habilitar seleccionados</span>
                 </button>
                 <button
                   type="button"
                   disabled={selected.length === 0 || saving}
                   onClick={() => void applyEstado(selected, 'NO_HABILITADO', 'Razón: Deuda / bloqueo SIGA')}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <X size={15} aria-hidden="true" />
-                  Deshabilitar seleccionados
+                  <span className="min-[960px]:hidden">Deshabilitar</span>
+                  <span className="hidden min-[960px]:inline">Deshabilitar seleccionados</span>
                 </button>
               </div>
             )}
