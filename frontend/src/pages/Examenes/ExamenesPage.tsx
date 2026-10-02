@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, BookCheck, CalendarDays, ChevronDown, ClipboardList, Clock, Eye, MapPin, Plus, Search, Upload } from 'lucide-react'
+import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
@@ -116,16 +116,11 @@ export default function ExamenesPage() {
       >
         <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-4 flex items-start gap-3 min-[960px]:hidden">
-              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9]">
-                <ClipboardList size={22} aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="text-base font-extrabold tracking-wide text-[#011140]">GESTIÓN DE EXÁMENES</h1>
-                <p className="mt-0.5 text-xs leading-snug text-[#627A9B]">
-                  Administra los exámenes programados y su habilitación.
-                </p>
-              </div>
+            <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
+              <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE EXÁMENES</h1>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
+                Administra los exámenes programados y su habilitación.
+              </p>
             </div>
 
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
@@ -271,9 +266,10 @@ export default function ExamenesPage() {
 
             <div>
             {loading ? (
-              <p className="rounded-lg border border-[#B8CBEF] bg-white px-6 py-12 text-center text-sm text-gray-500">
-                Cargando exámenes…
-              </p>
+              <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
+              <LoaderCircle className="mx-auto animate-spin text-[#0439D9]" size={30} aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold">Cargando exámenes...</p>
+            </div>
             ) : filtered.length === 0 ? (
               <section className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#B8CBEF] bg-white/70 px-4 py-14 text-center">
                 <BookCheck size={36} className="mb-3 text-[#0439D9]/70" aria-hidden="true" />
@@ -297,8 +293,8 @@ export default function ExamenesPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold leading-tight text-[#011140]">{e.asignatura}</p>
-                              <p className="mt-0.5 text-[11px] text-gray-500">Cód: {e.sigla || '—'}</p>
+                              <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
+                              <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
                             </div>
                             <EstadoDot estado={e.estado} />
                           </div>

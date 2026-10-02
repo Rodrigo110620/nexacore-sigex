@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BookOpen, Loader2 } from 'lucide-react'
 import { buscarMaterias, type MateriaDto } from '../../services/materiaService'
-import { sanitizeCatalogQuery } from '../../utils/examFormUtils'
+import { sanitizeCatalogQuery, toTitleCaseTexto } from '../../utils/examFormUtils'
 
 interface AsignaturaAutocompleteProps {
   id: string
@@ -118,7 +118,7 @@ export default function AsignaturaAutocomplete({
                 <button
                   type="button"
                   role="option"
-                  aria-selected={value === m.nombre}
+                  aria-selected={value === toTitleCaseTexto(m.nombre)}
                   onClick={() => {
                     onSelect(m)
                     setOpen(false)
@@ -126,7 +126,7 @@ export default function AsignaturaAutocomplete({
                   className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-[#E9F1FF]"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-xs font-semibold text-[#011140]">{m.nombre}</span>
+                    <span className="block truncate text-xs font-semibold text-[#011140]">{toTitleCaseTexto(m.nombre)}</span>
                     <span className="block truncate text-[10px] text-gray-500">Cód: {m.sigla}</span>
                   </span>
                 </button>
