@@ -146,6 +146,18 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void rechazaEstudiantePendienteDeHabilitacion() {
+        asistencia.setHabilitado(null);
+
+        var response = service.autorizar(requestVacio(), "control@umss.edu.bo");
+
+        assertFalse(response.autorizado());
+        assertEquals("DENEGADO_NO_HABILITADO", response.resultado());
+        assertEquals("El estudiante está pendiente de habilitación para este examen", response.causa());
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
+    }
+
+    @Test
     void impideAutorizarDosVeces() {
         asistencia.setFechaHoraIngreso(LocalDateTime.parse("2026-09-25T12:00:00"));
 

@@ -134,7 +134,7 @@ export default function AsociarEstudiantesModal({
       >
         <h3 className="text-base font-bold text-[#011140]">Asociar estudiantes</h3>
         <p className="mt-1 text-sm text-gray-500">
-          Quedan habilitados y, si no lo estaban, inscritos en el paralelo de este examen.
+          Quedan pendientes de habilitación y, si no lo estaban, inscritos en el paralelo de este examen.
         </p>
 
         <div role="tablist" className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-[#EEF3FC] p-1">
@@ -234,7 +234,7 @@ export default function AsociarEstudiantesModal({
 
           {modo === 'inscritos' && (
             <p className="rounded-lg border border-[#D8E3F5] bg-[#F7F9FE] px-3 py-3 text-sm text-[#011140]">
-              Se asociarán, habilitados, todos los estudiantes inscritos en el paralelo de este examen
+              Se asociarán, pendientes de habilitación, todos los estudiantes inscritos en el paralelo de este examen
               (misma materia y docente) que todavía no estén asociados.
             </p>
           )}

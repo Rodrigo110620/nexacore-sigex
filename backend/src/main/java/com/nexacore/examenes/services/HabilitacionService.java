@@ -41,8 +41,8 @@ import java.util.stream.Collectors;
  * Habilitación de estudiantes en un examen (pestaña "Estudiantes habilitados").
  *
  * Trabaja sobre asistencia_examen: tener fila significa estar asociado al examen y
- * la columna habilitado decide el estado (false → NO_HABILITADO; true o null → HABILITADO,
- * igual que en el control de ingreso). Si el examen no existe responde 404.
+ * la columna habilitado decide el estado (true → HABILITADO; false → NO_HABILITADO;
+ * null → PENDIENTE, el estado con el que queda al asociarse). Si el examen no existe responde 404.
  *
  * Asociar también inscribe al estudiante en el paralelo del examen (misma materia y
  * docente) si aún no lo estaba, para que inscripcion_paralelo refleje quién rinde.
@@ -77,7 +77,7 @@ public class HabilitacionService {
     }
 
     /**
-     * Asocia al examen al estudiante con ese código universitario o CI, habilitado.
+     * Asocia al examen al estudiante con ese código universitario o CI, pendiente de habilitación.
      *
      * @throws EstudianteNoEncontradoException si no existe (404)
      * @throws EstudianteDuplicadoException    si ya está asociado al examen (409)
@@ -153,30 +153,35 @@ public class HabilitacionService {
 
     /**
      * Cambia la habilitación de los estudiantes indicados; todos deben estar asociados al examen.
+     * NO_HABILITADO exige motivo; PENDIENTE lo descarta.
      *
-     * @throws IllegalArgumentException si alguno no está asociado (400)
+     * @throws IllegalArgumentException si falta el motivo o alguno no está asociado (400)
      */
     @Transactional
     public List<EstudianteHabilitacionResponse> actualizar(Integer idExamen, Integer idParalelo,
                                                            ActualizarHabilitacionRequest request) {
+        EstadoHabilitacion estado = request.estadoHabilitacion();
+        String motivo = request.motivo() == null || request.motivo().isBlank() ? null : request.motivo().trim();
+        if (estado == EstadoHabilitacion.NO_HABILITADO && motivo == null) {
+            throw new IllegalArgumentException("Indique la razón por la que el estudiante no está habilitado");
+        }
         buscarExamen(idExamen, idParalelo);
         Set<Integer> ids = new HashSet<>(request.idsEstudiante());
         List<AsistenciaExamen> asistencias = asistenciaExamenRepository.buscarDelExamen(idExamen, idParalelo, ids);
         if (asistencias.size() != ids.size()) {
             throw new IllegalArgumentException("Algunos estudiantes seleccionados no están asociados a este examen");
         }
-        boolean habilitado = request.estadoHabilitacion() == EstadoHabilitacion.HABILITADO;
-        String motivo = request.motivo() == null || request.motivo().isBlank() ? null : request.motivo().trim();
+        Boolean habilitado = estado == EstadoHabilitacion.PENDIENTE ? null : estado == EstadoHabilitacion.HABILITADO;
         for (AsistenciaExamen asistencia : asistencias) {
             asistencia.setHabilitado(habilitado);
-            asistencia.setMotivoInhabilitacion(motivo);
+            asistencia.setMotivoInhabilitacion(estado == EstadoHabilitacion.PENDIENTE ? null : motivo);
         }
         asistenciaExamenRepository.saveAllAndFlush(asistencias);
         return listarSinVerificar(idExamen, idParalelo);
     }
 
     /**
-     * Inscribe en el paralelo del examen a quienes no lo estén y los asocia al examen habilitados.
+     * Inscribe en el paralelo del examen a quienes no lo estén y los asocia al examen pendientes de habilitación.
      * Quien llama ya descartó a los asociados.
      */
     private void registrar(Examen examen, Collection<Integer> idsEstudiante) {
@@ -214,7 +219,7 @@ public class HabilitacionService {
             asistencia.setId(id);
             asistencia.setIdParalelo(idParalelo);
             asistencia.setEstudiante(estudiante);
-            asistencia.setHabilitado(true);
+            // habilitado queda en null: PENDIENTE hasta que se habilite o deshabilite.
             asistencias.add(asistencia);
         }
         inscripcionParaleloRepository.saveAll(inscripciones);
@@ -249,9 +254,9 @@ public class HabilitacionService {
                                         nombres -> String.join(", ", nombres)))));
         return asistencias.stream().map(a -> {
             Estudiante e = a.getEstudiante();
-            EstadoHabilitacion estado = Boolean.FALSE.equals(a.getHabilitado())
-                    ? EstadoHabilitacion.NO_HABILITADO
-                    : EstadoHabilitacion.HABILITADO;
+            EstadoHabilitacion estado = a.getHabilitado() == null
+                    ? EstadoHabilitacion.PENDIENTE
+                    : a.getHabilitado() ? EstadoHabilitacion.HABILITADO : EstadoHabilitacion.NO_HABILITADO;
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion());
         }).toList();

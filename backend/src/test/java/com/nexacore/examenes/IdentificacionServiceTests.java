@@ -62,7 +62,7 @@ class IdentificacionServiceTests {
     @CsvSource({
             "7, true,  HABILITADO",
             "7, false, DESHABILITADO",
-            "7,     ,  HABILITADO",
+            "7,     ,  DESHABILITADO",
             " ,     ,  NO_VINCULADO"
     })
     void resuelveElEstadoSegunLaHabilitacionEnElExamen(Integer idExamen, Boolean habilitado,
@@ -78,7 +78,10 @@ class IdentificacionServiceTests {
         assertEquals("Zoe", respuesta.nombre());
         assertEquals("201901234", respuesta.codigoSis());
         assertEquals("Ingeniería de Sistemas", respuesta.carrera());
-        assertEquals(esperado == DESHABILITADO ? "Deuda en biblioteca" : null, respuesta.motivoInhabilitacion());
+        // Sin decisión (habilitado null) está pendiente: se informa así en vez del motivo guardado.
+        String motivoEsperado = esperado != DESHABILITADO ? null
+                : habilitado == null ? IdentificacionService.MOTIVO_PENDIENTE : "Deuda en biblioteca";
+        assertEquals(motivoEsperado, respuesta.motivoInhabilitacion());
         assertNull(respuesta.fotoUrl());
     }
 
@@ -99,7 +102,7 @@ class IdentificacionServiceTests {
     }
 
     @Test
-    void listaAsignadosConEstadoPorDefectoYLosLimitesDePaginaDeUsuarios() {
+    void listaAsignadosConPendienteComoNoHabilitadoYLosLimitesDePaginaDeUsuarios() {
         PageRequest pagina = PageRequest.of(0, 100);
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
         when(estudianteRepository.listarAsignadosAlExamen(ID_EXAMEN, "TODOS", pagina)).thenReturn(new PageImpl<>(
@@ -113,10 +116,11 @@ class IdentificacionServiceTests {
         assertEquals(DESHABILITADO, deshabilitado.estado());
         assertEquals("Deuda en biblioteca", deshabilitado.motivoInhabilitacion());
         assertTrue(deshabilitado.ingresado());
-        EstudianteAsignadoResponse habilitadoPorDefecto = respuesta.contenido().get(1);
-        assertEquals(HABILITADO, habilitadoPorDefecto.estado());
-        assertNull(habilitadoPorDefecto.motivoInhabilitacion());
-        assertFalse(habilitadoPorDefecto.ingresado());
+        // habilitado null = pendiente de habilitación: no puede ingresar y se informa como motivo.
+        EstudianteAsignadoResponse pendiente = respuesta.contenido().get(1);
+        assertEquals(DESHABILITADO, pendiente.estado());
+        assertEquals(IdentificacionService.MOTIVO_PENDIENTE, pendiente.motivoInhabilitacion());
+        assertFalse(pendiente.ingresado());
     }
 
     @Test

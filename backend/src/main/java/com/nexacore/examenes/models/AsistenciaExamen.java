@@ -11,7 +11,6 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -39,7 +38,6 @@ public class AsistenciaExamen {
     })
     private Examen examen;
 
-    @ColumnDefault("true")
     @Column(name = "habilitado")
     private Boolean habilitado;
 
