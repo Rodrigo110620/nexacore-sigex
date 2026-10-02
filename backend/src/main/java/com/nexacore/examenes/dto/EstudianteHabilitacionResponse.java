@@ -14,6 +14,6 @@ public record EstudianteHabilitacionResponse(
         EstadoHabilitacion estadoHabilitacion,
         String motivo
 ) {
-    /** Refleja asistencia_examen.habilitado: false → NO_HABILITADO; true o null → HABILITADO. */
-    public enum EstadoHabilitacion { HABILITADO, NO_HABILITADO }
+    /** Refleja asistencia_examen.habilitado: true → HABILITADO; false → NO_HABILITADO; null → PENDIENTE. */
+    public enum EstadoHabilitacion { PENDIENTE, HABILITADO, NO_HABILITADO }
 }

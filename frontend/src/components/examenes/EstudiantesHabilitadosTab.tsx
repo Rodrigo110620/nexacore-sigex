@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, LoaderCircle, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -27,16 +27,37 @@ function estadoVisual(estado: EstadoHabilitacion) {
       label: 'Habilitado',
       className: 'text-[#15803D]',
       iconWrap: 'bg-[#22C55E] text-white',
+      badge: 'border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]',
       icon: 'check' as const,
+    }
+  }
+  if (estado === 'PENDIENTE') {
+    return {
+      label: 'Pendiente',
+      className: 'text-[#B45309]',
+      iconWrap: 'bg-[#F59E0B] text-white',
+      badge: 'border-[#FDE68A] bg-[#FFF8E7] text-[#B45309]',
+      icon: 'pending' as const,
     }
   }
   return {
     label: 'No habilitado',
     className: 'text-[#B91C1C]',
     iconWrap: 'bg-[#EF4444] text-white',
+    badge: 'border-[#FBCFD4] bg-[#FEF2F2] text-[#B91C1C]',
     icon: 'x' as const,
   }
 }
+
+function EstadoIcono({ icon }: { icon: ReturnType<typeof estadoVisual>['icon'] }) {
+  if (icon === 'check') return <Check size={12} strokeWidth={3} aria-hidden="true" />
+  if (icon === 'pending') return <Hourglass size={11} strokeWidth={2.5} aria-hidden="true" />
+  return <X size={12} strokeWidth={3} aria-hidden="true" />
+}
+
+/** Mensaje del backend (ErrorResponse.mensaje) o el genérico. */
+const mensajeDeError = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje || fallback
 
 interface EstudiantesHabilitadosTabProps {
   idExamen: number
@@ -62,9 +83,11 @@ export default function EstudiantesHabilitadosTab({
   const [selected, setSelected] = useState<number[]>([])
   const [asociarOpen, setAsociarOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [cambiar, setCambiar] = useState<EstudianteHabilitacionDto | null>(null)
+  /** Estudiantes a los que se les cambia el estado desde el modal (uno con "Cambiar" o varios al deshabilitar). */
+  const [cambio, setCambio] = useState<{ ids: number[]; titulo: string } | null>(null)
   const [cambiarEstado, setCambiarEstado] = useState<EstadoHabilitacion>('HABILITADO')
   const [cambiarMotivo, setCambiarMotivo] = useState('')
+  const [motivoError, setMotivoError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -111,6 +134,17 @@ export default function EstudiantesHabilitadosTab({
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
   const allPageSelected = paged.length > 0 && paged.every((e) => selected.includes(e.idEstudiante))
 
+  const abrirCambio = (ids: number[], titulo: string, estadoInicial: EstadoHabilitacion, motivo = '') => {
+    setCambio({ ids, titulo })
+    setCambiarEstado(estadoInicial)
+    setCambiarMotivo(motivo)
+    setMotivoError('')
+    setError('')
+  }
+
+  const abrirCambioIndividual = (e: EstudianteHabilitacionDto) =>
+    abrirCambio([e.idEstudiante], `${e.nombre} ${e.apellidos}`, e.estadoHabilitacion, e.motivo ?? '')
+
   const applyEstado = async (ids: number[], next: EstadoHabilitacion, motivo?: string) => {
     setSaving(true)
     setError('')
@@ -123,9 +157,9 @@ export default function EstudiantesHabilitadosTab({
       setEstudiantes(data)
       onCountChange?.(data.length)
       setSelected([])
-      setCambiar(null)
-    } catch {
-      setError('No se pudo actualizar la habilitación.')
+      setCambio(null)
+    } catch (err) {
+      setError(mensajeDeError(err, 'No se pudo actualizar la habilitación.'))
     } finally {
       setSaving(false)
     }
@@ -172,6 +206,7 @@ export default function EstudiantesHabilitadosTab({
                   className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140]"
                 >
                   <option value="">Estado</option>
+                  <option value="PENDIENTE">Pendiente</option>
                   <option value="HABILITADO">Habilitado</option>
                   <option value="NO_HABILITADO">No habilitado</option>
                 </select>
@@ -213,6 +248,7 @@ export default function EstudiantesHabilitadosTab({
               </li>
             ) : paged.map((e, index) => {
               const noHabilitado = e.estadoHabilitacion === 'NO_HABILITADO'
+              const visual = estadoVisual(e.estadoHabilitacion)
               return (
                 <li
                   key={e.idEstudiante}
@@ -240,17 +276,10 @@ export default function EstudiantesHabilitadosTab({
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
                       <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
                     </div>
-                    {noHabilitado ? (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#FBCFD4] bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
-                        <X size={12} strokeWidth={3} aria-hidden="true" />
-                        No habilitado
-                      </span>
-                    ) : (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#BBF7D0] bg-[#F0FDF4] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
-                        <Check size={12} strokeWidth={3} aria-hidden="true" />
-                        Habilitado
-                      </span>
-                    )}
+                    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${visual.badge}`}>
+                      <EstadoIcono icon={visual.icon} />
+                      {visual.label}
+                    </span>
                   </div>
                   <div className="flex items-end justify-between gap-3 border-t border-[#EDF1F7] px-3 py-2.5">
                     <div className="min-w-0">
@@ -260,11 +289,7 @@ export default function EstudiantesHabilitadosTab({
                     {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setCambiar(e)
-                          setCambiarEstado(e.estadoHabilitacion)
-                          setCambiarMotivo(e.motivo ?? '')
-                        }}
+                        onClick={() => abrirCambioIndividual(e)}
                         className="inline-flex h-9 shrink-0 items-center rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC]"
                       >
                         Cambiar
@@ -345,7 +370,7 @@ export default function EstudiantesHabilitadosTab({
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-2 text-sm font-medium ${visual.className}`}>
                           <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${visual.iconWrap}`}>
-                            {visual.icon === 'check' ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : <X size={12} strokeWidth={3} aria-hidden="true" />}
+                            <EstadoIcono icon={visual.icon} />
                           </span>
                           {visual.label}
                         </span>
@@ -355,11 +380,7 @@ export default function EstudiantesHabilitadosTab({
                         {isAdmin ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setCambiar(e)
-                              setCambiarEstado(e.estadoHabilitacion)
-                              setCambiarMotivo(e.motivo ?? '')
-                            }}
+                            onClick={() => abrirCambioIndividual(e)}
                             className="text-sm font-semibold text-[#3D70C9] hover:underline"
                           >
                             Cambiar
@@ -408,7 +429,11 @@ export default function EstudiantesHabilitadosTab({
                 <button
                   type="button"
                   disabled={selected.length === 0 || saving}
-                  onClick={() => void applyEstado(selected, 'NO_HABILITADO', 'Razón: Deuda / bloqueo SIGA')}
+                  onClick={() => abrirCambio(
+                    selected,
+                    selected.length === 1 ? '1 estudiante seleccionado' : `${selected.length} estudiantes seleccionados`,
+                    'NO_HABILITADO',
+                  )}
                   className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <X size={15} aria-hidden="true" />
@@ -443,38 +468,65 @@ export default function EstudiantesHabilitadosTab({
         />
       )}
 
-      {cambiar && (
+      {cambio && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form
+            noValidate
             className="w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl"
             onSubmit={(event) => {
               event.preventDefault()
-              void applyEstado([cambiar.idEstudiante], cambiarEstado, cambiarMotivo)
+              const motivo = cambiarMotivo.trim()
+              if (cambiarEstado === 'NO_HABILITADO' && !motivo) {
+                setMotivoError('Indica la razón por la que no está habilitado.')
+                return
+              }
+              void applyEstado(cambio.ids, cambiarEstado, cambiarEstado === 'PENDIENTE' ? undefined : motivo || undefined)
             }}
           >
             <h3 className="text-base font-bold text-[#011140]">Cambiar habilitación</h3>
-            <p className="mt-1 text-sm text-gray-500">{cambiar.nombre} {cambiar.apellidos}</p>
-            <label className="mt-4 block text-xs font-semibold text-[#627A9B]">Estado</label>
+            <p className="mt-1 text-sm text-gray-500">{cambio.titulo}</p>
+            <label htmlFor="cambiar-estado" className="mt-4 block text-xs font-semibold text-[#627A9B]">Estado</label>
             <select
+              id="cambiar-estado"
               value={cambiarEstado}
-              onChange={(e) => setCambiarEstado(e.target.value as EstadoHabilitacion)}
+              onChange={(e) => { setCambiarEstado(e.target.value as EstadoHabilitacion); setMotivoError('') }}
               className="mt-1 h-11 w-full rounded-md border border-[#B8CBEF] px-3 text-sm"
             >
+              <option value="PENDIENTE">Pendiente</option>
               <option value="HABILITADO">Habilitado</option>
               <option value="NO_HABILITADO">No habilitado</option>
             </select>
-            <label className="mt-3 block text-xs font-semibold text-[#627A9B]">Motivo / razón</label>
-            <input
-              value={cambiarMotivo}
-              onChange={(e) => setCambiarMotivo(e.target.value)}
-              className="mt-1 h-11 w-full rounded-md border border-[#B8CBEF] px-3 text-sm"
-            />
+            {cambiarEstado !== 'PENDIENTE' && (
+              <>
+                <label htmlFor="cambiar-motivo" className="mt-3 block text-xs font-semibold text-[#627A9B]">
+                  {cambiarEstado === 'NO_HABILITADO' ? (
+                    <>Razón de inhabilitación <span className="text-red-500">*</span></>
+                  ) : 'Motivo (opcional)'}
+                </label>
+                <input
+                  id="cambiar-motivo"
+                  value={cambiarMotivo}
+                  maxLength={255}
+                  aria-invalid={Boolean(motivoError)}
+                  aria-describedby={motivoError ? 'cambiar-motivo-error' : undefined}
+                  placeholder={cambiarEstado === 'NO_HABILITADO' ? 'Ej. Deuda en biblioteca' : 'Ej. Matrícula regular confirmada'}
+                  onChange={(e) => { setCambiarMotivo(e.target.value); if (motivoError) setMotivoError('') }}
+                  className={`mt-1 h-11 w-full rounded-md border px-3 text-sm ${motivoError ? 'border-red-400' : 'border-[#B8CBEF]'}`}
+                />
+                {motivoError && (
+                  <p id="cambiar-motivo-error" className="mt-1 text-xs text-red-600">{motivoError}</p>
+                )}
+              </>
+            )}
+            {error && (
+              <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
+            )}
             <div className="mt-5 flex gap-3">
-              <button type="button" onClick={() => setCambiar(null)} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
+              <button type="button" onClick={() => setCambio(null)} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
                 Cancelar
               </button>
               <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-[#0439D9] py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-                Guardar
+                {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
           </form>

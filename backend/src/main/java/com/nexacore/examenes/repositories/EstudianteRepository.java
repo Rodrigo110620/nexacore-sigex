@@ -63,11 +63,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     /** Asignados al examen: el mismo FROM exigiendo fila en asistencia_examen (el LEFT JOIN actúa como INNER). */
     String ASIGNADOS_AL_EXAMEN = ESTUDIANTE_EN_EXAMEN + "WHERE a.id.idExamen IS NOT NULL";
 
-    /** habilitado NULL cuenta como HABILITADO (DEFAULT true de la columna). */
+    /** habilitado NULL (pendiente de habilitación) cuenta como NO_HABILITADOS: tampoco puede ingresar. */
     String FILTRO_ESTADO = """
              AND (:estado = 'TODOS'
-                  OR (:estado = 'HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = true))
-                  OR (:estado = 'NO_HABILITADOS' AND a.habilitado = false))
+                  OR (:estado = 'HABILITADOS' AND a.habilitado = true)
+                  OR (:estado = 'NO_HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = false)))
             """;
 
     /** estado llega validado por el service (TODOS, HABILITADOS o NO_HABILITADOS). */
@@ -82,8 +82,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     @Query("""
             SELECT new com.nexacore.examenes.dto.ResumenEstudiantesResponse(
                    COUNT(e.id),
-                   COUNT(CASE WHEN a.habilitado IS NULL OR a.habilitado = true THEN 1 END),
-                   COUNT(CASE WHEN a.habilitado = false THEN 1 END),
+                   COUNT(CASE WHEN a.habilitado = true THEN 1 END),
+                   COUNT(CASE WHEN a.habilitado IS NULL OR a.habilitado = false THEN 1 END),
                    COUNT(a.fechaHoraIngreso))
             """ + ASIGNADOS_AL_EXAMEN)
     ResumenEstudiantesResponse resumirAsignadosAlExamen(@Param("idExamen") Integer idExamen);

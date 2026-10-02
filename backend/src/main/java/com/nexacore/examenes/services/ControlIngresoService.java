@@ -68,9 +68,11 @@ public class ControlIngresoService {
         if (!Boolean.TRUE.equals(asistencia.getHabilitado())) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String motivo = asistencia.getMotivoInhabilitacion();
-            String causa = motivo == null || motivo.isBlank()
-                    ? "El estudiante no está habilitado para este examen"
-                    : "El estudiante no está habilitado: " + motivo;
+            String causa = asistencia.getHabilitado() == null
+                    ? "El estudiante está pendiente de habilitación para este examen"
+                    : motivo == null || motivo.isBlank()
+                            ? "El estudiante no está habilitado para este examen"
+                            : "El estudiante no está habilitado: " + motivo;
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
             guardarRegistro(asistencia, control, request, "DENEGADO", causa);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_NO_HABILITADO", causa, ahora,

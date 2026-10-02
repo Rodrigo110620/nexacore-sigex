@@ -24,12 +24,15 @@ import java.util.Set;
  * Busca por código universitario (estudiante.codigo_sis) o por CI (estudiante.ci)
  * y resuelve su estado en el examen según asistencia_examen:
  *   sin fila           → NO_VINCULADO
- *   habilitado = false → DESHABILITADO
- *   true o null        → HABILITADO (null respeta el DEFAULT true de la columna)
+ *   habilitado = true  → HABILITADO
+ *   false o null       → DESHABILITADO (null = pendiente de habilitación: tampoco puede ingresar)
  * También lista y resume los asignados al examen; si el examen no existe responde 404.
  */
 @Service
 public class IdentificacionService {
+
+    /** Motivo que se muestra cuando el estudiante está asociado pero aún no fue habilitado ni deshabilitado. */
+    public static final String MOTIVO_PENDIENTE = "Pendiente de habilitación";
 
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS");
@@ -108,13 +111,16 @@ public class IdentificacionService {
         if (fila.idExamen() == null) {
             return IdentificacionResponse.Estado.NO_VINCULADO;
         }
-        return Boolean.FALSE.equals(fila.habilitado())
-                ? IdentificacionResponse.Estado.DESHABILITADO
-                : IdentificacionResponse.Estado.HABILITADO;
+        return Boolean.TRUE.equals(fila.habilitado())
+                ? IdentificacionResponse.Estado.HABILITADO
+                : IdentificacionResponse.Estado.DESHABILITADO;
     }
 
-    /** El motivo solo se expone si el estudiante está DESHABILITADO. */
+    /** El motivo solo se expone si el estudiante está DESHABILITADO; si está pendiente, se indica así. */
     private String motivoDe(EstudianteExamenFila fila, IdentificacionResponse.Estado estado) {
-        return estado == IdentificacionResponse.Estado.DESHABILITADO ? fila.motivoInhabilitacion() : null;
+        if (estado != IdentificacionResponse.Estado.DESHABILITADO) {
+            return null;
+        }
+        return fila.habilitado() == null ? MOTIVO_PENDIENTE : fila.motivoInhabilitacion();
     }
 }

@@ -1,5 +1,6 @@
 package com.nexacore.examenes;
 
+import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse.EstadoHabilitacion;
@@ -28,7 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Asociación de estudiantes al examen contra la base (H2). El examen se simula
+ * Asociación y habilitación de estudiantes en el examen contra la base (H2). El examen se simula
  * (paralelo 2, materia 8, docente 20) y las FKs se desactivan para no armar docente,
  * materia, paralelo y ambiente.
  */
@@ -63,14 +64,15 @@ class HabilitacionServiceTests {
     }
 
     @Test
-    void asociarPorCodigoSisLoHabilitaYLoInscribeEnElParalelo() {
+    void asociarPorCodigoSisLoDejaPendienteYLoInscribeEnElParalelo() {
         Estudiante ana = estudiante("Ana");
 
         List<EstudianteHabilitacionResponse> lista = habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
 
         assertThat(lista).singleElement().satisfies(e -> {
             assertThat(e.idEstudiante()).isEqualTo(ana.getId());
-            assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.HABILITADO);
+            assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.PENDIENTE);
+            assertThat(e.motivo()).isNull();
         });
         assertThat(inscritos()).containsExactly(ana.getId());
         assertThatThrownBy(() -> habilitacionService.asociar(EXAMEN, PARALELO, ana.getCi()))
@@ -112,6 +114,75 @@ class HabilitacionServiceTests {
                 .containsExactlyInAnyOrder(ana.getId(), luis.getId());
         assertThat(inscritos()).containsExactlyInAnyOrder(ana.getId(), luis.getId());
         assertThat(habilitacionService.asociarInscritos(EXAMEN, PARALELO).asociados()).isZero();
+    }
+
+    @Test
+    void habilitarYDeshabilitarConMotivoDeUnoOVariosALaVez() {
+        Estudiante ana = estudiante("Ana");
+        Estudiante luis = estudiante("Luis");
+        habilitacionService.asociarLote(EXAMEN, PARALELO, List.of(ana.getCodigoSis(), luis.getCodigoSis()));
+
+        List<EstudianteHabilitacionResponse> habilitados = habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId(), luis.getId()), EstadoHabilitacion.HABILITADO, null));
+        assertThat(habilitados).extracting(EstudianteHabilitacionResponse::estadoHabilitacion)
+                .containsOnly(EstadoHabilitacion.HABILITADO);
+
+        List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(luis.getId()), EstadoHabilitacion.NO_HABILITADO, "  Deuda en biblioteca "));
+        assertThat(estadoDe(lista, ana)).isEqualTo(EstadoHabilitacion.HABILITADO);
+        assertThat(lista).filteredOn(e -> e.idEstudiante().equals(luis.getId())).singleElement().satisfies(e -> {
+            assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.NO_HABILITADO);
+            assertThat(e.motivo()).isEqualTo("Deuda en biblioteca");
+        });
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT habilitado FROM asistencia_examen WHERE id_estudiante = ?", Boolean.class, luis.getId()))
+                .isFalse();
+    }
+
+    @Test
+    void noHabilitadoSinMotivoSeRechazaSinCambiarNada() {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "   ")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("razón");
+        assertThat(estadoDe(habilitacionService.listar(EXAMEN, PARALELO), ana)).isEqualTo(EstadoHabilitacion.PENDIENTE);
+    }
+
+    @Test
+    void volverAPendienteDescartaElMotivo() {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+        habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Deuda"));
+
+        List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.PENDIENTE, "ignorado"));
+
+        assertThat(lista).singleElement().satisfies(e -> {
+            assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.PENDIENTE);
+            assertThat(e.motivo()).isNull();
+        });
+    }
+
+    @Test
+    void cambiarEstadoDeUnEstudianteNoAsociadoSeRechaza() {
+        Estudiante ana = estudiante("Ana");
+        Estudiante ajeno = estudiante("Ajeno");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId(), ajeno.getId()), EstadoHabilitacion.HABILITADO, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no están asociados");
+        assertThat(estadoDe(habilitacionService.listar(EXAMEN, PARALELO), ana)).isEqualTo(EstadoHabilitacion.PENDIENTE);
+    }
+
+    private static EstadoHabilitacion estadoDe(List<EstudianteHabilitacionResponse> lista, Estudiante estudiante) {
+        return lista.stream().filter(e -> e.idEstudiante().equals(estudiante.getId()))
+                .findFirst().orElseThrow().estadoHabilitacion();
     }
 
     private Estudiante estudiante(String nombre) {

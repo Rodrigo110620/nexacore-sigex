@@ -54,7 +54,7 @@ public class HabilitacionController {
     }
 
     @Operation(summary = "Asociar estudiante al examen",
-            description = "Busca por código universitario o CI y lo asocia habilitado. 409 si ya está asociado.")
+            description = "Busca por código universitario o CI y lo asocia pendiente de habilitación. 409 si ya está asociado.")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> asociar(
@@ -75,7 +75,7 @@ public class HabilitacionController {
     }
 
     @Operation(summary = "Asociar a todos los inscritos del paralelo",
-            description = "Asocia, habilitados, a los inscritos en el paralelo del examen que aún no estén asociados.")
+            description = "Asocia, pendientes de habilitación, a los inscritos en el paralelo del examen que aún no estén asociados.")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/inscritos")
     public ResponseEntity<AsociacionLoteResponse> asociarInscritos(
@@ -84,7 +84,7 @@ public class HabilitacionController {
     }
 
     @Operation(summary = "Cambiar habilitación",
-            description = "Habilita o deshabilita uno o varios estudiantes asociados al examen.")
+            description = "Habilita, deshabilita (con razón obligatoria) o deja pendientes a uno o varios estudiantes asociados al examen.")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> actualizar(

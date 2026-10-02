@@ -1,6 +1,7 @@
 import api from './api'
 
-export type EstadoHabilitacion = 'HABILITADO' | 'NO_HABILITADO'
+/** PENDIENTE es el estado al asociarse; NO_HABILITADO exige motivo. */
+export type EstadoHabilitacion = 'PENDIENTE' | 'HABILITADO' | 'NO_HABILITADO'
 
 export interface EstudianteHabilitacionDto {
   idEstudiante: number
