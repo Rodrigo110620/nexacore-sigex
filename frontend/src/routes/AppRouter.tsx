@@ -19,6 +19,7 @@ import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
+import IntentosIngresoPage from '../pages/Control/IntentosIngresoPage'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -99,8 +100,16 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard/control"
+          element={
+            <ControlRoute>
+              <ExamenesPage />
+            </ControlRoute>
+          }
+        />
 
-        {/* Inicio del rol CONTROL: exámenes en curso y del día (ACCS-01). */}
+        {/* Inicio operativo del rol CONTROL. */}
         <Route
           path="/dashboard/inicio"
           element={
@@ -127,6 +136,7 @@ export default function AppRouter() {
             </IdentificacionRoute>
           }
         />
+        <Route path="/dashboard/control/:idExamen/intentos" element={<IdentificacionRoute><IntentosIngresoPage /></IdentificacionRoute>} />
         {/* ACCS-02: registrar el control y autorizar o denegar el ingreso. */}
         <Route
           path="/dashboard/control-ingresos/:idEstudiante/:idExamen"

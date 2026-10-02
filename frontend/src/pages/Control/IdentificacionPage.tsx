@@ -18,7 +18,7 @@ import type { EstudianteIdentificado } from '../../services/identificacionServic
 export default function IdentificacionPage() {
   const { roles } = useAuth()
   const navigate = useNavigate()
-  const puedeContinuar = roles.includes('CONTROL')
+  const puedeContinuar = roles.some((role) => role === 'ADMIN' || role === 'CONTROL')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
@@ -116,7 +116,7 @@ export default function IdentificacionPage() {
                   type="button"
                   disabled={!estudiante || !puedeContinuar}
                   onClick={manejarContinuar}
-                  title={!puedeContinuar ? 'Se requiere el rol CONTROL para continuar' : undefined}
+                  title={!puedeContinuar ? 'Se requiere el rol ADMIN o CONTROL para continuar' : undefined}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continuar
@@ -127,6 +127,7 @@ export default function IdentificacionPage() {
               {busqueda.status === 'no_vinculado' && (
                 <EstudianteNoVinculadoModal
                   estudiante={busqueda.estudiante}
+                  idExamen={idExamen}
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
                   onCerrar={cambiarEstudiante}

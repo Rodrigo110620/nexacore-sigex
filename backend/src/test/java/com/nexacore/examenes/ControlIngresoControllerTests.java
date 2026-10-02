@@ -49,6 +49,14 @@ class ControlIngresoControllerTests {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void permiteUsuarioConRolAdmin() throws Exception {
+        when(service.listarTiposIncidencia()).thenReturn(List.of());
+        mockMvc.perform(get("/control-ingresos/tipos-incidencia"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @WithMockUser(username = "control@umss.edu.bo", roles = "CONTROL")
     void respondeConflictAlDenegarUnIngresoYaAutorizado() throws Exception {
         when(service.denegar(any(AutorizarIngresoRequest.class), anyString()))

@@ -31,7 +31,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
-    @PreAuthorize("hasRole('CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
     @PostMapping("/autorizar")
     public ResponseEntity<AutorizarIngresoResponse> autorizar(
             @Valid @RequestBody AutorizarIngresoRequest request,
@@ -44,7 +44,7 @@ public class ControlIngresoController {
         return ResponseEntity.unprocessableEntity().body(response);
     }
 
-    @PreAuthorize("hasRole('CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
     @PostMapping("/denegar")
     public ResponseEntity<AutorizarIngresoResponse> denegar(
             @Valid @RequestBody AutorizarIngresoRequest request, Authentication authentication) {
@@ -52,7 +52,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar historial", description = "Devuelve autorizaciones y denegaciones registradas para el estudiante y examen.")
-    @PreAuthorize("hasRole('CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
     @GetMapping("/{idEstudiante}/{idExamen}")
     public ResponseEntity<List<RegistroControlIngresoResponse>> historial(
             @PathVariable Integer idEstudiante,
@@ -61,7 +61,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar contexto", description = "Devuelve estudiante, examen, normas y condiciones previas para el flujo de autorización.")
-    @PreAuthorize("hasRole('CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
     @GetMapping("/{idEstudiante}/{idExamen}/contexto")
     public ResponseEntity<ContextoControlIngresoResponse> contexto(
             @PathVariable Integer idEstudiante,
@@ -70,7 +70,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Listar tipos de incidencia", description = "Devuelve el catálogo disponible para registrar incidencias durante el control.")
-    @PreAuthorize("hasRole('CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
     @GetMapping("/tipos-incidencia")
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());

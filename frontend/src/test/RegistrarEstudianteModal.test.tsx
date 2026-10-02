@@ -45,7 +45,7 @@ describe('RegistrarEstudianteModal', () => {
     fireEvent.change(screen.getByLabelText(/facultad académica/i), { target: { value: '1' } })
     await waitFor(() => expect(screen.getByRole('option', { name: 'Sistemas' })).toBeInTheDocument())
     fireEvent.change(screen.getByLabelText(/carrera profesional/i), { target: { value: '10' } })
-    fireEvent.click(screen.getByRole('button', { name: /guardar y registrar/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^registrar estudiante$/i }))
     await waitFor(() => expect(service.registrarEstudiante).toHaveBeenCalledWith(expect.objectContaining({ codigoSis: '202404012', idFacultad: 1, idCarrera: 10 })))
     expect(onRegistered).toHaveBeenCalledWith('María González')
   })

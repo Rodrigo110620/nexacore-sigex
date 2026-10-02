@@ -34,7 +34,7 @@ function renderNav(path: string, roles: string[]) {
 describe('MobileBottomNav', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('ADMIN: Inicio, Exámenes, Estudiantes y Usuarios', () => {
+  it('ADMIN: Inicio, Exámenes, Control, Estudiantes y Usuarios', () => {
     renderNav('/dashboard/usuarios', ['ADMIN'])
 
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
@@ -44,41 +44,43 @@ describe('MobileBottomNav', () => {
       'page',
     )
     expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
     expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
-    expect(within(navigation).getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
-    expect(within(navigation).getAllByRole('listitem')).toHaveLength(4)
+    expect(within(navigation).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
   })
 
-  it('DOCENTE: solo Inicio y Exámenes, sin Usuarios ni Estudiantes', () => {
+  it('DOCENTE: solo Exámenes, sin Inicio, Usuarios ni Estudiantes', () => {
     renderNav('/dashboard/examenes', ['DOCENTE'])
 
     expect(screen.getByRole('link', { name: 'Exámenes' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
+    expect(screen.queryByText('Inicio')).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
     expect(screen.queryByText('Estudiantes')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
-  it('CONTROL: Inicio habilitado hacia su panel y el acceso de exámenes como Control', () => {
+  it('CONTROL: Inicio y Control están disponibles en el mismo panel', () => {
     renderNav('/dashboard/examenes', ['CONTROL'])
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
-    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
     expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('ADMIN + CONTROL conserva Usuarios y muestra Control', () => {
+  it('ADMIN + CONTROL conserva Usuarios y muestra Exámenes', () => {
     renderNav('/dashboard/examenes', ['ADMIN', 'CONTROL'])
 
-    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
   })
 
-  it('DOCENTE + CONTROL muestra Control sin acceso a Usuarios', () => {
+  it('DOCENTE + CONTROL muestra Inicio y Control sin acceso a Usuarios', () => {
     renderNav('/dashboard/examenes', ['DOCENTE', 'CONTROL'])
 
+    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(2)

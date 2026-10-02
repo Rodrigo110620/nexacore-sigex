@@ -79,7 +79,7 @@ describe('UsuariosPage', () => {
         <MemoryRouter initialEntries={['/dashboard']}>
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/dashboard/usuarios" element={<p>Gestión unificada</p>} />
+            <Route path="/dashboard/examenes" element={<p>Gestión unificada</p>} />
           </Routes>
         </MemoryRouter>
       </AuthProvider>,

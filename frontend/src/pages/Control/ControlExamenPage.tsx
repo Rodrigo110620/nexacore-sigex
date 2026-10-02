@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, DoorOpen, ScanLine } from 'lucide-react'
+import { ArrowRight, DoorOpen, ScanLine, TriangleAlert } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
@@ -41,14 +41,9 @@ export default function ControlExamenPage() {
                   <p className="text-base font-bold">Apertura de Acceso al Aula {examen?.ambienteNombre ?? ''}</p>
                 </div>
               </div>
-              <Link
-                to={`/dashboard/control/${idExamen}/identificar`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF]"
-              >
-                <ScanLine size={16} aria-hidden="true" />
-                Iniciar Control de Ingreso
-                <ArrowRight size={16} aria-hidden="true" />
-              </Link>
+              <div className="flex flex-wrap gap-2"><Link to={`/dashboard/control/${idExamen}/intentos`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/40 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"><TriangleAlert size={16}/>Ver intentos</Link><Link
+                to={`/dashboard/control/${idExamen}/identificar`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF]"
+              ><ScanLine size={16} aria-hidden="true" />Iniciar Control de Ingreso<ArrowRight size={16} aria-hidden="true" /></Link></div>
             </section>
             <ResumenExamenCards resumen={datos.resumen} />
             <EstudiantesExamenSeccion idExamen={idExamen} {...datos} />
