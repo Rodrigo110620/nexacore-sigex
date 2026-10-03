@@ -20,12 +20,29 @@ export function fechaLocal(fecha: Date): string {
   return `${fecha.getFullYear()}-${mes}-${String(fecha.getDate()).padStart(2, '0')}`
 }
 
-/** El examen es de la fecha de `ahora` y la hora actual está entre su inicio y su fin. */
-export function estaEnCurso(examen: Pick<ExamenDto, 'fecha' | 'horaInicio' | 'duracionMinutos'>, ahora: Date): boolean {
+export type FaseExamen = 'en-curso' | 'proximo' | 'finalizado'
+
+type HorarioExamen = Pick<ExamenDto, 'fecha' | 'horaInicio' | 'duracionMinutos'>
+
+/**
+ * Fase del examen respecto a `ahora` y su texto en el panel de CONTROL: "Comienza en N min" (menos de 60),
+ * "Comienza en N horas" (horas completas), "En curso", "Finalizado" o "Programado" si es de otro día futuro.
+ */
+export function estadoDelExamen(examen: HorarioExamen, ahora: Date): { fase: FaseExamen; texto: string } {
+  const hoy = fechaLocal(ahora)
+  if (examen.fecha > hoy) return { fase: 'proximo', texto: 'Programado' }
   const [horas, minutos] = horaCorta(examen.horaInicio).split(':').map(Number)
-  const inicio = horas * 60 + minutos
-  const actual = ahora.getHours() * 60 + ahora.getMinutes()
-  return examen.fecha === fechaLocal(ahora) && actual >= inicio && actual < inicio + examen.duracionMinutos
+  const faltan = horas * 60 + minutos - (ahora.getHours() * 60 + ahora.getMinutes())
+  if (examen.fecha < hoy || faltan + examen.duracionMinutos <= 0) return { fase: 'finalizado', texto: 'Finalizado' }
+  if (faltan <= 0) return { fase: 'en-curso', texto: 'En curso' }
+  if (faltan < 60) return { fase: 'proximo', texto: `Comienza en ${faltan} min` }
+  const enHoras = Math.floor(faltan / 60)
+  return { fase: 'proximo', texto: `Comienza en ${enHoras} ${enHoras === 1 ? 'hora' : 'horas'}` }
+}
+
+/** El examen es de la fecha de `ahora` y la hora actual está entre su inicio y su fin. */
+export function estaEnCurso(examen: HorarioExamen, ahora: Date): boolean {
+  return estadoDelExamen(examen, ahora).fase === 'en-curso'
 }
 
 export function horaCorta(horaInicio: string): string {
