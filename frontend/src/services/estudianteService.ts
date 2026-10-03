@@ -1,5 +1,6 @@
 import api from './api'
 import type {
+  ActualizarEstudiantePayload,
   CarreraOption,
   EstudianteFilterParams,
   EstudianteListPage,
@@ -84,4 +85,20 @@ export async function descargarPlanillaEstudiantes(formato: 'csv' | 'pdf'): Prom
   link.download = `planilla_estudiantes.${formato}`
   link.click()
   URL.revokeObjectURL(url)
+}
+
+export async function getEstudianteById(
+  id: number,
+  signal?: AbortSignal,
+): Promise<EstudianteListItem> {
+  const { data } = await api.get<EstudianteListItem>(`/estudiantes/${id}`, { signal })
+  return data
+}
+
+export async function actualizarEstudiante(
+  id: number,
+  payload: ActualizarEstudiantePayload,
+): Promise<EstudianteListItem> {
+  const { data } = await api.put<EstudianteListItem>(`/estudiantes/${id}`, payload)
+  return data
 }

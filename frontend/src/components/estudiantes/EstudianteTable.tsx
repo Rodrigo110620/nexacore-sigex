@@ -1,10 +1,11 @@
-import { Eye } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
-import { getAvatarColorById, getInitials } from './avatarColors'  // ← NUEVO
+import { getAvatarColorById, getInitials } from './avatarColors'
 
 interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
   onViewClick?: (estudiante: EstudianteListItem) => void
+  onEditClick?: (estudiante: EstudianteListItem) => void
 }
 
 function formatCarreras(carreras: EstudianteListItem['carreras']): string {
@@ -17,7 +18,11 @@ function formatFacultad(carreras: EstudianteListItem['carreras']): string {
   return carreras.map((c) => c.nombreFacultad).join(', ')
 }
 
-export default function EstudianteTable({ estudiantes, onViewClick }: EstudianteTableProps) {
+export default function EstudianteTable({
+  estudiantes,
+  onViewClick,
+  onEditClick,
+}: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
       <table className="w-full min-w-[860px] text-left">
@@ -50,7 +55,8 @@ export default function EstudianteTable({ estudiantes, onViewClick }: Estudiante
                 <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span>
               </td>
               <td className="px-5 py-3">
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-2">
+                  {/* Ver Ficha */}
                   <button
                     type="button"
                     onClick={() => onViewClick?.(e)}
@@ -58,6 +64,16 @@ export default function EstudianteTable({ estudiantes, onViewClick }: Estudiante
                   >
                     <Eye size={14} aria-hidden="true" />
                     Ver Ficha
+                  </button>
+
+                  {/* 🆕 3 puntitos */}
+                  <button
+                    type="button"
+                    onClick={() => onEditClick?.(e)}
+                    aria-label={`Más acciones para ${e.nombre} ${e.apellidos}`}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                  >
+                    <Pencil size={16} aria-hidden="true" />
                   </button>
                 </div>
               </td>

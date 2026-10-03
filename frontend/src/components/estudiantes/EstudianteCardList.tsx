@@ -1,10 +1,11 @@
-import { Eye } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 
 interface EstudianteCardListProps {
   estudiantes: EstudianteListItem[]
   onViewClick?: (estudiante: EstudianteListItem) => void
+  onEditClick?: (estudiante: EstudianteListItem) => void
 }
 
 function formatCarreras(carreras: EstudianteListItem['carreras']): string {
@@ -17,7 +18,11 @@ function formatFacultad(carreras: EstudianteListItem['carreras']): string {
   return carreras.map((c) => c.nombreFacultad).join(', ')
 }
 
-export default function EstudianteCardList({ estudiantes, onViewClick }: EstudianteCardListProps) {
+export default function EstudianteCardList({
+  estudiantes,
+  onViewClick,
+  onEditClick,
+}: EstudianteCardListProps) {
   return (
     <ul className="grid grid-cols-1 gap-3 sm:gap-4">
       {estudiantes.map((e) => (
@@ -25,7 +30,7 @@ export default function EstudianteCardList({ estudiantes, onViewClick }: Estudia
           key={e.id}
           className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm"
         >
-          {/* Fila 1: Avatar + Nombre + Código/CI */}
+
           <div className="flex items-start gap-3">
             <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}>
               {getInitials(e.nombre, e.apellidos)}
@@ -40,7 +45,6 @@ export default function EstudianteCardList({ estudiantes, onViewClick }: Estudia
             </div>
           </div>
 
-          {/* Fila 2: Carrera/Facultad + Botón */}
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EDF1F7] pt-2">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-[#011140]">
@@ -52,14 +56,26 @@ export default function EstudianteCardList({ estudiantes, onViewClick }: Estudia
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => onViewClick?.(e)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[#E1ECFF] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#D0E2FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
-            >
-              <Eye size={14} aria-hidden="true" />
-              Ver Ficha
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onViewClick?.(e)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#E1ECFF] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#D0E2FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+              >
+                <Eye size={14} aria-hidden="true" />
+                Ver
+              </button>
+
+        
+              <button
+                type="button"
+                onClick={() => onEditClick?.(e)}
+                aria-label={`Más acciones para ${e.nombre} ${e.apellidos}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+              >
+                <Pencil size={16} aria-hidden="true" />
+              </button>
+            </div>
           </div>
         </li>
       ))}
