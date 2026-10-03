@@ -37,10 +37,10 @@ export default function MobileBottomNav() {
               <NavLink
                 to={to}
                 className={({ isActive }) =>
-                  `flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-bold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs ${
+                  `flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-0.5 text-[9px] font-bold leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9] min-[360px]:text-[10px] sm:text-xs border-t-2 ${
                     isActive
-                      ? 'border-t-2 border-[#0439D9] text-[#0439D9]'
-                      : 'text-[#627A9B]'
+                      ? 'border-[#0439D9] text-[#0439D9]'
+                      : 'border-transparent text-[#627A9B]'
                   }`
                 }
               >

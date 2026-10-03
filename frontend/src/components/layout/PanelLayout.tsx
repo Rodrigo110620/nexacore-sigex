@@ -38,7 +38,8 @@ export default function PanelLayout({
         className={`hidden h-full shrink-0 flex-col xl:w-56 ${compactDesktop ? 'w-44 min-[960px]:flex lg:w-52' : 'w-52 lg:flex'}`}
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
       >
-        <div className="flex shrink-0 items-center border-b border-white/10 px-5 py-5">
+        {/* min-h-20 = alto del PanelTopBar: ambos bordes inferiores quedan en la misma línea */}
+        <div className="flex min-h-20 shrink-0 items-center border-b border-white/10 px-6">
           <img src="/logo_app.png" alt="SIGEX" className="h-10 object-contain" />
         </div>
 
@@ -47,6 +48,7 @@ export default function PanelLayout({
             disabled ? (
               <div
                 key={label}
+                aria-disabled="true"
                 className="flex cursor-not-allowed select-none items-center gap-3 rounded-lg px-3 py-2.5 text-white/40"
               >
                 <Icon size={18} className="shrink-0" />
@@ -57,9 +59,9 @@ export default function PanelLayout({
                 key={label}
                 to={to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
                     isActive
-                      ? 'bg-white/20 font-bold text-white'
+                      ? 'bg-white/15 text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-white'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`
                 }
@@ -75,7 +77,7 @@ export default function PanelLayout({
           <button
             type="button"
             onClick={handleLogout}
-            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/10 active:scale-[0.98] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
           >
             <LogOut size={18} className="shrink-0" aria-hidden="true" />
             <span className="truncate">Cerrar sesión</span>
