@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
+import org.springframework.http.HttpStatus;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
@@ -36,6 +37,7 @@ class IntentoIngresoServiceTests {
         when(examenRepository.existsByIdIdExamen(7)).thenReturn(true);
         when(estudianteRepository.findById(23)).thenReturn(Optional.of(new com.nexacore.examenes.models.Estudiante()));
         when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.empty());
+        when(intentoRepository.existeRegistroReciente(7, 23)).thenReturn(false);
         when(usuarioRepository.findByEmail("control@umss.edu.bo")).thenReturn(Optional.of(control));
         when(intentoRepository.registrar(eq(7), eq(23), eq(5), anyString(), anyString())).thenReturn(1);
 
@@ -51,5 +53,19 @@ class IntentoIngresoServiceTests {
 
         assertThrows(ControlIngresoException.class, () -> service.registrar(request, "control@umss.edu.bo"));
         verifyNoInteractions(intentoRepository);
+    }
+
+    @Test
+    void rechazaDuplicadoInmediatoSinInsertarOtraFila() {
+        when(examenRepository.existsByIdIdExamen(7)).thenReturn(true);
+        when(estudianteRepository.findById(23)).thenReturn(Optional.of(new com.nexacore.examenes.models.Estudiante()));
+        when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.empty());
+        when(intentoRepository.existeRegistroReciente(7, 23)).thenReturn(true);
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.registrar(request, "control@umss.edu.bo"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(intentoRepository, never()).registrar(anyInt(), anyInt(), anyInt(), anyString(), anyString());
     }
 }
