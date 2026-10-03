@@ -20,6 +20,18 @@ public interface IntentoIngresoRepository extends JpaRepository<IntentoIngreso, 
                  @Param("idControl") Integer idControl, @Param("identificador") String identificador,
                  @Param("motivo") String motivo);
 
+    /** Evita duplicados generados por un doble clic o retransmisión inmediata. */
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1 FROM intento_ingreso
+                WHERE id_examen = :idExamen
+                  AND id_estudiante = :idEstudiante
+                  AND fecha_hora >= CURRENT_TIMESTAMP - INTERVAL '30 seconds'
+            )
+            """, nativeQuery = true)
+    boolean existeRegistroReciente(@Param("idExamen") Integer idExamen,
+                                   @Param("idEstudiante") Integer idEstudiante);
+
     @Query(value = """
             SELECT i.id_intento, i.id_examen, i.id_estudiante,
                    CONCAT(e.nombre, ' ', e.apellidos), e.codigo_sis, i.ci_o_codigo,

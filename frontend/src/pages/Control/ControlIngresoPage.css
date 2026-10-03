@@ -1,21 +1,4 @@
 .accs02-layout { height: 100%; color: #20242a; }
-.accs02-layout > div > aside { width: 180px; }
-.accs02-layout > div > aside > div:first-child { border: 0; padding: 22px; }
-.accs02-layout > div > aside img { filter: brightness(0) invert(1); height: 44px; }
-.accs02-layout > div > aside nav { padding: 22px 0; gap: 4px; }
-.accs02-layout > div > aside nav > :nth-child(3), .accs02-layout > div > aside > div:last-child { display: none; }
-.accs02-layout > div > aside nav > :first-child { color: white; font-weight: 700; padding-left: 30px; }
-.accs02-layout > div > aside nav > a { background: #011140; border-radius: 7px; color: white; padding-left: 30px; }
-.accs02-layout > div > div > div:last-child { display: none; }
-.accs02-layout header { height: 56px; padding: 8px 20px; border: 0; }
-.accs02-layout header > div:first-child > div:last-child > img { display: none; }
-.accs02-layout header > div:first-child > div:last-child > div { background: #f3f3f3; border-radius: 6px; padding: 4px 9px; }
-.accs02-layout header > div:first-child p:first-child { font-size: 10px; font-weight: 500; }
-.accs02-layout header > div:first-child p:last-child { display: none; }
-.accs02-layout header + div { display: none; }
-.accs02-layout header button { height: 36px; }
-.accs02-layout header button span span:first-child { font-size: 11px; }
-.accs02-layout header button span span:last-child { font-size: 9px; }
 .control-screen { padding: 14px 20px 32px; background: #fafafa; }
 .control-screen > div { max-width: 1080px; margin: 0 auto; }
 .control-sheet { overflow: hidden; border-radius: 12px; background: white; box-shadow: 0 2px 3px #01114020; }
@@ -78,7 +61,6 @@
 .control-denial-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 14px 20px; border-top: 1px solid #eee; }
 .control-denial-footer .control-deny { background: #c71924; color: white; }
 @media (max-width: 959px) {
- .accs02-layout header { padding: 8px 12px; }
  .control-screen { padding: 12px 14px 90px; background: #f7f9fc; }
  .control-sheet { background: transparent; box-shadow: none; overflow: visible; }
  .control-exam-header { background: transparent; padding-bottom: 12px; }
