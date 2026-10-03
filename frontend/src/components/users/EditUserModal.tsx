@@ -67,19 +67,20 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     if (generalError) setGeneralError('');
   };
 
-  const handleBlur = (field: keyof RegisterUserFormState) => {
-    const value = form[field];
-    if (typeof value !== 'string' || !value.trim()) return;
+  const handleBlur = (field: keyof RegisterUserFormState): string => {
+  const value = form[field];
+  if (typeof value !== 'string' || !value.trim()) return '';
 
-    let error = '';
-    if (field === 'nombre') error = validateNombre(value);
-    if (field === 'apellidos') error = validateApellidos(value);
-    if (field === 'documento') error = validateDocumento(value);
-    if (field === 'email') error = validateEmail(value);
-    if (field === 'rol') error = validateRol(value);
+  let error = '';
+  if (field === 'nombre') error = validateNombre(value);
+  if (field === 'apellidos') error = validateApellidos(value);
+  if (field === 'documento') error = validateDocumento(value);
+  if (field === 'email') error = validateEmail(value);
+  if (field === 'rol') error = validateRol(value);
 
-    if (error) setErrors({ ...errors, [field]: error });
-  };
+  if (error) setErrors({ ...errors, [field]: error });
+  return error;
+};
 
   const handleClose = () => {
     setErrors({});
@@ -212,13 +213,11 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
               <PersonalInfoSection
                 form={form}
-                errors={errors}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               <CredentialsSection
                 form={form}
-                errors={errors}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 showPasswordNotice={false}

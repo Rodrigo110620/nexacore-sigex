@@ -90,10 +90,4 @@ export const INITIAL_FORM_STATE: RegisterUserFormState = {
   notificarEmail: true,
 };
 
-export interface FormErrors {
-  nombre?: string;
-  apellidos?: string;
-  documento?: string;
-  email?: string;
-  rol?: string;
-}
+export type FormErrors = Record<string, string | undefined>;

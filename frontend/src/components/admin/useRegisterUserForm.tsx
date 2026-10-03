@@ -17,7 +17,23 @@ import {
   sanitizeNombreInput,
 } from '../../utils/validators';
 
-export function useRegisterUserForm(onSuccess?: () => void) {
+export interface UseRegisterUserFormResult {
+  step: 1 | 2;
+  form: RegisterUserFormState;
+  errors: FormErrors;
+  generalError: string;
+  loading: boolean;
+  success: boolean;
+  registeredEmail: string;
+  handleChange: (field: keyof RegisterUserFormState, value: string | boolean | Rol) => void;
+  handleBlur: (field: keyof RegisterUserFormState) => string;
+  goNext: () => FormErrors | null;
+  goBack: () => void;
+  handleSubmit: (e: React.FormEvent) => Promise<FormErrors | null>;
+  resetAll: () => void;
+}
+
+export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserFormResult {
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState<RegisterUserFormState>(INITIAL_FORM_STATE);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -43,9 +59,14 @@ export function useRegisterUserForm(onSuccess?: () => void) {
     if (generalError) setGeneralError('');
   };
 
-  const handleBlur = (field: keyof RegisterUserFormState) => {
+  const handleBlur = (field: keyof RegisterUserFormState): string => {
     const value = form[field];
-    if (typeof value !== 'string' || !value.trim()) return;
+    if (typeof value !== 'string') return '';
+
+    if (!value.trim()) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+      return '';
+    }
 
     let error = '';
     if (field === 'nombre') error = validateNombre(value);
@@ -54,10 +75,12 @@ export function useRegisterUserForm(onSuccess?: () => void) {
     if (field === 'email') error = validateEmail(value);
     if (field === 'rol') error = validateRol(value);
 
-    if (error) setErrors({ ...errors, [field]: error });
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+
+    return error;
   };
 
-  const validateStep1 = () => {
+  const validateStep1 = (): FormErrors => {
     const next: FormErrors = {};
     const nombreError = validateNombre(form.nombre);
     const apellidosError = validateApellidos(form.apellidos);
@@ -65,27 +88,28 @@ export function useRegisterUserForm(onSuccess?: () => void) {
     if (nombreError) next.nombre = nombreError;
     if (apellidosError) next.apellidos = apellidosError;
     if (documentoError) next.documento = documentoError;
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
   };
 
-  const validateStep2 = () => {
+  const validateStep2 = (): FormErrors => {
     const next: FormErrors = {};
     const emailError = validateEmail(form.email);
     const rolError = validateRol(form.rol);
     if (emailError) next.email = emailError;
     if (rolError) next.rol = rolError;
-    setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
   };
 
-  const goNext = () => {
-    if (!validateStep1()) {
-      setGeneralError('Completa los campos obligatorios de este paso para continuar.');
-      return;
+  const goNext = (): FormErrors | null => {
+    const stepErrors = validateStep1();
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors);
+      return stepErrors;
     }
+    setErrors({});
     setGeneralError('');
     setStep(2);
+    return null;
   };
 
   const goBack = () => {
@@ -94,17 +118,17 @@ export function useRegisterUserForm(onSuccess?: () => void) {
     setStep(1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<FormErrors | null> => {
     e.preventDefault();
 
     if (step === 1) {
-      goNext();
-      return;
+      return goNext();
     }
 
-    if (!validateStep2()) {
-      setGeneralError('Completa los campos obligatorios de este paso.');
-      return;
+    const stepErrors = validateStep2();
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors);
+      return stepErrors;
     }
 
     setGeneralError('');
@@ -121,24 +145,28 @@ export function useRegisterUserForm(onSuccess?: () => void) {
     const formErrors = validateForm(cleanForm);
     if (hasErrors(formErrors)) {
       setErrors(formErrors);
-      setGeneralError('Hay datos por corregir.');
-      return;
+      return formErrors;
     }
 
     setLoading(true);
     try {
-      await api.post('/usuarios', {
-        nombre: cleanForm.nombre,
-        apellidos: cleanForm.apellidos,
-        ci: cleanForm.documento,
-        email: cleanForm.email,
-        rol: cleanForm.rol,
-        activo: cleanForm.activo,
-        notificarEmail: true,
-      }, { _skipAutoLogout: true } as object);
+      await api.post(
+        '/usuarios',
+        {
+          nombre: cleanForm.nombre,
+          apellidos: cleanForm.apellidos,
+          ci: cleanForm.documento,
+          email: cleanForm.email,
+          rol: cleanForm.rol,
+          activo: cleanForm.activo,
+          notificarEmail: true,
+        },
+        { _skipAutoLogout: true } as object,
+      );
       setRegisteredEmail(cleanForm.email);
       setSuccess(true);
       onSuccess?.();
+      return null;
     } catch (err: unknown) {
       const error = err as {
         response?: {
@@ -156,12 +184,13 @@ export function useRegisterUserForm(onSuccess?: () => void) {
         if (data?.campos) {
           const fieldErrors: FormErrors = {};
           if (data.campos.email) fieldErrors.email = data.campos.email;
-          if (data.campos.ci || data.campos.documento) fieldErrors.documento = data.campos.ci || data.campos.documento;
+          if (data.campos.ci || data.campos.documento)
+            fieldErrors.documento = data.campos.ci || data.campos.documento;
           if (data.campos.nombre) fieldErrors.nombre = data.campos.nombre;
           if (data.campos.apellidos) fieldErrors.apellidos = data.campos.apellidos;
           if (data.campos.rol) fieldErrors.rol = data.campos.rol;
           setErrors(fieldErrors);
-          setGeneralError('Verifica los campos marcados en rojo.');
+          return fieldErrors;
         } else {
           setGeneralError(data?.mensaje ?? 'Verifica los datos ingresados.');
         }
@@ -172,6 +201,7 @@ export function useRegisterUserForm(onSuccess?: () => void) {
       } else {
         setGeneralError('No se pudo conectar con el servidor. Intenta más tarde.');
       }
+      return null;
     } finally {
       setLoading(false);
     }
