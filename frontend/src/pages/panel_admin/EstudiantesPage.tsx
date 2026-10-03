@@ -14,6 +14,7 @@ import type { EstudianteFilterParams, EstudianteListItem } from '../../types/est
 import type { ImportarEstudiantesResponse } from '../../services/estudianteService'
 import EstudianteCardList from '../../components/estudiantes/EstudianteCardList'
 import FichaEstudianteModal from '../../components/estudiantes/FichaEstudianteModal'
+import EditarEstudianteModal from '../../components/estudiantes/EditarEstudianteModal'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
@@ -24,6 +25,7 @@ export default function EstudiantesPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [fichaEstudiante, setFichaEstudiante] = useState<EstudianteListItem | null>(null)
+  const [editarEstudianteId, setEditarEstudianteId] = useState<number | null>(null)
 
   const {
     data,
@@ -37,6 +39,11 @@ export default function EstudiantesPage() {
 
   const handleViewClick = (estudiante: EstudianteListItem) => {
     setFichaEstudiante(estudiante)
+  }
+
+  // 🆕 Handler para editar
+  const handleEditClick = (estudiante: EstudianteListItem) => {
+    setEditarEstudianteId(estudiante.id)
   }
 
   useEffect(() => {
@@ -57,13 +64,18 @@ export default function EstudiantesPage() {
     window.setTimeout(() => setSuccessMessage(''), 5000)
   }
 
-  // El modal queda abierto mostrando el detalle; aquí solo se refresca la lista.
   const handleImported = (result: ImportarEstudiantesResponse) => {
     if (result.insertados === 0) return
     setSuccessMessage(`Se importaron ${result.insertados} estudiantes.`)
     changePage(0)
     retry()
     window.setTimeout(() => setSuccessMessage(''), 5000)
+  }
+
+  // Para cuando se guarda la edición
+  const handleSaved = () => {
+    setEditarEstudianteId(null)
+    retry()
   }
 
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
@@ -113,10 +125,19 @@ export default function EstudiantesPage() {
 
             <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
             <ImportarEstudiantesModal open={importOpen} onClose={() => setImportOpen(false)} onImported={handleImported} />
+
             <FichaEstudianteModal
               open={Boolean(fichaEstudiante)}
               estudiante={fichaEstudiante}
               onClose={() => setFichaEstudiante(null)}
+            />
+
+            {/* 🆕 Modal de editar */}
+            <EditarEstudianteModal
+              open={editarEstudianteId !== null}
+              estudianteId={editarEstudianteId}
+              onClose={() => setEditarEstudianteId(null)}
+              onSaved={handleSaved}
             />
 
             <div className="flex flex-col">
@@ -148,15 +169,23 @@ export default function EstudiantesPage() {
                 </div>
               ) : estudiantes.length > 0 ? (
                 <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
-                  {/* Móvil*/}
+                  {/* Móvil */}
                   <div className="min-[960px]:hidden">
-                    <EstudianteCardList estudiantes={estudiantes} onViewClick={handleViewClick} />
+                    <EstudianteCardList
+                      estudiantes={estudiantes}
+                      onViewClick={handleViewClick}
+                      onEditClick={handleEditClick}
+                    />
                   </div>
-                  {/* Desktop*/}
+                  {/* Desktop */}
                   <div className="hidden min-[960px]:block">
-                    <EstudianteTable estudiantes={estudiantes} onViewClick={handleViewClick} />
+                    <EstudianteTable
+                      estudiantes={estudiantes}
+                      onViewClick={handleViewClick}
+                      onEditClick={handleEditClick}
+                    />
                   </div>
-                  {/*Paginación*/}
+                  {/* Paginación */}
                   <TablePagination
                     page={data.pagina}
                     pageSize={data.tamano}

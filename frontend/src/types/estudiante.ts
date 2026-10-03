@@ -52,3 +52,13 @@ export interface RegistrarEstudiantePayload {
   idFacultad: number
   idCarrera: number
 }
+export interface ActualizarEstudiantePayload {
+  nombre: string
+  apellidos: string
+  ci: string
+  email: string
+  codigoSis: string
+  idFacultad: number
+  idCarrera: number
+}
+
