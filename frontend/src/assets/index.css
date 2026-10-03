@@ -1,3 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Entrada de menús desplegables: crece desde su disparador (esquina superior derecha). */
+.menu-pop {
+  transform-origin: top right;
+  transition:
+    opacity 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@starting-style {
+  .menu-pop {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop {
+    transition-property: opacity;
+  }
+}
