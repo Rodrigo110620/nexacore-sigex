@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${DOCKER_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD:-dfigueroa}
+      POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD:?Define DOCKER_DB_PASSWORD en .env}
       POSTGRES_DB: ${DOCKER_DB_NAME:-taller_TIS}
     ports:
       - "${DOCKER_DB_PORT:-5432}:5432"
@@ -22,7 +22,7 @@ services:
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@nexacore.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Define PGADMIN_PASSWORD en .env}
     ports:
       - "${PGADMIN_PORT:-5050}:80"
     depends_on:

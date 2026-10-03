@@ -7,10 +7,20 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     Optional<Usuario> findByEmail(String email);
+
+    @Query("""
+            SELECT COUNT(u) > 0 FROM Usuario u
+            WHERE u.email = :email AND LOWER(CAST(u.estado AS String)) = 'activo'
+            """)
+    boolean esActivo(@Param("email") String email);
+
+    @Query("SELECT r.nombre FROM UsuarioRol ur JOIN ur.idRol r WHERE ur.idUsuario.email = :email")
+    List<String> findNombresDeRol(@Param("email") String email);
 
     /**
      * Filtros de búsqueda compartidos por la consulta de datos y la de conteo (tarea B2).

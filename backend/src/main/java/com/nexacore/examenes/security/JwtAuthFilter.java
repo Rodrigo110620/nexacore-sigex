@@ -1,5 +1,6 @@
 package com.nexacore.examenes.security;
 
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,9 +20,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UsuarioRepository usuarioRepository;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, UsuarioRepository usuarioRepository) {
         this.jwtService = jwtService;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @Override
@@ -44,7 +47,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // 2. Validar token usando el JwtService de Marcelo
         if (jwtService.esValido(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
             String email = jwtService.extraerEmail(jwt);
-            List<String> roles = jwtService.extraerRoles(jwt);
+            // Estado y roles se leen de la BD y no del token: desactivar al usuario o quitarle
+            // un rol surte efecto en la siguiente petición, sin esperar a que venza el token.
+            if (!usuarioRepository.esActivo(email)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            List<String> roles = usuarioRepository.findNombresDeRol(email);
 
             // Mapear roles a GrantedAuthority agregando prefijo "ROLE_"
             List<SimpleGrantedAuthority> authorities = roles.stream()

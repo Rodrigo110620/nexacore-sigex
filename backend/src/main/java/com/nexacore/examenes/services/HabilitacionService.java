@@ -21,6 +21,9 @@ import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.InscripcionParaleloRepository;
+import com.nexacore.examenes.repositories.UsuarioRepository;
+import com.nexacore.examenes.security.SesionActual;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,23 +60,35 @@ public class HabilitacionService {
     private final EstudianteCarreraRepository estudianteCarreraRepository;
     private final ExamenRepository examenRepository;
     private final InscripcionParaleloRepository inscripcionParaleloRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
                                EstudianteCarreraRepository estudianteCarreraRepository,
                                ExamenRepository examenRepository,
-                               InscripcionParaleloRepository inscripcionParaleloRepository) {
+                               InscripcionParaleloRepository inscripcionParaleloRepository,
+                               UsuarioRepository usuarioRepository) {
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
         this.examenRepository = examenRepository;
         this.inscripcionParaleloRepository = inscripcionParaleloRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @Transactional(readOnly = true)
     public List<EstudianteHabilitacionResponse> listar(Integer idExamen, Integer idParalelo) {
-        buscarExamen(idExamen, idParalelo);
+        Examen examen = buscarExamen(idExamen, idParalelo);
+        if (SesionActual.esSoloDocente() && !esDelDocenteActual(examen)) {
+            throw new AccessDeniedException("El examen no está asignado a este docente");
+        }
         return listarSinVerificar(idExamen, idParalelo);
+    }
+
+    private boolean esDelDocenteActual(Examen examen) {
+        return usuarioRepository.findByEmail(SesionActual.email())
+                .map(usuario -> usuario.getId().equals(examen.getIdDocente()))
+                .orElse(false);
     }
 
     /**
