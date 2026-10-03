@@ -372,8 +372,7 @@ class ControlIngresoServiceTests {
     void autorizaCorrectamenteCuandoElAmbienteEsValido() {
         // El ambiente del examen (id: 5) coincide con el ambiente verificado
         asistencia.getExamen().setIdAmbiente(5);
-        var request = new AutorizarIngresoRequest(10, 20, "Sin problemas", true, List.of("Identidad confirmada"), List.of());
-        
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of());
         var response = service.autorizar(request, "control@umss.edu.bo");
         
         assertTrue(response.autorizado());
