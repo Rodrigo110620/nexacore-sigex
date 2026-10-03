@@ -13,6 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,5 +85,19 @@ class EstudianteServiceTests {
         when(carreraRepository.findById(any())).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> service.registrar(request()));
         verify(estudianteRepository, never()).save(any());
+    }
+
+    @Test
+    void listarLimitaElTamanoDePaginaYCorrigeValoresInvalidos() {
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any())).thenReturn(Page.empty());
+
+        service.listar(-3, 100_000, null, null, null);
+        service.listar(0, 0, null, null, null);
+
+        var paginas = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(estudianteRepository, times(2)).buscarConFiltros(any(), any(), any(), paginas.capture());
+        assertEquals(0, paginas.getAllValues().get(0).getPageNumber());
+        assertEquals(100, paginas.getAllValues().get(0).getPageSize());
+        assertEquals(1, paginas.getAllValues().get(1).getPageSize());
     }
 }
