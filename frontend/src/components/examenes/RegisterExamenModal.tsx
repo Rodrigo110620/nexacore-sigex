@@ -37,6 +37,11 @@ import {
   todayISO,
   validateExamenForm,
   validateNormaTexto,
+  formatHora24,
+  sanitizeHoraInput,
+  filtrarAmbientes,
+  examFieldClass,
+  EXAM_SECTION_CARD_CLASS,
 } from '../../utils/examFormUtils'
 import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
@@ -61,17 +66,6 @@ const STEP_DESCRIPCION: Record<Step, string> = {
   1: 'Seleccione la asignatura y el docente responsable de la evaluación.',
   2: 'Defina la fecha, el horario y el ambiente donde se rendirá el examen.',
   3: 'Revise las normas del examen y confirme los datos antes de registrar.',
-}
-
-function formatHora24(h: number, m: number): string {
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-/** Solo dígitos; inserta `:` tras la hora (máx. HH:MM, 24 h). */
-function sanitizeHoraInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  if (digits.length <= 2) return digits
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
@@ -182,21 +176,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const sinSolapamientoUi = Boolean(
     form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && duracion !== null,
   )
-  const ambientesFiltrados = ambientes.filter((a) => {
-    const q = ambienteFilter.trim().toLowerCase()
-    if (!q) return true
-    return (
-      a.nombre.toLowerCase().includes(q) ||
-      (a.ubicacion ?? '').toLowerCase().includes(q)
-    )
-  })
-
-  const fieldClass = (hasError?: string) =>
-    `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-      hasError ? 'border-red-400' : 'border-gray-200'
-    }`
-
-  const sectionCardClass = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
+  const ambientesFiltrados = filtrarAmbientes(ambientes, ambienteFilter)
+  const fieldClass = examFieldClass
+  const sectionCardClass = EXAM_SECTION_CARD_CLASS
 
   const handleChange = (field: keyof RegisterExamenFormState, raw: string) => {
     const value = field === 'asignatura' || field === 'docente' ? toTitleCaseTexto(raw) : raw

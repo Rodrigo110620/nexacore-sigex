@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  filtrarAmbientes,
   formatAmPm,
   formatFechaDisplay,
+  formatHora24,
+  sanitizeHoraInput,
   sanitizeCatalogQuery,
   validateExamenForm,
   validateNormaTexto,
@@ -55,5 +58,27 @@ describe('examFormUtils', () => {
       { asignaturaSeleccionada: true, docenteSeleccionado: true },
     )
     expect(errors.fecha).toMatch(/hoy/)
+  })
+})
+
+describe('helpers compartidos de los modales de examen', () => {
+  it('sanitizeHoraInput deja solo dígitos y pone los dos puntos', () => {
+    expect(sanitizeHoraInput('8')).toBe('8')
+    expect(sanitizeHoraInput('0830')).toBe('08:30')
+    expect(sanitizeHoraInput('08:3a0x9')).toBe('08:30')
+  })
+
+  it('formatHora24 rellena con ceros', () => {
+    expect(formatHora24(8, 5)).toBe('08:05')
+  })
+
+  it('filtrarAmbientes busca por nombre o ubicación sin distinguir mayúsculas', () => {
+    const ambientes = [
+      { id: 1, nombre: '691A', ubicacion: 'Edificio nuevo' },
+      { id: 2, nombre: 'Auditorio', ubicacion: null },
+    ]
+    expect(filtrarAmbientes(ambientes, '  ')).toHaveLength(2)
+    expect(filtrarAmbientes(ambientes, 'audi').map((a) => a.id)).toEqual([2])
+    expect(filtrarAmbientes(ambientes, 'NUEVO').map((a) => a.id)).toEqual([1])
   })
 })

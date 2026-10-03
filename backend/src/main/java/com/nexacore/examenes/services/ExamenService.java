@@ -7,7 +7,8 @@ import com.nexacore.examenes.dto.ActualizarExamenRequest;
 import com.nexacore.examenes.dto.CrearExamenRequest;
 import com.nexacore.examenes.dto.ExamenResponse;
 import com.nexacore.examenes.dto.NormaParticularRequest;
-import com.nexacore.examenes.exceptions.ConflictoAmbienteException;
+import com.nexacore.examenes.exceptions.ConflictoExamenException;
+import com.nexacore.examenes.exceptions.ExamenNoEncontradoException;
 import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Examen;
@@ -22,17 +23,16 @@ import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
+import com.nexacore.examenes.security.SesionActual;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,15 +77,16 @@ public class ExamenService {
 
     @Transactional(readOnly = true)
     public List<ExamenResponse> listar() {
-        return examenesVisibles().stream()
-                .map(this::toResponse)
+        List<Examen> examenes = examenesVisibles();
+        Catalogos catalogos = catalogosDe(examenes);
+        return examenes.stream()
+                .map(examen -> toResponse(examen, catalogos))
                 .toList();
     }
 
     private List<Examen> examenesVisibles() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (tieneRol(auth, "ROLE_DOCENTE") && !tieneRol(auth, "ROLE_ADMIN")) {
-            Integer idDocente = usuarioRepository.findByEmail(auth.getName())
+        if (SesionActual.esSoloDocente()) {
+            Integer idDocente = usuarioRepository.findByEmail(SesionActual.email())
                     .map(Usuario::getId)
                     .orElse(-1);
             return examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(idDocente);
@@ -93,21 +94,11 @@ public class ExamenService {
         return examenRepository.findAllByOrderByFechaDescHoraInicioDesc();
     }
 
-    private static boolean tieneRol(Authentication auth, String role) {
-        if (auth == null) {
-            return false;
-        }
-        for (GrantedAuthority authority : auth.getAuthorities()) {
-            if (role.equals(authority.getAuthority())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @Transactional
     public ExamenResponse crear(CrearExamenRequest request) {
-        Ambiente ambiente = ambienteRepository.findById(request.idAmbiente())
+        // Bloqueos en orden fijo (ambiente y luego docente) hasta el commit: dos registros
+        // simultáneos no pueden pasar a la vez la validación de horario.
+        Ambiente ambiente = ambienteRepository.bloquear(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         validarNoPasado(request.fecha(), request.horaInicio());
@@ -116,6 +107,7 @@ public class ExamenService {
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        docenteRepository.bloquear(docente.getIdUsuario());
         validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
                 request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente);
@@ -157,9 +149,9 @@ public class ExamenService {
         examenId.setIdParalelo(idParalelo);
 
         Examen examen = examenRepository.findById(examenId)
-                .orElseThrow(() -> new IllegalArgumentException("El examen indicado no existe"));
+                .orElseThrow(() -> new ExamenNoEncontradoException(idExamen));
 
-        Ambiente ambiente = ambienteRepository.findById(request.idAmbiente())
+        Ambiente ambiente = ambienteRepository.bloquear(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         boolean cambiaHorario = !request.fecha().equals(examen.getFecha())
@@ -174,6 +166,7 @@ public class ExamenService {
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        docenteRepository.bloquear(docente.getIdUsuario());
         validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
                 request.duracionMinutos(), idExamen);
 
@@ -222,7 +215,7 @@ public class ExamenService {
                 .setParameter("p", idParaleloActual)
                 .getSingleResult();
         if (dependientes.longValue() > 0) {
-            throw new ConflictoAmbienteException(
+            throw new ConflictoExamenException(
                     "No se puede cambiar la asignatura o el docente: el examen ya tiene estudiantes habilitados "
                             + "o registros de ingreso. Registra un examen nuevo para la otra asignatura.");
         }
@@ -256,7 +249,7 @@ public class ExamenService {
         examenId.setIdParalelo(idParalelo);
 
         Examen examen = examenRepository.findById(examenId)
-                .orElseThrow(() -> new IllegalArgumentException("El examen indicado no existe"));
+                .orElseThrow(() -> new ExamenNoEncontradoException(idExamen));
         String estadoAnterior = examen.getEstado();
         examen.setEstado("cancelado");
         examenRepository.save(examen);
@@ -273,7 +266,7 @@ public class ExamenService {
         Examen otro = primerSolapado(examenRepository.findByAmbienteAndFecha(idAmbiente, fecha),
                 inicio, duracionMinutos, idExamenExcluido);
         if (otro != null) {
-            throw new ConflictoAmbienteException(
+            throw new ConflictoExamenException(
                     "El ambiente ya tiene un examen el " + fecha
                             + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
                             + ". Elige otro horario o ambiente.");
@@ -287,7 +280,7 @@ public class ExamenService {
         Examen otro = primerSolapado(examenRepository.findByDocenteAndFecha(idDocente, fecha),
                 inicio, duracionMinutos, idExamenExcluido);
         if (otro != null) {
-            throw new ConflictoAmbienteException(
+            throw new ConflictoExamenException(
                     "El docente ya tiene un examen el " + fecha
                             + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
                             + ". Elige otro horario o docente.");
@@ -602,11 +595,11 @@ public class ExamenService {
     }
 
     private void registrarAuditoria(String accion, Map<String, Object> detalles) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
+        String email = SesionActual.email();
+        if (email == null) {
             return;
         }
-        Integer idUsuario = usuarioRepository.findByEmail(auth.getName()).map(Usuario::getId).orElse(null);
+        Integer idUsuario = usuarioRepository.findByEmail(email).map(Usuario::getId).orElse(null);
         if (idUsuario == null) {
             return;
         }
@@ -624,22 +617,52 @@ public class ExamenService {
                 .executeUpdate();
     }
 
+    /** Materias, nombres de docente y de ambiente de un grupo de exámenes, leídos en una consulta por tabla. */
+    private record Catalogos(
+            Map<Integer, Materia> materias,
+            Map<Integer, String> docentes,
+            Map<Integer, String> ambientes) {
+    }
+
+    private Catalogos catalogosDe(Collection<Examen> examenes) {
+        Set<Integer> idsMateria = new HashSet<>();
+        Set<Integer> idsDocente = new HashSet<>();
+        Set<Integer> idsAmbiente = new HashSet<>();
+        for (Examen examen : examenes) {
+            idsMateria.add(examen.getIdMateria());
+            idsDocente.add(examen.getIdDocente());
+            idsAmbiente.add(examen.getIdAmbiente());
+        }
+        Map<Integer, Materia> materias = new HashMap<>();
+        for (Materia materia : materiaRepository.findAllById(idsMateria)) {
+            materias.put(materia.getId(), corregirSiglaSiEsNombre(materia));
+        }
+        Map<Integer, String> docentes = new HashMap<>();
+        for (Docente docente : docenteRepository.findAllConUsuario(idsDocente)) {
+            docentes.put(docente.getIdUsuario(),
+                    docente.getUsuario().getNombre() + " " + docente.getUsuario().getApellidos());
+        }
+        Map<Integer, String> ambientes = new HashMap<>();
+        for (Ambiente ambiente : ambienteRepository.findAllById(idsAmbiente)) {
+            ambientes.put(ambiente.getId(), ambiente.getNombre());
+        }
+        return new Catalogos(materias, docentes, ambientes);
+    }
+
     private ExamenResponse toResponse(Examen examen) {
+        return toResponse(examen, catalogosDe(List.of(examen)));
+    }
+
+    private ExamenResponse toResponse(Examen examen, Catalogos catalogos) {
         NormasGuardadas normas = leerNormas(examen.getNormas());
         List<String> generales = normas.generales();
         List<NormaParticularRequest> particulares = normas.particulares();
 
-        var materia = materiaRepository.findById(examen.getIdMateria())
-                .map(this::corregirSiglaSiEsNombre)
-                .orElse(null);
+        Materia materia = catalogos.materias().get(examen.getIdMateria());
         String asignatura = materia != null ? materia.getNombre() : "—";
         String sigla = materia != null ? materia.getSigla() : "—";
-        String docenteNombre = docenteRepository.findById(examen.getIdDocente())
-                .map(d -> d.getUsuario().getNombre() + " " + d.getUsuario().getApellidos())
-                .orElse("—");
-        String ambienteNombre = ambienteRepository.findById(examen.getIdAmbiente())
-                .map(Ambiente::getNombre)
-                .orElse("—");
+        String docenteNombre = catalogos.docentes().getOrDefault(examen.getIdDocente(), "—");
+        String ambienteNombre = catalogos.ambientes().getOrDefault(examen.getIdAmbiente(), "—");
 
         return new ExamenResponse(
                 examen.getId().getIdExamen(),
