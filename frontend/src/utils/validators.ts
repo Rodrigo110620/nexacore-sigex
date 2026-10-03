@@ -100,17 +100,27 @@ export const validateNombre = (value: string): string =>
 export const validateApellidos = (value: string): string =>
   validateNombrePersona(value, 'apellidos', FIELD_LIMITS.apellidos)
 
+
+
 export const validateDocumento = (value: string): string => {
   if (!value.trim()) return 'El documento es obligatorio'
   if (!/^\d+$/.test(value)) return 'Solo números'
-  if (
-    value.length < FIELD_LIMITS.documento.min ||
-    value.length > FIELD_LIMITS.documento.max
-  ) {
+  if (value.length < FIELD_LIMITS.documento.min || value.length > FIELD_LIMITS.documento.max) {
     return `Debe tener ${FIELD_LIMITS.documento.min} u ${FIELD_LIMITS.documento.max} dígitos`
+  }
+  // No 0's
+  if (/^0+$/.test(value)) {
+    return 'El documento no puede ser solo ceros'
+  }
+  // No secuencias
+  if (/^(\d)\1+$/.test(value)) {
+    return 'El documento no puede ser un número repetido' 
   }
   return ''
 }
+
+
+
 
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 

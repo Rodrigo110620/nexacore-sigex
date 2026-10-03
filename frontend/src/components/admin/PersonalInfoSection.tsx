@@ -3,17 +3,55 @@ import { FIELD_LIMITS, sanitizeNombreInput } from '../../utils/validators';
 
 interface PersonalInfoSectionProps {
   form: RegisterUserFormState;
-  errors: { nombre?: string; apellidos?: string; documento?: string };
   onChange: (field: keyof RegisterUserFormState, value: string) => void;
-  onBlur: (field: keyof RegisterUserFormState) => void;
+  onBlur: (field: keyof RegisterUserFormState) => string;
+  onFieldError?: (field: string, message: string) => void;
 }
 
 export default function PersonalInfoSection({
   form,
-  errors,
   onChange,
   onBlur,
+  onFieldError,
 }: PersonalInfoSectionProps) {
+  const handleBlurWithError = (field: keyof RegisterUserFormState) => {
+    const error = onBlur(field);
+    if (error) {
+      onFieldError?.(field, error);
+    }
+  };
+
+  /** Al presionar Enter, pasa al siguiente campo */
+  const handleEnter = (currentField: string) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const fieldOrder = ['nombre', 'apellidos', 'documento'];
+    const currentIndex = fieldOrder.indexOf(currentField);
+    const nextField = fieldOrder[currentIndex + 1];
+
+    if (nextField) {
+      const input = document.querySelector(`[name="${nextField}"]`) as HTMLInputElement;
+      if (input) input.focus();
+    } else {
+      // Es el último campo: hacer blur para validar
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  /** Cuando el documento llegue a 8 dígitos, hacer blur automático */
+  const handleDocumentoChange = (value: string) => {
+    const onlyNumbers = value.replace(/\D/g, '');
+    onChange('documento', onlyNumbers);
+
+    if (onlyNumbers.length === FIELD_LIMITS.documento.max) {
+      setTimeout(() => {
+        const input = document.querySelector('[name="documento"]') as HTMLInputElement;
+        if (input) input.blur();
+      }, 100);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="hidden items-center gap-2 sm:flex">
@@ -40,29 +78,25 @@ export default function PersonalInfoSection({
           </span>
         </div>
         <input
+          name="nombre"
           type="text"
           value={form.nombre}
           onChange={(e) => onChange('nombre', sanitizeNombreInput(e.target.value))}
           onBlur={() => {
-            onChange('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true }))
-            onBlur('nombre')
+            onChange('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true }));
+            handleBlurWithError('nombre');
           }}
+          onKeyDown={handleEnter('nombre')}
           placeholder="Ej. Roberto Carlos"
           maxLength={FIELD_LIMITS.nombre.max}
           autoComplete="given-name"
           autoCapitalize="words"
-          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
-            errors.nombre
-              ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
-              : 'border-gray-300 focus:ring-[#E1ECFF]'
-          }`}
+          autoFocus
+          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
         />
         <p className="hidden text-gray-600 text-xs sm:block">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
-        {errors.nombre && (
-          <p className="text-[#B91C1C] text-xs">⚠️ {errors.nombre}</p>
-        )}
       </div>
 
       {/* Apellidos */}
@@ -82,29 +116,24 @@ export default function PersonalInfoSection({
           </span>
         </div>
         <input
+          name="apellidos"
           type="text"
           value={form.apellidos}
           onChange={(e) => onChange('apellidos', sanitizeNombreInput(e.target.value))}
           onBlur={() => {
-            onChange('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true }))
-            onBlur('apellidos')
+            onChange('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true }));
+            handleBlurWithError('apellidos');
           }}
+          onKeyDown={handleEnter('apellidos')}
           placeholder="Ej. Méndez Quispe"
           maxLength={FIELD_LIMITS.apellidos.max}
           autoComplete="family-name"
           autoCapitalize="words"
-          className={`text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
-            errors.apellidos
-              ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
-              : 'border-gray-300 focus:ring-[#E1ECFF]'
-          }`}
+          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
         />
         <p className="hidden text-gray-600 text-xs sm:block">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
-        {errors.apellidos && (
-          <p className="text-[#B91C1C] text-xs">⚠️ {errors.apellidos}</p>
-        )}
       </div>
 
       {/* Documento */}
@@ -128,29 +157,21 @@ export default function PersonalInfoSection({
             CI
           </div>
           <input
+            name="documento"
             type="text"
             inputMode="numeric"
             value={form.documento}
-            onChange={(e) => {
-              const onlyNumbers = e.target.value.replace(/\D/g, '');
-              onChange('documento', onlyNumbers);
-            }}
-            onBlur={() => onBlur('documento')}
+            onChange={(e) => handleDocumentoChange(e.target.value)}
+            onBlur={() => handleBlurWithError('documento')}
+            onKeyDown={handleEnter('documento')}
             placeholder="8 dígitos"
             maxLength={FIELD_LIMITS.documento.max}
-            className={`flex-1 text-xs border rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 transition-colors ${
-              errors.documento
-                ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
-                : 'border-gray-300 focus:ring-[#E1ECFF]'
-            }`}
+            className="flex-1 text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
           />
         </div>
         <p className="hidden text-gray-600 text-xs sm:block">
           Solo números · Máximo {FIELD_LIMITS.documento.max} caracteres
         </p>
-        {errors.documento && (
-          <p className="text-[#B91C1C] text-xs">⚠️ {errors.documento}</p>
-        )}
       </div>
     </div>
   );
