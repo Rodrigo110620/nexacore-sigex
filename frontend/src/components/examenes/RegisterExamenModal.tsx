@@ -117,13 +117,6 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   }, [])
 
   useEffect(() => {
-    if (!isOpen || !esDocente || !nombre) return
-    setForm((prev) => ({ ...prev, docente: nombre }))
-    setDocenteOk(true)
-    setIdDocente(null)
-  }, [isOpen, esDocente, nombre])
-
-  useEffect(() => {
     if (!ambienteListOpen) return
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node
@@ -189,6 +182,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const ambientesFiltrados = filtrarAmbientes(ambientes, ambienteFilter)
   const fieldClass = examFieldClass
   const sectionCardClass = EXAM_SECTION_CARD_CLASS
+  const docenteResponsable = esDocente ? (nombre ?? '') : form.docente
+  const formParaValidar = esDocente ? { ...form, docente: nombre ?? '' } : form
 
   const handleChange = (field: keyof RegisterExamenFormState, raw: string) => {
     const value = field === 'asignatura' || field === 'docente' ? toTitleCaseTexto(raw) : raw
@@ -257,9 +252,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   }
 
   const validarTodo = () =>
-    validateExamenForm(form, {
+    validateExamenForm(formParaValidar, {
       asignaturaSeleccionada: asignaturaOk,
-      docenteSeleccionado: docenteOk,
+      docenteSeleccionado: esDocente ? Boolean(nombre) : docenteOk,
     })
 
   const goNext = () => {
@@ -315,7 +310,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     try {
       await crearExamen({
         asignatura: toTitleCaseTexto(form.asignatura.trim()),
-        docente: toTitleCaseTexto(form.docente.trim()),
+        docente: toTitleCaseTexto(docenteResponsable.trim()),
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: duracion,
@@ -513,7 +508,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   {esDocente ? (
                     <input
                       id="registrar-docente"
-                      value={form.docente}
+                      value={docenteResponsable}
                       readOnly
                       aria-label="Docente Responsable"
                       className={`${fieldClass()} cursor-not-allowed bg-gray-100 text-gray-600`}
@@ -808,7 +803,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-2">
                 {[
                   { label: 'Asignatura', value: form.asignatura, paso: 1 as Step },
-                  { label: 'Docente responsable', value: form.docente, paso: 1 as Step },
+                  { label: 'Docente responsable', value: docenteResponsable, paso: 1 as Step },
                   { label: 'Fecha', value: form.fecha ? formatFechaDisplay(form.fecha) : '', paso: 2 as Step },
                   {
                     label: 'Horario',
