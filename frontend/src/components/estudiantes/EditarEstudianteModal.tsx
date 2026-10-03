@@ -62,7 +62,7 @@ function FieldError({ children }: { children?: string }) {
 }
 
 export default function EditarEstudianteModal({ open, estudianteId, onClose, onSaved }: Props) {
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [success, setSuccess] = useState(false)
     const [estudiante, setEstudiante] = useState<EstudianteListItem | null>(null)
@@ -77,12 +77,10 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
 
     useEffect(() => {
         if (!open || !estudianteId) return
-        setLoading(true)
-        setApiError('')
-        setSuccess(false)
-        setChangedFields([])
+        let cancelled = false
         Promise.all([getEstudianteById(estudianteId), getFacultades()])
             .then(([est, facs]) => {
+                if (cancelled) return
                 setEstudiante(est)
                 setFacultades(facs)
                 const carrera = est.carreras?.[0]
@@ -98,18 +96,22 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 setForm(loadedForm)
                 setOriginalForm(loadedForm)
             })
-            .catch(() => setApiError('No se pudieron cargar los datos del estudiante.'))
-            .finally(() => setLoading(false))
+            .catch(() => {
+                if (!cancelled) setApiError('No se pudieron cargar los datos del estudiante.')
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false)
+            })
+        return () => { cancelled = true }
     }, [open, estudianteId])
 
     useEffect(() => {
-        if (!form.idFacultad) {
-            setCarreras([])
-            return
-        }
+        if (!form.idFacultad) return
+        let cancelled = false
         getCarreras(form.idFacultad)
-            .then(setCarreras)
-            .catch(() => setCarreras([]))
+            .then((data) => { if (!cancelled) setCarreras(data) })
+            .catch(() => { if (!cancelled) setCarreras([]) })
+        return () => { cancelled = true }
     }, [form.idFacultad])
 
     if (!open) return null
@@ -124,6 +126,9 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         setApiError('')
         setSuccess(false)
         setSavedNombre('')
+        setFacultades([])
+        setCarreras([])
+        setLoading(true)
         onClose()
     }
 
@@ -200,7 +205,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
             aria-modal="true"
             aria-labelledby="edit-student-title"
         >
-        
             <div className="relative flex h-[90dvh] max-h-[680px] w-full flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:max-w-[640px] sm:rounded-2xl">
 
                 {/* Header */}
@@ -326,6 +330,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                         onChange={(e) => {
                                             update('idFacultad', e.target.value)
                                             update('idCarrera', '')
+                                            setCarreras([])
                                         }}
                                         className={inputClass}
                                     >
