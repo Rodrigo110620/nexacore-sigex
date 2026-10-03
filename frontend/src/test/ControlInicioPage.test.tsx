@@ -128,18 +128,9 @@ describe('ControlInicioPage', () => {
   it.each([
     ['CONTROL en /dashboard', '/dashboard', ['CONTROL']],
     ['ADMIN + CONTROL en Inicio', '/dashboard/inicio', ['ADMIN', 'CONTROL']],
+    ['ADMIN en Inicio', '/dashboard/inicio', ['ADMIN']],
   ])('%s ve el panel de control de ingreso', async (_caso, ruta, roles) => {
     await renderPanel(ruta, roles)
     expect(screen.getByRole('region', { name: /Exámenes activos ahora/i })).toBeInTheDocument()
-  })
-
-  it('ADMIN ve "Inicio en desarrollo" y no pide exámenes', () => {
-    montar('/dashboard/inicio', ['ADMIN'])
-
-    expect(screen.getByText('Inicio en desarrollo')).toBeInTheDocument()
-    expect(screen.getByText('Esta sección está en desarrollo. Usa el menú para ir a los demás módulos.')).toBeInTheDocument()
-    expect(screen.getAllByText('Módulo en desarrollo').length).toBeGreaterThan(0)
-    expect(screen.queryByText('CONTROL DE INGRESO')).not.toBeInTheDocument()
-    expect(listarExamenes).not.toHaveBeenCalled()
   })
 })
