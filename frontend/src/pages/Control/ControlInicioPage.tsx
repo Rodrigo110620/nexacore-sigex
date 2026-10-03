@@ -2,19 +2,15 @@ import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ExamenEnCursoCard from '../../components/control/ExamenEnCursoCard'
 import ExamenesDelDia from '../../components/control/ExamenesDelDia'
-import InicioEnDesarrollo from '../../components/control/InicioEnDesarrollo'
 import { useAuth } from '../../context/AuthContext'
 import usePanelControl from '../../hooks/usePanelControl'
 import { estaEnCurso } from '../../utils/examenFormat'
 
-/** Inicio por rol: con CONTROL (aunque tenga otros roles) el panel de control de ingreso; el resto, el aviso en desarrollo. */
+/**
+ * Inicio de CONTROL y ADMIN (ControlRoute deja pasar solo a esos roles): exámenes en curso
+ * con su aforo en vivo y los exámenes del día. CONTROL lo usa para trabajar y ADMIN para supervisar.
+ */
 export default function ControlInicioPage() {
-  const { roles } = useAuth()
-  return roles.includes('CONTROL') ? <PanelControlIngreso /> : <InicioEnDesarrollo />
-}
-
-/** Exámenes en curso con su aforo en vivo y los exámenes del día. */
-function PanelControlIngreso() {
   const { nombre } = useAuth()
   const { examenes, error, ahora } = usePanelControl()
   const enCurso = examenes?.filter((e) => estaEnCurso(e, ahora)) ?? []

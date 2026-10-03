@@ -115,9 +115,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
-    /** Conflicto de horario/ambiente al registrar examen. */
-    @ExceptionHandler(ConflictoAmbienteException.class)
-    public ResponseEntity<ErrorResponse> manejarConflictoAmbiente(ConflictoAmbienteException ex) {
+    /** Conflicto al registrar o editar un examen: ambiente o docente ocupados, cambio de paralelo bloqueado. */
+    @ExceptionHandler(ConflictoExamenException.class)
+    public ResponseEntity<ErrorResponse> manejarConflictoExamen(ConflictoExamenException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 ex.getMessage());
@@ -132,6 +132,15 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
 
         return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** El examen de la ruta no existe. */
+    @ExceptionHandler(ExamenNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarExamenNoEncontrado(ExamenNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
     }
 
     /** Ningún estudiante tiene el código universitario o CI buscado (ACCS-01). */

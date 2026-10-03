@@ -9,6 +9,38 @@ export function parseHora24(value: string): { h: number; m: number } | null {
   return { h, m }
 }
 
+export function formatHora24(h: number, m: number): string {
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Solo dígitos; inserta `:` tras la hora (máx. HH:MM, 24 h). */
+export function sanitizeHoraInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
+}
+
+/** Ambientes cuyo nombre o ubicación contienen el texto buscado (sin distinguir mayúsculas). */
+export function filtrarAmbientes<T extends { nombre: string; ubicacion?: string | null }>(
+  ambientes: T[],
+  filtro: string,
+): T[] {
+  const q = filtro.trim().toLowerCase()
+  if (!q) return ambientes
+  return ambientes.filter(
+    (a) => a.nombre.toLowerCase().includes(q) || (a.ubicacion ?? '').toLowerCase().includes(q),
+  )
+}
+
+/** Clase de los campos del formulario de examen, con borde rojo si tienen error. */
+export function examFieldClass(hasError?: string): string {
+  return `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
+    hasError ? 'border-red-400' : 'border-gray-200'
+  }`
+}
+
+export const EXAM_SECTION_CARD_CLASS = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
+
 export function minutesBetween(start: string, end: string): number | null {
   const a = parseHora24(start)
   const b = parseHora24(end)
