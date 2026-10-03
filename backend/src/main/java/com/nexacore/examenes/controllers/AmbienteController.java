@@ -33,8 +33,8 @@ public class AmbienteController {
         this.ambienteService = ambienteService;
     }
 
-    @Operation(summary = "Listar ambientes", description = "Catálogo ordenado por nombre. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Listar ambientes", description = "Catálogo ordenado por nombre. ADMIN o DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @GetMapping
     public ResponseEntity<List<AmbienteResponse>> listar() {
         return ResponseEntity.ok(ambienteService.listar());
@@ -49,7 +49,7 @@ public class AmbienteController {
 
     @Operation(summary = "Disponibilidad de ambientes",
                description = "Devuelve todos los ambientes con disponible=true/false para la fecha y horario indicados. Excluye el examen con idExamenExcluido si se edita.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @GetMapping("/disponibilidad")
     public ResponseEntity<List<AmbienteDisponibilidadResponse>> disponibilidad(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,

@@ -35,6 +35,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/dashboard/control/7']}>
         <Routes>
           <Route path="/dashboard/control/:idExamen" element={<ControlExamenPage />} />
+          <Route path="/dashboard/control" element={<Destino />} />
           <Route path="/dashboard/control/:idExamen/identificar" element={<Destino />} />
         </Routes>
       </MemoryRouter>
@@ -70,6 +71,12 @@ describe('ControlExamenPage', () => {
     expect(within(filas[2]).getByText('7489212')).toBeInTheDocument()
     expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0)
     expect(screen.getByRole('link', { name: /Iniciar Control de Ingreso/ })).toHaveAttribute('href', '/dashboard/control/7/identificar')
+  })
+
+  it('permite volver al listado de Control', async () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('link', { name: 'Volver a Control' }))
+    expect(await screen.findByText('Destino /dashboard/control')).toBeInTheDocument()
   })
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {

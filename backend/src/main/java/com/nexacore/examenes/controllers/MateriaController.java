@@ -24,8 +24,8 @@ public class MateriaController {
         this.materiaRepository = materiaRepository;
     }
 
-    @Operation(summary = "Buscar asignaturas", description = "Búsqueda predictiva por nombre o sigla. Mínimo 3 caracteres. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Buscar asignaturas", description = "Búsqueda predictiva por nombre o sigla. Mínimo 3 caracteres. ADMIN o DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @GetMapping
     public ResponseEntity<List<MateriaResponse>> buscar(
             @RequestParam(name = "search", defaultValue = "") String search) {

@@ -66,6 +66,14 @@ export default function IdentificacionPage() {
   return (
     <PanelLayout title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
       <div className="mx-auto w-full max-w-5xl px-6 py-6">
+        <button
+          type="button"
+          onClick={() => navigate(`/dashboard/control/${idExamen}`)}
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white px-4 py-2.5 text-sm font-semibold text-[#627A9B] hover:bg-[#F1F6FF]"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Volver al examen
+        </button>
         <section className="overflow-hidden rounded-2xl border border-[#D8E3F5] bg-white shadow-sm">
           <ControlIngresoHeader
             materia={examen?.asignatura}

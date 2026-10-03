@@ -21,6 +21,12 @@ function renderLayout(roles: string[]) {
 }
 
 describe('PanelLayout con múltiples roles', () => {
+  it('DOCENTE conserva Inicio y Exámenes', () => {
+    renderLayout(['DOCENTE'])
+    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+  })
+
   it('ADMIN conserva Usuarios y la opción Exámenes', () => {
     renderLayout(['ADMIN'])
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()

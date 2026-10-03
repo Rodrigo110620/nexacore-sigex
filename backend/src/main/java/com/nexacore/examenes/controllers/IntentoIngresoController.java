@@ -18,7 +18,7 @@ public class IntentoIngresoController {
     private final IntentoIngresoService service;
     public IntentoIngresoController(IntentoIngresoService service) { this.service = service; }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping
     public ResponseEntity<Void> registrar(@Valid @RequestBody RegistrarIntentoIngresoRequest request,
                                           Authentication authentication) {
@@ -26,7 +26,7 @@ public class IntentoIngresoController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping
     public ResponseEntity<List<IntentoIngresoResponse>> listar(@RequestParam Integer idExamen,
                                                                  @RequestParam(required = false) Integer idEstudiante) {
