@@ -54,6 +54,8 @@ app:
     swagger-enabled: ${SWAGGER_ENABLED:true}
     # true solo detrás de HTTPS (proxy TLS). En local déjalo false.
     require-https: ${REQUIRE_HTTPS:false}
+    # Solo perfil prod: reemplaza al arrancar la contraseña de laboratorio del admin sembrado.
+    admin-initial-password: ${ADMIN_INITIAL_PASSWORD:}
     rate-limit:
       enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
       max-requests: ${AUTH_RATE_LIMIT_MAX:10}
