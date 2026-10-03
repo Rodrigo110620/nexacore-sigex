@@ -114,19 +114,18 @@ describe('IdentificacionPage', () => {
     expect(screen.getByText('María José González Flores')).toBeInTheDocument()
   })
 
-  it('ADMIN sin CONTROL puede identificar pero no continuar a ACCS-02', async () => {
+  it('ADMIN puede identificar y continuar a ACCS-02', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage(['ADMIN'])
     await buscarEstudiante()
 
-    expect(continuar()).toBeDisabled()
-    expect(continuar()).toHaveAttribute('title', 'Se requiere el rol CONTROL para continuar')
+    expect(continuar()).toBeEnabled()
   })
 
   it.each([
     ['ADMIN + CONTROL', ['ADMIN', 'CONTROL']],
     ['DOCENTE + CONTROL', ['DOCENTE', 'CONTROL']],
-  ])('%s puede continuar porque contiene CONTROL', async (_nombre, roles) => {
+  ])('%s puede continuar por su acceso operativo', async (_nombre, roles) => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage(roles)
     await buscarEstudiante()

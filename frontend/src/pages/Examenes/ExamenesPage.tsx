@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -45,7 +45,10 @@ function EstadoDot({ estado, className = 'text-[11px]' }: { estado: string; clas
 
 export default function ExamenesPage() {
   const { isAdmin, roles } = useAuth()
-  const isControl = roles.includes('CONTROL')
+  const location = useLocation()
+  const isControlView = location.pathname === '/dashboard/control'
+  const canControl = isAdmin || roles.includes('CONTROL')
+  const canRegister = isAdmin && !isControlView
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
@@ -106,7 +109,12 @@ export default function ExamenesPage() {
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
 
   return (
-    <PanelLayout compactDesktop>
+    <PanelLayout
+      compactDesktop
+      title={isControlView ? 'CONTROL DE INGRESO' : 'GESTIÓN DE EXÁMENES'}
+      description={isControlView ? 'Selecciona un examen para realizar el control de ingreso.' : 'Administra los exámenes programados y su habilitación.'}
+      topBarVariant={isControlView ? 'control' : 'default'}
+    >
       <div
         className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
         style={{
@@ -117,15 +125,15 @@ export default function ExamenesPage() {
         <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
             <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
-              <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE EXÁMENES</h1>
+              <h1 className="text-sm font-extrabold text-[#011140]">{isControlView ? 'CONTROL DE INGRESO' : 'GESTIÓN DE EXÁMENES'}</h1>
               <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
-                Administra los exámenes programados y su habilitación.
+                {isControlView ? 'Selecciona un examen para realizar el control de ingreso.' : 'Administra los exámenes programados y su habilitación.'}
               </p>
             </div>
 
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
-                {isAdmin && (
+                {canRegister && (
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
@@ -244,7 +252,7 @@ export default function ExamenesPage() {
                     <Upload size={16} aria-hidden="true" />
                     <span className="truncate">Exportar</span>
                   </button>
-                  {isAdmin && (
+                  {canRegister && (
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(true)}
@@ -277,7 +285,7 @@ export default function ExamenesPage() {
                 <p className="mt-1 max-w-sm text-xs text-gray-500">
                   {query.trim() || ambienteFiltro || fechaFiltro
                     ? 'Sin resultados para los filtros aplicados.'
-                    : 'Usa “Registrar Examen” para planificar una evaluación.'}
+                    : isControlView ? 'No hay exámenes disponibles para realizar control.' : 'Usa “Registrar Examen” para planificar una evaluación.'}
                 </p>
               </section>
             ) : (
@@ -313,7 +321,7 @@ export default function ExamenesPage() {
                             </span>
                           </p>
                           <div className="mt-1 flex items-center justify-end gap-2">
-                            {isControl && e.estado !== 'cancelado' && (
+                            {canControl && e.estado !== 'cancelado' && (
                               <Link
                                 to={`/dashboard/control/${e.idExamen}`}
                                 aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
@@ -372,7 +380,7 @@ export default function ExamenesPage() {
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-center gap-2">
-                        {isControl && e.estado !== 'cancelado' && (
+                        {canControl && e.estado !== 'cancelado' && (
                           <Link to={`/dashboard/control/${e.idExamen}`}
                             aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
                             className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">

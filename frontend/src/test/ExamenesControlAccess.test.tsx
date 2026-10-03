@@ -41,13 +41,22 @@ describe('acceso CONTROL desde el listado integrado', () => {
     expect(screen.getAllByLabelText('Filtrar por fecha').length).toBeGreaterThan(0)
   })
 
-  it.each(['ADMIN', 'DOCENTE'])('%s conserva su vista sin acciones de CONTROL', async role => {
+  it('DOCENTE conserva su vista sin acciones de CONTROL', async () => {
+    const role = 'DOCENTE'
     auth.roles = [role]
-    auth.isAdmin = role === 'ADMIN'
+    auth.isAdmin = false
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
     await screen.findAllByRole('button', { name: 'Ver detalle' })
     expect(screen.queryByRole('link', { name: /Iniciar control/ })).not.toBeInTheDocument()
-    expect(screen.queryAllByRole('button', { name: 'Registrar Examen' }).length > 0).toBe(role === 'ADMIN')
+    expect(screen.queryByRole('button', { name: 'Registrar Examen' })).not.toBeInTheDocument()
+  })
+
+  it('ADMIN conserva la administración y también puede iniciar el control', async () => {
+    auth.roles = ['ADMIN']
+    auth.isAdmin = true
+    render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
+    expect((await screen.findAllByRole('button', { name: 'Registrar Examen' })).length).toBeGreaterThan(0)
+    expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
   })
 
   it('ADMIN + CONTROL conserva administración y obtiene acciones CONTROL', async () => {

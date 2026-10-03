@@ -5,8 +5,8 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 
 /**
  * /dashboard:
- * - ADMIN → gestión de usuarios
- * - CONTROL → panel de control de ingreso (/dashboard/inicio)
+ * - ADMIN → pantalla unificada de exámenes
+ * - CONTROL → resumen operativo; desde el menú entra a Control
  * - DOCENTE → exámenes
  * - Sin rol → aviso (evita bucle con AdminRoute)
  */
@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const { isAdmin, nombre, roles } = useAuth()
 
   if (isAdmin) {
-    return <Navigate to="/dashboard/usuarios" replace />
+    return <Navigate to="/dashboard/examenes" replace />
   }
   if (roles.includes('CONTROL')) {
     return <Navigate to="/dashboard/inicio" replace />

@@ -25,12 +25,13 @@ describe('PanelLayout con múltiples roles', () => {
     renderLayout(['ADMIN'])
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
   })
 
-  it('ADMIN + CONTROL conserva Usuarios y obtiene Control', () => {
+  it('ADMIN + CONTROL conserva Usuarios y la navegación administrativa', () => {
     renderLayout(['ADMIN', 'CONTROL'])
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
   })
 
   it('DOCENTE + CONTROL obtiene Control sin adquirir Usuarios', () => {

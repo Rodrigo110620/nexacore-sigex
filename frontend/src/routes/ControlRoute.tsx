@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 export default function ControlRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, roles } = useAuth()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!roles.includes('CONTROL')) return <Navigate to="/dashboard" replace />
+  if (!roles.some((role) => role === 'ADMIN' || role === 'CONTROL')) {
+    return <Navigate to="/dashboard" replace />
+  }
   return <>{children}</>
 }

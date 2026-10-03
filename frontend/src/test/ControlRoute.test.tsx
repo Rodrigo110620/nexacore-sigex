@@ -24,6 +24,7 @@ describe('ControlRoute', () => {
 
   it.each([
     ['CONTROL', ['CONTROL']],
+    ['ADMIN', ['ADMIN']],
     ['ADMIN + CONTROL', ['ADMIN', 'CONTROL']],
     ['DOCENTE + CONTROL', ['DOCENTE', 'CONTROL']],
   ])('permite el acceso a %s', (_nombre, roles) => {
@@ -32,10 +33,9 @@ describe('ControlRoute', () => {
   })
 
   it.each([
-    ['ADMIN', ['ADMIN']],
     ['DOCENTE', ['DOCENTE']],
     ['otro rol', ['ESTUDIANTE']],
-  ])('redirige a %s porque no contiene CONTROL', (_nombre, roles) => {
+  ])('redirige a %s porque no contiene ADMIN ni CONTROL', (_nombre, roles) => {
     renderRoute(roles)
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
     expect(screen.queryByText('Control de ingreso')).not.toBeInTheDocument()
