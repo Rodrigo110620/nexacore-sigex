@@ -111,10 +111,13 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         validarNoPasado(request.fecha(), request.horaInicio());
-        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos());
+        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
+                null);
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
+                request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente);
 
         Integer idExamen = ((Number) entityManager
@@ -166,12 +169,13 @@ public class ExamenService {
         }
 
         // Validar conflicto excluyendo el propio examen
-        validarSinConflictoExcluyendo(
-                request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
-                idExamen, idParalelo);
+        validarSinConflicto(
+                request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
+                request.duracionMinutos(), idExamen);
 
         Map<String, Object> antes = resumen(examen);
         NormasGuardadas previas = leerNormas(examen.getNormas());
@@ -262,41 +266,50 @@ public class ExamenService {
                 "estadoAnterior", estadoAnterior == null ? "" : estadoAnterior));
     }
 
-    private void validarSinConflictoExcluyendo(
+    /** idExamenExcluido: el propio examen al editar (id_examen es único), o null al crear. */
+    private void validarSinConflicto(
             Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido, Integer idParaleloExcluido) {
-        LocalTime fin = inicio.plusMinutes(duracionMinutos);
-        for (Examen otro : examenRepository.findByAmbienteAndFecha(idAmbiente, fecha)) {
-            if (otro.getId().getIdExamen().equals(idExamenExcluido)
-                    && otro.getId().getIdParalelo().equals(idParaleloExcluido)) {
-                continue; // es el propio examen editado
-            }
-            LocalTime otroInicio = otro.getHoraInicio();
-            LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
-            boolean solapa = inicio.isBefore(otroFin) && otroInicio.isBefore(fin);
-            if (solapa) {
-                throw new ConflictoAmbienteException(
-                        "El ambiente ya tiene un examen el " + fecha
-                                + " entre " + otroInicio + " y " + otroFin
-                                + ". Elige otro horario o ambiente.");
-            }
+            Integer idExamenExcluido) {
+        Examen otro = primerSolapado(examenRepository.findByAmbienteAndFecha(idAmbiente, fecha),
+                inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null) {
+            throw new ConflictoAmbienteException(
+                    "El ambiente ya tiene un examen el " + fecha
+                            + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
+                            + ". Elige otro horario o ambiente.");
         }
     }
 
-    private void validarSinConflicto(
-            Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos) {
+    /** Un docente no puede tener dos exámenes que se crucen, aunque sean en ambientes distintos. */
+    private void validarDocenteLibre(
+            Integer idDocente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+            Integer idExamenExcluido) {
+        Examen otro = primerSolapado(examenRepository.findByDocenteAndFecha(idDocente, fecha),
+                inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null) {
+            throw new ConflictoAmbienteException(
+                    "El docente ya tiene un examen el " + fecha
+                            + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
+                            + ". Elige otro horario o docente.");
+        }
+    }
+
+    private static Examen primerSolapado(
+            List<Examen> examenes, LocalTime inicio, int duracionMinutos, Integer idExamenExcluido) {
         LocalTime fin = inicio.plusMinutes(duracionMinutos);
-        for (Examen otro : examenRepository.findByAmbienteAndFecha(idAmbiente, fecha)) {
-            LocalTime otroInicio = otro.getHoraInicio();
-            LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
-            boolean solapa = inicio.isBefore(otroFin) && otroInicio.isBefore(fin);
-            if (solapa) {
-                throw new ConflictoAmbienteException(
-                        "El ambiente ya tiene un examen el " + fecha
-                                + " entre " + otroInicio + " y " + otroFin
-                                + ". Elige otro horario o ambiente.");
+        for (Examen otro : examenes) {
+            if (otro.getId().getIdExamen().equals(idExamenExcluido)) {
+                continue;
+            }
+            if (inicio.isBefore(finDe(otro)) && otro.getHoraInicio().isBefore(fin)) {
+                return otro;
             }
         }
+        return null;
+    }
+
+    private static LocalTime finDe(Examen examen) {
+        return examen.getHoraInicio().plusMinutes(examen.getDuracionMinutos());
     }
 
     private void validarNoPasado(java.time.LocalDate fecha, LocalTime horaInicio) {
