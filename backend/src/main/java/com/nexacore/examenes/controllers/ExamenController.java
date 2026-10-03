@@ -39,8 +39,8 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.listar());
     }
 
-    @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. ADMIN o DOCENTE; el docente queda asignado a sí mismo.")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
     @PostMapping
     public ResponseEntity<ExamenResponse> crear(@Valid @RequestBody CrearExamenRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(examenService.crear(request));

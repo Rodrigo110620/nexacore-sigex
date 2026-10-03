@@ -47,8 +47,8 @@ export default function ExamenesPage() {
   const { isAdmin, roles } = useAuth()
   const location = useLocation()
   const isControlView = location.pathname === '/dashboard/control'
-  const canControl = isAdmin || roles.includes('CONTROL')
-  const canRegister = isAdmin && !isControlView
+  const canControl = isAdmin || roles.includes('CONTROL') || roles.includes('DOCENTE')
+  const canRegister = (isAdmin || roles.includes('DOCENTE')) && !isControlView
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')

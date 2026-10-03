@@ -31,7 +31,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping("/autorizar")
     public ResponseEntity<AutorizarIngresoResponse> autorizar(
             @Valid @RequestBody AutorizarIngresoRequest request,
@@ -44,7 +44,7 @@ public class ControlIngresoController {
         return ResponseEntity.unprocessableEntity().body(response);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping("/denegar")
     public ResponseEntity<AutorizarIngresoResponse> denegar(
             @Valid @RequestBody AutorizarIngresoRequest request, Authentication authentication) {
@@ -52,7 +52,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar historial", description = "Devuelve autorizaciones y denegaciones registradas para el estudiante y examen.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping("/{idEstudiante}/{idExamen}")
     public ResponseEntity<List<RegistroControlIngresoResponse>> historial(
             @PathVariable Integer idEstudiante,
@@ -61,7 +61,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar contexto", description = "Devuelve estudiante, examen, normas y condiciones previas para el flujo de autorización.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping("/{idEstudiante}/{idExamen}/contexto")
     public ResponseEntity<ContextoControlIngresoResponse> contexto(
             @PathVariable Integer idEstudiante,
@@ -70,7 +70,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Listar tipos de incidencia", description = "Devuelve el catálogo disponible para registrar incidencias durante el control.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL', 'DOCENTE')")
     @GetMapping("/tipos-incidencia")
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());

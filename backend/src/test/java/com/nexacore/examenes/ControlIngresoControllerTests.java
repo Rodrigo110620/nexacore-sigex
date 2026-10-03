@@ -35,9 +35,10 @@ class ControlIngresoControllerTests {
 
     @Test
     @WithMockUser(roles = "DOCENTE")
-    void rechazaUsuarioSinRolControl() throws Exception {
+    void permiteDocenteConsultarTiposDeIncidencia() throws Exception {
+        when(service.listarTiposIncidencia()).thenReturn(List.of());
         mockMvc.perform(get("/control-ingresos/tipos-incidencia"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test

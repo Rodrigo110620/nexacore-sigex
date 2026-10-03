@@ -47,6 +47,7 @@ import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
+import { useAuth } from '../../context/AuthContext'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -69,6 +70,8 @@ const STEP_DESCRIPCION: Record<Step, string> = {
 }
 
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
+  const { nombre, roles } = useAuth()
+  const esDocente = roles.includes('DOCENTE') && !roles.includes('ADMIN')
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
@@ -112,6 +115,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isOpen || !esDocente || !nombre) return
+    setForm((prev) => ({ ...prev, docente: nombre }))
+    setDocenteOk(true)
+    setIdDocente(null)
+  }, [isOpen, esDocente, nombre])
 
   useEffect(() => {
     if (!ambienteListOpen) return
@@ -500,6 +510,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   <label htmlFor="registrar-docente" className="mb-1 block text-xs font-semibold text-gray-700">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
+                  {esDocente ? (
+                    <input
+                      id="registrar-docente"
+                      value={form.docente}
+                      readOnly
+                      aria-label="Docente Responsable"
+                      className={`${fieldClass()} cursor-not-allowed bg-gray-100 text-gray-600`}
+                    />
+                  ) : (
                   <DocenteAutocomplete
                     id="registrar-docente"
                     value={form.docente}
@@ -511,6 +530,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       setIdDocente(docente.id)
                     }}
                   />
+                  )}
                   {errors.docente && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>
                   )}

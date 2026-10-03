@@ -50,14 +50,15 @@ describe('MobileBottomNav', () => {
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
   })
 
-  it('DOCENTE: solo Exámenes, sin Inicio, Usuarios ni Estudiantes', () => {
+  it('DOCENTE: Inicio, Exámenes y Control, sin Usuarios ni Estudiantes', () => {
     renderNav('/dashboard/examenes', ['DOCENTE'])
 
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
     expect(screen.getByRole('link', { name: 'Exámenes' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.queryByText('Inicio')).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
     expect(screen.queryByText('Estudiantes')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
   it('CONTROL: Inicio y Control están disponibles en el mismo panel', () => {

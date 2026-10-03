@@ -15,6 +15,12 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
 
     List<Examen> findByIdDocenteOrderByFechaDescHoraInicioDesc(Integer idDocente);
 
+    @Query("""
+            SELECT COUNT(e) > 0 FROM Examen e
+            WHERE e.id.idExamen = :idExamen AND e.idDocente = :idDocente
+            """)
+    boolean perteneceADocente(@Param("idExamen") Integer idExamen, @Param("idDocente") Integer idDocente);
+
     /** id_examen es único por sí solo (uq_id_examen), aunque la PK incluya id_paralelo. */
     boolean existsByIdIdExamen(Integer idExamen);
 

@@ -94,6 +94,17 @@ public class ExamenService {
         return examenRepository.findAllByOrderByFechaDescHoraInicioDesc();
     }
 
+    /** Un DOCENTE no puede crear un examen en representación de otro docente. */
+    private Docente resolverDocenteParaRegistro(CrearExamenRequest request) {
+        if (SesionActual.esSoloDocente()) {
+            Integer idDocente = usuarioRepository.findByEmail(SesionActual.email())
+                    .map(Usuario::getId)
+                    .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente autenticado."));
+            return docenteRepository.findById(idDocente)
+                    .orElseThrow(() -> new IllegalArgumentException("El usuario autenticado no está registrado como DOCENTE."));
+        }
+        return resolverDocente(request.idDocente(), request.docente().trim());
+    }
     @Transactional
     public ExamenResponse crear(CrearExamenRequest request) {
         // Bloqueos en orden fijo (ambiente y luego docente) hasta el commit: dos registros
@@ -106,7 +117,7 @@ public class ExamenService {
                 null);
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
-        Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        Docente docente = resolverDocenteParaRegistro(request);
         docenteRepository.bloquear(docente.getIdUsuario());
         validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
                 request.duracionMinutos(), null);
@@ -343,6 +354,7 @@ public class ExamenService {
         if (sigla == null || sigla.isBlank() || sigla.contains("-")) {
             return false;
         }
+
         String compacta = compactar(sigla);
         if (compacta.length() <= 4) {
             return false;

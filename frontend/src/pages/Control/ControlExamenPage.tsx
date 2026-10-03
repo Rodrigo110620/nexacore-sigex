@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, DoorOpen, ScanLine, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, ArrowRight, DoorOpen, ScanLine, TriangleAlert } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
@@ -18,6 +18,13 @@ export default function ControlExamenPage() {
   return (
     <PanelLayout compactDesktop title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 min-[960px]:pb-6">
+        <Link
+          to="/dashboard/control"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white px-4 py-2.5 text-sm font-semibold text-[#627A9B] hover:bg-[#F1F6FF]"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Volver a Control
+        </Link>
         <section className="overflow-hidden rounded-2xl border border-[#D8E3F5] bg-white shadow-sm">
           <ControlIngresoHeader
             materia={examen?.asignatura}
