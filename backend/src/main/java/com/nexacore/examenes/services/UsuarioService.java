@@ -9,6 +9,7 @@ import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
+import com.nexacore.examenes.exceptions.UsuarioNoEncontradoException;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.models.Usuario;
@@ -20,13 +21,23 @@ import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -120,7 +131,7 @@ public class UsuarioService {
     public RegisterUserResponse actualizar(Integer id, RegisterUserRequest request) {
         // 1. Buscar el usuario existente (Ya recibe Integer correctamente)
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
         // 2. Validar si el correo cambió y si ya pertenece a otro usuario
         if (!usuario.getEmail().equalsIgnoreCase(request.email())) {
             if (usuarioRepository.findByEmail(request.email()).isPresent()) {
@@ -161,6 +172,67 @@ public class UsuarioService {
                 "Usuario actualizado correctamente"
         );
     }
+    /**
+     * Bloquea (inactivo) o desbloquea (activo) a un usuario desde el listado.
+     * Desbloquear también levanta el bloqueo temporal por intentos fallidos.
+     * El cambio surte efecto en la siguiente petición del usuario: JwtAuthFilter relee su estado.
+     *
+     * @throws UsuarioNoEncontradoException si no existe (404)
+     * @throws IllegalArgumentException     si el administrador intenta bloquear su propia cuenta (400)
+     */
+    @Transactional
+    public UsuarioListResponse cambiarEstado(Integer id, boolean activo, String emailSolicitante) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        if (!activo && usuario.getEmail().equalsIgnoreCase(emailSolicitante)) {
+            throw new IllegalArgumentException("No puedes bloquear tu propia cuenta.");
+        }
+        usuario.setEstado(activo ? "activo" : "inactivo");
+        if (activo) {
+            usuario.setIntentosFallidos(0);
+            usuario.setBloqueadoHasta(null);
+        }
+        usuarioRepository.save(usuario);
+        return aListResponse(usuario);
+    }
+
+    /**
+     * CSV con los usuarios que cumplen los mismos filtros del listado, sin paginar,
+     * ordenados por nombre. Separador ';' y BOM para que Excel en español lo abra en columnas.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportarCsv(String search, String rol, String estado) {
+        List<UsuarioListResponse> filas = usuarioRepository.buscar(
+                        escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                        normalizar(rol).toUpperCase(Locale.ROOT),
+                        normalizar(estado).toLowerCase(Locale.ROOT),
+                        Pageable.unpaged())
+                .stream()
+                .sorted(Comparator.comparing(Usuario::getNombre, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Usuario::getApellidos, String.CASE_INSENSITIVE_ORDER))
+                .map(this::aListResponse)
+                .toList();
+
+        var out = new ByteArrayOutputStream();
+        var formato = CSVFormat.DEFAULT.builder()
+                .setDelimiter(';')
+                .setRecordSeparator("\n")
+                .setHeader("id", "nombre", "apellidos", "ci", "email", "rol", "estado")
+                .build();
+        try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
+            // El BOM va antes de crear el printer: CSVPrinter escribe el encabezado al construirse.
+            writer.write('\uFEFF');
+            var printer = new CSVPrinter(writer, formato);
+            for (UsuarioListResponse u : filas) {
+                printer.printRecord(u.id(), u.nombre(), u.apellidos(), u.ci(), u.email(), u.rol(), u.estado());
+            }
+            printer.flush();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo generar el CSV de usuarios.", e);
+        }
+        return out.toByteArray();
+    }
+
     /** Devuelve todos los roles disponibles para el selector del formulario. */
     public List<Rol> listarRoles() {
         return rolRepository.findAll();
@@ -230,8 +302,15 @@ public class UsuarioService {
                 usuario.getCi(),
                 obtenerPrimerRol(usuario),
                 usuario.getEstado(),
-                titulo
+                titulo,
+                bloqueoVigente(usuario)
         );
+    }
+
+    /** Fin del bloqueo por intentos fallidos si sigue vigente; null si ya venció o no hay bloqueo. */
+    private static LocalDateTime bloqueoVigente(Usuario usuario) {
+        LocalDateTime hasta = usuario.getBloqueadoHasta();
+        return hasta != null && LocalDateTime.now().isBefore(hasta) ? hasta : null;
     }
     /**
      * Genera una contraseña provisional de 10 caracteres usando SecureRandom.

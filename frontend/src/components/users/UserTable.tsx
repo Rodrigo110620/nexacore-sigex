@@ -1,17 +1,17 @@
-import { Ban, MoreHorizontal, Pencil } from 'lucide-react'
+import { Ban, LockOpen, Pencil } from 'lucide-react'
 import RoleBadge from './RoleBadge'
 import StatusBadge from './StatusBadge'
 import UserAvatar from './UserAvatar'
+import { estaBloqueado, puedeBloquear } from './userStatus.utils'
 import type { UserListItem } from '../../types/user'
 
 interface UserTableProps {
   users: UserListItem[]
-
   onEditClick?: (user: UserListItem) => void
-
+  onToggleBlockClick?: (user: UserListItem) => void
 }
 
-export default function UserTable({ users,onEditClick}: UserTableProps) {
+export default function UserTable({ users, onEditClick, onToggleBlockClick }: UserTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
       <table className="w-full min-w-[760px] text-left">
@@ -26,7 +26,11 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EDF1F7] bg-white text-sm text-[#011140]">
-          {users.map((user) => (
+          {users.map((user) => {
+            const fullName = `${user.nombre} ${user.apellidos}`
+            const bloquear = puedeBloquear(user)
+            const accion = bloquear ? 'Bloquear' : 'Desbloquear'
+            return (
             <tr key={user.id}>
               <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
@@ -39,37 +43,34 @@ export default function UserTable({ users,onEditClick}: UserTableProps) {
               </th>
               <td className="whitespace-nowrap px-5 py-3 text-gray-600">{user.email}</td>
               <td className="px-5 py-3 text-center"><RoleBadge role={user.rol} /></td>
-              <td className="px-5 py-3 text-center"><StatusBadge status={user.estado} /></td>
+              <td className="px-5 py-3 text-center"><StatusBadge status={user.estado} bloqueado={estaBloqueado(user)} /></td>
               <td className="px-5 py-3">
                 <div className="flex justify-center gap-1">
                   <button
                     type="button"
                     onClick={() => onEditClick && onEditClick(user)}
-                    aria-label={`Editar a ${user.nombre} ${user.apellidos}`}
+                    aria-label={`Editar a ${fullName}`}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#3D70C9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
                   >
                     <Pencil size={16} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
-                    disabled
-                    aria-label={`Bloquear a ${user.nombre} ${user.apellidos}, no disponible`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#159570] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80"
+                    onClick={() => onToggleBlockClick?.(user)}
+                    disabled={!onToggleBlockClick}
+                    aria-label={`${accion} a ${fullName}`}
+                    title={accion}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      bloquear ? 'text-[#B91C1C] hover:bg-[#FDECEC]' : 'text-[#159570] hover:bg-[#ECFDF5]'
+                    }`}
                   >
-                    <Ban size={16} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label={`Más acciones para ${user.nombre} ${user.apellidos}, no disponible`}
-                    className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-md text-[#627A9B]"
-                  >
-                    <MoreHorizontal size={17} aria-hidden="true" />
+                    {bloquear ? <Ban size={16} aria-hidden="true" /> : <LockOpen size={16} aria-hidden="true" />}
                   </button>
                 </div>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

@@ -252,4 +252,80 @@ class AuthLoginTests {
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
+
+    private void loginFallido() throws Exception {
+        mockMvc.perform(post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpoLogin(EMAIL, "claveEquivocada")));
+    }
+
+    @Test
+    @DisplayName("AUTH-02: el tercer intento fallido seguido bloquea la cuenta 15 minutos (423)")
+    void tercerIntentoFallidoBloqueaLaCuenta() throws Exception {
+        loginFallido();
+        loginFallido();
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, "claveEquivocada")))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.estado").value(423))
+                .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("15 minutos")));
+
+        entityManager.flush();
+        entityManager.clear();
+        Usuario bloqueado = entityManager.find(Usuario.class, usuario.getId());
+        Assertions.assertNotNull(bloqueado.getBloqueadoHasta());
+        Assertions.assertTrue(bloqueado.getBloqueadoHasta().isAfter(LocalDateTime.now().plusMinutes(14)));
+    }
+
+    @Test
+    @DisplayName("AUTH-02: con la cuenta bloqueada ni la contraseña correcta permite entrar")
+    void cuentaBloqueadaRechazaPasswordCorrecta() throws Exception {
+        Usuario bloqueado = entityManager.find(Usuario.class, usuario.getId());
+        bloqueado.setBloqueadoHasta(LocalDateTime.now().plusMinutes(10));
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, PASSWORD)))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.token").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("AUTH-02: vencido el bloqueo se puede entrar y el contador vuelve a cero")
+    void bloqueoVencidoPermiteEntrar() throws Exception {
+        Usuario bloqueado = entityManager.find(Usuario.class, usuario.getId());
+        bloqueado.setBloqueadoHasta(LocalDateTime.now().minusMinutes(1));
+        bloqueado.setIntentosFallidos(2);
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, PASSWORD)))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+        Usuario desbloqueado = entityManager.find(Usuario.class, usuario.getId());
+        Assertions.assertNull(desbloqueado.getBloqueadoHasta());
+        Assertions.assertEquals(0, desbloqueado.getIntentosFallidos());
+    }
+
+    @Test
+    @DisplayName("AUTH-02: un login correcto reinicia los intentos fallidos (no son consecutivos)")
+    void loginCorrectoReiniciaIntentos() throws Exception {
+        loginFallido();
+        loginFallido();
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, PASSWORD)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cuerpoLogin(EMAIL, "claveEquivocada")))
+                .andExpect(status().isUnauthorized());
+    }
 }

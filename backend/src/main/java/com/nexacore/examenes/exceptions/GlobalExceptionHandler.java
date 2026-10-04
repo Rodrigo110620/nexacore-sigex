@@ -19,6 +19,7 @@ import java.util.Map;
  *
  * 400 Bad Request  -> validaciones fallidas o cuerpo JSON ausente/malformado
  * 401 Unauthorized -> credenciales incorrectas o cuenta inactiva
+ * 423 Locked       -> cuenta bloqueada temporalmente por intentos fallidos
  *
  * Tarea B4 - Sprint 1.
  */
@@ -78,6 +79,25 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(cuerpo);
+    }
+
+    /** Cuenta bloqueada temporalmente por intentos fallidos consecutivos. */
+    @ExceptionHandler(CuentaBloqueadaException.class)
+    public ResponseEntity<ErrorResponse> manejarCuentaBloqueada(CuentaBloqueadaException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.LOCKED.value(),
+                ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.LOCKED).body(cuerpo);
+    }
+
+    /** El usuario de la ruta no existe. */
+    @ExceptionHandler(UsuarioNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarUsuarioNoEncontrado(UsuarioNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
     }
 
     /** Email ya registrado en la base de datos. */

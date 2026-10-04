@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -42,6 +43,15 @@ public class Usuario {
     @ColumnDefault("'activo'")
     @Column(name = "estado", length = Integer.MAX_VALUE)
     private String estado;
+
+    /** Intentos de login fallidos seguidos; vuelve a 0 al entrar o al bloquearse la cuenta. */
+    @ColumnDefault("0")
+    @Column(name = "intentos_fallidos", nullable = false)
+    private int intentosFallidos;
+
+    /** Fin del bloqueo temporal por intentos fallidos, o null si la cuenta no está bloqueada. */
+    @Column(name = "bloqueado_hasta")
+    private LocalDateTime bloqueadoHasta;
 
     @JsonIgnore
     @OneToMany(mappedBy = "idUsuario", fetch = FetchType.LAZY)

@@ -10,6 +10,17 @@ interface LoginSesionProps {
     isMobile?: boolean;
 }
 
+/** Título de la alerta según el mensaje: el backend distingue credenciales, cuenta inactiva y bloqueo. */
+function tituloError(mensaje: string): string {
+    const texto = mensaje.toLowerCase();
+    if (texto.includes('conectar')) return 'Sin conexión al servidor';
+    if (texto.includes('bloqueada')) return 'Cuenta bloqueada temporalmente';
+    if (texto.includes('inactiva')) return 'Cuenta inactiva';
+    if (texto.includes('demasiados')) return 'Demasiados intentos';
+    if (texto.includes('completa todos')) return 'Campos incompletos';
+    return 'Credenciales no válidas';
+}
+
 export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -149,9 +160,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                         <CircleAlert className="mr-2 text-[#B91C1C]" size={20} />
                         <div className="flex flex-col gap-0">
                             <p className="text-xs font-bold text-[#7F1D1D]">
-                                {generalError.includes('conectar')
-                                    ? 'Sin conexión al servidor'
-                                    : 'Credenciales no válidas'}
+                                {tituloError(generalError)}
                             </p>
                             <p className="text-xs text-[#B91C1C]">{generalError}</p>
                         </div>

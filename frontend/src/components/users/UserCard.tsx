@@ -1,17 +1,21 @@
-import { Ban, Mail, MoreHorizontal, Pencil } from 'lucide-react'
+import { Ban, LockOpen, Mail, Pencil } from 'lucide-react'
 import RoleBadge from './RoleBadge'
 import StatusBadge from './StatusBadge'
 import UserAvatar from './UserAvatar'
+import { estaBloqueado, puedeBloquear } from './userStatus.utils'
 import type { UserListItem } from '../../types/user'
 
 interface UserCardProps {
   user: UserListItem
   onEditClick?: (user: UserListItem) => void
+  onToggleBlockClick?: (user: UserListItem) => void
 }
 
-export default function UserCard({ user, onEditClick }: UserCardProps) {
+export default function UserCard({ user, onEditClick, onToggleBlockClick }: UserCardProps) {
   const fullName = `${user.nombre} ${user.apellidos}`
   const canEdit = Boolean(onEditClick)
+  const bloquear = puedeBloquear(user)
+  const accion = bloquear ? 'Bloquear' : 'Desbloquear'
 
   return (
     <li>
@@ -25,7 +29,7 @@ export default function UserCard({ user, onEditClick }: UserCardProps) {
             </div>
           </div>
           <div className="ml-auto shrink-0">
-            <StatusBadge status={user.estado} />
+            <StatusBadge status={user.estado} bloqueado={estaBloqueado(user)} />
           </div>
         </div>
 
@@ -48,19 +52,16 @@ export default function UserCard({ user, onEditClick }: UserCardProps) {
             </button>
             <button
               type="button"
-              disabled
-              aria-label={`Bloquear a ${fullName}, no disponible`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#159570] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 sm:h-11 sm:w-11 sm:border sm:border-[#BFE8D8] sm:bg-[#ECFDF5]"
+              onClick={() => onToggleBlockClick?.(user)}
+              disabled={!onToggleBlockClick}
+              aria-label={`${accion} a ${fullName}`}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:w-11 sm:border ${
+                bloquear
+                  ? 'text-[#B91C1C] sm:border-[#F5C2C2] sm:bg-[#FDECEC]'
+                  : 'text-[#159570] sm:border-[#BFE8D8] sm:bg-[#ECFDF5]'
+              }`}
             >
-              <Ban size={16} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              disabled
-              aria-label={`Más acciones para ${fullName}, no disponible`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#627A9B] disabled:cursor-not-allowed sm:hidden"
-            >
-              <MoreHorizontal size={17} aria-hidden="true" />
+              {bloquear ? <Ban size={16} aria-hidden="true" /> : <LockOpen size={16} aria-hidden="true" />}
             </button>
           </div>
         </div>

@@ -2,9 +2,20 @@ import type { UserStatus } from '../../types/user'
 
 interface StatusBadgeProps {
   status: UserStatus
+  /** Bloqueo temporal por intentos fallidos: se muestra aunque la cuenta siga activa. */
+  bloqueado?: boolean
 }
 
-export default function StatusBadge({ status }: StatusBadgeProps) {
+export default function StatusBadge({ status, bloqueado = false }: StatusBadgeProps) {
+  if (bloqueado) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#92400E]">
+        <span aria-hidden="true" className="inline-flex h-2 w-2 shrink-0 rounded-full bg-[#D97706]" />
+        Bloqueado
+      </span>
+    )
+  }
+
   const isActive = status === 'activo'
 
   return (
