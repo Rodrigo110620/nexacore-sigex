@@ -1,21 +1,30 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.CambiarEstadoUsuarioRequest;
 import com.nexacore.examenes.dto.CrearRolRequest;
+import com.nexacore.examenes.dto.ImportarUsuariosResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.models.Rol;
+import com.nexacore.examenes.services.ImportacionUsuariosService;
 import com.nexacore.examenes.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 /**
  * Gestión de usuarios del sistema.
@@ -25,6 +34,9 @@ import java.util.List;
  *   POST /api/v1/usuarios        → registrar usuario
  *   GET  /api/v1/usuarios        → listar usuarios paginados (B1) con búsqueda y filtros (B2)
  *   GET  /api/v1/usuarios/roles  → listar roles disponibles
+ *   GET  /api/v1/usuarios/exportar.csv → exportar el listado filtrado
+ *   POST /api/v1/usuarios/importar     → importar usuarios desde CSV
+ *   PATCH /api/v1/usuarios/{id}/estado → bloquear o desbloquear
  */
 @Tag(name = "Usuarios", description = "Registro y gestión de usuarios del sistema")
 @RestController
@@ -32,8 +44,10 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
-    public UsuarioController(UsuarioService usuarioService) {
+    private final ImportacionUsuariosService importacionUsuariosService;
+    public UsuarioController(UsuarioService usuarioService, ImportacionUsuariosService importacionUsuariosService) {
         this.usuarioService = usuarioService;
+        this.importacionUsuariosService = importacionUsuariosService;
     }
     /**
      * Registra un nuevo usuario con el rol indicado.
@@ -102,6 +116,43 @@ public class UsuarioController {
     public ResponseEntity<UsuarioStatsResponse> obtenerEstadisticas() {
         return ResponseEntity.ok(usuarioService.obtenerEstadisticas());
     }
+    @Operation(summary = "Exportar usuarios en CSV",
+            description = "Usuarios que cumplen la búsqueda y los filtros del listado, sin paginar. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/exportar.csv")
+    public ResponseEntity<byte[]> exportarCsv(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String rol,
+            @RequestParam(required = false) String estado) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("usuarios.csv").build().toString())
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(usuarioService.exportarCsv(search, rol, estado));
+    }
+
+    @Operation(summary = "Importar usuarios masivamente",
+            description = "Registra usuarios desde un CSV (separado por ',' o ';') con las columnas "
+                    + "nombre, apellidos, ci, email, rol y, opcional, estado (activo/inactivo). "
+                    + "Cada usuario recibe su contraseña temporal por correo. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping(value = "/importar", consumes = "multipart/form-data")
+    public ResponseEntity<ImportarUsuariosResponse> importar(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(importacionUsuariosService.importar(file));
+    }
+
+    @Operation(summary = "Bloquear o desbloquear usuario",
+            description = "activo=false bloquea la cuenta; activo=true la desbloquea, incluido el bloqueo "
+                    + "por intentos fallidos. Un ADMIN no puede bloquearse a sí mismo. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<UsuarioListResponse> cambiarEstado(
+            @PathVariable Integer id,
+            @Valid @RequestBody CambiarEstadoUsuarioRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(usuarioService.cambiarEstado(id, request.activo(), authentication.getName()));
+    }
+
     @Operation(summary = "Actualizar usuario", description = "Modifica los datos y rol de un usuario existente. Solo ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")

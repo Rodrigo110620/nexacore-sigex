@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import UserListContent from '../components/users/UserListContent'
 import type { UserListItem } from '../types/user'
@@ -70,23 +70,63 @@ describe('UserListContent', () => {
     expect(screen.queryByRole('row')).not.toBeInTheDocument()
   })
 
-  it('habilita editar y mantiene bloquear deshabilitado por fila', () => {
-    render(<UserListContent users={users} onEditClick={vi.fn()} onRegisterClick={vi.fn()} />)
+  it('habilita editar y bloquear/desbloquear por fila', () => {
+    const onToggleBlockClick = vi.fn()
+    render(
+      <UserListContent users={users} onEditClick={vi.fn()} onRegisterClick={vi.fn()} onToggleBlockClick={onToggleBlockClick} />,
+    )
 
     const table = screen.getByRole('table', { name: 'Lista de usuarios del sistema' })
-
     expect(screen.getByRole('button', { name: /Registrar usuario/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: /Exportar usuarios/ })).toBeDisabled()
 
-    const editButtons = within(table).getAllByRole('button', { name: /Editar a/ })
-    const blockButtons = within(table).getAllByRole('button', { name: /Bloquear a/ })
-    expect(editButtons).toHaveLength(users.length)
-    expect(blockButtons).toHaveLength(users.length)
     users.forEach((user) => {
       const fullName = `${user.nombre} ${user.apellidos}`
+      const accion = user.estado === 'activo' ? 'Bloquear' : 'Desbloquear'
       expect(within(table).getByRole('button', { name: `Editar a ${fullName}` })).toBeEnabled()
-      expect(within(table).getByRole('button', { name: `Bloquear a ${fullName}, no disponible` })).toBeDisabled()
+      expect(within(table).getByRole('button', { name: `${accion} a ${fullName}` })).toBeEnabled()
     })
+    expect(within(table).queryByRole('button', { name: /Más acciones/ })).not.toBeInTheDocument()
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Bloquear a Carla Mendez Soliz' }))
+    expect(onToggleBlockClick).toHaveBeenCalledWith(users[2])
+  })
+
+  it('exporta con los filtros activos y deshabilita el botón mientras descarga', async () => {
+    let terminar: () => void = () => {}
+    const onExportClick = vi.fn(() => new Promise<void>((resolve) => { terminar = resolve }))
+    render(<UserListContent users={users} onExportClick={onExportClick} onFiltersChange={vi.fn()} />)
+
+    const boton = screen.getByRole('button', { name: 'Exportar usuarios en CSV' })
+    expect(boton).toBeEnabled()
+    fireEvent.click(boton)
+
+    expect(onExportClick).toHaveBeenCalledWith({ search: '', rol: '', estado: '' })
+    expect(boton).toBeDisabled()
+    expect(boton).toHaveTextContent('Exportando...')
+    terminar()
+    await waitFor(() => expect(boton).toBeEnabled())
+  })
+
+  it('informa si la exportación falla', async () => {
+    const onExportClick = vi.fn().mockRejectedValue(new Error('Network Error'))
+    render(<UserListContent users={users} onExportClick={onExportClick} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar usuarios en CSV' }))
+    expect(await screen.findByText(/No se pudo exportar el listado/)).toBeInTheDocument()
+  })
+
+  it('abre la importación con el botón Importar', () => {
+    const onImportClick = vi.fn()
+    render(<UserListContent users={users} onImportClick={onImportClick} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Importar usuarios desde CSV' }))
+    expect(onImportClick).toHaveBeenCalled()
+  })
+
+  it('deja exportar e importar deshabilitados si no hay callback', () => {
+    render(<UserListContent users={users} />)
+    expect(screen.getByRole('button', { name: 'Exportar usuarios en CSV' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Importar usuarios desde CSV' })).toBeDisabled()
   })
 
   it('prioriza en móvil las acciones y estadísticas reales antes de las tarjetas', () => {

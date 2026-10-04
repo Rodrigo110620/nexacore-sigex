@@ -4,9 +4,10 @@ import type { UserListItem } from '../../types/user'
 interface UserCardListProps {
   users: UserListItem[]
   onEditClick?: (user: UserListItem) => void
+  onToggleBlockClick?: (user: UserListItem) => void
 }
 
-export default function UserCardList({ users, onEditClick }: UserCardListProps) {
+export default function UserCardList({ users, onEditClick, onToggleBlockClick }: UserCardListProps) {
   const visibleLabel = users.length === 1 ? '1 visible' : `${users.length} visibles`
   const accessibleLabel = users.length === 1 ? '1 usuario visible' : `${users.length} usuarios visibles`
 
@@ -18,7 +19,7 @@ export default function UserCardList({ users, onEditClick }: UserCardListProps) 
       </div>
       <ul aria-label={accessibleLabel} className="grid grid-cols-1 gap-3 sm:gap-4">
         {users.map((user) => (
-          <UserCard key={user.id} user={user} onEditClick={onEditClick} />
+          <UserCard key={user.id} user={user} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />
         ))}
       </ul>
     </section>
