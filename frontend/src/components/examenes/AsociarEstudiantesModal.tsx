@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RotateCw, X } from 'lucide-react'
+import { LoaderCircle, RotateCw, X } from 'lucide-react'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { getEstudiantes } from '../../services/estudianteService'
 import {
@@ -270,18 +270,28 @@ export default function AsociarEstudiantesModal({
             <>
               <EstudianteFilters compact value={filtros} onChange={(v) => { setFiltros(v); setError('') }} />
               {resultados.length > 0 && !sinConexion && (
-                <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#011140]">
-                  <input
-                    type="checkbox"
-                    checked={todosSeleccionados}
-                    disabled={seleccionables.length === 0}
-                    onChange={(e) => alternarTodos(e.target.checked)}
-                    className="h-4 w-4 accent-[#0439D9]"
-                  />
-                  Seleccionar todos
-                </label>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <label className="inline-flex items-center gap-2 text-sm font-medium text-[#011140]">
+                    <input
+                      type="checkbox"
+                      checked={todosSeleccionados}
+                      disabled={seleccionables.length === 0}
+                      onChange={(e) => alternarTodos(e.target.checked)}
+                      className="h-4 w-4 accent-[#0439D9]"
+                    />
+                    Seleccionar todos
+                  </label>
+                  {buscando && (
+                    <span role="status" className="inline-flex items-center gap-1.5 text-xs text-[#627A9B]">
+                      <LoaderCircle size={14} className="animate-spin text-[#0439D9]" aria-hidden="true" />
+                      Actualizando…
+                    </span>
+                  )}
+                </div>
               )}
-              <ul className="mt-2 divide-y divide-[#EEF3FC] rounded-md border border-[#D8E3F5]">
+              <ul
+                aria-busy={buscando}
+                className={`mt-2 divide-y transition-opacity ${buscando && resultados.length > 0 ? 'opacity-60' : ''} divide-[#EEF3FC] rounded-md border border-[#D8E3F5]`}>
                 {sinConexion ? (
                   <li role="alert" className="flex flex-col items-center gap-2 px-3 py-4 text-center text-sm text-amber-700">
                     Sin conexión a Internet. No se pudo consultar el registro de estudiantes.
@@ -296,7 +306,10 @@ export default function AsociarEstudiantesModal({
                 ) : (
                   <>
                     {(buscando || !consultado) && resultados.length === 0 && (
-                      <li className="px-3 py-4 text-center text-sm text-[#627A9B]">Buscando…</li>
+                      <li role="status" className="flex flex-col items-center gap-2 px-3 py-6 text-center text-sm text-[#627A9B]">
+                        <LoaderCircle size={26} className="animate-spin text-[#0439D9]" aria-hidden="true" />
+                        Buscando estudiantes…
+                      </li>
                     )}
                     {!buscando && consultado && resultados.length === 0 && (
                       <li className="px-3 py-4 text-center text-sm text-[#627A9B]">
