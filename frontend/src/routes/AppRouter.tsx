@@ -20,6 +20,7 @@ import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
 import IntentosIngresoPage from '../pages/Control/IntentosIngresoPage'
+import EstudianteRoute from './EstudianteRoute'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -78,9 +79,9 @@ export default function AppRouter() {
         <Route
           path="/dashboard/estudiantes"
           element={
-            <AdminRoute>
+            <EstudianteRoute>
               <EstudiantesPage />
-            </AdminRoute>
+            </EstudianteRoute>
           }
         />
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}

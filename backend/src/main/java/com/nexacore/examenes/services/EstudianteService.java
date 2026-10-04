@@ -41,7 +41,10 @@ public class EstudianteService {
     public PageResponse<EstudianteListResponse> listar(
             int page, int size, String search, Integer idFacultad, Integer idCarrera
     ) {
-        var pageable = PageRequest.of(page, size);
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        var pageable = PageRequest.of(safePage, safeSize);
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
                 search, idFacultad, idCarrera, pageable
         );
