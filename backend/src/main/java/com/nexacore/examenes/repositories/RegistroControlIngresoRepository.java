@@ -18,6 +18,19 @@ public interface RegistroControlIngresoRepository
     List<RegistroControlIngreso> findByIdIdEstudianteAndIdIdExamenOrderByFechaHoraDesc(
             Integer idEstudiante, Integer idExamen);
 
+    @Query(value = """
+            SELECT r.id_control, r.id_estudiante,
+                   CONCAT(e.nombre, ' ', e.apellidos), e.codigo_sis, r.resultado_autorizacion,
+                   r.motivo_denegacion, r.observaciones,
+                   CONCAT(u.nombre, ' ', u.apellidos), r.fecha_hora
+            FROM registro_control_ingreso r
+            JOIN estudiante e ON e.id_estudiante = r.id_estudiante
+            JOIN usuario u ON u.id_usuario = r.id_usuario_control
+            WHERE r.id_examen = :idExamen
+            ORDER BY r.fecha_hora DESC, r.id_control DESC
+            """, nativeQuery = true)
+    List<Object[]> listarPorExamen(@Param("idExamen") Integer idExamen);
+
     @Modifying
     @Query(value = """
             INSERT INTO registro_control_ingreso

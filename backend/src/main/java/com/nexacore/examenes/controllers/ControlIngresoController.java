@@ -3,6 +3,7 @@ package com.nexacore.examenes.controllers;
 import com.nexacore.examenes.dto.AutorizarIngresoRequest;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
+import com.nexacore.examenes.dto.HistorialControlExamenResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.services.ControlIngresoService;
@@ -58,6 +59,13 @@ public class ControlIngresoController {
             @PathVariable Integer idEstudiante,
             @PathVariable Integer idExamen) {
         return ResponseEntity.ok(service.consultarHistorial(idEstudiante, idExamen));
+    }
+
+    @Operation(summary = "Consultar historial del examen", description = "Devuelve autorizaciones, denegaciones e intentos registrados en un único historial.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @GetMapping("/examen/{idExamen}/historial")
+    public ResponseEntity<List<HistorialControlExamenResponse>> historialExamen(@PathVariable Integer idExamen) {
+        return ResponseEntity.ok(service.consultarHistorialExamen(idExamen));
     }
 
     @Operation(summary = "Consultar contexto", description = "Devuelve estudiante, examen, normas y condiciones previas para el flujo de autorización.")

@@ -115,26 +115,11 @@ describe('ControlIngresoPage', () => {
     expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
   })
 
-  it('consulta y muestra el historial con los campos disponibles', async () => {
-    vi.mocked(service.obtenerHistorialControl).mockResolvedValue([{
-      idRegistro: 91,
-      idEstudiante: 10,
-      idExamen: 20,
-      resultado: 'DENEGADO',
-      causa: 'Matrícula observada',
-      observaciones: 'Se informó al estudiante',
-      verificacionesAdicionales: ['Identidad contrastada'],
-      usuarioControl: 'Carla Control',
-      fechaHora: '2026-09-26T18:00:00Z',
-    }])
+  it('deja el historial unificado en la pantalla del examen, sin botón duplicado', async () => {
     renderPage()
     await screen.findByText('Laura Paredes')
-    fireEvent.click(screen.getByRole('button', { name: /Historial del control/ }))
-
-    expect(await screen.findByText('Personal de control: Carla Control')).toBeInTheDocument()
-    expect(screen.getByText('Causa: Matrícula observada')).toBeInTheDocument()
-    expect(screen.getByText('Observaciones: Se informó al estudiante')).toBeInTheDocument()
-    expect(screen.getAllByText('Identidad contrastada')).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: /Historial del control/ })).not.toBeInTheDocument()
+    expect(service.obtenerHistorialControl).not.toHaveBeenCalled()
   })
 
   it('muestra errores de carga sin presentar datos incompletos', async () => {

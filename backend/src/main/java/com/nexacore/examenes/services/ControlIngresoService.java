@@ -7,6 +7,7 @@ import com.nexacore.examenes.dto.AutorizarIngresoRequest;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.IncidenciaIngresoRequest;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
+import com.nexacore.examenes.dto.HistorialControlExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
@@ -204,6 +205,21 @@ public class ControlIngresoService {
                             leerVerificaciones(registro.getVerificacionesAdicionales()), nombre, registro.getFechaHora());
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<HistorialControlExamenResponse> consultarHistorialExamen(Integer idExamen) {
+        return registroRepository.listarPorExamen(idExamen).stream().map(fila ->
+                new HistorialControlExamenResponse(
+                        ((Number) fila[0]).intValue(), ((Number) fila[1]).intValue(),
+                        (String) fila[2], (String) fila[3], (String) fila[4],
+                        (String) fila[5], (String) fila[6], (String) fila[7],
+                        aFecha(fila[8]))).toList();
+    }
+
+    private LocalDateTime aFecha(Object valor) {
+        if (valor instanceof java.sql.Timestamp timestamp) return timestamp.toLocalDateTime();
+        return (LocalDateTime) valor;
     }
 
     private AutorizarIngresoResponse crearRespuesta(

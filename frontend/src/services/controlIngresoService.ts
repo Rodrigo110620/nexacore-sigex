@@ -1,6 +1,18 @@
 import api from './api'
 import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
 
+export interface HistorialControlExamen {
+  idRegistro: number
+  idEstudiante: number
+  estudiante: string
+  identificador: string
+  resultado: string
+  causa: string | null
+  observaciones: string | null
+  usuarioControl: string
+  fechaHora: string
+}
+
 export async function obtenerContextoControl(idEstudiante: number, idExamen: number) {
   const { data } = await api.get<ContextoControlIngreso>(`/control-ingresos/${idEstudiante}/${idExamen}/contexto`)
   return data
@@ -29,5 +41,10 @@ export async function denegarIngreso(payload: AutorizarIngresoPayload) {
 
 export async function obtenerHistorialControl(idEstudiante: number, idExamen: number) {
   const { data } = await api.get<RegistroControlIngreso[]>(`/control-ingresos/${idEstudiante}/${idExamen}`)
+  return data
+}
+
+export async function obtenerHistorialControlExamen(idExamen: number) {
+  const { data } = await api.get<HistorialControlExamen[]>(`/control-ingresos/examen/${idExamen}/historial`)
   return data
 }
