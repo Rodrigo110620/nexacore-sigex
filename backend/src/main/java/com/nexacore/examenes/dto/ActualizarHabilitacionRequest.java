@@ -12,6 +12,6 @@ public record ActualizarHabilitacionRequest(
         List<@NotNull Integer> idsEstudiante,
         @NotNull(message = "El estado de habilitación es obligatorio")
         EstudianteHabilitacionResponse.EstadoHabilitacion estadoHabilitacion,
-        @Size(max = 255, message = "El motivo no puede superar los 255 caracteres")
+        @Size(max = 40, message = "La razón no puede superar los 40 caracteres")
         String motivo
 ) {}

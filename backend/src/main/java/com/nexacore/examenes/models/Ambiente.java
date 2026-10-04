@@ -27,4 +27,11 @@ public class Ambiente {
 
     @Column(name = "ubicacion", length = Integer.MAX_VALUE)
     private String ubicacion;
+
+    /** Aforo del ambiente; null si aún no se registró. */
+    @Column(name = "capacidad")
+    private Integer capacidad;
+
+    @Column(name = "pabellon", length = 60)
+    private String pabellon;
 }

@@ -8,6 +8,8 @@ export interface NormaParticular {
   id: string
   estudiante: string
   texto: string
+  /** Estudiante del registro; null en normas guardadas antes de exigirlo. */
+  idEstudiante?: number | null
   activa?: boolean
 }
 

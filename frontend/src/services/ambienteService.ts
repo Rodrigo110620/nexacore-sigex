@@ -4,6 +4,9 @@ export interface AmbienteDto {
   id: number
   nombre: string
   ubicacion: string | null
+  /** Aforo del ambiente; null si aún no se registró. */
+  capacidad?: number | null
+  pabellon?: string | null
   disponible?: boolean  // presente solo cuando se consulta disponibilidad
 }
 

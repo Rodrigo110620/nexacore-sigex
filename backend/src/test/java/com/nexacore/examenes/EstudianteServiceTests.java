@@ -14,12 +14,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -99,5 +103,24 @@ class EstudianteServiceTests {
         assertEquals(0, paginas.getAllValues().get(0).getPageNumber());
         assertEquals(100, paginas.getAllValues().get(0).getPageSize());
         assertEquals(1, paginas.getAllValues().get(1).getPageSize());
+    }
+
+    @Test
+    void listarNormalizaLosEspaciosDeLaBusqueda() {
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listar(0, 10, "  Juan    Pérez ", null, null);
+
+        verify(estudianteRepository).buscarConFiltros(eq("Juan Pérez"), isNull(), isNull(), any(Pageable.class));
+    }
+
+    @Test
+    void listarRechazaBusquedasDeMasDe40Caracteres() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.listar(0, 10, "x".repeat(41), null, null));
+
+        assertTrue(error.getMessage().contains("40"));
+        verify(estudianteRepository, never()).buscarConFiltros(any(), any(), any(), any(Pageable.class));
     }
 }

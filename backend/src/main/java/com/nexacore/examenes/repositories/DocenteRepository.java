@@ -16,9 +16,9 @@ public interface DocenteRepository extends JpaRepository<Docente, Integer> {
     @Query("""
             SELECT d FROM Docente d
             JOIN d.usuario u
-            WHERE LOWER(CONCAT(u.nombre, ' ', u.apellidos)) LIKE LOWER(CONCAT('%', :texto, '%'))
+            WHERE LOWER(CONCAT(u.nombre, ' ', u.apellidos)) = LOWER(:nombreCompleto)
             """)
-    List<Docente> findByNombreCompletoContaining(@Param("texto") String texto);
+    List<Docente> findByNombreCompleto(@Param("nombreCompleto") String nombreCompleto);
 
     /** Docentes con su usuario ya cargado, para armar listados sin una consulta por docente. */
     @Query("SELECT d FROM Docente d JOIN FETCH d.usuario WHERE d.idUsuario IN :ids")

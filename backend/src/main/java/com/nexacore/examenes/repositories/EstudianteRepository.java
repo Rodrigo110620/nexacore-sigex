@@ -99,6 +99,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
         WHERE (:search IS NULL OR :search = '' OR
                LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
@@ -111,6 +113,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
         WHERE (:search IS NULL OR :search = '' OR
                LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
+               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
                LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)

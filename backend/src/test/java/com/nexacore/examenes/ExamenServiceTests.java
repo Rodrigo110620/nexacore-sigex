@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacore.examenes.dto.ActualizarExamenRequest;
 import com.nexacore.examenes.dto.CrearExamenRequest;
 import com.nexacore.examenes.dto.ExamenResponse;
+import com.nexacore.examenes.dto.NormaParticularRequest;
 import com.nexacore.examenes.exceptions.ConflictoExamenException;
 import com.nexacore.examenes.exceptions.ExamenNoEncontradoException;
 import com.nexacore.examenes.models.Ambiente;
@@ -15,7 +16,9 @@ import com.nexacore.examenes.models.Paralelo;
 import com.nexacore.examenes.models.ParaleloId;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AmbienteRepository;
+import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.DocenteRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
@@ -26,6 +29,8 @@ import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -62,6 +67,8 @@ class ExamenServiceTests {
     @Mock DocenteRepository docenteRepository;
     @Mock ParaleloRepository paraleloRepository;
     @Mock UsuarioRepository usuarioRepository;
+    @Mock EstudianteRepository estudianteRepository;
+    @Mock AsistenciaExamenRepository asistenciaExamenRepository;
     @Mock EntityManager entityManager;
 
     ExamenService service;
@@ -69,7 +76,8 @@ class ExamenServiceTests {
     @BeforeEach
     void preparar() {
         service = new ExamenService(examenRepository, ambienteRepository, materiaRepository,
-                docenteRepository, paraleloRepository, usuarioRepository, new ObjectMapper());
+                docenteRepository, paraleloRepository, usuarioRepository, estudianteRepository,
+                asistenciaExamenRepository, new ObjectMapper());
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
     }
 
@@ -190,6 +198,90 @@ class ExamenServiceTests {
         verify(docenteRepository, never()).findById(any());
     }
 
+    @Test
+    void crearRechazaUnDocenteInactivo() {
+        when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(ambiente(AMBIENTE)));
+        when(materiaRepository.findById(MATERIA)).thenReturn(Optional.of(materia()));
+        Docente inactivo = docente();
+        inactivo.getUsuario().setEstado("inactivo");
+        when(docenteRepository.findById(DOCENTE)).thenReturn(Optional.of(inactivo));
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no está habilitado");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearSinIdDeDocenteSoloAceptaElNombreCompletoExacto() {
+        when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(ambiente(AMBIENTE)));
+        when(materiaRepository.findById(MATERIA)).thenReturn(Optional.of(materia()));
+        when(docenteRepository.findByNombreCompleto("Ana")).thenReturn(List.of());
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        CrearExamenRequest inventado = new CrearExamenRequest("Cálculo I", "Ana", FECHA,
+                LocalTime.of(9, 0), 90, AMBIENTE, List.of(), List.of(), MATERIA, null);
+
+        assertThatThrownBy(() -> service.crear(inventado))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Selecciona un docente");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "ababababababab",          // patrón repetitivo
+            "jajajajajajaja",          // patrón repetitivo
+            "Prohibido <script> aquí", // caracteres no permitidos
+            "###########",             // solo caracteres especiales
+    })
+    void crearRechazaNormasSinContenidoReal(String norma) {
+        prepararCatalogo();
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+        prepararParalelo();
+
+        assertThatThrownBy(() -> service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
+                LocalTime.of(9, 0), 90, AMBIENTE, List.of(norma), List.of(), MATERIA, DOCENTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Norma general");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearAceptaNormasConNumerosYSignosDentroDeTexto() {
+        prepararCatalogo();
+        prepararRespuesta();
+        prepararRegistro();
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+        when(estudianteRepository.existsById(7)).thenReturn(true);
+
+        ExamenResponse creado = service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
+                LocalTime.of(9, 0), 90, AMBIENTE,
+                List.of("CI: original y vigente", "Tolerancia de 30 minutos"),
+                List.of(new NormaParticularRequest("Luis Paz", "Tiempo adicional de 15 min", 7)),
+                MATERIA, DOCENTE));
+
+        assertThat(creado.normasGenerales()).containsExactly("CI: original y vigente", "Tolerancia de 30 minutos");
+    }
+
+    @Test
+    void crearRechazaNormaParticularSinEstudianteDelRegistro() {
+        prepararCatalogo();
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+        prepararParalelo();
+
+        assertThatThrownBy(() -> service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
+                LocalTime.of(9, 0), 90, AMBIENTE, List.of(),
+                List.of(new NormaParticularRequest("Alguien Inventado", "Tiempo adicional de 15 min")),
+                MATERIA, DOCENTE)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("selecciona un estudiante registrado");
+        verify(examenRepository, never()).save(any());
+    }
+
     /** Lo que se consulta al validar: ambiente (bloqueado), asignatura y docente. */
     private void prepararCatalogo() {
         when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(ambiente(AMBIENTE)));
@@ -220,6 +312,19 @@ class ExamenServiceTests {
         docente.setIdUsuario(DOCENTE);
         docente.setUsuario(usuario);
         return docente;
+    }
+
+    private void prepararParalelo() {
+        ParaleloId pid = new ParaleloId();
+        pid.setIdParalelo(PARALELO);
+        pid.setIdMateria(MATERIA);
+        pid.setIdDocente(DOCENTE);
+        Paralelo paralelo = new Paralelo();
+        paralelo.setId(pid);
+        when(paraleloRepository.findFirstByMateriaAndDocente(MATERIA, DOCENTE)).thenReturn(Optional.of(paralelo));
+        Query secuencia = mock(Query.class);
+        when(secuencia.getSingleResult()).thenReturn(50L);
+        when(entityManager.createNativeQuery(anyString())).thenReturn(secuencia);
     }
 
     private void prepararRegistro() {

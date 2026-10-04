@@ -24,28 +24,28 @@ import {
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { crearExamen } from '../../services/examenService'
+import { getEstudiantes } from '../../services/estudianteService'
 import {
+  detalleAmbiente,
   formatAmPm,
   formatFechaDisplay,
   isNetworkError,
   isOffline,
   minutesBetween,
-  parseHora24,
   formatearNorma,
   toTitleCaseTexto,
   NORMA_MAX,
   todayISO,
   validateExamenForm,
   validateNormaTexto,
-  formatHora24,
-  sanitizeHoraInput,
   filtrarAmbientes,
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
 } from '../../utils/examFormUtils'
-import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
+import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
+import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
 
@@ -56,6 +56,15 @@ interface RegisterExamenModalProps {
 }
 
 type Step = 1 | 2 | 3
+
+/** Al registrar, el estudiante de una norma particular se elige del registro de estudiantes. */
+const buscarEstudiantesRegistro = (criterio: string, signal: AbortSignal): Promise<OpcionEstudiante[]> =>
+  getEstudiantes({ page: 0, size: 8, search: criterio, idFacultad: '', idCarrera: '' }, signal).then((page) =>
+    page.contenido.map((e) => ({
+      id: e.id,
+      nombre: `${e.nombre} ${e.apellidos}`,
+      detalle: `CI ${e.ci} · Cód. ${e.codigoSis}`,
+    })))
 
 const STEPS: { id: Step; titulo: string; detalle: string; campos: (keyof RegisterExamenFormErrors)[] }[] = [
   { id: 1, titulo: 'Información Básica', detalle: 'Asignatura y docente', campos: ['asignatura', 'docente'] },
@@ -92,9 +101,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [nuevaNormaGeneral, setNuevaNormaGeneral] = useState('')
   const [showAddGeneral, setShowAddGeneral] = useState(false)
   const [nuevaParticularEst, setNuevaParticularEst] = useState('')
+  const [nuevaParticularIdEst, setNuevaParticularIdEst] = useState<number | null>(null)
   const [nuevaParticularTexto, setNuevaParticularTexto] = useState('')
   const [showAddParticular, setShowAddParticular] = useState(false)
   const [editingGeneralId, setEditingGeneralId] = useState<string | null>(null)
+  const [editingParticularId, setEditingParticularId] = useState<string | null>(null)
+  /** Evita un segundo envío antes de que React vuelva a pintar el botón deshabilitado. */
+  const submittingRef = useRef(false)
   const [ambienteFilter, setAmbienteFilter] = useState('')
   const [ambienteListOpen, setAmbienteListOpen] = useState(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -176,9 +189,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
-  const sinSolapamientoUi = Boolean(
-    form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && duracion !== null,
-  )
+  const horarioCompleto = Boolean(form.fecha && form.horaInicio && form.horaFin && duracion !== null)
+  const ambienteOcupado = horarioCompleto && ambienteSeleccionado?.disponible === false
+  const sinSolapamientoUi = horarioCompleto && ambienteSeleccionado?.disponible === true
   const ambientesFiltrados = filtrarAmbientes(ambientes, ambienteFilter)
   const fieldClass = examFieldClass
   const sectionCardClass = EXAM_SECTION_CARD_CLASS
@@ -208,9 +221,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setShowNuevoAmbiente(false)
     setNuevaNormaGeneral('')
     setNuevaParticularEst('')
+    setNuevaParticularIdEst(null)
     setNuevaParticularTexto('')
     setNuevoAmbienteNombre('')
     setEditingGeneralId(null)
+    setEditingParticularId(null)
+    submittingRef.current = false
     setAmbienteFilter('')
     setAmbienteListOpen(false)
     setNormasGenerales([
@@ -255,6 +271,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     validateExamenForm(formParaValidar, {
       asignaturaSeleccionada: asignaturaOk,
       docenteSeleccionado: esDocente ? Boolean(nombre) : docenteOk,
+      ambienteOcupado,
     })
 
   const goNext = () => {
@@ -285,6 +302,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       goNext()
       return
     }
+    if (submittingRef.current || success) return
     if (isOffline()) {
       setOfflineOpen(true)
       return
@@ -305,6 +323,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       return
     }
 
+    submittingRef.current = true
     setSaving(true)
     setGeneralError('')
     try {
@@ -319,6 +338,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         normasParticulares: normasParticulares.filter((n) => n.activa !== false).map((n) => ({
           estudiante: n.estudiante,
           texto: n.texto,
+          idEstudiante: n.idEstudiante ?? null,
         })),
         idMateria,
         idDocente,
@@ -332,6 +352,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         closeTimerRef.current = null
       }, 900)
     } catch (err: unknown) {
+      // Solo si falló se permite reintentar; tras un registro exitoso el botón queda bloqueado.
+      submittingRef.current = false
       if (isNetworkError(err)) {
         setOfflineOpen(true)
         return
@@ -378,18 +400,35 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     const estudiante = nuevaParticularEst.trim()
     const texto = nuevaParticularTexto
     const otras = normasParticulares
-      .filter((n) => n.activa !== false && n.estudiante.toLowerCase() === estudiante.toLowerCase())
+      .filter((n) => n.activa !== false && n.id !== editingParticularId && n.idEstudiante === nuevaParticularIdEst)
       .map((n) => n.texto)
-    const error = !estudiante ? 'Indica el estudiante' : validateNormaTexto(texto, otras)
+    const error = !estudiante
+      ? 'Indica el estudiante'
+      : nuevaParticularIdEst === null
+        ? 'Selecciona un estudiante de las sugerencias'
+        : validateNormaTexto(texto, otras)
     setNormaParticularError(error ?? '')
     if (error) return
     setDirty(true)
-    setNormasParticulares((prev) => [
-      ...prev,
-      { id: `np-${Date.now()}`, estudiante, texto },
-    ])
+    if (editingParticularId) {
+      setNormasParticulares((prev) => prev.map((n) => (
+        n.id === editingParticularId ? { ...n, estudiante, idEstudiante: nuevaParticularIdEst, texto } : n
+      )))
+    } else {
+      setNormasParticulares((prev) => [
+        ...prev,
+        { id: `np-${Date.now()}`, estudiante, idEstudiante: nuevaParticularIdEst, texto },
+      ])
+    }
+    cerrarFormParticular()
+  }
+
+  const cerrarFormParticular = () => {
     setNuevaParticularEst('')
+    setNuevaParticularIdEst(null)
     setNuevaParticularTexto('')
+    setEditingParticularId(null)
+    setNormaParticularError('')
     setShowAddParticular(false)
   }
 
@@ -569,51 +608,31 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-hora-inicio" className="mb-1 block text-xs font-semibold text-gray-700">
                     Hora de Inicio <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="08:00"
-                    maxLength={5}
+                  <HoraSelector
+                    id="registrar-hora-inicio"
+                    label="Hora de inicio"
                     value={form.horaInicio}
-                    onChange={(e) => handleChange('horaInicio', sanitizeHoraInput(e.target.value))}
-                    onBlur={() => {
-                      const parsed = parseHora24(form.horaInicio)
-                      if (parsed) handleChange('horaInicio', formatHora24(parsed.h, parsed.m))
-                    }}
-                    className={fieldClass(errors.horaInicio)}
+                    error={errors.horaInicio}
+                    onChange={(v) => handleChange('horaInicio', v)}
                   />
-                  {form.horaInicio && parseHora24(form.horaInicio) && (
-                    <p className="mt-1 text-[10px] font-semibold text-[#0439D9]">{formatAmPm(form.horaInicio)}</p>
-                  )}
                   {errors.horaInicio && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.horaInicio}</p>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-hora-fin" className="mb-1 block text-xs font-semibold text-gray-700">
                     Hora de Fin / Duración <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="10:00"
-                    maxLength={5}
+                  <HoraSelector
+                    id="registrar-hora-fin"
+                    label="Hora de fin"
                     value={form.horaFin}
-                    onChange={(e) => handleChange('horaFin', sanitizeHoraInput(e.target.value))}
-                    onBlur={() => {
-                      const parsed = parseHora24(form.horaFin)
-                      if (parsed) handleChange('horaFin', formatHora24(parsed.h, parsed.m))
-                    }}
-                    className={fieldClass(errors.horaFin)}
+                    error={errors.horaFin}
+                    onChange={(v) => handleChange('horaFin', v)}
                   />
-                  {form.horaFin && parseHora24(form.horaFin) && (
-                    <p className="mt-1 text-[10px] font-semibold text-[#0439D9]">{formatAmPm(form.horaFin)}</p>
-                  )}
                   {duracion !== null && (
                     <p className="mt-1 text-[10px] text-gray-500">{duracion} minutos</p>
                   )}
@@ -634,6 +653,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
                         <Check size={12} aria-hidden="true" />
                         Sin solapamiento detectado
+                      </span>
+                    )}
+                    {ambienteOcupado && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-semibold text-red-600">
+                        <CircleAlert size={12} aria-hidden="true" />
+                        Ambiente ocupado
                       </span>
                     )}
                     <button
@@ -689,9 +714,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : ambienteSeleccionado.ubicacion
-                            ? `${ambienteSeleccionado.nombre} — ${ambienteSeleccionado.ubicacion}`
-                            : ambienteSeleccionado.nombre
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
                       }
                       placeholder={
                         loadingAmbientes
@@ -747,10 +770,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                               type="button"
                               role="option"
                               aria-selected={form.idAmbiente === String(a.id)}
-                              className={`flex w-full flex-col px-3 py-2 text-left text-xs hover:bg-[#E9F1FF] ${
-                                form.idAmbiente === String(a.id) ? 'bg-[#F8FBFF]' : ''
-                              }`}
+                              aria-disabled={a.disponible === false}
+                              disabled={a.disponible === false}
+                              className={`flex w-full flex-col px-3 py-2 text-left text-xs ${
+                                a.disponible === false ? 'cursor-not-allowed opacity-60' : 'hover:bg-[#E9F1FF]'
+                              } ${form.idAmbiente === String(a.id) ? 'bg-[#F8FBFF]' : ''}`}
                               onClick={() => {
+                                if (a.disponible === false) return
                                 handleChange('idAmbiente', String(a.id))
                                 setAmbienteFilter(a.nombre)
                                 setAmbienteListOpen(false)
@@ -768,9 +794,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                                   </span>
                                 )}
                               </div>
-                              {a.ubicacion && (
-                                <span className="text-[10px] text-gray-500">{a.ubicacion}</span>
-                              )}
+                              <span className="text-[10px] text-gray-500">{detalleAmbiente(a)}</span>
                             </button>
                           </li>
                         ))
@@ -785,8 +809,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     la migración V8.
                   </p>
                 )}
-                {errors.idAmbiente && (
+                {errors.idAmbiente ? (
                   <p className="mt-1 text-[10px] text-red-500">{errors.idAmbiente}</p>
+                ) : ambienteOcupado && (
+                  <p className="mt-1 text-[10px] text-red-500">
+                    El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
+                  </p>
                 )}
               </div>
             </section>
@@ -816,9 +844,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   {
                     label: 'Ambiente',
                     value: ambienteSeleccionado
-                      ? ambienteSeleccionado.ubicacion
-                        ? `${ambienteSeleccionado.nombre} — ${ambienteSeleccionado.ubicacion}`
-                        : ambienteSeleccionado.nombre
+                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
                       : '',
                     paso: 2 as Step,
                   },
@@ -958,7 +984,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddParticular((v) => !v)}
+                  onClick={() => (showAddParticular ? cerrarFormParticular() : setShowAddParticular(true))}
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#0439D9] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#032db0] min-[960px]:rounded-lg min-[960px]:px-3 min-[960px]:text-xs"
                 >
                   <Plus size={14} />
@@ -969,15 +995,20 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               {showAddParticular && (
                 <div className="mb-2">
                   <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-                    <input
+                    <EstudianteNormaAutocomplete
+                      id="registrar-norma-estudiante"
                       value={nuevaParticularEst}
-                      onChange={(e) => {
-                        setNuevaParticularEst(toTitleCaseNombre(e.target.value))
+                      buscar={buscarEstudiantesRegistro}
+                      onChange={(v) => {
+                        setNuevaParticularEst(v)
+                        setNuevaParticularIdEst(null)
                         if (normaParticularError) setNormaParticularError('')
                       }}
-                      placeholder="Estudiante / código"
-                      maxLength={100}
-                      className={fieldClass()}
+                      onSelect={(est) => {
+                        setNuevaParticularEst(est.nombre)
+                        setNuevaParticularIdEst(est.id)
+                        if (normaParticularError) setNormaParticularError('')
+                      }}
                     />
                     <input
                       value={nuevaParticularTexto}
@@ -995,7 +1026,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       onClick={addNormaParticular}
                       className="rounded-lg bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white"
                     >
-                      Añadir
+                      {editingParticularId ? 'Guardar' : 'Añadir'}
                     </button>
                   </div>
                   <div className="mt-1 flex justify-between gap-2 text-[10px]">
@@ -1023,17 +1054,34 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                           onToggle={() => setExpandedNormas((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
                         />
                       </div>
-                      <button
-                        type="button"
-                        aria-label="Eliminar norma particular"
-                        onClick={() => {
-                          setDirty(true)
-                          setNormasParticulares((prev) => prev.map((x) => (x.id === n.id ? { ...x, activa: false } : x)))
-                        }}
-                        className="rounded p-1 text-gray-400 hover:text-red-500"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar norma particular"
+                          onClick={() => {
+                            setNuevaParticularEst(n.estudiante)
+                            setNuevaParticularIdEst(n.idEstudiante ?? null)
+                            setNuevaParticularTexto(n.texto)
+                            setEditingParticularId(n.id)
+                            setNormaParticularError('')
+                            setShowAddParticular(true)
+                          }}
+                          className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-[#0439D9]"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Eliminar norma particular"
+                          onClick={() => {
+                            setDirty(true)
+                            setNormasParticulares((prev) => prev.map((x) => (x.id === n.id ? { ...x, activa: false } : x)))
+                          }}
+                          className="rounded p-1 text-gray-400 hover:text-red-500"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1087,7 +1135,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 ) : (
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || success}
                   className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   {saving ? (

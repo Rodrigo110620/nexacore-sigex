@@ -4,6 +4,7 @@ import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse.EstadoHabilitacion;
+import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Examen;
@@ -13,6 +14,8 @@ import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.services.HabilitacionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -48,6 +51,8 @@ class HabilitacionServiceTests {
     @Autowired JdbcTemplate jdbcTemplate;
     @MockBean ExamenRepository examenRepository;
 
+    private Examen examen;
+
     @BeforeEach
     void preparar() {
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
@@ -56,7 +61,7 @@ class HabilitacionServiceTests {
         ExamenId id = new ExamenId();
         id.setIdExamen(EXAMEN);
         id.setIdParalelo(PARALELO);
-        Examen examen = new Examen();
+        examen = new Examen();
         examen.setId(id);
         examen.setIdMateria(MATERIA);
         examen.setIdDocente(DOCENTE);
@@ -128,7 +133,7 @@ class HabilitacionServiceTests {
                 .containsOnly(EstadoHabilitacion.HABILITADO);
 
         List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
-                new ActualizarHabilitacionRequest(List.of(luis.getId()), EstadoHabilitacion.NO_HABILITADO, "  Deuda en biblioteca "));
+                new ActualizarHabilitacionRequest(List.of(luis.getId()), EstadoHabilitacion.NO_HABILITADO, "Deuda en biblioteca"));
         assertThat(estadoDe(lista, ana)).isEqualTo(EstadoHabilitacion.HABILITADO);
         assertThat(lista).filteredOn(e -> e.idEstudiante().equals(luis.getId())).singleElement().satisfies(e -> {
             assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.NO_HABILITADO);
@@ -151,12 +156,74 @@ class HabilitacionServiceTests {
         assertThat(estadoDe(habilitacionService.listar(EXAMEN, PARALELO), ana)).isEqualTo(EstadoHabilitacion.PENDIENTE);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "Deuda",                                       // menos de 10
+            "Deuda pendiente en biblioteca central umss",  // más de 40
+            " Deuda en biblioteca",                        // espacio inicial
+            "Deuda en biblioteca ",                        // espacio final
+            "Deuda  en biblioteca",                        // espacios consecutivos
+            "Deuda en biblioteca!",                        // carácter no permitido
+    })
+    void razonInvalidaSeRechazaSinCambiarNada(String razon) {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, razon)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("razón");
+        assertThat(estadoDe(habilitacionService.listar(EXAMEN, PARALELO), ana)).isEqualTo(EstadoHabilitacion.PENDIENTE);
+    }
+
+    @Test
+    void razonConTildesYEnieEsValida() {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+
+        List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Daño de credencial 2026"));
+
+        assertThat(lista).singleElement().satisfies(e -> assertThat(e.motivo()).isEqualTo("Daño de credencial 2026"));
+    }
+
+    @Test
+    void habilitarDeNuevoDescartaLaRazonAnterior() {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+        habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Deuda en biblioteca"));
+
+        List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.HABILITADO, "Deuda en biblioteca"));
+
+        assertThat(lista).singleElement().satisfies(e -> {
+            assertThat(e.estadoHabilitacion()).isEqualTo(EstadoHabilitacion.HABILITADO);
+            assertThat(e.motivo()).isNull();
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"cancelado", "finalizado"})
+    void examenCanceladoOFinalizadoNoAdmiteCambios(String estado) {
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+        examen.setEstado(estado);
+
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.HABILITADO, null)))
+                .isInstanceOf(ControlIngresoException.class);
+        assertThatThrownBy(() -> habilitacionService.asociar(EXAMEN, PARALELO, estudiante("Luis").getCodigoSis()))
+                .isInstanceOf(ControlIngresoException.class);
+        assertThat(estadoDe(habilitacionService.listar(EXAMEN, PARALELO), ana)).isEqualTo(EstadoHabilitacion.PENDIENTE);
+    }
+
     @Test
     void volverAPendienteDescartaElMotivo() {
         Estudiante ana = estudiante("Ana");
         habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
         habilitacionService.actualizar(EXAMEN, PARALELO,
-                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Deuda"));
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Deuda en biblioteca"));
 
         List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
                 new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.PENDIENTE, "ignorado"));

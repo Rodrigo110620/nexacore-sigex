@@ -10,6 +10,7 @@ import com.nexacore.examenes.dto.NormaParticularRequest;
 import com.nexacore.examenes.exceptions.ConflictoExamenException;
 import com.nexacore.examenes.exceptions.ExamenNoEncontradoException;
 import com.nexacore.examenes.models.Ambiente;
+import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExamenId;
@@ -18,7 +19,9 @@ import com.nexacore.examenes.models.Paralelo;
 import com.nexacore.examenes.models.ParaleloId;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AmbienteRepository;
+import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.DocenteRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
@@ -50,6 +53,8 @@ public class ExamenService {
     private final DocenteRepository docenteRepository;
     private final ParaleloRepository paraleloRepository;
     private final UsuarioRepository usuarioRepository;
+    private final EstudianteRepository estudianteRepository;
+    private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
@@ -65,6 +70,8 @@ public class ExamenService {
             DocenteRepository docenteRepository,
             ParaleloRepository paraleloRepository,
             UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
+            AsistenciaExamenRepository asistenciaExamenRepository,
             ObjectMapper objectMapper) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -72,6 +79,8 @@ public class ExamenService {
         this.docenteRepository = docenteRepository;
         this.paraleloRepository = paraleloRepository;
         this.usuarioRepository = usuarioRepository;
+        this.estudianteRepository = estudianteRepository;
+        this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -140,7 +149,7 @@ public class ExamenService {
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
         examen.setEstado("programado");
-        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), NormasGuardadas.VACIAS);
+        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), NormasGuardadas.VACIAS, null);
         examen.setNormas(serializarNormas(new NormasGuardadas(
                 listaSegura(request.normasGenerales()), listaSegura(request.normasParticulares()),
                 List.of(), List.of())));
@@ -183,7 +192,7 @@ public class ExamenService {
 
         Map<String, Object> antes = resumen(examen);
         NormasGuardadas previas = leerNormas(examen.getNormas());
-        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), previas);
+        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), previas, examen);
         String normas = serializarNormas(combinarEliminadas(previas, request));
 
         boolean cambiaParalelo = !materia.getId().equals(examen.getIdMateria())
@@ -423,19 +432,29 @@ public class ExamenService {
                 .replaceAll("[^A-Z0-9]", "");
     }
 
+    /**
+     * Solo un docente del catálogo y activo. Sin id (exámenes antiguos) se acepta únicamente
+     * una coincidencia exacta del nombre completo, nunca un texto parcial o inventado.
+     */
     private Docente resolverDocente(Integer idDocente, String texto) {
+        Docente docente;
         if (idDocente != null) {
-            return docenteRepository.findById(idDocente)
+            docente = docenteRepository.findById(idDocente)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "El docente seleccionado no está registrado como DOCENTE."));
+        } else {
+            List<Docente> matches = docenteRepository.findByNombreCompleto(texto == null ? "" : texto.trim());
+            if (matches.size() != 1) {
+                throw new IllegalArgumentException(
+                        "Selecciona un docente de las sugerencias del catálogo institucional.");
+            }
+            docente = matches.get(0);
         }
-        List<Docente> matches = docenteRepository.findByNombreCompletoContaining(texto);
-        if (matches.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "No se encontró un docente registrado que coincida con: " + texto
-                            + ". Registra al docente como usuario DOCENTE primero.");
+        String estado = docente.getUsuario() == null ? null : docente.getUsuario().getEstado();
+        if (estado != null && !estado.equalsIgnoreCase("activo")) {
+            throw new IllegalArgumentException("El docente seleccionado no está habilitado.");
         }
-        return matches.get(0);
+        return docente;
     }
 
     private Paralelo resolverParalelo(Materia materia, Docente docente) {
@@ -470,6 +489,10 @@ public class ExamenService {
     private static final int NORMA_MIN = 10;
     private static final int NORMA_MAX = 60;
     private static final Pattern LETRA = Pattern.compile("\\p{L}");
+    /** Letras (con tildes y ñ), números, espacios y puntuación básica: "CI: original y vigente", "30 minutos". */
+    private static final Pattern NORMA_CARACTERES = Pattern.compile("[\\p{L}0-9 .,;:()¿?¡!\"'/%\\-]+");
+    /** Un mismo fragmento corto repetido sin sentido: "ababababab", "jajajajaja", "1212121212". */
+    private static final Pattern PATRON_REPETIDO = Pattern.compile("(?i)(.{1,3})\\1{3,}");
 
     private static <T> List<T> listaSegura(List<T> lista) {
         return lista == null ? List.of() : lista;
@@ -540,8 +563,10 @@ public class ExamenService {
      * Las normas ya guardadas no se revalidan, para no bloquear la edición de exámenes
      * registrados antes de estas reglas.
      */
+    /** examen es null al registrar; al editar sirve para exigir que el estudiante siga habilitado. */
     private void validarNormasNuevas(
-            List<String> generales, List<NormaParticularRequest> particulares, NormasGuardadas previas) {
+            List<String> generales, List<NormaParticularRequest> particulares, NormasGuardadas previas,
+            Examen examen) {
         Set<String> vistas = new HashSet<>();
         for (String texto : listaSegura(generales)) {
             if (!previas.generales().contains(texto)) {
@@ -558,6 +583,7 @@ public class ExamenService {
             }
             if (!previas.particulares().contains(norma)) {
                 validarTextoNorma(norma.texto(), "particular");
+                validarEstudianteDeNorma(norma, examen);
             }
             String clave = norma.estudiante().trim().toLowerCase() + "|" + norma.texto().trim().toLowerCase();
             if (!vistasParticulares.add(clave)) {
@@ -588,8 +614,36 @@ public class ExamenService {
         if (!LETRA.matcher(texto).find()) {
             throw new IllegalArgumentException(prefijo + "debe contener texto descriptivo.");
         }
-        if (texto.replaceAll("\\s", "").matches("(?i)(.)\\1+")) {
+        if (!NORMA_CARACTERES.matcher(texto).matches()) {
+            throw new IllegalArgumentException(prefijo + "contiene caracteres no permitidos.");
+        }
+        String compacto = texto.replaceAll("\\s", "");
+        if (compacto.matches("(?i)(.)\\1+")) {
             throw new IllegalArgumentException(prefijo + "no puede ser un mismo carácter repetido.");
+        }
+        if (PATRON_REPETIDO.matcher(compacto).matches()) {
+            throw new IllegalArgumentException(prefijo + "no puede ser un patrón repetitivo sin significado.");
+        }
+    }
+
+    /**
+     * La norma particular nueva debe apuntar a un estudiante del registro. Al editar, además,
+     * debe estar asociado al examen y no estar marcado como NO habilitado.
+     */
+    private void validarEstudianteDeNorma(NormaParticularRequest norma, Examen examen) {
+        Integer idEstudiante = norma.idEstudiante();
+        if (idEstudiante == null || !estudianteRepository.existsById(idEstudiante)) {
+            throw new IllegalArgumentException(
+                    "Norma particular: selecciona un estudiante registrado (" + norma.estudiante() + ").");
+        }
+        if (examen == null) {
+            return;
+        }
+        List<AsistenciaExamen> asistencia = asistenciaExamenRepository.buscarDelExamen(
+                examen.getId().getIdExamen(), examen.getId().getIdParalelo(), Set.of(idEstudiante));
+        if (asistencia.isEmpty() || Boolean.FALSE.equals(asistencia.get(0).getHabilitado())) {
+            throw new IllegalArgumentException(
+                    "Norma particular: " + norma.estudiante() + " no está habilitado para este examen.");
         }
     }
 

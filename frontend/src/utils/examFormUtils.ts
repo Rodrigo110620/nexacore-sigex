@@ -39,6 +39,19 @@ export function examFieldClass(hasError?: string): string {
   }`
 }
 
+/** Pabellón, ubicación y aforo de un ambiente, en una línea. */
+export function detalleAmbiente(a: {
+  ubicacion?: string | null
+  pabellon?: string | null
+  capacidad?: number | null
+}): string {
+  return [
+    a.pabellon ? `Pabellón ${a.pabellon}` : null,
+    a.ubicacion,
+    a.capacidad ? `Aforo ${a.capacidad}` : 'Aforo sin registrar',
+  ].filter(Boolean).join(' · ')
+}
+
 export const EXAM_SECTION_CARD_CLASS = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
 
 export function minutesBetween(start: string, end: string): number | null {
@@ -71,11 +84,12 @@ export function formatAmPm(hora: string): string {
   return `${hour12}:${String(parsed.m).padStart(2, '0')} ${suffix}`
 }
 
+/** Asignatura y docente: solo letras (con tildes y ñ) y espacios simples, sin espacio inicial, hasta 100. */
 export function sanitizeCatalogQuery(value: string): string {
   return value
-    .replace(/^\s+/, '')
-    .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^ /, '')
     .slice(0, 100)
 }
 
@@ -101,6 +115,8 @@ export function formatearNorma(value: string): string {
 
 export const NORMA_MIN = 10
 export const NORMA_MAX = 60
+/** Letras (con tildes y ñ), números, espacios y puntuación básica: "CI: original y vigente", "30 minutos". */
+const NORMA_CARACTERES = /^[A-Za-z0-9áéíóúÁÉÍÓÚüÜñÑ .,;:()¿?¡!"'/%-]+$/
 
 export function validateNormaTexto(raw: string, existentes: string[] = []): string | null {
   if (!raw.trim()) return 'La norma no puede estar vacía'
@@ -110,7 +126,10 @@ export function validateNormaTexto(raw: string, existentes: string[] = []): stri
   if (raw.length > NORMA_MAX) return `La norma no puede superar ${NORMA_MAX} caracteres`
   if (/^[\d\s]+$/.test(raw)) return 'La norma no puede contener solo números'
   if (!/[A-Za-záéíóúÁÉÍÓÚüÜñÑ]/.test(raw)) return 'La norma debe contener texto descriptivo'
-  if (/^(.)\1+$/i.test(raw.replace(/\s/g, ''))) return 'La norma no puede ser un mismo carácter repetido'
+  if (!NORMA_CARACTERES.test(raw)) return 'La norma contiene caracteres no permitidos'
+  const compacto = raw.replace(/\s/g, '')
+  if (/^(.)\1+$/i.test(compacto)) return 'La norma no puede ser un mismo carácter repetido'
+  if (/^(.{1,3})\1{3,}$/i.test(compacto)) return 'La norma no puede ser un patrón repetitivo sin significado'
   const normalizada = raw.toLowerCase()
   if (existentes.some((t) => t.trim().toLowerCase() === normalizada)) return 'Esta norma ya fue registrada'
   return null
@@ -129,7 +148,13 @@ export function isNetworkError(err: unknown): boolean {
 
 export function validateExamenForm(
   form: RegisterExamenFormState,
-  catalogo: { asignaturaSeleccionada: boolean; docenteSeleccionado: boolean; validarPasado?: boolean },
+  catalogo: {
+    asignaturaSeleccionada: boolean
+    docenteSeleccionado: boolean
+    validarPasado?: boolean
+    /** El ambiente elegido ya tiene otro examen que se cruza con el horario. */
+    ambienteOcupado?: boolean
+  },
 ): RegisterExamenFormErrors {
   const validarPasado = catalogo.validarPasado ?? true
   const errors: RegisterExamenFormErrors = {}
@@ -148,17 +173,18 @@ export function validateExamenForm(
   } else if (validarPasado && form.fecha < todayISO()) {
     errors.fecha = 'No se permite una fecha anterior a hoy'
   }
-  if (!form.horaInicio.trim()) {
+  if (!form.horaInicio.replace(':', '').trim()) {
     errors.horaInicio = 'La hora de inicio es obligatoria'
   } else if (!parseHora24(form.horaInicio)) {
-    errors.horaInicio = 'Usa formato 24 h (ej. 08:00 o 13:30)'
+    errors.horaInicio = 'Selecciona la hora y los minutos de inicio'
   }
-  if (!form.horaFin.trim()) {
+  if (!form.horaFin.replace(':', '').trim()) {
     errors.horaFin = 'La hora de fin es obligatoria'
   } else if (!parseHora24(form.horaFin)) {
-    errors.horaFin = 'Usa formato 24 h (ej. 10:00 o 15:00)'
+    errors.horaFin = 'Selecciona la hora y los minutos de fin'
   }
   if (!form.idAmbiente) errors.idAmbiente = 'Selecciona un ambiente'
+  else if (catalogo.ambienteOcupado) errors.idAmbiente = 'El ambiente está ocupado en ese horario. Elige otro.'
   if (!errors.horaInicio && !errors.horaFin) {
     const dur = minutesBetween(form.horaInicio, form.horaFin)
     if (dur === null) {

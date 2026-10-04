@@ -44,11 +44,15 @@ public class AmbienteService {
                 request.ubicacion() == null || request.ubicacion().isBlank()
                         ? "FCyT UMSS"
                         : request.ubicacion().trim());
+        ambiente.setCapacidad(request.capacidad());
+        ambiente.setPabellon(
+                request.pabellon() == null || request.pabellon().isBlank() ? null : request.pabellon().trim());
         return toResponse(ambienteRepository.save(ambiente));
     }
 
     private AmbienteResponse toResponse(Ambiente ambiente) {
-        return new AmbienteResponse(ambiente.getId(), ambiente.getNombre(), ambiente.getUbicacion());
+        return new AmbienteResponse(ambiente.getId(), ambiente.getNombre(), ambiente.getUbicacion(),
+                ambiente.getCapacidad(), ambiente.getPabellon());
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +78,7 @@ public class AmbienteService {
                             .findAny()
                             .isPresent();
                     return new AmbienteDisponibilidadResponse(
-                            a.getId(), a.getNombre(), a.getUbicacion(), !ocupado);
+                            a.getId(), a.getNombre(), a.getUbicacion(), a.getCapacidad(), a.getPabellon(), !ocupado);
                 })
                 .toList();
     }
