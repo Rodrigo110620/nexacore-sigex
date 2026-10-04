@@ -3,7 +3,17 @@ import { Check, ChevronDown, Hourglass, LoaderCircle, Plus, Search, X } from 'lu
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
+import { isNetworkError, isOffline } from '../../utils/examFormUtils'
+import {
+  BUSQUEDA_MAX,
+  RAZON_MAX,
+  sanearBusqueda,
+  sanearPegado,
+  validateRazonInhabilitacion,
+} from '../../utils/habilitacionValidators'
+import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 import AsociarEstudiantesModal from './AsociarEstudiantesModal'
+import { ConfirmDiscardDialog } from './ExamFormDialogs'
 import {
   actualizarHabilitacion,
   listarEstudiantesExamen,
@@ -59,10 +69,17 @@ function EstadoIcono({ icon }: { icon: ReturnType<typeof estadoVisual>['icon'] }
 const mensajeDeError = (err: unknown, fallback: string) =>
   (err as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje || fallback
 
+/** Estados que se eligen al cambiar la habilitación; PENDIENTE solo es el estado inicial al asociar. */
+type EstadoCambio = Exclude<EstadoHabilitacion, 'PENDIENTE'>
+
+const SIN_CONEXION = 'No hay conexión a Internet. No se guardó ningún cambio; verifica tu conexión e inténtalo de nuevo.'
+
 interface EstudiantesHabilitadosTabProps {
   idExamen: number
   idParalelo: number
   isAdmin: boolean
+  /** Asignatura, fecha y ambiente del examen, para el modal "Cambiar". */
+  examenResumen?: string
   onCountChange?: (count: number) => void
 }
 
@@ -70,6 +87,7 @@ export default function EstudiantesHabilitadosTab({
   idExamen,
   idParalelo,
   isAdmin,
+  examenResumen,
   onCountChange,
 }: EstudiantesHabilitadosTabProps) {
   const [estudiantes, setEstudiantes] = useState<EstudianteHabilitacionDto[]>([])
@@ -84,10 +102,18 @@ export default function EstudiantesHabilitadosTab({
   const [asociarOpen, setAsociarOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   /** Estudiantes a los que se les cambia el estado desde el modal (uno con "Cambiar" o varios al deshabilitar). */
-  const [cambio, setCambio] = useState<{ ids: number[]; titulo: string } | null>(null)
-  const [cambiarEstado, setCambiarEstado] = useState<EstadoHabilitacion>('HABILITADO')
+  const [cambio, setCambio] = useState<{
+    ids: number[]
+    titulo: string
+    detalle?: string
+    estadoInicial: EstadoCambio
+    motivoInicial: string
+  } | null>(null)
+  const [cambiarEstado, setCambiarEstado] = useState<EstadoCambio>('HABILITADO')
   const [cambiarMotivo, setCambiarMotivo] = useState('')
   const [motivoError, setMotivoError] = useState('')
+  const [confirmarCierre, setConfirmarCierre] = useState(false)
+  const [resultado, setResultado] = useState<Resultado | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -133,19 +159,56 @@ export default function EstudiantesHabilitadosTab({
   const currentPage = Math.min(page, totalPages - 1)
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
   const allPageSelected = paged.length > 0 && paged.every((e) => selected.includes(e.idEstudiante))
+  /** Solo cuentan los seleccionados que siguen visibles con los filtros actuales. */
+  const seleccionEfectiva = useMemo(() => {
+    const visibles = new Set(filtered.map((e) => e.idEstudiante))
+    return selected.filter((id) => visibles.has(id))
+  }, [filtered, selected])
 
-  const abrirCambio = (ids: number[], titulo: string, estadoInicial: EstadoHabilitacion, motivo = '') => {
-    setCambio({ ids, titulo })
+  const abrirCambio = (
+    ids: number[],
+    titulo: string,
+    estadoInicial: EstadoCambio,
+    motivo = '',
+    detalle?: string,
+  ) => {
+    setCambio({ ids, titulo, detalle, estadoInicial, motivoInicial: motivo })
     setCambiarEstado(estadoInicial)
     setCambiarMotivo(motivo)
     setMotivoError('')
+    setConfirmarCierre(false)
     setError('')
   }
 
-  const abrirCambioIndividual = (e: EstudianteHabilitacionDto) =>
-    abrirCambio([e.idEstudiante], `${e.nombre} ${e.apellidos}`, e.estadoHabilitacion, e.motivo ?? '')
+  const abrirCambioIndividual = (e: EstudianteHabilitacionDto) => {
+    const noHabilitado = e.estadoHabilitacion === 'NO_HABILITADO'
+    abrirCambio(
+      [e.idEstudiante],
+      `${e.nombre} ${e.apellidos}`,
+      noHabilitado ? 'NO_HABILITADO' : 'HABILITADO',
+      noHabilitado ? (e.motivo ?? '') : '',
+      `CI ${e.ci} · Cód. ${e.codigoSis}`,
+    )
+  }
 
-  const applyEstado = async (ids: number[], next: EstadoHabilitacion, motivo?: string) => {
+  const cambioSinGuardar = Boolean(
+    cambio && (cambiarEstado !== cambio.estadoInicial || cambiarMotivo !== cambio.motivoInicial),
+  )
+
+  const cerrarCambio = () => {
+    if (saving) return
+    if (cambioSinGuardar) {
+      setConfirmarCierre(true)
+      return
+    }
+    setCambio(null)
+  }
+
+  const applyEstado = async (ids: number[], next: EstadoCambio, motivo?: string) => {
+    if (isOffline()) {
+      setResultado({ tipo: 'offline', mensaje: SIN_CONEXION })
+      return
+    }
     setSaving(true)
     setError('')
     try {
@@ -158,8 +221,18 @@ export default function EstudiantesHabilitadosTab({
       onCountChange?.(data.length)
       setSelected([])
       setCambio(null)
+      const quienes = ids.length === 1 ? 'al estudiante' : `a los ${ids.length} estudiantes`
+      setResultado({
+        tipo: 'exito',
+        mensaje: next === 'HABILITADO'
+          ? `Se habilitó ${quienes} para este examen.`
+          : `Se registró como no habilitado ${quienes} para este examen.`,
+      })
     } catch (err) {
-      setError(mensajeDeError(err, 'No se pudo actualizar la habilitación.'))
+      // El listado no cambia: cada estudiante conserva su estado anterior.
+      setResultado(isNetworkError(err)
+        ? { tipo: 'offline', mensaje: SIN_CONEXION }
+        : { tipo: 'error', mensaje: mensajeDeError(err, 'No se pudo actualizar la habilitación.') })
     } finally {
       setSaving(false)
     }
@@ -174,7 +247,8 @@ export default function EstudiantesHabilitadosTab({
             <input
               type="search"
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setPage(0) }}
+              maxLength={BUSQUEDA_MAX}
+              onChange={(e) => { setQuery(sanearBusqueda(e.target.value)); setPage(0) }}
               placeholder="Buscar por nombre, CI o código…"
               autoComplete="off"
               aria-label="Buscar estudiantes"
@@ -410,7 +484,7 @@ export default function EstudiantesHabilitadosTab({
                 Seleccionar todos
               </label>
               <span className="text-[#627A9B]">
-                <span className="font-bold text-[#011140]">{selected.length}</span> de {filtered.length} seleccionados
+                <span className="font-bold text-[#011140]">{seleccionEfectiva.length}</span> de {filtered.length} seleccionados
               </span>
               <span className="hidden text-[#627A9B] min-[960px]:inline">Acciones por bloque</span>
             </div>
@@ -418,8 +492,8 @@ export default function EstudiantesHabilitadosTab({
               <div className="grid grid-cols-2 gap-2 min-[960px]:flex">
                 <button
                   type="button"
-                  disabled={selected.length === 0 || saving}
-                  onClick={() => void applyEstado(selected, 'HABILITADO', 'Matrícula regular confirmada')}
+                  disabled={seleccionEfectiva.length === 0 || saving}
+                  onClick={() => void applyEstado(seleccionEfectiva, 'HABILITADO')}
                   className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={15} aria-hidden="true" />
@@ -428,10 +502,12 @@ export default function EstudiantesHabilitadosTab({
                 </button>
                 <button
                   type="button"
-                  disabled={selected.length === 0 || saving}
+                  disabled={seleccionEfectiva.length === 0 || saving}
                   onClick={() => abrirCambio(
-                    selected,
-                    selected.length === 1 ? '1 estudiante seleccionado' : `${selected.length} estudiantes seleccionados`,
+                    seleccionEfectiva,
+                    seleccionEfectiva.length === 1
+                      ? '1 estudiante seleccionado'
+                      : `${seleccionEfectiva.length} estudiantes seleccionados`,
                     'NO_HABILITADO',
                   )}
                   className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -472,66 +548,91 @@ export default function EstudiantesHabilitadosTab({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form
             noValidate
-            className="w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cambiar-titulo"
+            className="relative w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl"
             onSubmit={(event) => {
               event.preventDefault()
-              const motivo = cambiarMotivo.trim()
-              if (cambiarEstado === 'NO_HABILITADO' && !motivo) {
-                setMotivoError('Indica la razón por la que no está habilitado.')
+              if (cambiarEstado === 'NO_HABILITADO') {
+                const errorRazon = validateRazonInhabilitacion(cambiarMotivo)
+                if (errorRazon) {
+                  setMotivoError(errorRazon)
+                  return
+                }
+                void applyEstado(cambio.ids, 'NO_HABILITADO', cambiarMotivo)
                 return
               }
-              void applyEstado(cambio.ids, cambiarEstado, cambiarEstado === 'PENDIENTE' ? undefined : motivo || undefined)
+              void applyEstado(cambio.ids, 'HABILITADO')
             }}
           >
-            <h3 className="text-base font-bold text-[#011140]">Cambiar habilitación</h3>
-            <p className="mt-1 text-sm text-gray-500">{cambio.titulo}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 id="cambiar-titulo" className="text-base font-bold text-[#011140]">Cambiar habilitación</h3>
+                <p className="mt-1 text-sm font-medium text-[#011140]">{cambio.titulo}</p>
+                {cambio.detalle && <p className="text-xs text-gray-500">{cambio.detalle}</p>}
+                {examenResumen && <p className="mt-1 text-xs text-[#627A9B]">Examen: {examenResumen}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={cerrarCambio}
+                disabled={saving}
+                aria-label="Cerrar"
+                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
             <label htmlFor="cambiar-estado" className="mt-4 block text-xs font-semibold text-[#627A9B]">Estado</label>
             <select
               id="cambiar-estado"
               value={cambiarEstado}
-              onChange={(e) => { setCambiarEstado(e.target.value as EstadoHabilitacion); setMotivoError('') }}
+              onChange={(e) => { setCambiarEstado(e.target.value as EstadoCambio); setMotivoError('') }}
               className="mt-1 h-11 w-full rounded-md border border-[#B8CBEF] px-3 text-sm"
             >
-              <option value="PENDIENTE">Pendiente</option>
               <option value="HABILITADO">Habilitado</option>
               <option value="NO_HABILITADO">No habilitado</option>
             </select>
-            {cambiarEstado !== 'PENDIENTE' && (
+            {cambiarEstado === 'NO_HABILITADO' && (
               <>
                 <label htmlFor="cambiar-motivo" className="mt-3 block text-xs font-semibold text-[#627A9B]">
-                  {cambiarEstado === 'NO_HABILITADO' ? (
-                    <>Razón de inhabilitación <span className="text-red-500">*</span></>
-                  ) : 'Motivo (opcional)'}
+                  Razón de inhabilitación <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="cambiar-motivo"
                   value={cambiarMotivo}
-                  maxLength={255}
+                  maxLength={RAZON_MAX}
                   aria-invalid={Boolean(motivoError)}
                   aria-describedby={motivoError ? 'cambiar-motivo-error' : undefined}
-                  placeholder={cambiarEstado === 'NO_HABILITADO' ? 'Ej. Deuda en biblioteca' : 'Ej. Matrícula regular confirmada'}
-                  onChange={(e) => { setCambiarMotivo(e.target.value); if (motivoError) setMotivoError('') }}
+                  placeholder="Ej. Deuda en biblioteca"
+                  onChange={(e) => { setCambiarMotivo(sanearPegado(e.target.value)); if (motivoError) setMotivoError('') }}
+                  onBlur={() => { if (cambiarMotivo) setMotivoError(validateRazonInhabilitacion(cambiarMotivo) ?? '') }}
                   className={`mt-1 h-11 w-full rounded-md border px-3 text-sm ${motivoError ? 'border-red-400' : 'border-[#B8CBEF]'}`}
                 />
-                {motivoError && (
-                  <p id="cambiar-motivo-error" className="mt-1 text-xs text-red-600">{motivoError}</p>
-                )}
+                <div className="mt-1 flex justify-between gap-2 text-xs">
+                  <span id="cambiar-motivo-error" className="text-red-600">{motivoError}</span>
+                  <span className="shrink-0 text-gray-400">{cambiarMotivo.length}/{RAZON_MAX}</span>
+                </div>
               </>
             )}
-            {error && (
-              <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
-            )}
             <div className="mt-5 flex gap-3">
-              <button type="button" onClick={() => setCambio(null)} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
+              <button type="button" onClick={cerrarCambio} disabled={saving} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
                 Cancelar
               </button>
               <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-[#0439D9] py-2.5 text-sm font-semibold text-white disabled:opacity-60">
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
+            <ConfirmDiscardDialog
+              open={confirmarCierre}
+              onStay={() => setConfirmarCierre(false)}
+              onLeave={() => { setConfirmarCierre(false); setCambio(null) }}
+            />
           </form>
         </div>
       )}
+
+      <ResultadoModal resultado={resultado} onClose={() => setResultado(null)} />
     </section>
   )
 }

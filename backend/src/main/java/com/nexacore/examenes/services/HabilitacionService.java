@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -54,6 +55,10 @@ import java.util.stream.Collectors;
 public class HabilitacionService {
 
     private static final String SIN_FACULTAD = "—";
+    static final int RAZON_MIN = 10;
+    static final int RAZON_MAX = 40;
+    /** Letras (con tildes y ñ), números y espacios simples. */
+    private static final Pattern RAZON_CARACTERES = Pattern.compile("[\\p{L}0-9 ]+");
 
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final EstudianteRepository estudianteRepository;
@@ -103,7 +108,7 @@ public class HabilitacionService {
         if (buscado.isEmpty()) {
             throw new IllegalArgumentException("Ingrese el código universitario o el CI del estudiante");
         }
-        Examen examen = buscarExamen(idExamen, idParalelo);
+        Examen examen = buscarExamenEditable(idExamen, idParalelo);
         EstudianteExamenFila fila = estudianteRepository.identificarPorCodigoSis(buscado, idExamen)
                 .or(() -> estudianteRepository.identificarPorCi(buscado, idExamen))
                 .orElseThrow(() -> new EstudianteNoEncontradoException("código universitario o CI", buscado));
@@ -128,7 +133,7 @@ public class HabilitacionService {
         if (buscados.isEmpty()) {
             throw new IllegalArgumentException("Ingrese al menos un código universitario o CI");
         }
-        Examen examen = buscarExamen(idExamen, idParalelo);
+        Examen examen = buscarExamenEditable(idExamen, idParalelo);
         Map<String, Estudiante> porCodigo = estudianteRepository.findByCodigoSisIn(buscados).stream()
                 .collect(Collectors.toMap(Estudiante::getCodigoSis, Function.identity()));
         Map<String, Estudiante> porCi = estudianteRepository.findByCiIn(buscados).stream()
@@ -157,7 +162,7 @@ public class HabilitacionService {
     /** Asocia a todos los inscritos en el paralelo del examen que aún no estén asociados. */
     @Transactional
     public AsociacionLoteResponse asociarInscritos(Integer idExamen, Integer idParalelo) {
-        Examen examen = buscarExamen(idExamen, idParalelo);
+        Examen examen = buscarExamenEditable(idExamen, idParalelo);
         Set<Integer> nuevos = new LinkedHashSet<>(inscripcionParaleloRepository.idsInscritos(
                 idParalelo, examen.getIdMateria(), examen.getIdDocente()));
         nuevos.removeAll(asistenciaExamenRepository.idsEstudiantesDelExamen(idExamen));
@@ -168,7 +173,7 @@ public class HabilitacionService {
 
     /**
      * Cambia la habilitación de los estudiantes indicados; todos deben estar asociados al examen.
-     * NO_HABILITADO exige motivo; PENDIENTE lo descarta.
+     * NO_HABILITADO exige una razón válida; HABILITADO y PENDIENTE la descartan.
      *
      * @throws IllegalArgumentException si falta el motivo o alguno no está asociado (400)
      */
@@ -176,11 +181,13 @@ public class HabilitacionService {
     public List<EstudianteHabilitacionResponse> actualizar(Integer idExamen, Integer idParalelo,
                                                            ActualizarHabilitacionRequest request) {
         EstadoHabilitacion estado = request.estadoHabilitacion();
-        String motivo = request.motivo() == null || request.motivo().isBlank() ? null : request.motivo().trim();
-        if (estado == EstadoHabilitacion.NO_HABILITADO && motivo == null) {
-            throw new IllegalArgumentException("Indique la razón por la que el estudiante no está habilitado");
+        // Solo NO_HABILITADO guarda razón: habilitar o dejar pendiente la limpia.
+        String motivo = null;
+        if (estado == EstadoHabilitacion.NO_HABILITADO) {
+            validarRazon(request.motivo());
+            motivo = request.motivo();
         }
-        buscarExamen(idExamen, idParalelo);
+        buscarExamenEditable(idExamen, idParalelo);
         Set<Integer> ids = new HashSet<>(request.idsEstudiante());
         List<AsistenciaExamen> asistencias = asistenciaExamenRepository.buscarDelExamen(idExamen, idParalelo, ids);
         if (asistencias.size() != ids.size()) {
@@ -189,7 +196,7 @@ public class HabilitacionService {
         Boolean habilitado = estado == EstadoHabilitacion.PENDIENTE ? null : estado == EstadoHabilitacion.HABILITADO;
         for (AsistenciaExamen asistencia : asistencias) {
             asistencia.setHabilitado(habilitado);
-            asistencia.setMotivoInhabilitacion(estado == EstadoHabilitacion.PENDIENTE ? null : motivo);
+            asistencia.setMotivoInhabilitacion(motivo);
         }
         asistenciaExamenRepository.saveAllAndFlush(asistencias);
         return listarSinVerificar(idExamen, idParalelo);
@@ -239,6 +246,40 @@ public class HabilitacionService {
         }
         inscripcionParaleloRepository.saveAll(inscripciones);
         asistenciaExamenRepository.saveAllAndFlush(asistencias);
+    }
+
+    /**
+     * Razón de inhabilitación: obligatoria, 10 a 40 caracteres, solo letras, números y espacios,
+     * sin espacios al inicio, al final ni consecutivos. Se rechaza en vez de corregirse.
+     */
+    static void validarRazon(String razon) {
+        if (razon == null || razon.isBlank()) {
+            throw new IllegalArgumentException("Indique la razón por la que el estudiante no está habilitado");
+        }
+        if (!razon.equals(razon.strip())) {
+            throw new IllegalArgumentException("La razón no puede tener espacios al inicio ni al final");
+        }
+        if (razon.contains("  ")) {
+            throw new IllegalArgumentException("La razón no puede tener espacios consecutivos");
+        }
+        if (!RAZON_CARACTERES.matcher(razon).matches()) {
+            throw new IllegalArgumentException("La razón solo admite letras, números, espacios, tildes y ñ");
+        }
+        if (razon.length() < RAZON_MIN || razon.length() > RAZON_MAX) {
+            throw new IllegalArgumentException(
+                    "La razón debe tener entre " + RAZON_MIN + " y " + RAZON_MAX + " caracteres");
+        }
+    }
+
+    /** Un examen cancelado o finalizado ya no admite asociaciones ni cambios de habilitación (409). */
+    private Examen buscarExamenEditable(Integer idExamen, Integer idParalelo) {
+        Examen examen = buscarExamen(idExamen, idParalelo);
+        String estado = examen.getEstado() == null ? "programado" : examen.getEstado().toLowerCase();
+        if (estado.equals("cancelado") || estado.equals("finalizado")) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "El examen está " + estado + " y no admite cambios de habilitación");
+        }
+        return examen;
     }
 
     private Examen buscarExamen(Integer idExamen, Integer idParalelo) {

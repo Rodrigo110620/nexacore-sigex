@@ -360,6 +360,7 @@ export default function ExamenDetallePage() {
                   idExamen={examen.idExamen}
                   idParalelo={examen.idParalelo}
                   isAdmin={isAdmin}
+                  examenResumen={`${examen.asignatura} · ${formatFecha(examen.fecha)} · ${examen.ambienteNombre}`}
                   onCountChange={setHabilitadosCount}
                 />
               )}

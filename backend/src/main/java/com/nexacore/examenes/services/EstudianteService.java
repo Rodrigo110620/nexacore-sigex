@@ -25,6 +25,7 @@ import java.util.List;
 public class EstudianteService {
 
     private static final int TAMANO_MAXIMO_PAGINA = 100;
+    static final int BUSQUEDA_MAX = 40;
 
     private final EstudianteRepository estudianteRepository;
     private final EstudianteCarreraRepository estudianteCarreraRepository;
@@ -45,10 +46,23 @@ public class EstudianteService {
     ) {
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
-                search, idFacultad, idCarrera, pageable
+                normalizarBusqueda(search), idFacultad, idCarrera, pageable
         );
 
         return PageResponse.de(pagina.map(this::toResponse));
+    }
+
+    /** Sin espacios al borde ni repetidos (p. ej. al pegar "Juan   Pérez"), y hasta 40 caracteres. */
+    static String normalizarBusqueda(String search) {
+        if (search == null) {
+            return null;
+        }
+        String criterio = search.strip().replaceAll("\\s+", " ");
+        if (criterio.length() > BUSQUEDA_MAX) {
+            throw new IllegalArgumentException(
+                    "La búsqueda no puede superar los " + BUSQUEDA_MAX + " caracteres");
+        }
+        return criterio;
     }
 
     public List<CarreraResponse> listarCarreras(Integer idFacultad) {

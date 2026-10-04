@@ -3,6 +3,7 @@ import api from './api'
 export interface NormaParticularDto {
   estudiante: string
   texto: string
+  idEstudiante?: number | null
 }
 
 export interface CrearExamenPayload {

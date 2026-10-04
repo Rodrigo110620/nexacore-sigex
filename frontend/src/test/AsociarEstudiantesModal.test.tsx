@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AsociarEstudiantesModal from '../components/examenes/AsociarEstudiantesModal'
 import * as habilitacionService from '../services/habilitacionService'
@@ -36,9 +36,11 @@ function renderModal(asociados = new Set<number>()) {
 describe('AsociarEstudiantesModal', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(estudianteService.getFacultades).mockResolvedValue([])
+    vi.mocked(estudianteService.getCarreras).mockResolvedValue([])
   })
 
-  it('envía los códigos pegados y cierra si todos se asociaron', async () => {
+  it('envía los códigos pegados, confirma con un modal de éxito y cierra', async () => {
     vi.mocked(habilitacionService.asociarEstudiantesLote).mockResolvedValue({
       asociados: 2, yaAsociados: [], noEncontrados: [], estudiantes: [ana],
     })
@@ -49,9 +51,12 @@ describe('AsociarEstudiantesModal', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Asociar 3' }))
 
-    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se asociaron 2 estudiantes al examen')
     expect(habilitacionService.asociarEstudiantesLote).toHaveBeenCalledWith(2, 2, ['202600001', '1111112', '1111113'])
     expect(onAsociados).toHaveBeenCalledWith([ana])
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('muestra el resumen y deja en el cuadro los que no se asociaron', async () => {
@@ -76,9 +81,12 @@ describe('AsociarEstudiantesModal', () => {
     vi.mocked(estudianteService.getEstudiantes).mockResolvedValue({
       contenido: [
         { id: 1, codigoSis: '202600001', nombre: 'Ana', apellidos: 'Rojas', ci: '1111111', carreras: [] },
-        { id: 2, codigoSis: '202600002', nombre: 'Luis', apellidos: 'Paz', ci: '2222222', carreras: [] },
+        {
+          id: 2, codigoSis: '202600002', nombre: 'Luis', apellidos: 'Paz', ci: '2222222',
+          carreras: [{ idCarrera: 1, nombreCarrera: 'Ingeniería de Sistemas', idFacultad: 1, nombreFacultad: 'FCyT' }],
+        },
       ],
-      pagina: 0, tamano: 8, totalRegistros: 2, totalPaginas: 1,
+      pagina: 0, tamano: 50, totalRegistros: 2, totalPaginas: 1,
     })
     vi.mocked(habilitacionService.asociarEstudiantesLote).mockResolvedValue({
       asociados: 1, yaAsociados: [], noEncontrados: [], estudiantes: [ana],
@@ -86,14 +94,101 @@ describe('AsociarEstudiantesModal', () => {
     renderModal(new Set([1]))
 
     fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
-    const [anaCheck, luisCheck] = await screen.findAllByRole('checkbox')
+    const anaCheck = await screen.findByRole('checkbox', { name: 'Seleccionar a Ana Rojas' })
     expect(anaCheck).toBeDisabled()
-    fireEvent.click(luisCheck)
+    expect(screen.getByText(/Ingeniería de Sistemas/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar a Luis Paz' }))
+    expect(within(screen.getByRole('list', { name: 'Estudiantes seleccionados' })).getByText('Luis Paz · 202600002')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
 
     await waitFor(() =>
       expect(habilitacionService.asociarEstudiantesLote).toHaveBeenCalledWith(2, 2, ['202600002']),
     )
+  })
+
+  it('selecciona a todos los disponibles y resume con "Ver todo" si son más de 10', async () => {
+    const contenido = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1, codigoSis: `20260${String(i + 1).padStart(4, '0')}`, nombre: `Est${i + 1}`, apellidos: 'Prueba',
+      ci: `90000${i + 1}`, carreras: [],
+    }))
+    vi.mocked(estudianteService.getEstudiantes).mockResolvedValue({
+      contenido, pagina: 0, tamano: 50, totalRegistros: 12, totalPaginas: 1,
+    })
+    renderModal(new Set([1]))
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar todos' }))
+
+    const resumen = screen.getByRole('list', { name: 'Estudiantes seleccionados' })
+    expect(screen.getByText('11')).toBeInTheDocument()
+    expect(within(resumen).getAllByRole('listitem')).toHaveLength(10)
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todo (11)' }))
+    expect(within(resumen).getAllByRole('listitem')).toHaveLength(11)
+    expect(screen.getByRole('button', { name: 'Asociar 11' })).toBeInTheDocument()
+  })
+
+  it('filtra por facultad y carrera y limita la búsqueda a 40 caracteres', async () => {
+    vi.mocked(estudianteService.getFacultades).mockResolvedValue([{ id: 1, nombre: 'FCyT' }])
+    vi.mocked(estudianteService.getCarreras).mockResolvedValue([
+      { idCarrera: 5, nombre: 'Ingeniería de Sistemas', idFacultad: 1, nombreFacultad: 'FCyT' },
+    ])
+    vi.mocked(estudianteService.getEstudiantes).mockResolvedValue({
+      contenido: [], pagina: 0, tamano: 50, totalRegistros: 0, totalPaginas: 0,
+    })
+    renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
+    expect(await screen.findByText('No se encontraron estudiantes con ese criterio.')).toBeInTheDocument()
+    const buscador = screen.getByPlaceholderText('Buscar por nombre, CI, código SIS')
+    expect(buscador).toHaveAttribute('maxLength', '40')
+    fireEvent.change(buscador, { target: { value: '  Juan   Pérez' } })
+    expect(buscador).toHaveValue('Juan Pérez')
+
+    fireEvent.change(await screen.findByLabelText('Facultad'), { target: { value: '1' } })
+    await screen.findByRole('option', { name: 'Ingeniería de Sistemas' })
+    fireEvent.change(screen.getByLabelText('Carrera'), { target: { value: '5' } })
+
+    await waitFor(() => expect(estudianteService.getEstudiantes).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: 'Juan Pérez', idFacultad: '1', idCarrera: '5' }),
+      expect.anything(),
+    ))
+  })
+
+  it('exige seleccionar al menos un estudiante antes de asociar', async () => {
+    vi.mocked(estudianteService.getEstudiantes).mockResolvedValue({
+      contenido: [], pagina: 0, tamano: 50, totalRegistros: 0, totalPaginas: 0,
+    })
+    renderModal()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Selecciona al menos un estudiante para asociar.')
+    expect(habilitacionService.asociarEstudiantesLote).not.toHaveBeenCalled()
+  })
+
+  it('sin conexión no asocia, avisa con un modal y conserva lo ingresado', async () => {
+    const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+    renderModal()
+
+    fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '202600001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
+
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
+    expect(habilitacionService.asociarEstudiantesLote).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Códigos universitarios o CI')).toHaveValue('202600001')
+    onLine.mockRestore()
+  })
+
+  it('pide confirmación al cerrar con la X si hay datos sin asociar', () => {
+    const { onClose } = renderModal()
+
+    fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '202600001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+    expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('avisa cuando no hay inscritos pendientes', async () => {

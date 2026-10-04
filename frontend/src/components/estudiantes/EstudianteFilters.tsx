@@ -1,6 +1,7 @@
 import { Search, ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { getCarreras, getFacultades } from '../../services/estudianteService'
+import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
 import type {
   CarreraOption,
   EstudianteFilterParams,
@@ -11,9 +12,11 @@ interface EstudianteFiltersProps {
   value: EstudianteFilterParams
   onChange: (next: EstudianteFilterParams) => void
   disabled?: boolean
+  /** Para contenedores angostos (modales): el buscador ocupa su fila y los filtros van debajo. */
+  compact?: boolean
 }
 
-export default function EstudianteFilters({ value, onChange, disabled = false }: EstudianteFiltersProps) {
+export default function EstudianteFilters({ value, onChange, disabled = false, compact = false }: EstudianteFiltersProps) {
   const id = useId()
   const searchId = `${id}-search`
   const facultadId = `${id}-facultad`
@@ -52,8 +55,8 @@ export default function EstudianteFilters({ value, onChange, disabled = false }:
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
       <h2 id={`${id}-title`} className="sr-only">Filtros de estudiantes</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 min-[960px]:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-        <div className="col-span-2 min-w-0 min-[960px]:col-span-1">
+      <div className={`grid min-w-0 grid-cols-2 gap-2 sm:gap-3 ${compact ? '' : 'min-[960px]:grid-cols-[minmax(0,1fr)_14rem_14rem]'}`}>
+        <div className={`col-span-2 min-w-0 ${compact ? '' : 'min-[960px]:col-span-1'}`}>
           <label htmlFor={searchId} className="sr-only">Buscar estudiantes</label>
           <div className="relative">
             <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]" />
@@ -61,7 +64,8 @@ export default function EstudianteFilters({ value, onChange, disabled = false }:
               id={searchId}
               type="search"
               value={value.search}
-              onChange={(e) => onChange({ ...value, search: e.target.value })}
+              maxLength={BUSQUEDA_MAX}
+              onChange={(e) => onChange({ ...value, search: sanearBusqueda(e.target.value) })}
               placeholder="Buscar por nombre, CI, código SIS"
               autoComplete="off"
               disabled={disabled }

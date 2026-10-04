@@ -27,7 +27,7 @@ const luis = estudiante(2, 'Luis', 'HABILITADO', 'Matrícula regular confirmada'
 
 async function renderTab(lista = [ana, luis]) {
   vi.mocked(habilitacionService.listarEstudiantesExamen).mockResolvedValue(lista)
-  render(<EstudiantesHabilitadosTab idExamen={2} idParalelo={2} isAdmin />)
+  render(<EstudiantesHabilitadosTab idExamen={2} idParalelo={2} isAdmin examenResumen="Cálculo I · 12/10/2026 · 691A" />)
   await waitFor(() => expect(screen.queryByText('Cargando estudiantes...')).not.toBeInTheDocument())
 }
 
@@ -50,7 +50,11 @@ describe('EstudiantesHabilitadosTab', () => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
 
-    const dialogo = screen.getByRole('heading', { name: 'Cambiar habilitación' }).closest('form') as HTMLFormElement
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    expect(within(dialogo).getByText('CI 1111111 · Cód. 20260001')).toBeInTheDocument()
+    expect(within(dialogo).getByText('Examen: Cálculo I · 12/10/2026 · 691A')).toBeInTheDocument()
+    // Con "Habilitado" la razón queda oculta.
+    expect(within(dialogo).queryByLabelText(/Razón de inhabilitación/)).not.toBeInTheDocument()
     fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
@@ -61,7 +65,7 @@ describe('EstudiantesHabilitadosTab', () => {
       { ...ana, estadoHabilitacion: 'NO_HABILITADO', motivo: 'Deuda en biblioteca' },
       luis,
     ])
-    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: ' Deuda en biblioteca ' } })
+    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: 'Deuda en biblioteca' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
@@ -69,8 +73,93 @@ describe('EstudiantesHabilitadosTab', () => {
       estadoHabilitacion: 'NO_HABILITADO',
       motivo: 'Deuda en biblioteca',
     }))
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Cambiar habilitación' })).not.toBeInTheDocument())
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se registró como no habilitado al estudiante')
+    expect(screen.queryByRole('dialog', { name: 'Cambiar habilitación' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Deuda en biblioteca').length).toBeGreaterThan(0)
+  })
+
+  it.each([
+    ['Deuda', /al menos 10/],
+    [' Deuda en biblioteca', /empezar con espacios/],
+    ['Deuda en biblioteca ', /terminar con espacios/],
+    ['Deuda  en biblioteca', /espacios consecutivos/],
+    ['Deuda en biblioteca!', /Solo se permiten letras/],
+  ])('rechaza la razón "%s" sin guardar', async (razon, mensaje) => {
+    await renderTab()
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: razon } })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+
+    expect(await within(dialogo).findByText(mensaje)).toBeInTheDocument()
+    expect(habilitacionService.actualizarHabilitacion).not.toHaveBeenCalled()
+  })
+
+  it('limita la razón a 40 caracteres', async () => {
+    await renderTab()
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+
+    expect(within(dialogo).getByLabelText(/Razón de inhabilitación/)).toHaveAttribute('maxLength', '40')
+  })
+
+  it('al volver a habilitar no reenvía la razón anterior', async () => {
+    const rosa = estudiante(3, 'Rosa', 'NO_HABILITADO', 'Deuda en biblioteca')
+    await renderTab([rosa])
+    vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([{ ...rosa, estadoHabilitacion: 'HABILITADO', motivo: null }])
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'HABILITADO' } })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
+      idsEstudiante: [3],
+      estadoHabilitacion: 'HABILITADO',
+      motivo: undefined,
+    }))
+  })
+
+  it('pide confirmación al cerrar con la X si hay cambios sin guardar', async () => {
+    await renderTab()
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
+
+    expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }))
+    expect(screen.getByRole('dialog', { name: 'Cambiar habilitación' })).toBeInTheDocument()
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+    expect(screen.queryByRole('dialog', { name: 'Cambiar habilitación' })).not.toBeInTheDocument()
+  })
+
+  it('conserva el estado anterior y avisa si falla el guardado', async () => {
+    await renderTab()
+    vi.mocked(habilitacionService.actualizarHabilitacion).mockRejectedValue({
+      response: { data: { mensaje: 'El examen está cancelado y no admite cambios de habilitación' } },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
+    fireEvent.click(screen.getByRole('button', { name: /Habilitar/ }))
+
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('no admite cambios de habilitación')
+    expect(screen.getAllByText('Pendiente').length).toBeGreaterThan(0)
+  })
+
+  it('solo aplica la acción en bloque a los seleccionados visibles', async () => {
+    await renderTab()
+    vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([ana, luis])
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
+    fireEvent.change(screen.getByLabelText('Filtrar por estado'), { target: { value: 'PENDIENTE' } })
+    fireEvent.click(screen.getByRole('button', { name: /Habilitar/ }))
+
+    await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
+      idsEstudiante: [1],
+      estadoHabilitacion: 'HABILITADO',
+      motivo: undefined,
+    }))
   })
 
   it('deshabilita varios estudiantes a la vez pidiendo la razón', async () => {
@@ -78,16 +167,16 @@ describe('EstudiantesHabilitadosTab', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
     fireEvent.click(screen.getByRole('button', { name: /Deshabilitar/ }))
 
-    const dialogo = screen.getByRole('heading', { name: 'Cambiar habilitación' }).closest('form') as HTMLFormElement
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
     expect(within(dialogo).getByText('2 estudiantes seleccionados')).toBeInTheDocument()
     vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([])
-    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: 'Bloqueo SIGA' } })
+    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: 'Bloqueo en el SIGA' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
       idsEstudiante: [1, 2],
       estadoHabilitacion: 'NO_HABILITADO',
-      motivo: 'Bloqueo SIGA',
+      motivo: 'Bloqueo en el SIGA',
     }))
   })
 
@@ -97,9 +186,11 @@ describe('EstudiantesHabilitadosTab', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
     fireEvent.click(screen.getByRole('button', { name: /Habilitar/ }))
 
-    await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, expect.objectContaining({
+    await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
       idsEstudiante: [1, 2],
       estadoHabilitacion: 'HABILITADO',
-    })))
+      motivo: undefined,
+    }))
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se habilitó a los 2 estudiantes')
   })
 })
