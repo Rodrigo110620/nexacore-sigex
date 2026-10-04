@@ -15,10 +15,16 @@ import type { ImportarEstudiantesResponse } from '../../services/estudianteServi
 import EstudianteCardList from '../../components/estudiantes/EstudianteCardList'
 import FichaEstudianteModal from '../../components/estudiantes/FichaEstudianteModal'
 import EditarEstudianteModal from '../../components/estudiantes/EditarEstudianteModal'
+import { useAuth } from '../../context/AuthContext'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
 export default function EstudiantesPage() {
+  const { roles } = useAuth()
+  // 🆕 ADMIN y DOCENTE pueden editar/registrar/importar. CONTROL solo consulta.
+  const puedeEditar = roles.includes('ADMIN') || roles.includes('DOCENTE')
+  const motivoBloqueo = 'No tienes permiso para realizar esta acción.'
+
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -41,8 +47,8 @@ export default function EstudiantesPage() {
     setFichaEstudiante(estudiante)
   }
 
-  // 🆕 Handler para editar
   const handleEditClick = (estudiante: EstudianteListItem) => {
+    if (!puedeEditar) return
     setEditarEstudianteId(estudiante.id)
   }
 
@@ -72,7 +78,6 @@ export default function EstudiantesPage() {
     window.setTimeout(() => setSuccessMessage(''), 5000)
   }
 
-  // Para cuando se guarda la edición
   const handleSaved = () => {
     setEditarEstudianteId(null)
     retry()
@@ -104,17 +109,21 @@ export default function EstudiantesPage() {
                 <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
                   <button
                     type="button"
-                    onClick={() => setImportOpen(true)}
+                    onClick={() => puedeEditar && setImportOpen(true)}
+                    disabled={!puedeEditar}
+                    title={!puedeEditar ? motivoBloqueo : undefined}
                     aria-label="Importar estudiantes"
-                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
+                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <Upload size={16} aria-hidden="true" className="shrink-0" />
                     <span className="hidden truncate sm:inline">Importar</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRegisterOpen(true)}
-                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
+                    onClick={() => puedeEditar && setRegisterOpen(true)}
+                    disabled={!puedeEditar}
+                    title={!puedeEditar ? motivoBloqueo : undefined}
+                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#0439D9] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
                     <span className="truncate">Registrar Estudiante</span>
@@ -123,21 +132,24 @@ export default function EstudiantesPage() {
               </div>
             </div>
 
-            <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
-            <ImportarEstudiantesModal open={importOpen} onClose={() => setImportOpen(false)} onImported={handleImported} />
+            {/* Modales: solo se pueden abrir si puedeEditar */}
+            {puedeEditar && (
+              <>
+                <RegistrarEstudianteModal open={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={handleRegistered} />
+                <ImportarEstudiantesModal open={importOpen} onClose={() => setImportOpen(false)} onImported={handleImported} />
+                <EditarEstudianteModal
+                  open={editarEstudianteId !== null}
+                  estudianteId={editarEstudianteId}
+                  onClose={() => setEditarEstudianteId(null)}
+                  onSaved={handleSaved}
+                />
+              </>
+            )}
 
             <FichaEstudianteModal
               open={Boolean(fichaEstudiante)}
               estudiante={fichaEstudiante}
               onClose={() => setFichaEstudiante(null)}
-            />
-
-            {/* 🆕 Modal de editar */}
-            <EditarEstudianteModal
-              open={editarEstudianteId !== null}
-              estudianteId={editarEstudianteId}
-              onClose={() => setEditarEstudianteId(null)}
-              onSaved={handleSaved}
             />
 
             <div className="flex flex-col">
@@ -175,6 +187,7 @@ export default function EstudiantesPage() {
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
+                      puedeEditar={puedeEditar}
                     />
                   </div>
                   {/* Desktop */}
@@ -183,6 +196,7 @@ export default function EstudiantesPage() {
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
+                      puedeEditar={puedeEditar}
                     />
                   </div>
                   {/* Paginación */}

@@ -45,7 +45,7 @@ public class EstudianteController {
 
     @Operation(summary = "Listar estudiantes",
             description = "Devuelve los estudiantes paginados con búsqueda y filtros. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteListResponse>> listar(
             @RequestParam(defaultValue = "0") int page,

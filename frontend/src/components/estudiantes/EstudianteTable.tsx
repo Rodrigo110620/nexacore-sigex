@@ -6,6 +6,7 @@ interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
   onViewClick?: (estudiante: EstudianteListItem) => void
   onEditClick?: (estudiante: EstudianteListItem) => void
+  puedeEditar?: boolean
 }
 
 function formatCarreras(carreras: EstudianteListItem['carreras']): string {
@@ -22,6 +23,7 @@ export default function EstudianteTable({
   estudiantes,
   onViewClick,
   onEditClick,
+  puedeEditar = true,
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
@@ -56,7 +58,7 @@ export default function EstudianteTable({
               </td>
               <td className="px-5 py-3">
                 <div className="flex justify-center gap-2">
-                  {/* Ver Ficha */}
+                  {/* Ver Ficha — siempre habilitado */}
                   <button
                     type="button"
                     onClick={() => onViewClick?.(e)}
@@ -66,12 +68,14 @@ export default function EstudianteTable({
                     Ver Ficha
                   </button>
 
-                  {/* 🆕 3 puntitos */}
+                  {/* Editar — deshabilitado si puedeEditar es false */}
                   <button
                     type="button"
-                    onClick={() => onEditClick?.(e)}
-                    aria-label={`Más acciones para ${e.nombre} ${e.apellidos}`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                    onClick={() => puedeEditar && onEditClick?.(e)}
+                    disabled={!puedeEditar}
+                    title={!puedeEditar ? 'No tienes permiso para editar' : undefined}
+                    aria-label={`Editar ${e.nombre} ${e.apellidos}`}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#627A9B]"
                   >
                     <Pencil size={16} aria-hidden="true" />
                   </button>
