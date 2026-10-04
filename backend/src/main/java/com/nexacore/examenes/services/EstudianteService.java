@@ -24,6 +24,8 @@ import java.util.List;
 @Service
 public class EstudianteService {
 
+    private static final int TAMANO_MAXIMO_PAGINA = 100;
+
     private final EstudianteRepository estudianteRepository;
     private final EstudianteCarreraRepository estudianteCarreraRepository;
     private final CarreraRepository carreraRepository;
@@ -41,10 +43,7 @@ public class EstudianteService {
     public PageResponse<EstudianteListResponse> listar(
             int page, int size, String search, Integer idFacultad, Integer idCarrera
     ) {
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), 100);
-
-        var pageable = PageRequest.of(safePage, safeSize);
+        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
                 search, idFacultad, idCarrera, pageable
         );

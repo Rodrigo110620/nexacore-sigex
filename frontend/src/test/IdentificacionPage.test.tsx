@@ -28,6 +28,7 @@ function renderPage(roles: string[] = ['CONTROL'], ruta = '/dashboard/control/7/
       <MemoryRouter initialEntries={[ruta]}>
         <Routes>
           <Route path="/dashboard/control/:idExamen/identificar" element={<IdentificacionPage />} />
+          <Route path="/dashboard/control/:idExamen" element={<p>Detalle del examen</p>} />
           <Route path="/dashboard/control-ingresos/:idEstudiante/:idExamen" element={<p>Flujo ACCS-02</p>} />
         </Routes>
       </MemoryRouter>
@@ -53,6 +54,12 @@ describe('IdentificacionPage', () => {
     localStorage.clear()
     localStorage.setItem('token', 'token-control')
     localStorage.setItem('roles', JSON.stringify(['CONTROL']))
+  })
+
+  it('permite volver al detalle del examen sin alterar la identificación', () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Volver al examen' }))
+    expect(screen.getByText('Detalle del examen')).toBeInTheDocument()
   })
 
   it.each([

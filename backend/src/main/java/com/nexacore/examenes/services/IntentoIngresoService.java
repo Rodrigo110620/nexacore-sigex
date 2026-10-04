@@ -45,6 +45,10 @@ public class IntentoIngresoService {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
                     "El estudiante ya está asociado a este examen; no corresponde registrar un intento incorrecto");
         }
+        if (intentoRepository.existeRegistroReciente(request.idExamen(), request.idEstudiante())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "Este intento ya fue registrado hace unos segundos; no se duplicó el registro");
+        }
         var control = usuarioRepository.findByEmail(emailControl).orElseThrow(() ->
                 new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
         int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),

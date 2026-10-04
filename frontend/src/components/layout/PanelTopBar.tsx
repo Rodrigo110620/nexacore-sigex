@@ -10,6 +10,9 @@ function getInitials(nombre: string | null): string {
   return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
 }
 
+// Un único estilo de "tile" para el icono de sección, sea cual sea la página.
+const ICON_TILE = 'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9]'
+
 interface PanelTopBarProps {
   compactDesktop?: boolean
   title?: string
@@ -75,28 +78,28 @@ export default function PanelTopBar({
 
   return (
     <>
-      <header className={`sticky top-0 z-30 flex w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 p-2 backdrop-blur sm:h-20 sm:px-5 ${compactDesktop ? 'min-[960px]:px-6 min-[960px]:py-6' : 'lg:px-6 lg:py-6'}`}>
+      <header className={`sticky top-0 z-30 flex w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 px-4 py-2 backdrop-blur sm:h-20 sm:px-5 ${compactDesktop ? 'min-[960px]:px-6 min-[960px]:py-6' : 'lg:px-6 lg:py-6'}`}>
         <div className="min-w-0 flex-1">
           <div className={compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}>
             <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
           </div>
           <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
             {variant === 'control' ? (
-              <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#D8E3F5] bg-[#F1F6FF] text-[#0439D9] shadow-sm"><ClipboardCheck size={24} /></span>
+              <span aria-hidden="true" className={ICON_TILE}><ClipboardCheck size={24} /></span>
             ) : isExamenes ? (
-              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9] shadow-sm">
-                <BookCheck size={26} aria-hidden="true" />
+              <span className={ICON_TILE}>
+                <BookCheck size={24} aria-hidden="true" />
               </span>
             ) : isEstudiantes ? (
-              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#0439D9] shadow-sm">
-                <GraduationCap size={26} aria-hidden="true" />
-              </span>    
+              <span className={ICON_TILE}>
+                <GraduationCap size={24} aria-hidden="true" />
+              </span>
             ) : (
-                <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm" />
-              )}
+              <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+            )}
             <div className="min-w-0">
-              <p className="truncate text-lg font-bold text-[#011140]">{effectiveTitle}</p>
-              <p className="truncate text-sm text-[#627A9B]">{effectiveDescription}</p>
+              <p className="truncate text-lg font-bold leading-tight tracking-[0.01em] text-[#011140]">{effectiveTitle}</p>
+              <p className="mt-0.5 truncate text-sm text-[#627A9B]">{effectiveDescription}</p>
             </div>
           </div>
         </div>
@@ -106,7 +109,7 @@ export default function PanelTopBar({
             type="button"
             disabled
             aria-label="Notificaciones, no disponible"
-            className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg bg-[#F1F6FF] text-[#627A9B] sm:h-10 sm:w-10"
+            className="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg text-[#A9B8CF] sm:h-10 sm:w-10"
           >
             <Bell size={17} aria-hidden="true" />
           </button>
@@ -116,7 +119,7 @@ export default function PanelTopBar({
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={`Menú de cuenta: ${displayName}`}
-            className="inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-colors hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem]"
+            className="inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-[background-color,transform] duration-150 ease-out hover:bg-[#E9F1FF] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:h-11 sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem]"
           >
             <span
               aria-hidden="true"
@@ -132,14 +135,14 @@ export default function PanelTopBar({
             <ChevronDown
               size={16}
               aria-hidden="true"
-              className={`hidden shrink-0 text-[#627A9B] transition-transform sm:block ${open ? 'rotate-180' : ''}`}
+              className={`hidden shrink-0 text-[#627A9B] transition-transform duration-[160ms] ease-out-strong sm:block ${open ? 'rotate-180' : ''}`}
             />
           </button>
 
           {open && (
             <div
               role="menu"
-              className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#D8E3F5] bg-white py-1 shadow-lg shadow-[#011140]/12"
+              className="menu-pop absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#D8E3F5] bg-white py-1 shadow-lg shadow-[#011140]/12"
             >
               <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] px-3 py-2.5">
                 <div className="min-w-0">

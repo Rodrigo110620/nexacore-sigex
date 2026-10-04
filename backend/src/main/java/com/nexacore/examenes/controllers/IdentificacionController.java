@@ -37,8 +37,8 @@ public class IdentificacionController {
     }
 
     @Operation(summary = "Listar estudiantes del examen",
-            description = "Asignados al examen, paginados por apellidos y nombre. Solo CONTROL o ADMIN.")
-    @PreAuthorize("hasAnyRole('CONTROL', 'ADMIN')")
+            description = "Asignados al examen, paginados por apellidos y nombre. ADMIN, CONTROL o su DOCENTE.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteAsignadoResponse>> listar(
             @PathVariable Integer idExamen,
@@ -52,8 +52,8 @@ public class IdentificacionController {
     }
 
     @Operation(summary = "Resumen de estudiantes del examen",
-            description = "Total de asignados, habilitados, no habilitados e ingresados. Solo CONTROL o ADMIN.")
-    @PreAuthorize("hasAnyRole('CONTROL', 'ADMIN')")
+            description = "Total de asignados, habilitados, no habilitados e ingresados. ADMIN, CONTROL o su DOCENTE.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping("/resumen")
     public ResponseEntity<ResumenEstudiantesResponse> resumen(@PathVariable Integer idExamen) {
         return ResponseEntity.ok(identificacionService.resumir(idExamen));
@@ -65,8 +65,8 @@ public class IdentificacionController {
      */
     @Operation(summary = "Identificar estudiante",
             description = "Busca al estudiante por código universitario o CI y devuelve sus datos y su estado "
-                    + "en el examen: HABILITADO, DESHABILITADO o NO_VINCULADO. Solo CONTROL o ADMIN.")
-    @PreAuthorize("hasAnyRole('CONTROL', 'ADMIN')")
+                    + "en el examen: HABILITADO, DESHABILITADO o NO_VINCULADO. ADMIN, CONTROL o su DOCENTE.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping("/identificar")
     public ResponseEntity<IdentificacionResponse> identificar(
             @PathVariable Integer idExamen,

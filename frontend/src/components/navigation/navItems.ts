@@ -13,18 +13,17 @@ const ESTUDIANTES_ROLES = ['ADMIN', 'DOCENTE', 'CONTROL']
 /**
  * Menú por rol (sidebar y barra inferior móvil):
  * - ADMIN: Inicio, Exámenes, Control, Estudiantes, Usuarios.
- * - DOCENTE: Exámenes y Estudiantes (consulta + edición, sin Usuarios).
- * - CONTROL: Inicio, Control y Estudiantes (solo consulta).
+ * - DOCENTE: Inicio, Exámenes, Control y Estudiantes (sin Usuarios).
+ * - CONTROL: Inicio, Control y Estudiantes.
  */
 export function navItemsFor(roles: string[]): NavItem[] {
   const isAdmin = roles.includes('ADMIN')
-  const isControl = roles.includes('CONTROL')
   const isDocente = roles.includes('DOCENTE')
+  const isControl = roles.includes('CONTROL')
   const items: NavItem[] = []
 
-  // El panel operativo forma parte de la misma aplicación. ADMIN puede supervisarlo
-  // y CONTROL lo usa como su pantalla principal; DOCENTE no necesita este acceso.
-  if (isAdmin || isControl) {
+  // CONTROL obtiene el panel operativo; los demás roles ven el aviso de módulo en desarrollo.
+  if (isAdmin || isDocente || isControl) {
     items.push({ label: 'Inicio', to: '/dashboard/inicio', icon: LayoutGrid })
   }
 
@@ -36,16 +35,16 @@ export function navItemsFor(roles: string[]): NavItem[] {
     })
   }
 
-  if (isAdmin || isControl) {
+  if (isAdmin || isDocente || isControl) {
     items.push({ label: 'Control', to: '/dashboard/control', icon: ClipboardCheck })
   }
 
-  // 🆕 Estudiantes: ADMIN, DOCENTE y CONTROL
+  // Estudiantes: ADMIN, DOCENTE y CONTROL
   if (roles.some((rol) => ESTUDIANTES_ROLES.includes(rol))) {
     items.push({ label: 'Estudiantes', to: '/dashboard/estudiantes', icon: GraduationCap })
   }
 
-  // Usuarios: solo ADMIN (no cambia)
+  // Usuarios: solo ADMIN
   if (isAdmin) {
     items.push({ label: 'Usuarios', to: '/dashboard/usuarios', icon: Users })
   }

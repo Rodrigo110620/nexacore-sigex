@@ -37,11 +37,17 @@ import {
   todayISO,
   validateExamenForm,
   validateNormaTexto,
+  formatHora24,
+  sanitizeHoraInput,
+  filtrarAmbientes,
+  examFieldClass,
+  EXAM_SECTION_CARD_CLASS,
 } from '../../utils/examFormUtils'
 import { toTitleCaseNombre } from '../../utils/validators'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
+import { useAuth } from '../../context/AuthContext'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -63,18 +69,9 @@ const STEP_DESCRIPCION: Record<Step, string> = {
   3: 'Revise las normas del examen y confirme los datos antes de registrar.',
 }
 
-function formatHora24(h: number, m: number): string {
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-/** Solo dígitos; inserta `:` tras la hora (máx. HH:MM, 24 h). */
-function sanitizeHoraInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  if (digits.length <= 2) return digits
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`
-}
-
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
+  const { nombre, roles } = useAuth()
+  const esDocente = roles.includes('DOCENTE') && !roles.includes('ADMIN')
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
@@ -182,21 +179,11 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const sinSolapamientoUi = Boolean(
     form.idAmbiente && form.fecha && form.horaInicio && form.horaFin && duracion !== null,
   )
-  const ambientesFiltrados = ambientes.filter((a) => {
-    const q = ambienteFilter.trim().toLowerCase()
-    if (!q) return true
-    return (
-      a.nombre.toLowerCase().includes(q) ||
-      (a.ubicacion ?? '').toLowerCase().includes(q)
-    )
-  })
-
-  const fieldClass = (hasError?: string) =>
-    `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-      hasError ? 'border-red-400' : 'border-gray-200'
-    }`
-
-  const sectionCardClass = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
+  const ambientesFiltrados = filtrarAmbientes(ambientes, ambienteFilter)
+  const fieldClass = examFieldClass
+  const sectionCardClass = EXAM_SECTION_CARD_CLASS
+  const docenteResponsable = esDocente ? (nombre ?? '') : form.docente
+  const formParaValidar = esDocente ? { ...form, docente: nombre ?? '' } : form
 
   const handleChange = (field: keyof RegisterExamenFormState, raw: string) => {
     const value = field === 'asignatura' || field === 'docente' ? toTitleCaseTexto(raw) : raw
@@ -265,9 +252,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   }
 
   const validarTodo = () =>
-    validateExamenForm(form, {
+    validateExamenForm(formParaValidar, {
       asignaturaSeleccionada: asignaturaOk,
-      docenteSeleccionado: docenteOk,
+      docenteSeleccionado: esDocente ? Boolean(nombre) : docenteOk,
     })
 
   const goNext = () => {
@@ -323,7 +310,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     try {
       await crearExamen({
         asignatura: toTitleCaseTexto(form.asignatura.trim()),
-        docente: toTitleCaseTexto(form.docente.trim()),
+        docente: toTitleCaseTexto(docenteResponsable.trim()),
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: duracion,
@@ -518,6 +505,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   <label htmlFor="registrar-docente" className="mb-1 block text-xs font-semibold text-gray-700">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
+                  {esDocente ? (
+                    <input
+                      id="registrar-docente"
+                      value={docenteResponsable}
+                      readOnly
+                      aria-label="Docente Responsable"
+                      className={`${fieldClass()} cursor-not-allowed bg-gray-100 text-gray-600`}
+                    />
+                  ) : (
                   <DocenteAutocomplete
                     id="registrar-docente"
                     value={form.docente}
@@ -529,6 +525,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       setIdDocente(docente.id)
                     }}
                   />
+                  )}
                   {errors.docente && (
                     <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>
                   )}
@@ -806,7 +803,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-2">
                 {[
                   { label: 'Asignatura', value: form.asignatura, paso: 1 as Step },
-                  { label: 'Docente responsable', value: form.docente, paso: 1 as Step },
+                  { label: 'Docente responsable', value: docenteResponsable, paso: 1 as Step },
                   { label: 'Fecha', value: form.fecha ? formatFechaDisplay(form.fecha) : '', paso: 2 as Step },
                   {
                     label: 'Horario',

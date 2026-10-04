@@ -25,6 +25,7 @@ describe('IdentificacionRoute', () => {
   it.each([
     ['ADMIN', ['ADMIN']],
     ['CONTROL', ['CONTROL']],
+    ['DOCENTE', ['DOCENTE']],
     ['ADMIN + CONTROL', ['ADMIN', 'CONTROL']],
     ['DOCENTE + CONTROL', ['DOCENTE', 'CONTROL']],
   ])('permite identificar a %s', (_nombre, roles) => {
@@ -33,7 +34,6 @@ describe('IdentificacionRoute', () => {
   })
 
   it.each([
-    ['DOCENTE', ['DOCENTE']],
     ['otro usuario', ['ESTUDIANTE']],
   ])('rechaza a %s', (_nombre, roles) => {
     renderRoute(roles)

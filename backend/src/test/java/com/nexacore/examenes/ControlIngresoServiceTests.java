@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ControlIngresoServiceTests {
@@ -364,5 +367,27 @@ class ControlIngresoServiceTests {
         registro.setExamen(examen);
         registro.setHabilitado(true);
         return registro;
+    }
+    @Test
+    void autorizaCorrectamenteCuandoElAmbienteEsValido() {
+        // El ambiente del examen (id: 5) coincide con el ambiente verificado
+        asistencia.getExamen().setIdAmbiente(5);
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of());
+        var response = service.autorizar(request, "control@umss.edu.bo");
+        
+        assertTrue(response.autorizado());
+        assertEquals("AUTORIZADO", response.resultado());
+    }
+
+    @Test
+    void verificaAsociacionDeAmbienteCorrectoEnIngreso() {
+        asistencia.getExamen().setIdAmbiente(5);
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of("Identidad confirmada"), List.of());
+        
+        service.autorizar(request, "control@umss.edu.bo");
+        
+        // Comprueba que el ID del ambiente verificado se asocie de forma correcta al registro
+        assertEquals(5, asistencia.getIdAmbienteIngreso());
+        verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
     }
 }

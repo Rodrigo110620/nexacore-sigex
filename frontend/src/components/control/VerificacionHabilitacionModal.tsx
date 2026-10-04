@@ -31,7 +31,12 @@ export default function VerificacionHabilitacionModal(p: Props) {
     return () => document.removeEventListener('keydown', fn)
   }, [p])
 
-  const hab = p.estudiante.estado === 'HABILITADO'
+  const habBase = p.estudiante.estado === 'HABILITADO'
+  const aulaEstudiante = (p.estudiante as any).aula || (p.estudiante as any).ambienteAsignado
+  const esAmbienteCorrecto = !p.aula || !aulaEstudiante || aulaEstudiante === p.aula
+  
+  const hab = habBase && esAmbienteCorrecto
+
   const nombre = `${p.estudiante.nombre || ''} ${p.estudiante.apellidos || ''}`.trim()
   const iniciales = `${p.estudiante.nombre?.[0] || ''}${p.estudiante.apellidos?.[0] || ''}`.toUpperCase() || 'ES'
 
@@ -42,7 +47,11 @@ export default function VerificacionHabilitacionModal(p: Props) {
 
   // El motivo se muestra completo, tal como viene del backend; sin motivo no se inventa ninguno.
   const rawMotivo = p.estudiante.motivoInhabilitacion?.trim()
-  const motivo = rawMotivo ? `Motivo: ${rawMotivo}` : 'Sin motivo registrado'
+  let motivo = rawMotivo ? `Motivo: ${rawMotivo}` : 'Sin motivo registrado'
+
+  if (habBase && !esAmbienteCorrecto) {
+    motivo = `Ambiente incorrecto: El estudiante pertenece al Aula ${aulaEstudiante}, pero este examen se rinde en el Aula ${p.aula}.`
+  }
 
   return (
     <div

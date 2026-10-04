@@ -41,14 +41,14 @@ describe('acceso CONTROL desde el listado integrado', () => {
     expect(screen.getAllByLabelText('Filtrar por fecha').length).toBeGreaterThan(0)
   })
 
-  it('DOCENTE conserva su vista sin acciones de CONTROL', async () => {
+  it('DOCENTE puede registrar y controlar sus exámenes', async () => {
     const role = 'DOCENTE'
     auth.roles = [role]
     auth.isAdmin = false
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
     await screen.findAllByRole('button', { name: 'Ver detalle' })
-    expect(screen.queryByRole('link', { name: /Iniciar control/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Registrar Examen' })).not.toBeInTheDocument()
+    expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
+    expect(screen.queryAllByRole('button', { name: 'Registrar Examen' }).length).toBeGreaterThan(0)
   })
 
   it('ADMIN conserva la administración y también puede iniciar el control', async () => {
@@ -68,12 +68,12 @@ describe('acceso CONTROL desde el listado integrado', () => {
     expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
   })
 
-  it('DOCENTE + CONTROL obtiene CONTROL sin adquirir administración', async () => {
+  it('DOCENTE + CONTROL conserva registro y acciones de control', async () => {
     auth.roles = ['DOCENTE', 'CONTROL']
     auth.isAdmin = false
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
 
     expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: 'Registrar Examen' })).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('button', { name: 'Registrar Examen' }).length).toBeGreaterThan(0)
   })
 })

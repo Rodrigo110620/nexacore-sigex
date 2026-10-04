@@ -21,6 +21,7 @@ import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
 import IntentosIngresoPage from '../pages/Control/IntentosIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
+import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -34,6 +35,12 @@ function NavigateRegistrar() {
     setNavigate((path) => navigate(path, { replace: true }))
   }, [navigate])
   return null
+}
+
+/** CONTROL tiene su panel operativo; ADMIN y DOCENTE conservan un Inicio neutro. */
+function InicioRoute() {
+  const { roles } = useAuth()
+  return roles.includes('CONTROL') ? <ControlInicioPage /> : <InicioEnDesarrollo />
 }
 
 export default function AppRouter() {
@@ -110,13 +117,13 @@ export default function AppRouter() {
           }
         />
 
-        {/* Inicio operativo del rol CONTROL. */}
+        {/* Inicio general: CONTROL ve su panel operativo; los demás roles ven el módulo en desarrollo. */}
         <Route
           path="/dashboard/inicio"
           element={
-            <ControlRoute>
-              <ControlInicioPage />
-            </ControlRoute>
+            <ProtectedRoute>
+              <InicioRoute />
+            </ProtectedRoute>
           }
         />
         {/* Control del examen ACCS-01: estudiantes asignados; disponible para ADMIN y CONTROL. */}
