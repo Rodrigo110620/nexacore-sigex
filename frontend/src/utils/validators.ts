@@ -6,6 +6,7 @@ export const FIELD_LIMITS = {
   apellidos: { min: 4, max: 40 },
   email: { min: 5, max: 50 }, 
   documento: { min: 7, max: 8 },
+  codigoSis: { min: 9, max: 9 },
   rol: { min: 2, max: 30 },
 } as const
 
@@ -201,4 +202,20 @@ export const validateForm = (form: RegisterUserFormState): FormErrors => {
 
 export const hasErrors = (errors: FormErrors): boolean => {
   return Object.keys(errors).length > 0
+}
+
+/**
+ * Reglas del Código SIS:
+ *  - 9 dígitos exactos
+ *  - No puede ser todo ceros (000000000)
+ *  - No puede ser todos los dígitos iguales (111111111, 222222222, etc.)
+    - La unicidad la valida el backend.
+ */
+export const validateCodigoSis = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'El código SIS es obligatorio'
+  if (!/^\d{9}$/.test(trimmed)) return 'El código SIS debe tener 9 dígitos'
+  if (/^0+$/.test(trimmed)) return 'El código SIS no puede ser solo ceros'
+  if (/^(\d)\1+$/.test(trimmed)) return 'El código SIS no puede ser un número repetido'
+  return ''
 }

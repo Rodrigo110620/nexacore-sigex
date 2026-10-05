@@ -54,9 +54,9 @@ export default function CredentialsSection({
           onKeyDown={handleEnter}
           placeholder="usuario@est.umss.edu"
           maxLength={FIELD_LIMITS.email.max}
-          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className="hidden text-gray-600 text-xs sm:block">
+        <p className=" text-gray-600 text-xs">
           Dominio permitido: @est.umss.edu o @umss.edu.bo · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
       </div>
