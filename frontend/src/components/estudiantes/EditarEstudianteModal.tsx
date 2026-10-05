@@ -15,6 +15,7 @@ import {
     FIELD_LIMITS,
     sanitizeNombreInput,
     validateApellidos,
+    validateCodigoSis,
     validateDocumento,
     validateEmail,
     validateNombre,
@@ -156,8 +157,9 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         if (apellidosError) next.apellidos = apellidosError
         if (ciError) next.ci = ciError
         if (emailError) next.email = emailError
-        if (!form.codigoSis.trim()) next.codigoSis = 'El código SIS es obligatorio.'
-        else if (!/^\d{7,9}$/.test(form.codigoSis)) next.codigoSis = 'El código SIS debe tener 7 a 9 dígitos.'
+        const sisErr = validateCodigoSis(form.codigoSis)
+        if (sisErr) next.codigoSis = sisErr
+
         if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'
         if (!form.idCarrera) next.idCarrera = 'Selecciona una carrera.'
 

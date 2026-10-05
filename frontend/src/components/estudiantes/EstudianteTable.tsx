@@ -42,7 +42,7 @@ export default function EstudianteTable({
             <tr key={e.id}>
               <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
-                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}>
+                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${getAvatarColorById(e.id)}`}>
                     {getInitials(e.nombre, e.apellidos)}
                   </span>
                   <span>

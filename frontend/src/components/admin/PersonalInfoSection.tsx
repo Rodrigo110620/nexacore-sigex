@@ -92,9 +92,9 @@ export default function PersonalInfoSection({
           autoComplete="given-name"
           autoCapitalize="words"
           autoFocus
-          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className="hidden text-gray-600 text-xs sm:block">
+        <p className=" text-gray-600 text-xs">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
         </p>
       </div>
@@ -129,9 +129,9 @@ export default function PersonalInfoSection({
           maxLength={FIELD_LIMITS.apellidos.max}
           autoComplete="family-name"
           autoCapitalize="words"
-          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className="hidden text-gray-600 text-xs sm:block">
+        <p className=" text-gray-600 text-xs">
           Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
         </p>
       </div>
@@ -166,10 +166,10 @@ export default function PersonalInfoSection({
             onKeyDown={handleEnter('documento')}
             placeholder="8 dígitos"
             maxLength={FIELD_LIMITS.documento.max}
-            className="flex-1 text-xs border border-gray-300 rounded-md py-2.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+            className="flex-1 text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
           />
         </div>
-        <p className="hidden text-gray-600 text-xs sm:block">
+        <p className=" text-gray-600 text-xs ">
           Solo números · Máximo {FIELD_LIMITS.documento.max} caracteres
         </p>
       </div>

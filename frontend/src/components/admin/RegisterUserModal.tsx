@@ -146,7 +146,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
       <div
         className={`flex w-full flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100 ${
           step === 1
-            ? 'h-[70dvh] max-h-[680px] max-w-xl'
+            ? 'h-[80dvh] max-h-[680px] max-w-xl'
             : 'h-[85dvh] max-h-[800px] max-w-2xl'
         }`}
       >
