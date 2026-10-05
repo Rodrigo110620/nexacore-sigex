@@ -21,6 +21,7 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import EditExamenModal from '../../components/examenes/EditExamenModal'
 import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabilitadosTab'
 import { useAuth } from '../../context/AuthContext'
+import { getEstudianteById } from '../../services/estudianteService'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
 import {
   addMinutes,
@@ -37,10 +38,15 @@ const PARTICULAR_PALETTES = [
   'border-[#E9D5FF] bg-[#F5F3FF] text-[#7C3AED]',
   'border-[#99F6E4] bg-[#ECFDF5] text-[#0F766E]',
 ] as const
+const ADAPTACION_PALETTES = [
+  'bg-[#EAF2FF] text-[#2563EB]',
+  'bg-[#F5F3FF] text-[#7C3AED]',
+  'bg-[#ECFDF5] text-[#0F766E]',
+] as const
 
 function InfoChip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <li className="flex min-w-0 items-center gap-2 text-sm text-[#011140] min-[960px]:rounded-lg min-[960px]:border min-[960px]:border-[#EDF1F7] min-[960px]:bg-[#F8FAFC] min-[960px]:px-3 min-[960px]:py-2">
+    <li className="flex min-w-0 items-center gap-2 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-2.5 text-sm text-[#011140] min-[960px]:py-2">
       <span className="shrink-0 text-[#627A9B]">{icon}</span>
       <span className="truncate">{children}</span>
     </li>
@@ -75,10 +81,10 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
   className?: string
 }) {
   return (
-    <div className={`rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-2.5 py-2 ${className}`}>
+    <div className={`rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3.5 py-3 min-[960px]:px-2.5 min-[960px]:py-2 ${className}`}>
       <dt className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-bold text-[#011140] sm:text-base">{value}</dd>
-      {hint && <dd className={`truncate text-[11px] ${hintClass}`}>{hint}</dd>}
+      <dd className="mt-0.5 truncate text-base font-bold text-[#011140]">{value}</dd>
+      {hint && <dd className={`truncate text-xs min-[960px]:text-[11px] ${hintClass}`}>{hint}</dd>}
     </div>
   )
 }
@@ -96,6 +102,8 @@ export default function ExamenDetallePage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [habilitadosCount, setHabilitadosCount] = useState<number | null>(null)
+  /** Código y CI de los estudiantes con norma particular, por idEstudiante. */
+  const [datosNormas, setDatosNormas] = useState<Map<number, { codigoSis: string; ci: string }>>(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -118,6 +126,26 @@ export default function ExamenDetallePage() {
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  useEffect(() => {
+    const ids = [...new Set(
+      (examen?.normasParticulares ?? [])
+        .map((n) => n.idEstudiante)
+        .filter((id): id is number => typeof id === 'number'),
+    )]
+    if (ids.length === 0) return
+    const controller = new AbortController()
+    // Si alguno falla se muestra solo el nombre de ese estudiante.
+    void Promise.allSettled(ids.map((id) => getEstudianteById(id, controller.signal))).then((respuestas) => {
+      if (controller.signal.aborted) return
+      const datos = new Map<number, { codigoSis: string; ci: string }>()
+      respuestas.forEach((r) => {
+        if (r.status === 'fulfilled') datos.set(r.value.id, { codigoSis: r.value.codigoSis, ci: r.value.ci })
+      })
+      setDatosNormas(datos)
+    })
+    return () => controller.abort()
+  }, [examen])
 
   const horaFin = examen ? addMinutes(examen.horaInicio, examen.duracionMinutos) : '—'
   const semana = examen ? semanaDelAnio(examen.fecha) : null
@@ -169,36 +197,56 @@ export default function ExamenDetallePage() {
                     </div>
                   </div>
                   {isAdmin && (
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="hidden shrink-0 items-center gap-2 min-[960px]:flex">
                       <button
                         type="button"
                         onClick={() => setEditOpen(true)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-[#F8FAFC] px-3 text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] min-[960px]:bg-white min-[960px]:px-4"
+                        className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-white px-4 text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB]"
                       >
                         <Pencil size={14} aria-hidden="true" />
-                        <span className="min-[960px]:hidden">Editar</span>
-                        <span className="hidden min-[960px]:inline">Editar Examen</span>
+                        Editar Examen
                       </button>
                       {!cancelado && (
                         <button
                           type="button"
                           onClick={() => setCancelOpen(true)}
-                          aria-label="Eliminar examen"
-                          className="inline-flex h-9 w-9 items-center justify-center whitespace-nowrap rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 min-[960px]:w-auto min-[960px]:gap-1.5 min-[960px]:border-red-100 min-[960px]:bg-red-50 min-[960px]:px-4 min-[960px]:text-sm min-[960px]:font-semibold"
+                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-600 hover:bg-red-100"
                         >
                           <Trash2 size={15} aria-hidden="true" />
-                          <span className="hidden min-[960px]:inline">Eliminar</span>
+                          Eliminar
                         </button>
                       )}
                     </div>
                   )}
                 </div>
-                <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 min-[960px]:flex min-[960px]:flex-wrap min-[960px]:gap-2">
+                <ul className="mt-3 grid grid-cols-2 gap-2 border-t border-[#EDF1F7] pt-3 min-[960px]:flex min-[960px]:flex-wrap min-[960px]:border-t-0 min-[960px]:pt-0">
                   <InfoChip icon={<CalendarDays size={15} aria-hidden="true" />}>{formatFecha(examen.fecha)}</InfoChip>
-                  <InfoChip icon={<Clock size={15} aria-hidden="true" />}>{horaCorta(examen.horaInicio)}<span className="hidden min-[960px]:inline"> hrs</span></InfoChip>
+                  <InfoChip icon={<Clock size={15} aria-hidden="true" />}>{horaCorta(examen.horaInicio)} hrs</InfoChip>
                   <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
+                {isAdmin && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 min-[960px]:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado ? 'col-span-2' : ''}`}
+                    >
+                      <Pencil size={15} aria-hidden="true" />
+                      Editar Examen
+                    </button>
+                    {!cancelado && (
+                      <button
+                        type="button"
+                        onClick={() => setCancelOpen(true)}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100"
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
 
               <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
@@ -248,34 +296,34 @@ export default function ExamenDetallePage() {
                           <Monitor size={15} aria-hidden="true" />
                         </span>
                         <h2 className="text-xs font-bold uppercase tracking-wide text-[#011140] sm:text-sm">
-                          Datos generales
+                          Datos generales del examen
                         </h2>
                       </div>
                       <span className="shrink-0 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-semibold text-[#627A9B]">
                         CONF-{codigoExamen(examen)}
                       </span>
                     </div>
-                    <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                    <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <DatoTile
-                        className="col-span-2 lg:col-span-1"
+                        className="sm:col-span-2 lg:col-span-1"
                         label="Asignatura"
                         value={examen.asignatura}
-                        hint={`${examen.sigla || '—'}${examen.docente ? ` · ${examen.docente}` : ''}`}
+                        hint={`Código: ${examen.sigla || '—'}${examen.docente ? ` · ${examen.docente}` : ''}`}
                       />
                       <DatoTile
-                        label="Fecha"
+                        label="Fecha programada"
                         value={formatFecha(examen.fecha)}
                         hint={semana ? `Semana ${semana}` : undefined}
                         hintClass="font-medium text-[#15803D]"
                       />
                       <DatoTile
-                        label="Horario"
+                        label="Horario y duración"
                         value={`${horaCorta(examen.horaInicio)} – ${horaFin}`}
-                        hint={`${examen.duracionMinutos} min`}
+                        hint={`${examen.duracionMinutos} minutos continuos`}
                       />
                       <DatoTile
-                        className="col-span-2 lg:col-span-1"
-                        label="Ambiente"
+                        className="sm:col-span-2 lg:col-span-1"
+                        label="Ambiente asignado"
                         value={examen.ambienteNombre}
                         hint={
                           <span className="inline-flex items-center gap-1">
@@ -289,7 +337,9 @@ export default function ExamenDetallePage() {
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">
-                      <ShieldCheck size={18} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E9F1FF] text-[#0439D9]">
+                        <ShieldCheck size={15} aria-hidden="true" />
+                      </span>
                       <h2 className="text-sm font-bold uppercase tracking-wide text-[#011140]">
                         Normas generales del examen
                       </h2>
@@ -302,7 +352,7 @@ export default function ExamenDetallePage() {
                         {examen.normasGenerales.map((norma, index) => (
                           <li
                             key={`${index}-${norma}`}
-                            className="flex items-start gap-3 rounded-lg border border-[#EDF1F7] bg-white px-3 py-2.5 text-sm text-[#011140]"
+                            className="flex items-start gap-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 text-sm text-[#011140] min-[960px]:bg-white min-[960px]:py-2.5"
                           >
                             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#FDE68A] bg-[#FEF3C7] text-[11px] font-bold text-[#B45309]">
                               {index + 1}
@@ -318,7 +368,9 @@ export default function ExamenDetallePage() {
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">
-                      <UserRoundCheck size={18} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E9F1FF] text-[#0439D9]">
+                        <UserRoundCheck size={15} aria-hidden="true" />
+                      </span>
                       <h2 className="text-sm font-bold uppercase tracking-wide text-[#011140]">
                         Normas particulares por estudiante
                       </h2>
@@ -328,27 +380,35 @@ export default function ExamenDetallePage() {
                     </p>
                     {examen.normasParticulares?.length ? (
                       <ul className="flex flex-col gap-2">
-                        {examen.normasParticulares.map((norma, index) => (
-                          <li
-                            key={`${norma.estudiante}-${index}`}
-                            className="rounded-lg border border-[#EDF1F7] bg-white px-3 py-3"
-                          >
-                            <div className="flex items-start gap-3">
-                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${PARTICULAR_PALETTES[index % PARTICULAR_PALETTES.length]}`}>
+                        {examen.normasParticulares.map((norma, index) => {
+                          const datos = norma.idEstudiante != null ? datosNormas.get(norma.idEstudiante) : undefined
+                          return (
+                            <li
+                              key={`${norma.estudiante}-${index}`}
+                              className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 min-[960px]:bg-white"
+                            >
+                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold min-[960px]:row-span-2 ${PARTICULAR_PALETTES[index % PARTICULAR_PALETTES.length]}`}>
                                 {initialsOfName(norma.estudiante)}
                               </span>
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-[#011140]">{norma.estudiante}</p>
-                                <div className="mt-1.5 flex items-start gap-2">
-                                  <span className="shrink-0 rounded bg-[#EAF2FF] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#0439D9]">
-                                    Adaptación
-                                  </span>
-                                  <p className="text-xs leading-relaxed text-[#011140]">{norma.texto}</p>
-                                </div>
+                                {datos && (
+                                  <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-[#627A9B]">
+                                    <span className="rounded bg-[#EEF2F7] px-1.5 py-0.5 font-mono text-[#344054]">Cód: {datos.codigoSis}</span>
+                                    <span aria-hidden="true">•</span>
+                                    <span>CI: {datos.ci}</span>
+                                  </p>
+                                )}
                               </div>
-                            </div>
-                          </li>
-                        ))}
+                              <div className="col-span-2 mt-2 flex items-start gap-2 min-[960px]:col-span-1 min-[960px]:col-start-2 min-[960px]:mt-1.5">
+                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide min-[960px]:text-[9px] ${ADAPTACION_PALETTES[index % ADAPTACION_PALETTES.length]}`}>
+                                  Adaptación
+                                </span>
+                                <p className="text-xs leading-relaxed text-[#011140]">{norma.texto}</p>
+                              </div>
+                            </li>
+                          )
+                        })}
                       </ul>
                     ) : (
                       <p className="text-sm text-gray-500">Sin normas particulares.</p>

@@ -50,12 +50,12 @@ describe('EstudiantesHabilitadosTab', () => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
 
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
-    expect(within(dialogo).getByText('CI 1111111 · Cód. 20260001')).toBeInTheDocument()
-    expect(within(dialogo).getByText('Examen: Cálculo I · 12/10/2026 · 691A')).toBeInTheDocument()
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    expect(within(dialogo).getByText('20260001')).toBeInTheDocument()
+    expect(within(dialogo).getByText('Cálculo I · 12/10/2026 · 691A')).toBeInTheDocument()
     // Con "Habilitado" la razón queda oculta.
     expect(within(dialogo).queryByLabelText(/Razón de inhabilitación/)).not.toBeInTheDocument()
-    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
     expect(await within(dialogo).findByText('Indica la razón por la que no está habilitado.')).toBeInTheDocument()
@@ -74,7 +74,7 @@ describe('EstudiantesHabilitadosTab', () => {
       motivo: 'Deuda en biblioteca',
     }))
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se registró como no habilitado al estudiante')
-    expect(screen.queryByRole('dialog', { name: 'Cambiar habilitación' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Cambiar estado de habilitación' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Deuda en biblioteca').length).toBeGreaterThan(0)
   })
 
@@ -87,8 +87,8 @@ describe('EstudiantesHabilitadosTab', () => {
   ])('rechaza la razón "%s" sin guardar', async (razon, mensaje) => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
-    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
     fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: razon } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
@@ -99,8 +99,8 @@ describe('EstudiantesHabilitadosTab', () => {
   it('limita la razón a 40 caracteres', async () => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
-    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
 
     expect(within(dialogo).getByLabelText(/Razón de inhabilitación/)).toHaveAttribute('maxLength', '40')
   })
@@ -110,8 +110,8 @@ describe('EstudiantesHabilitadosTab', () => {
     await renderTab([rosa])
     vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([{ ...rosa, estadoHabilitacion: 'HABILITADO', motivo: null }])
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
-    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'HABILITADO' } })
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'Habilitado' }))
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(2, 2, {
@@ -124,16 +124,16 @@ describe('EstudiantesHabilitadosTab', () => {
   it('pide confirmación al cerrar con la X si hay cambios sin guardar', async () => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
-    fireEvent.change(within(dialogo).getByLabelText('Estado'), { target: { value: 'NO_HABILITADO' } })
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
 
     expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }))
-    expect(screen.getByRole('dialog', { name: 'Cambiar habilitación' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })).toBeInTheDocument()
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
     fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
-    expect(screen.queryByRole('dialog', { name: 'Cambiar habilitación' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Cambiar estado de habilitación' })).not.toBeInTheDocument()
   })
 
   it('conserva el estado anterior y avisa si falla el guardado', async () => {
@@ -167,7 +167,7 @@ describe('EstudiantesHabilitadosTab', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
     fireEvent.click(screen.getByRole('button', { name: /Deshabilitar/ }))
 
-    const dialogo = screen.getByRole('dialog', { name: 'Cambiar habilitación' })
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
     expect(within(dialogo).getByText('2 estudiantes seleccionados')).toBeInTheDocument()
     vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([])
     fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: 'Bloqueo en el SIGA' } })

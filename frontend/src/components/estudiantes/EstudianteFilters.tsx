@@ -55,8 +55,12 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
       <h2 id={`${id}-title`} className="sr-only">Filtros de estudiantes</h2>
-      <div className={`grid min-w-0 grid-cols-2 gap-2 sm:gap-3 ${compact ? '' : 'min-[960px]:grid-cols-[minmax(0,1fr)_14rem_14rem]'}`}>
-        <div className={`col-span-2 min-w-0 ${compact ? '' : 'min-[960px]:col-span-1'}`}>
+      <div
+        className={compact
+          ? 'flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-3'
+          : 'grid min-w-0 grid-cols-2 gap-2 sm:gap-3 min-[960px]:grid-cols-[minmax(0,1fr)_14rem_14rem]'}
+      >
+        <div className={compact ? 'w-full min-w-0' : 'col-span-2 min-w-0 min-[960px]:col-span-1'}>
           <label htmlFor={searchId} className="sr-only">Buscar estudiantes</label>
           <div className="relative">
             <Search aria-hidden="true" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]" />
@@ -69,12 +73,14 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
               placeholder="Buscar por nombre, CI, código SIS"
               autoComplete="off"
               disabled={disabled }
-              className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100"
+              className={`${compact ? 'h-12 rounded-xl bg-[#F8FAFD]' : 'h-11 rounded-md bg-white'} w-full min-w-0 border border-[#B8CBEF] pl-10 pr-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100`}
             />
           </div>
         </div>
 
-        <div className="min-w-0">
+        {compact && <span className="text-sm font-semibold text-[#011140]">Filtros:</span>}
+
+        <div className={compact ? 'min-w-0 flex-1 sm:w-56 sm:flex-none' : 'min-w-0'}>
           <label htmlFor={facultadId} className="sr-only">Facultad</label>
           <div className="relative">
             <select
@@ -82,7 +88,7 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
               value={value.idFacultad}
               onChange={(e) => handleFacultadChange(e.target.value)}
                disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
+              className={`${compact ? 'h-10 rounded-lg' : 'h-11 rounded-md'} w-full min-w-0 appearance-none border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm`}
             >
               <option value="">Todas las facultades</option>
               {facultades.map((f) => (
@@ -95,7 +101,7 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
           </div>
         </div>
 
-        <div className="min-w-0">
+        <div className={compact ? 'min-w-0 flex-1 sm:w-56 sm:flex-none' : 'min-w-0'}>
           <label htmlFor={carreraId} className="sr-only">Carrera</label>
           <div className="relative">
             <select
@@ -103,7 +109,7 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
               value={value.idCarrera}
               onChange={(e) => onChange({ ...value, idCarrera: e.target.value })}
               disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
+              className={`${compact ? 'h-10 rounded-lg' : 'h-11 rounded-md'} w-full min-w-0 appearance-none border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm`}
             >
               <option value="">
                 {value.idFacultad ? 'Todas las carreras' : 'Todas las carreras'}

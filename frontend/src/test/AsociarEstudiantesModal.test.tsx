@@ -38,6 +38,9 @@ describe('AsociarEstudiantesModal', () => {
     vi.resetAllMocks()
     vi.mocked(estudianteService.getFacultades).mockResolvedValue([])
     vi.mocked(estudianteService.getCarreras).mockResolvedValue([])
+    vi.mocked(estudianteService.getEstudiantes).mockResolvedValue({
+      contenido: [], pagina: 0, tamano: 50, totalRegistros: 0, totalPaginas: 0,
+    })
   })
 
   it('envía los códigos pegados, confirma con un modal de éxito y cierra', async () => {
@@ -46,10 +49,11 @@ describe('AsociarEstudiantesModal', () => {
     })
     const { onAsociados, onClose } = renderModal()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), {
       target: { value: '202600001\n 1111112, 1111113;' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Asociar 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (3)' }))
 
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se asociaron 2 estudiantes al examen')
     expect(habilitacionService.asociarEstudiantesLote).toHaveBeenCalledWith(2, 2, ['202600001', '1111112', '1111113'])
@@ -65,10 +69,11 @@ describe('AsociarEstudiantesModal', () => {
     })
     const { onClose } = renderModal()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), {
       target: { value: '202600002 1111111 999' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Asociar 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (3)' }))
 
     expect(await screen.findByText('Se asoció 1 estudiante.')).toBeInTheDocument()
     expect(screen.getByText('Ya estaban asociados: 1111111')).toBeInTheDocument()
@@ -93,13 +98,12 @@ describe('AsociarEstudiantesModal', () => {
     })
     renderModal(new Set([1]))
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
     const anaCheck = await screen.findByRole('checkbox', { name: 'Seleccionar a Ana Rojas' })
     expect(anaCheck).toBeDisabled()
-    expect(screen.getByText(/Ingeniería de Sistemas/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Ingeniería de Sistemas/).length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar a Luis Paz' }))
-    expect(within(screen.getByRole('list', { name: 'Estudiantes seleccionados' })).getByText('Luis Paz · 202600002')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
+    expect(within(screen.getByRole('list', { name: 'Estudiantes seleccionados' })).getByText('Luis Paz (202600002)')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (1)' }))
 
     await waitFor(() =>
       expect(habilitacionService.asociarEstudiantesLote).toHaveBeenCalledWith(2, 2, ['202600002']),
@@ -116,15 +120,14 @@ describe('AsociarEstudiantesModal', () => {
     })
     renderModal(new Set([1]))
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Seleccionar todos' }))
 
     const resumen = screen.getByRole('list', { name: 'Estudiantes seleccionados' })
-    expect(screen.getByText('11')).toBeInTheDocument()
+    expect(screen.getByText('Seleccionados: 11')).toBeInTheDocument()
     expect(within(resumen).getAllByRole('listitem')).toHaveLength(10)
     fireEvent.click(screen.getByRole('button', { name: 'Ver todo (11)' }))
     expect(within(resumen).getAllByRole('listitem')).toHaveLength(11)
-    expect(screen.getByRole('button', { name: 'Asociar 11' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Asociar (11)' })).toBeInTheDocument()
   })
 
   it('filtra por facultad y carrera y limita la búsqueda a 40 caracteres', async () => {
@@ -137,7 +140,6 @@ describe('AsociarEstudiantesModal', () => {
     })
     renderModal()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
     expect(await screen.findByText('No se encontraron estudiantes con ese criterio.')).toBeInTheDocument()
     const buscador = screen.getByPlaceholderText('Buscar por nombre, CI, código SIS')
     expect(buscador).toHaveAttribute('maxLength', '40')
@@ -160,7 +162,6 @@ describe('AsociarEstudiantesModal', () => {
     })
     renderModal()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Del registro' }))
     fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Selecciona al menos un estudiante para asociar.')
@@ -171,8 +172,9 @@ describe('AsociarEstudiantesModal', () => {
     const onLine = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
     renderModal()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '202600001' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (1)' }))
 
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
     expect(habilitacionService.asociarEstudiantesLote).not.toHaveBeenCalled()
@@ -183,6 +185,7 @@ describe('AsociarEstudiantesModal', () => {
   it('pide confirmación al cerrar con la X si hay datos sin asociar', () => {
     const { onClose } = renderModal()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '202600001' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
     expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
@@ -210,8 +213,9 @@ describe('AsociarEstudiantesModal', () => {
     })
     renderModal()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '1' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Asociar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (1)' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró el examen 2')
   })
