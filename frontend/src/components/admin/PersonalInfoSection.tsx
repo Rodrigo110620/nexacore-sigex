@@ -1,8 +1,9 @@
-import type { RegisterUserFormState } from '../../types/usuario.types';
+import type { FormErrors,RegisterUserFormState } from '../../types/usuario.types';
 import { FIELD_LIMITS, sanitizeNombreInput } from '../../utils/validators';
 
 interface PersonalInfoSectionProps {
   form: RegisterUserFormState;
+  errors?: FormErrors;
   onChange: (field: keyof RegisterUserFormState, value: string) => void;
   onBlur: (field: keyof RegisterUserFormState) => string;
   onFieldError?: (field: string, message: string) => void;
@@ -10,6 +11,7 @@ interface PersonalInfoSectionProps {
 
 export default function PersonalInfoSection({
   form,
+  errors,
   onChange,
   onBlur,
   onFieldError,
@@ -169,10 +171,17 @@ export default function PersonalInfoSection({
             className="flex-1 text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
           />
         </div>
-        <p className=" text-gray-600 text-xs ">
+        
+        {errors?.documento ? (
+        <p className="text-red-500 text-xs mt-1 font-medium">
+          {errors.documento}
+        </p>
+      ) : (
+        <p className="hidden text-gray-600 text-xs sm:block">
           Solo números · Máximo {FIELD_LIMITS.documento.max} caracteres
         </p>
-      </div>
+      )}
     </div>
+  </div>
   );
 }

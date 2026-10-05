@@ -107,21 +107,32 @@ export const validateDocumento = (value: string): string => {
   if (!value.trim()) return 'El documento es obligatorio'
   if (!/^\d+$/.test(value)) return 'Solo números'
   if (value.length < FIELD_LIMITS.documento.min || value.length > FIELD_LIMITS.documento.max) {
-    return `Debe tener ${FIELD_LIMITS.documento.min} u ${FIELD_LIMITS.documento.max} dígitos`
+    return 'Formato incorrecto'
   }
   // No 0's
   if (/^0+$/.test(value)) {
     return 'El documento no puede ser solo ceros'
   }
-  // No secuencias
+  // No repetidos (todos idénticos, ej: 11111111)
   if (/^(\d)\1+$/.test(value)) {
     return 'El documento no puede ser un número repetido' 
   }
+
+  // >>> BLOQUEAR CASI REPETIDOS (Ej: 11111118, 55555551, 99999990) <<<
+  // Esto detecta si hay un dígito que se repite 6 o más veces seguidas al inicio o al final
+  if (/^(\d)\1{5,}/.test(value) || /\d(\d)\1{5,}$/.test(value)) {
+    return 'El documento no es válido (demasiados dígitos repetidos)'
+  }
+
+  // No secuencias consecutivas (ej: 12345678)
+  const secuenciasAscendentes = "0123456789";
+  const secuenciasDescendentes = "9876543210";
+  if (secuenciasAscendentes.includes(value) || secuenciasDescendentes.includes(value)) {
+    return 'El documento no puede ser una secuencia consecutiva'
+  }
+
   return ''
 }
-
-
-
 
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 

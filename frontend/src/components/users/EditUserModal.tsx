@@ -213,6 +213,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
               <PersonalInfoSection
                 form={form}
+                errors={errors}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
