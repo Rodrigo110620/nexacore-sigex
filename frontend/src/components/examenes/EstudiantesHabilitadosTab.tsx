@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -72,6 +72,14 @@ const mensajeDeError = (err: unknown, fallback: string) =>
 /** Estados que se eligen al cambiar la habilitación; PENDIENTE solo es el estado inicial al asociar. */
 type EstadoCambio = Exclude<EstadoHabilitacion, 'PENDIENTE'>
 
+/** Razones frecuentes: al elegir una se completa el campo. */
+const RAZONES_EJEMPLO = [
+  'No cumple requisitos previos',
+  'Deuda pendiente',
+  'Sanción académica',
+  'Documentación incompleta',
+] as const
+
 const SIN_CONEXION = 'No hay conexión a Internet. No se guardó ningún cambio; verifica tu conexión e inténtalo de nuevo.'
 
 interface EstudiantesHabilitadosTabProps {
@@ -105,7 +113,7 @@ export default function EstudiantesHabilitadosTab({
   const [cambio, setCambio] = useState<{
     ids: number[]
     titulo: string
-    detalle?: string
+    codigo?: string
     estadoInicial: EstadoCambio
     motivoInicial: string
   } | null>(null)
@@ -170,9 +178,9 @@ export default function EstudiantesHabilitadosTab({
     titulo: string,
     estadoInicial: EstadoCambio,
     motivo = '',
-    detalle?: string,
+    codigo?: string,
   ) => {
-    setCambio({ ids, titulo, detalle, estadoInicial, motivoInicial: motivo })
+    setCambio({ ids, titulo, codigo, estadoInicial, motivoInicial: motivo })
     setCambiarEstado(estadoInicial)
     setCambiarMotivo(motivo)
     setMotivoError('')
@@ -187,7 +195,7 @@ export default function EstudiantesHabilitadosTab({
       `${e.nombre} ${e.apellidos}`,
       noHabilitado ? 'NO_HABILITADO' : 'HABILITADO',
       noHabilitado ? (e.motivo ?? '') : '',
-      `CI ${e.ci} · Cód. ${e.codigoSis}`,
+      e.codigoSis,
     )
   }
 
@@ -535,6 +543,7 @@ export default function EstudiantesHabilitadosTab({
         <AsociarEstudiantesModal
           idExamen={idExamen}
           idParalelo={idParalelo}
+          examenResumen={examenResumen}
           asociados={asociadosIds}
           onAsociados={(lista) => {
             setEstudiantes(lista)
@@ -545,13 +554,13 @@ export default function EstudiantesHabilitadosTab({
       )}
 
       {cambio && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4">
           <form
             noValidate
             role="dialog"
             aria-modal="true"
             aria-labelledby="cambiar-titulo"
-            className="relative w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl"
+            className="relative flex max-h-[85dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:max-h-[min(92dvh,900px)] sm:rounded-3xl sm:shadow-xl"
             onSubmit={(event) => {
               event.preventDefault()
               if (cambiarEstado === 'NO_HABILITADO') {
@@ -566,37 +575,79 @@ export default function EstudiantesHabilitadosTab({
               void applyEstado(cambio.ids, 'HABILITADO')
             }}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 id="cambiar-titulo" className="text-base font-bold text-[#011140]">Cambiar habilitación</h3>
-                <p className="mt-1 text-sm font-medium text-[#011140]">{cambio.titulo}</p>
-                {cambio.detalle && <p className="text-xs text-gray-500">{cambio.detalle}</p>}
-                {examenResumen && <p className="mt-1 text-xs text-[#627A9B]">Examen: {examenResumen}</p>}
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#E9EEF6] px-4 pb-3 pt-2 sm:border-b-0 sm:px-10 sm:pb-0 sm:pt-9">
+              <div className="min-w-0 flex-1">
+                <div aria-hidden="true" className="mx-auto mb-3 h-1 w-11 rounded-full bg-[#C4D2E7] sm:hidden" />
+                <h3 id="cambiar-titulo" className="text-base font-bold tracking-tight text-[#011140] sm:text-2xl">
+                  Cambiar estado de habilitación
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={cerrarCambio}
                 disabled={saving}
                 aria-label="Cerrar"
-                className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+                className="mt-4 shrink-0 rounded-full bg-[#F1F6FF] p-2 text-[#627A9B] transition-colors hover:bg-[#F2F4F7] hover:text-[#011140] disabled:opacity-50 sm:-mr-1.5 sm:mt-0 sm:rounded-lg sm:bg-transparent sm:p-1.5 sm:text-[#667085]"
               >
-                <X size={18} aria-hidden="true" />
+                <X size={20} aria-hidden="true" />
               </button>
-            </div>
-            <label htmlFor="cambiar-estado" className="mt-4 block text-xs font-semibold text-[#627A9B]">Estado</label>
-            <select
-              id="cambiar-estado"
-              value={cambiarEstado}
-              onChange={(e) => { setCambiarEstado(e.target.value as EstadoCambio); setMotivoError('') }}
-              className="mt-1 h-11 w-full rounded-md border border-[#B8CBEF] px-3 text-sm"
-            >
-              <option value="HABILITADO">Habilitado</option>
-              <option value="NO_HABILITADO">No habilitado</option>
-            </select>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 sm:px-10 sm:pb-0">
+            <dl className="mt-4 space-y-2 sm:mt-6 rounded-2xl border border-[#E4E9F2] bg-[#F8FAFD] px-5 py-4 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#475467]">{cambio.ids.length > 1 ? 'Estudiantes:' : 'Estudiante:'}</dt>
+                <dd className="text-right font-semibold text-[#101828]">{cambio.titulo}</dd>
+              </div>
+              {cambio.codigo && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#475467]">Código:</dt>
+                  <dd className="text-right font-semibold text-[#101828]">{cambio.codigo}</dd>
+                </div>
+              )}
+              {examenResumen && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#475467]">Examen:</dt>
+                  <dd className="text-right text-[#101828]">{examenResumen}</dd>
+                </div>
+              )}
+            </dl>
+
+            <fieldset className="mt-5 sm:mt-6 sm:border-t sm:border-[#E4E9F2] sm:pt-6">
+              <legend className="sr-only">Nuevo estado</legend>
+              <p aria-hidden="true" className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3] sm:text-sm sm:text-[#101828]">Nuevo estado:</p>
+              <div className="mt-3 space-y-3">
+                {([
+                  { valor: 'HABILITADO', label: 'Habilitado', Icono: CheckCheck,
+                    activo: 'border-[#86EFAC] bg-[#F0FDF4] ring-1 ring-[#86EFAC]', texto: 'text-[#15803D]', radio: 'accent-[#16A34A]' },
+                  { valor: 'NO_HABILITADO', label: 'No habilitado', Icono: X,
+                    activo: 'border-[#FCA5A5] bg-[#FEF2F2] ring-1 ring-[#FCA5A5]', texto: 'text-[#DC2626]', radio: 'accent-[#DC2626]' },
+                ] as const).map(({ valor, label, Icono, activo, texto, radio }) => (
+                  <label
+                    key={valor}
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-5 py-4 transition-colors ${
+                      cambiarEstado === valor ? activo : 'border-[#D0D5DD] bg-white hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="cambiar-estado"
+                      value={valor}
+                      checked={cambiarEstado === valor}
+                      onChange={() => { setCambiarEstado(valor); setMotivoError('') }}
+                      className={`h-5 w-5 cursor-pointer ${radio}`}
+                    />
+                    <Icono size={18} aria-hidden="true" className={texto} />
+                    <span className={`text-[15px] font-semibold ${texto}`}>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             {cambiarEstado === 'NO_HABILITADO' && (
-              <>
-                <label htmlFor="cambiar-motivo" className="mt-3 block text-xs font-semibold text-[#627A9B]">
-                  Razón de inhabilitación <span className="text-red-500">*</span>
+              <div className="mt-5 sm:mt-6 sm:border-t sm:border-[#E4E9F2] sm:pt-6">
+                <label htmlFor="cambiar-motivo" className="block text-sm font-semibold text-[#101828]">
+                  Razón de inhabilitación: <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="cambiar-motivo"
@@ -607,22 +658,49 @@ export default function EstudiantesHabilitadosTab({
                   placeholder="Ej. Deuda en biblioteca"
                   onChange={(e) => { setCambiarMotivo(sanearPegado(e.target.value)); if (motivoError) setMotivoError('') }}
                   onBlur={() => { if (cambiarMotivo) setMotivoError(validateRazonInhabilitacion(cambiarMotivo) ?? '') }}
-                  className={`mt-1 h-11 w-full rounded-md border px-3 text-sm ${motivoError ? 'border-red-400' : 'border-[#B8CBEF]'}`}
+                  className={`mt-3 h-12 w-full rounded-xl border bg-white px-4 text-sm text-[#101828] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${motivoError ? 'border-red-400' : 'border-[#B8CBEF]'}`}
                 />
                 <div className="mt-1 flex justify-between gap-2 text-xs">
                   <span id="cambiar-motivo-error" className="text-red-600">{motivoError}</span>
                   <span className="shrink-0 text-gray-400">{cambiarMotivo.length}/{RAZON_MAX}</span>
                 </div>
-              </>
+                <div className="mt-2 rounded-2xl border border-[#E4E9F2] bg-[#F8FAFD] px-5 py-4">
+                  <p className="text-sm font-semibold text-[#101828]">Ejemplos:</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {RAZONES_EJEMPLO.map((razon) => (
+                      <li key={razon}>
+                        <button
+                          type="button"
+                          onClick={() => { setCambiarMotivo(razon); setMotivoError('') }}
+                          className="text-left text-sm text-[#344054] transition-colors hover:text-[#0439D9]"
+                        >
+                          • {razon}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
-            <div className="mt-5 flex gap-3">
-              <button type="button" onClick={cerrarCambio} disabled={saving} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
+            </div>
+
+            <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#E9EEF6] bg-white px-4 py-3 sm:mx-10 sm:mt-6 sm:flex-row sm:justify-end sm:gap-3 sm:border-[#E4E9F2] sm:px-0 sm:pb-9 sm:pt-6">
+              <button
+                type="button"
+                onClick={cerrarCambio}
+                disabled={saving}
+                className="w-full rounded-lg border border-[#C9D7EC] bg-white px-4 py-2 text-sm font-semibold text-[#45628D] transition-colors hover:bg-[#F9FAFB] disabled:opacity-50 sm:w-auto sm:rounded-xl sm:border-[#D0D5DD] sm:px-6 sm:py-2.5 sm:text-[#101828]"
+              >
                 Cancelar
               </button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-[#0439D9] py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+              <button
+                type="submit"
+                disabled={saving}
+                className="min-h-11 w-full rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0331BD] disabled:opacity-60 sm:w-auto sm:rounded-xl sm:px-7 sm:py-2.5 sm:font-semibold sm:shadow-none"
+              >
                 {saving ? 'Guardando…' : 'Guardar'}
               </button>
-            </div>
+            </footer>
             <ConfirmDiscardDialog
               open={confirmarCierre}
               onStay={() => setConfirmarCierre(false)}
