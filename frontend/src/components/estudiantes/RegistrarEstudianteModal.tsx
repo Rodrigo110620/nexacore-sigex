@@ -23,7 +23,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const [form, setForm] = useState<FormState>(initialForm)
   const [facultades, setFacultades] = useState<FacultadOption[]>([])
   const [carreras, setCarreras] = useState<CarreraOption[]>([])
-  const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [errorModalOpen, setErrorModalOpen] = useState(false)
   const [errorField, setErrorField] = useState('')
@@ -46,12 +45,11 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   const close = () => {
     if (saving) return
-    setStep(1); setForm(initialForm); setErrors({}); setResultado(null); setErrorModalOpen(false); onClose()
+    setStep(1); setForm(initialForm); setResultado(null); setErrorModalOpen(false); onClose()
   }
 
   const update = (field: keyof FormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
-    setErrors((current) => ({ ...current, [field]: '' }))
     if (resultado) setResultado(null)
   }
 
@@ -76,12 +74,13 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     if (field === 'apellidos') return validateApellidos(value)
     if (field === 'ci') return validateDocumento(value)
     if (field === 'email') return validateEmail(value)
+    if (field === 'codigoSis') return validateCodigoSis(value)
     return ''
   }
 
   const handleBlur = (field: keyof FormState) => {
     const err = validateField(field)
-    if (err) { setErrors((c) => ({ ...c, [field]: err })); setErrorField(field); setErrorMessage(err); setErrorModalOpen(true) }
+    if (err) { setErrorField(field); setErrorMessage(err); setErrorModalOpen(true) }
   }
 
   const validateStep1 = () => {
@@ -89,7 +88,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     const n = validateNombre(form.nombre); const a = validateApellidos(form.apellidos)
     const c = validateDocumento(form.ci); const e = validateEmail(form.email)
     if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (e) next.email = e
-    setErrors(next)
     if (Object.keys(next).length > 0) { showFirstError(next); return false }
     return true
   }
@@ -100,7 +98,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     if (sisErr) next.codigoSis = sisErr
     if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'
     if (!form.idCarrera) next.idCarrera = 'Selecciona una carrera.'
-    setErrors(next)
     if (Object.keys(next).length) { showFirstError(next); return }
 
     setSaving(true); setResultado(null)
@@ -110,14 +107,14 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
         email: form.email.trim(), codigoSis: form.codigoSis.trim(),
         idFacultad: Number(form.idFacultad), idCarrera: Number(form.idCarrera),
       })
-      setStep(1); setForm(initialForm); setErrors({})
+      setStep(1); setForm(initialForm)
       onRegistered(`${created.nombre} ${created.apellidos}`)
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const fieldErrors = error.response?.data?.errores
         const mensaje = error.response?.data?.mensaje
         if (fieldErrors && typeof fieldErrors === 'object' && Object.keys(fieldErrors).length > 0) {
-          setErrors(fieldErrors); showFirstError(fieldErrors as Record<string, string>)
+          showFirstError(fieldErrors as Record<string, string>)
         } else {
           setResultado({ tipo: !error.response ? 'offline' : 'error', mensaje: mensaje || 'No se pudo registrar al estudiante.' })
         }
@@ -139,20 +136,20 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
         </header>
 
         <div className="grid grid-cols-2 border-b border-[#D8E3F5] px-4 pt-2 text-[12px] font-semibold sm:px-5">
-          <div className={`flex gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0439D9] text-white">{step === 2 ? <Check size={13} /> : '1'}</span><span>Información Personal del Estudiante<br /><small>{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</small></span></div>
-          <div className={`flex gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200'}`}>2</span><span>Información Académica<br /><small>{step === 2 ? 'EN CURSO' : 'Pendiente'}</small></span></div>
+          <div className={`flex gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0439D9] text-white">{step === 2 ? <Check size={13}/> : '1'}</span><span>Información Personal del Estudiante<br/><small>{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</small></span></div>
+          <div className={`flex gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200'}`}>2</span><span>Información Académica<br/><small>{step === 2 ? 'EN CURSO' : 'Pendiente'}</small></span></div>
         </div>
 
         <div className="space-y-4 px-4 py-3 sm:px-5">
           {step === 1 ? <>
-            <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input name="nombre" autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => { update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true })); handleBlur('nombre') }} placeholder="Ej: María José" className={inputClass} /></label>
-            <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass} /></label>
-            <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass} /></label>
-            <label className="block text-xs font-semibold text-[#011140]">Correo electrónico <b className="text-red-500">*</b><div className="relative"><input name="email" type="email" value={form.email} maxLength={FIELD_LIMITS.email.max} onChange={(e) => update('email', e.target.value)} onBlur={() => handleBlur('email')} placeholder="Ej: maria.gonzalez@umss.edu" className={`${inputClass} pr-10`} /><Mail className="absolute right-3 top-4 text-[#627A9B]" size={16} /></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input name="nombre" autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => { update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true })); handleBlur('nombre') }} placeholder="Ej: María José" className={inputClass}/></label>
+            <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass}/></label>
+            <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass}/></label>
+            <label className="block text-xs font-semibold text-[#011140]">Correo electrónico <b className="text-red-500">*</b><div className="relative"><input name="email" type="email" value={form.email} maxLength={FIELD_LIMITS.email.max} onChange={(e) => update('email', e.target.value)} onBlur={() => handleBlur('email')} placeholder="Ej: maria.gonzalez@umss.edu" className={`${inputClass} pr-10`}/><Mail className="absolute right-3 top-4 text-[#627A9B]" size={16}/></div></label>
           </> : <>
-            <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`} /><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
-            <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div></label>
-            <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
+            <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('codigoSis')} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`}/><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16}/></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16}/></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
           </>}
         </div>
 
