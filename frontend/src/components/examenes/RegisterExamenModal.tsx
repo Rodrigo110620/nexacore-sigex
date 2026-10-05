@@ -512,7 +512,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           })}
         </ol>
 
-        <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form
+          noValidate
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            // En el paso final, Enter dentro de un campo (p. ej. una norma) no debe registrar el examen.
+            if (step === 3 && e.key === 'Enter' && e.target instanceof HTMLInputElement) e.preventDefault()
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
             {step === 1 && (
             <section className={sectionCardClass}>
@@ -1123,8 +1131,11 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     </>
                   )}
                 </button>
+                {/* Keys distintas: si React reutiliza el mismo <button>, el clic en "Siguiente"
+                    lo convierte en submit antes de la acción por defecto y registra solo. */}
                 {step < 3 ? (
                 <button
+                  key="siguiente"
                   type="button"
                   onClick={goNext}
                   className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] sm:w-auto sm:px-6 sm:py-2.5"
@@ -1134,6 +1145,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </button>
                 ) : (
                 <button
+                  key="registrar"
                   type="submit"
                   disabled={saving || success}
                   className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md shadow-[#0439D9]/20 transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
