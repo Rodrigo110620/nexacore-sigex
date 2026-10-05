@@ -107,24 +107,29 @@ export const validateDocumento = (value: string): string => {
   if (!value.trim()) return 'El documento es obligatorio'
   if (!/^\d+$/.test(value)) return 'Solo números'
   if (value.length < FIELD_LIMITS.documento.min || value.length > FIELD_LIMITS.documento.max) {
-    return 'Formato incorrecto'
+    return 'Debe tener 7 u 8 dígitos'
   }
-  // No 0's
+  // No ceros
   if (/^0+$/.test(value)) {
     return 'El documento no puede ser solo ceros'
   }
-  // No repetidos (todos idénticos, ej: 11111111)
+  // No repetidos (ej: 11111111)
   if (/^(\d)\1+$/.test(value)) {
     return 'El documento no puede ser un número repetido' 
   }
 
-  // >>> BLOQUEAR CASI REPETIDOS (Ej: 11111118, 55555551, 99999990) <<<
-  // Esto detecta si hay un dígito que se repite 6 o más veces seguidas al inicio o al final
-  if (/^(\d)\1{5,}/.test(value) || /\d(\d)\1{5,}$/.test(value)) {
+  // Demasiados dígitos repetidos (ej: 1111144)
+  const counts = [...value].reduce((acc, d) => {
+    acc[d] = (acc[d] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const maxRepeticiones = Math.max(...Object.values(counts));
+  if (maxRepeticiones >= 6) {
     return 'El documento no es válido (demasiados dígitos repetidos)'
   }
 
-  // No secuencias consecutivas (ej: 12345678)
+  // >>> BLOQUEAR SECUENCIAS CONSECUTIVAS (ej: 12345678, 87654321) <<<
   const secuenciasAscendentes = "0123456789";
   const secuenciasDescendentes = "9876543210";
   if (secuenciasAscendentes.includes(value) || secuenciasDescendentes.includes(value)) {
@@ -133,7 +138,6 @@ export const validateDocumento = (value: string): string => {
 
   return ''
 }
-
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 
 /** Personal: @umss.edu.bo. Estudiantes: @est.umss.edu / @est.umss.edu.bo. */
