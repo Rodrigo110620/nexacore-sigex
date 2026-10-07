@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2 } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
 import MecanismoSelector, { type Mecanismo } from '../../components/control/MecanismoSelector'
@@ -51,6 +51,10 @@ export default function IdentificacionPage() {
     setReinicios((n) => n + 1)
   }
 
+  const regresarAControl = () => {
+    navigate(`/dashboard/control/${idExamen}`)
+  }
+
   // HABILITADO y DESHABILITADO llegan como "encontrado"; NO_VINCULADO no permite continuar.
   const estudiante = busqueda.status === 'encontrado' ? busqueda.estudiante : null
 
@@ -64,25 +68,26 @@ export default function IdentificacionPage() {
   }
 
   return (
-    <PanelLayout title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
-      <div className="mx-auto w-full max-w-5xl px-6 py-6">
-        <button
-          type="button"
-          onClick={() => navigate(`/dashboard/control/${idExamen}`)}
-          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white px-4 py-2.5 text-sm font-semibold text-[#627A9B] hover:bg-[#F1F6FF]"
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
-          Volver al examen
-        </button>
-        <section className="overflow-hidden rounded-2xl border border-[#D8E3F5] bg-white shadow-sm">
+    <PanelLayout topBarVariant="controlMinimal" locationLabel={examen && [examen.ambienteUbicacion, examen.ambienteNombre].filter(Boolean).join(' · ')} title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
+      <div className="mx-auto w-full max-w-[76rem] px-5 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7 lg:pb-7">
+        {examen && (
+          <span className="mb-3 inline-flex max-w-full items-center gap-1 rounded-full border border-[#E2E6EC] bg-white px-2 py-1 text-[10px] text-[#344158] lg:hidden">
+            <Building2 size={11} className="shrink-0" aria-hidden="true" />
+            <span className="truncate">{[examen.ambienteUbicacion, examen.ambienteNombre].filter(Boolean).join(' · ')}</span>
+          </span>
+        )}
+        <section className="overflow-hidden rounded-lg border border-[#E2E6EC] bg-white shadow-sm">
           <ControlIngresoHeader
             materia={examen?.asignatura}
             aula={examen?.ambienteNombre}
             fecha={examen?.fecha}
             hora={examen?.horaInicio}
+            docente={examen?.docente}
+            duracionMinutos={examen?.duracionMinutos}
+            compact
           />
           {idValido ? (
-            <div className="flex flex-col gap-5 p-6">
+            <div className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-6">
               <MecanismoSelector value={tipo} onChange={cambiarMecanismo} />
               {tipo === 'qr' ? (
                 <EscanerQr
@@ -99,9 +104,9 @@ export default function IdentificacionPage() {
                   onBuscar={(valor) => void buscar(tipo, valor)}
                 />
               )}
-              <div aria-live="polite" className="flex flex-col gap-3 text-sm text-[#011140]">
+              <div aria-live="polite" className="flex flex-col gap-2 text-sm text-[#011140]">
                 {busqueda.status !== 'idle' && busqueda.status !== 'no_vinculado' && (
-                  <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#D8E3F5] after:h-px after:flex-1 after:bg-[#D8E3F5]">
+                  <p className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#E1E6EF] after:h-px after:flex-1 after:bg-[#E1E6EF] sm:text-[10px]">
                     Resultado
                   </p>
                 )}
@@ -111,24 +116,24 @@ export default function IdentificacionPage() {
                   <p className="text-[#B91C1C]">{busqueda.mensaje}</p>
                 )}
               </div>
-              <div className="flex items-center justify-between border-t border-[#D8E3F5] pt-5">
+              <div className="flex items-center justify-between border-t border-[#E1E6EF] pt-4 sm:pt-5">
                 <button
                   type="button"
-                  onClick={cambiarEstudiante}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white px-4 py-2.5 text-sm font-semibold text-[#627A9B] hover:bg-[#F1F6FF]"
+                  onClick={regresarAControl}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-[#F1F3F6] px-3.5 text-sm font-semibold text-[#526684] hover:bg-[#E8ECF2] sm:h-10 sm:px-4"
                 >
-                  <ArrowLeft size={16} aria-hidden="true" />
-                  Cambiar estudiante
+                  <ArrowLeft size={15} aria-hidden="true" />
+                  Regresar
                 </button>
                 <button
                   type="button"
                   disabled={!estudiante || !puedeContinuar}
                   onClick={manejarContinuar}
                   title={!puedeContinuar ? 'Se requiere el rol ADMIN o CONTROL para continuar' : undefined}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-[#0439D9] px-3.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:px-4"
                 >
                   Continuar
-                  <ArrowRight size={16} aria-hidden="true" />
+                  <ArrowRight size={15} aria-hidden="true" />
                 </button>
               </div>
               {/* Fuera del aria-live: el diálogo se anuncia solo al recibir el foco. */}

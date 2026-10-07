@@ -32,12 +32,13 @@ export default function EstudiantesExamenSeccion({
   cargando,
 }: EstudiantesExamenSeccionProps) {
   return (
-    <section aria-labelledby="estudiantes-examen" className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 id="estudiantes-examen" className="text-sm font-bold uppercase text-[#011140] sm:text-base">
+    <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2 md:mb-4">
+        <h2 id="estudiantes-examen" className="text-[11px] font-bold uppercase text-[#011140] sm:text-base">
           Estudiantes del examen
         </h2>
-        <div role="group" aria-label="Filtrar por estado" className="grid grid-cols-3 gap-1 rounded-lg bg-[#F1F6FF] p-1 sm:flex sm:gap-0">
+        <span className="shrink-0 text-[10px] text-[#627A9B] md:hidden">Total: {resumen?.total ?? '—'}</span>
+        <div role="group" aria-label="Filtrar por estado" className="hidden gap-1 rounded-lg bg-[#F1F6FF] p-1 md:flex md:gap-0">
           {PESTANAS.map(({ valor, label, cuenta }) => (
             <button
               key={valor}
@@ -53,6 +54,20 @@ export default function EstudiantesExamenSeccion({
             </button>
           ))}
         </div>
+      </div>
+      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
+        {PESTANAS.map(({ valor, cuenta }) => (
+          <button
+            key={valor}
+            type="button"
+            aria-pressed={estado === valor}
+            onClick={() => cambiarEstado(valor)}
+            className={`min-w-0 rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
+          >
+            {valor === 'TODOS' ? 'Todos' : valor === 'HABILITADOS' ? 'Habilitados' : 'Bloqueados'}
+            {resumen ? ` (${resumen[cuenta]})` : ''}
+          </button>
+        ))}
       </div>
 
       {error ? (
@@ -70,6 +85,7 @@ export default function EstudiantesExamenSeccion({
           <EstudiantesExamenLista idExamen={idExamen} estudiantes={pagina.contenido} />
           <div className="mt-3">
             <UserPagination
+              compact
               page={pagina.pagina}
               totalPages={pagina.totalPaginas}
               totalRecords={pagina.totalRegistros}

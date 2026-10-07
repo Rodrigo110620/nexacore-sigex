@@ -22,14 +22,15 @@ export interface ResumenEstudiantes {
   ingresados: number
 }
 
-/** Estudiantes asignados al examen, 10 por página, ordenados por apellidos y nombre. */
+/** Estudiantes asignados al examen, ordenados por apellidos y nombre. */
 export async function listarEstudiantesExamen(
   idExamen: number,
   estado: FiltroEstado,
   page: number,
+  size = 5,
 ): Promise<PageResponse<EstudianteAsignado>> {
   const { data } = await api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, {
-    params: { estado, page, size: 10 },
+    params: { estado, page, size },
   })
   return data
 }

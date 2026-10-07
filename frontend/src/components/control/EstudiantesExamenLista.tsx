@@ -38,9 +38,9 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
     <Link
       to={`/dashboard/control/${idExamen}/identificar?codigo=${encodeURIComponent(estudiante.codigoSis)}`}
       aria-label={`Identificar a ${estudiante.nombre} ${estudiante.apellidos}`}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#627A9B] hover:bg-[#F1F6FF] hover:text-[#0439D9]"
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[#627A9B] hover:bg-[#F1F6FF] hover:text-[#0439D9] md:h-8 md:w-8"
     >
-      <Eye size={16} aria-hidden="true" />
+      <Eye size={14} className="md:h-4 md:w-4" aria-hidden="true" />
     </Link>
   )
 }
@@ -51,7 +51,7 @@ const colorCi = (habilitado: boolean) => (habilitado ? 'text-[#0439D9]' : 'text-
 export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idExamen: number; estudiantes: EstudianteAsignado[] }) {
   return (
     <>
-      <table className="hidden w-full text-left md:table">
+      <table className="hidden w-full text-left md:table md:max-w-[80%]">
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
             <th scope="col" className="px-4 py-3 font-semibold">Estudiante</th>
@@ -83,19 +83,31 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
           return (
             <li
               key={estudiante.idEstudiante}
-              className={`flex items-start justify-between gap-2 rounded-xl border p-3 ${
-                habilitado ? 'border-[#D8E3F5] bg-white' : 'border-[#FECACA] bg-[#FEF2F2]'
+              className={`rounded-lg border p-2.5 ${
+                habilitado ? 'border-[#D8E3F5] bg-white' : 'border-[#FECACA] bg-[#FFF7F7]'
               }`}
             >
-              <Identidad estudiante={estudiante} habilitado={habilitado}>
-                <p className="text-xs text-[#627A9B]">
-                  CI: <span className={`font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</span>
-                </p>
-                {estudiante.carrera && <p className="text-[11px] text-[#627A9B]">{estudiante.carrera}</p>}
-              </Identidad>
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <EstadoHabilitacionBadge habilitado={habilitado} />
-                <Ver idExamen={idExamen} estudiante={estudiante} />
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${habilitado ? 'bg-[#E9F1FF] text-[#0439D9]' : 'bg-[#FDECEC] text-[#B91C1C]'}`}
+                >
+                  {getUserInitials(estudiante)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start justify-between gap-1">
+                    <p className="min-w-0 text-[10px] font-semibold leading-tight text-[#011140]">
+                      {estudiante.nombre} {estudiante.apellidos}
+                    </p>
+                    <EstadoHabilitacionBadge habilitado={habilitado} />
+                  </div>
+                  <p className="text-[9px] text-[#627A9B]">CÓD: {estudiante.codigoSis}</p>
+                  <div className="mt-1 flex min-w-0 items-center gap-2 text-[9px]">
+                    <span className={`shrink-0 font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</span>
+                    {estudiante.carrera && <span className="min-w-0 flex-1 truncate text-[#627A9B]">{estudiante.carrera}</span>}
+                    <Ver idExamen={idExamen} estudiante={estudiante} />
+                  </div>
+                </div>
               </div>
             </li>
           )

@@ -37,6 +37,7 @@ function renderPage() {
           <Route path="/dashboard/control/:idExamen" element={<ControlExamenPage />} />
           <Route path="/dashboard/control" element={<Destino />} />
           <Route path="/dashboard/control/:idExamen/identificar" element={<Destino />} />
+          <Route path="/dashboard/control/:idExamen/intentos" element={<Destino />} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -52,7 +53,7 @@ describe('ControlExamenPage', () => {
     vi.mocked(listarEstudiantesExamen).mockResolvedValue({
       contenido: [estudiante(1, 'María', 'HABILITADO'), estudiante(2, 'Luis', 'DESHABILITADO')],
       pagina: 0,
-      tamano: 10,
+      tamano: 5,
       totalRegistros: 45,
       totalPaginas: 5,
     })
@@ -69,27 +70,33 @@ describe('ControlExamenPage', () => {
     expect(within(filas[1]).getByText('HABILITADO')).toBeInTheDocument()
     expect(within(filas[2]).getByText('NO HABILITADO')).toBeInTheDocument()
     expect(within(filas[2]).getByText('7489212')).toBeInTheDocument()
-    expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0)
+    expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 5)
     expect(screen.getByRole('link', { name: /Iniciar Control de Ingreso/ })).toHaveAttribute('href', '/dashboard/control/7/identificar')
   })
 
   it('permite volver al listado de Control', async () => {
     renderPage()
-    fireEvent.click(screen.getByRole('link', { name: 'Volver a Control' }))
+    fireEvent.click(screen.getAllByRole('link', { name: 'Control' })[0])
     expect(await screen.findByText('Destino /dashboard/control')).toBeInTheDocument()
+  })
+
+  it('abre los intentos desde el botón del protocolo', async () => {
+    renderPage()
+    fireEvent.click(screen.getByRole('link', { name: 'Ver intentos' }))
+    expect(await screen.findByText('Destino /dashboard/control/7/intentos')).toBeInTheDocument()
   })
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {
     renderPage()
     await screen.findByRole('table')
     fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
-    await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'TODOS', 1))
+    await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'TODOS', 1, 5))
     await screen.findByRole('table')
 
     fireEvent.click(await screen.findByRole('button', { name: 'No habilitados (3)' }))
 
     expect(screen.getByRole('button', { name: 'No habilitados (3)' })).toHaveAttribute('aria-pressed', 'true')
-    await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'NO_HABILITADOS', 0))
+    await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'NO_HABILITADOS', 0, 5))
   })
 
   it('el ojo lleva a la identificación con ?codigo= del estudiante', async () => {
@@ -99,5 +106,16 @@ describe('ControlExamenPage', () => {
     fireEvent.click(within(tabla).getByRole('link', { name: 'Identificar a Luis Flores' }))
 
     expect(await screen.findByText('Destino /dashboard/control/7/identificar?codigo=202104002')).toBeInTheDocument()
+  })
+
+  it('solicita tres estudiantes por página en móvil', async () => {
+    const anterior = window.innerWidth
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    try {
+      renderPage()
+      await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 3))
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: anterior })
+    }
   })
 })

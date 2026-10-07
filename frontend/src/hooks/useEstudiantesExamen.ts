@@ -27,10 +27,21 @@ function mensajeDeError(error: unknown): string {
 export default function useEstudiantesExamen(idExamen: number) {
   const [estado, setEstado] = useState<FiltroEstado>('TODOS')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768 ? 3 : 5)
   const [resumen, setResumen] = useState<ResumenEstudiantes>()
   const [resultado, setResultado] = useState<Resultado>()
-  const clave = `${idExamen}|${estado}|${page}`
+  const clave = `${idExamen}|${estado}|${page}|${pageSize}`
   const idValido = Number.isInteger(idExamen) && idExamen > 0
+
+  useEffect(() => {
+    const actualizar = () => {
+      const nuevo = window.innerWidth < 768 ? 3 : 5
+      setPageSize(nuevo)
+      setPage(0)
+    }
+    window.addEventListener('resize', actualizar)
+    return () => window.removeEventListener('resize', actualizar)
+  }, [])
 
   useEffect(() => {
     if (!idValido) return
@@ -48,7 +59,7 @@ export default function useEstudiantesExamen(idExamen: number) {
   useEffect(() => {
     if (!idValido) return
     let vigente = true
-    listarEstudiantesExamen(idExamen, estado, page)
+    listarEstudiantesExamen(idExamen, estado, page, pageSize)
       .then((pagina) => {
         if (vigente) setResultado({ clave, pagina })
       })
@@ -58,7 +69,7 @@ export default function useEstudiantesExamen(idExamen: number) {
     return () => {
       vigente = false
     }
-  }, [clave, idExamen, idValido, estado, page])
+  }, [clave, idExamen, idValido, estado, page, pageSize])
 
   const actual = resultado?.clave === clave ? resultado : undefined
   const cambiarEstado = (nuevo: FiltroEstado) => {

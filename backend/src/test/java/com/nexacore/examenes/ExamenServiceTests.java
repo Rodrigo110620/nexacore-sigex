@@ -96,6 +96,7 @@ class ExamenServiceTests {
         assertThat(creado.idExamen()).isEqualTo(50);
         assertThat(creado.estado()).isEqualTo("programado");
         assertThat(creado.ambienteNombre()).isEqualTo("691A");
+        assertThat(creado.ambienteUbicacion()).isEqualTo("FCyT UMSS");
     }
 
     @Test
@@ -345,6 +346,7 @@ class ExamenServiceTests {
         Ambiente ambiente = new Ambiente();
         ambiente.setId(id);
         ambiente.setNombre("691A");
+        ambiente.setUbicacion("FCyT UMSS");
         return ambiente;
     }
 

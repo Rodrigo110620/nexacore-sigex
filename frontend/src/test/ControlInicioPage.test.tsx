@@ -74,7 +74,7 @@ describe('ControlInicioPage', () => {
     const activos = screen.getByRole('region', { name: /Exámenes activos ahora/i })
     const enCurso = within(activos).getByRole('article', { name: 'Examen en curso: Cálculo I' })
 
-    expect(screen.getAllByText('CONTROL DE INGRESO').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/control de ingreso/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Bienvenido, Ana Rojas').length).toBeGreaterThan(0)
     expect(within(activos).getByText('EN CURSO')).toBeInTheDocument()
     expect(within(enCurso).getByText('/ 42 habilitados')).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('ControlInicioPage', () => {
     expect(within(fila('Cálculo I')).getByText('En curso')).toBeInTheDocument()
     expect(within(fila('Programación')).getByText('Comienza en 30 min')).toHaveClass('text-[#B45309]')
     expect(within(fila('Física I')).getByText('Comienza en 3 horas')).not.toHaveClass('text-[#B45309]')
-    expect(within(fila('Física I')).getByText('Lab 115 · 14:00 - 16:00')).toBeInTheDocument()
+    expect(within(fila('Física I')).getAllByText('Lab 115 · 14:00 - 16:00')).toHaveLength(2)
     expect(within(fila('Biología')).getByText('Finalizado')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Fecha:'), { target: { value: '2026-10-16' } })

@@ -30,6 +30,7 @@ export interface ExamenDto {
   duracionMinutos: number
   idAmbiente: number
   ambienteNombre: string
+  ambienteUbicacion?: string | null
   estado: string
   normasGenerales: string[]
   normasParticulares: NormaParticularDto[]

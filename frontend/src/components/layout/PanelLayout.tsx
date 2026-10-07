@@ -11,7 +11,8 @@ interface PanelLayoutProps {
   compactDesktop?: boolean
   title?: string
   description?: string
-  topBarVariant?: 'default' | 'control'
+  locationLabel?: string
+  topBarVariant?: 'default' | 'control' | 'controlMinimal'
 }
 
 export default function PanelLayout({
@@ -19,6 +20,7 @@ export default function PanelLayout({
   compactDesktop = false,
   title,
   description,
+  locationLabel,
   topBarVariant = 'default',
 }: PanelLayoutProps) {
   const { logout, roles } = useAuth()
@@ -86,7 +88,7 @@ export default function PanelLayout({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
-        <PanelTopBar compactDesktop={compactDesktop} title={title} description={description} variant={topBarVariant} />
+        <PanelTopBar compactDesktop={compactDesktop} title={title} description={description} locationLabel={locationLabel} variant={topBarVariant} />
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
         <div className={`hidden shrink-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <Footer />
