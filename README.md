@@ -12,7 +12,7 @@ Instala esto en tu PC antes de empezar:
 | Herramienta | Versión requerida | Link |
 |---|---|---|
 | Git | Última | https://git-scm.com |
-| Java JDK | **17** (Temurin recomendado) | https://adoptium.net/es |
+| Java JDK | **21** (Temurin recomendado) | https://adoptium.net/es |
 | Docker Desktop | Última | https://www.docker.com |
 | Node.js | **20.19.0 estrictamente** | https://nodejs.org |
 | pnpm | >= 8 | `npm install -g pnpm` |
