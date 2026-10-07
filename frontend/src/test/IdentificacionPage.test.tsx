@@ -58,7 +58,7 @@ describe('IdentificacionPage', () => {
 
   it('permite volver al detalle del examen sin alterar la identificación', () => {
     renderPage()
-    fireEvent.click(screen.getByRole('button', { name: 'Volver al examen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Regresar' }))
     expect(screen.getByText('Detalle del examen')).toBeInTheDocument()
   })
 
@@ -76,17 +76,14 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeEnabled()
   })
 
-  it('Cambiar estudiante limpia la búsqueda sin cambiar el mecanismo y desactiva Continuar', async () => {
+  it('Regresar vuelve al detalle del examen después de una identificación', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()
-    expect(continuar()).toBeDisabled()
     await buscarEstudiante()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cambiar estudiante' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Regresar' }))
 
-    expect(screen.queryByText('María José González Flores')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('')
-    expect(continuar()).toBeDisabled()
+    expect(screen.getByText('Detalle del examen')).toBeInTheDocument()
   })
 
   it('HABILITADO: Continuar abre la verificación y su Continuar lleva a ACCS-02', async () => {

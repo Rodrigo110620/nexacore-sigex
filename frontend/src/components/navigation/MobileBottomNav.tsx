@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { navItemsFor } from './navItems'
+import { Settings } from 'lucide-react'
 
 const GRID_COLS: Record<number, string> = {
   1: 'grid-cols-1',
@@ -11,9 +12,13 @@ const GRID_COLS: Record<number, string> = {
 
 }
 
-export default function MobileBottomNav() {
+export default function MobileBottomNav({ variant = 'default' }: { variant?: 'default' | 'controlHome' | 'controlDetail' }) {
   const { roles } = useAuth()
-  const items = navItemsFor(roles)
+  const allItems = navItemsFor(roles)
+  const items = variant === 'default' ? allItems : [
+    ...allItems.filter(({ label }) => label === 'Inicio' || label === 'Control'),
+    ...(variant === 'controlDetail' ? [{ label: 'Ajustes', to: '/dashboard/perfil', icon: Settings }] : []),
+  ]
 
   return (
     <nav

@@ -26,11 +26,11 @@ export default function MecanismoSelector({ value, onChange }: MecanismoSelector
     <div>
       <p
         id="mecanismo-identificacion"
-        className="mb-3 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#D8E3F5] after:h-px after:flex-1 after:bg-[#D8E3F5]"
+        className="mb-2.5 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#E1E6EF] after:h-px after:flex-1 after:bg-[#E1E6EF] sm:mb-3 sm:text-[10px]"
       >
         Mecanismo de identificación
       </p>
-      <div role="group" aria-labelledby="mecanismo-identificacion" className="grid grid-cols-3 gap-3">
+      <div role="group" aria-labelledby="mecanismo-identificacion" className="grid grid-cols-3 gap-2.5 sm:gap-3">
         {OPCIONES.map(({ valor, label, icon: Icon }) => {
           const activo = valor === value
           return (
@@ -39,18 +39,18 @@ export default function MecanismoSelector({ value, onChange }: MecanismoSelector
               type="button"
               aria-pressed={activo}
               onClick={() => onChange(valor)}
-              className={`relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border py-2 text-sm font-semibold transition-colors sm:h-20 sm:gap-2 sm:py-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`relative flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border py-2 text-[11px] font-semibold transition-colors sm:h-20 sm:py-0 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50 ${
                 activo
                   ? 'border-[#0439D9] bg-[#E9F1FF] text-[#0439D9]'
                   : 'border-[#D8E3F5] bg-white text-[#011140] enabled:hover:bg-[#F1F6FF]'
               }`}
             >
               {activo && (
-                <span aria-hidden="true" className="text-[10px] font-bold text-[#166534] sm:absolute sm:right-2 sm:top-2">
+                <span aria-hidden="true" className="text-[8px] font-bold text-[#087F59] sm:absolute sm:right-2 sm:top-1.5">
                   ● ACTIVO
                 </span>
               )}
-              <Icon size={20} aria-hidden="true" />
+              <Icon size={19} aria-hidden="true" />
               {label}
             </button>
           )

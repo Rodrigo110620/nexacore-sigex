@@ -36,6 +36,7 @@ interface TablePaginationProps {
   onPageChange: (page: number) => void
   disabled?: boolean
   itemLabel?: string
+  compact?: boolean
 }
 
 export default function TablePagination({
@@ -46,6 +47,7 @@ export default function TablePagination({
   onPageChange,
   disabled = false,
   itemLabel = 'usuarios',
+  compact = false,
 }: TablePaginationProps) {
   if (totalRecords === 0 || totalPages <= 1) return null
 
@@ -63,12 +65,14 @@ export default function TablePagination({
   return (
     <nav
       aria-label="Paginación de usuarios"
-      className="mt-3 flex flex-col gap-2 rounded-lg border border-[#D8E3F5] bg-white px-2 py-3 sm:mt-0 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+      className={compact
+        ? 'flex items-center justify-between gap-2 text-[#627A9B]'
+        : 'mt-3 flex flex-col gap-2 rounded-lg border border-[#D8E3F5] bg-white px-2 py-3 sm:mt-0 sm:flex-row sm:items-center sm:justify-between sm:px-4'}
     >
-      <p className="text-center text-xs text-[#011140] sm:text-left sm:text-sm">
+      <p className={compact ? 'text-left text-[10px]' : 'text-center text-xs text-[#011140] sm:text-left sm:text-sm'}>
         Mostrando <span className="font-semibold">{firstRecord}–{lastRecord}</span> de{' '}
         <span className="font-semibold">{totalRecords}</span>
-        <span> {itemLabel}</span>
+        <span className={compact ? 'hidden sm:inline' : ''}> {itemLabel}</span>
       </p>
 
       <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end">
@@ -77,17 +81,19 @@ export default function TablePagination({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={disabled || isFirstPage}
           aria-label="Página anterior"
-          className="inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm"
+          className={compact
+            ? 'inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#F4F5F7] text-[#627A9B] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50'
+            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}
         >
-          <ChevronLeft size={17} aria-hidden="true" />
-          <span>Anterior</span>
+          <ChevronLeft size={compact ? 13 : 17} aria-hidden="true" />
+          {!compact && <span>Anterior</span>}
         </button>
 
         <div className="flex flex-wrap items-center justify-center gap-1" aria-label={`Página ${currentPage + 1} de ${totalPages}`}>
           {paginationItems.map((item) => {
             if (typeof item !== 'number') {
               return (
-                <span key={item} aria-hidden="true" className="hidden h-11 min-w-7 items-center justify-center px-1 text-[#011140] sm:inline-flex">
+                <span key={item} aria-hidden="true" className={compact ? 'hidden h-7 min-w-5 items-center justify-center text-[#627A9B] sm:inline-flex' : 'hidden h-11 min-w-7 items-center justify-center px-1 text-[#011140] sm:inline-flex'}>
                   …
                 </span>
               )
@@ -102,11 +108,9 @@ export default function TablePagination({
                 disabled={disabled || item < 0 || item >= totalPages}
                 aria-label={`Ir a la página ${item + 1}`}
                 aria-current={isCurrent ? 'page' : undefined}
-                className={`${mobilePages.has(item) ? 'inline-flex' : 'hidden'} h-10 min-w-9 items-center justify-center rounded-md border px-2 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:inline-flex sm:h-11 sm:min-w-11 sm:px-3 sm:text-sm ${
-                  isCurrent
-                    ? 'border-[#0439D9] bg-[#0439D9] text-white'
-                    : 'border-[#B8CBEF] bg-white text-[#0439D9] hover:bg-[#E9F1FF]'
-                }`}
+                className={compact
+                  ? `${isCurrent ? 'inline-flex' : 'hidden sm:inline-flex'} h-7 min-w-7 items-center justify-center rounded-md text-[10px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${isCurrent ? 'bg-[#0439D9] text-white sm:bg-[#F1F6FF] sm:text-[#0439D9]' : 'bg-white text-[#627A9B] hover:bg-[#E9F1FF]'}`
+                  : `${mobilePages.has(item) ? 'inline-flex' : 'hidden'} h-10 min-w-9 items-center justify-center rounded-md border px-2 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:inline-flex sm:h-11 sm:min-w-11 sm:px-3 sm:text-sm ${isCurrent ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#B8CBEF] bg-white text-[#0439D9] hover:bg-[#E9F1FF]'}`}
               >
                 {item + 1}
               </button>
@@ -119,10 +123,12 @@ export default function TablePagination({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={disabled || isLastPage}
           aria-label="Página siguiente"
-          className="inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm"
+          className={compact
+            ? 'inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#F4F5F7] text-[#627A9B] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50'
+            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}
         >
-          <span>Siguiente</span>
-          <ChevronRight size={17} aria-hidden="true" />
+          {!compact && <span>Siguiente</span>}
+          <ChevronRight size={compact ? 13 : 17} aria-hidden="true" />
         </button>
       </div>
     </nav>

@@ -15,6 +15,7 @@ public record ExamenResponse(
         Integer duracionMinutos,
         Integer idAmbiente,
         String ambienteNombre,
+        String ambienteUbicacion,
         String estado,
         List<String> normasGenerales,
         List<NormaParticularRequest> normasParticulares,

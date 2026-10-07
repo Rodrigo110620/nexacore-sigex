@@ -687,7 +687,7 @@ public class ExamenService {
     private record Catalogos(
             Map<Integer, Materia> materias,
             Map<Integer, String> docentes,
-            Map<Integer, String> ambientes) {
+            Map<Integer, Ambiente> ambientes) {
     }
 
     private Catalogos catalogosDe(Collection<Examen> examenes) {
@@ -708,9 +708,9 @@ public class ExamenService {
             docentes.put(docente.getIdUsuario(),
                     docente.getUsuario().getNombre() + " " + docente.getUsuario().getApellidos());
         }
-        Map<Integer, String> ambientes = new HashMap<>();
+        Map<Integer, Ambiente> ambientes = new HashMap<>();
         for (Ambiente ambiente : ambienteRepository.findAllById(idsAmbiente)) {
-            ambientes.put(ambiente.getId(), ambiente.getNombre());
+            ambientes.put(ambiente.getId(), ambiente);
         }
         return new Catalogos(materias, docentes, ambientes);
     }
@@ -728,7 +728,9 @@ public class ExamenService {
         String asignatura = materia != null ? materia.getNombre() : "—";
         String sigla = materia != null ? materia.getSigla() : "—";
         String docenteNombre = catalogos.docentes().getOrDefault(examen.getIdDocente(), "—");
-        String ambienteNombre = catalogos.ambientes().getOrDefault(examen.getIdAmbiente(), "—");
+        Ambiente ambiente = catalogos.ambientes().get(examen.getIdAmbiente());
+        String ambienteNombre = ambiente != null ? ambiente.getNombre() : "—";
+        String ambienteUbicacion = ambiente != null ? ambiente.getUbicacion() : null;
 
         return new ExamenResponse(
                 examen.getId().getIdExamen(),
@@ -741,6 +743,7 @@ public class ExamenService {
                 examen.getDuracionMinutos(),
                 examen.getIdAmbiente(),
                 ambienteNombre,
+                ambienteUbicacion,
                 examen.getEstado(),
                 generales,
                 particulares,

@@ -14,7 +14,7 @@ vi.mock('../context/AuthContext', async (importOriginal) => {
 
 import { useAuth } from '../context/AuthContext'
 
-function renderNav(path: string, roles: string[]) {
+function renderNav(path: string, roles: string[], variant: 'default' | 'controlHome' | 'controlDetail' = 'default') {
   vi.mocked(useAuth).mockReturnValue({
     isAdmin: roles.includes('ADMIN'),
     isAuthenticated: true,
@@ -26,7 +26,7 @@ function renderNav(path: string, roles: string[]) {
   })
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <MobileBottomNav />
+      <MobileBottomNav variant={variant} />
     </MemoryRouter>,
   )
 }
@@ -93,5 +93,13 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
+  it('en Control muestra las opciones de navegación del mockup móvil', () => {
+    renderNav('/dashboard/control/7', ['ADMIN'], 'controlDetail')
+    const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(navigation).getByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/dashboard/perfil')
+    expect(within(navigation).queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
   })
 })

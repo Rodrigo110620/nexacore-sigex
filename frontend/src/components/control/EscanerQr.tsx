@@ -14,27 +14,27 @@ export default function EscanerQr({ onLeer, onReescanear }: EscanerQrProps) {
   const estado = useEscanerQr(video, onLeer)
 
   return (
-    <div className="rounded-xl border border-[#D8E3F5] bg-[#F8FBFF] p-4">
-      <p className="mb-1 block text-xs font-semibold text-gray-700">Escanea el código QR del estudiante:</p>
-      <div className="flex flex-col items-center gap-3">
+    <div className="rounded-lg border border-[#E7E9EE] bg-[#F4F4F5] p-4 sm:p-5">
+      <p className="mb-2 block text-[11px] font-semibold text-[#303846] sm:text-xs">Escanea el código QR del estudiante:</p>
+      <div className="flex flex-col items-center gap-2.5">
         <video
           ref={video}
           muted
           playsInline
           aria-label="Vista de la cámara"
-          className={`w-full max-w-sm rounded-xl border border-gray-200 bg-[#011140] ${
+          className={`w-full max-w-sm rounded-lg border border-gray-200 bg-[#011140] sm:max-w-md ${
             estado.status === 'escaneando' ? '' : 'hidden'
           }`}
         />
-        {estado.status === 'iniciando' && <p className="text-sm text-[#627A9B]">Iniciando cámara…</p>}
-        {estado.status === 'escaneando' && <p className="text-sm text-[#627A9B]">Apunta la cámara al código QR.</p>}
+        {estado.status === 'iniciando' && <p className="text-xs text-[#627A9B]">Iniciando cámara…</p>}
+        {estado.status === 'escaneando' && <p className="text-xs text-[#627A9B]">Apunta la cámara al código QR.</p>}
         {estado.status === 'leido' && (
-          <p className="text-sm text-[#011140]">
+          <p className="text-xs text-[#011140]">
             Código leído: <span className="font-semibold text-[#0439D9]">{estado.codigo}</span>
           </p>
         )}
         {estado.status === 'error' && (
-          <p role="alert" className="text-sm text-[#B91C1C]">
+          <p role="alert" className="text-xs text-[#B91C1C]">
             {estado.mensaje}
           </p>
         )}
@@ -42,9 +42,9 @@ export default function EscanerQr({ onLeer, onReescanear }: EscanerQrProps) {
           <button
             type="button"
             onClick={onReescanear}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#032db0]"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3.5 text-sm font-semibold text-white hover:bg-[#032db0] sm:h-11 sm:px-4"
           >
-            <ScanLine size={16} aria-hidden="true" />
+            <ScanLine size={17} aria-hidden="true" />
             Volver a escanear
           </button>
         )}
