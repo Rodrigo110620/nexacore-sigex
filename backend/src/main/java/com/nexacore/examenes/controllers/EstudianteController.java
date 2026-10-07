@@ -44,7 +44,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Listar estudiantes",
-            description = "Devuelve los estudiantes paginados con búsqueda y filtros. Solo ADMIN.")
+            description = "Devuelve los estudiantes paginados con búsqueda y filtros. ADMIN, DOCENTE y CONTROL.")
     @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteListResponse>> listar(
@@ -61,7 +61,7 @@ public class EstudianteController {
 
     @Operation(summary = "Listar carreras",
             description = "Devuelve las carreras, opcionalmente filtradas por facultad.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
     @GetMapping("/carreras")
     public ResponseEntity<List<CarreraResponse>> listarCarreras(
             @RequestParam(required = false) Integer idFacultad
@@ -78,8 +78,8 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Actualizar estudiante",
-            description = "Modifica los datos personales y académicos de un estudiante. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+            description = "Modifica los datos personales y académicos de un estudiante. ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
     @PutMapping("/{id}")
     public ResponseEntity<EstudianteListResponse> actualizar(
             @PathVariable Integer id,
@@ -89,8 +89,8 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Registrar estudiante",
-            description = "Crea un estudiante y lo asocia a su carrera. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+            description = "Crea un estudiante y lo asocia a su carrera. ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
     @PostMapping
     public ResponseEntity<EstudianteListResponse> registrar(
             @Valid @RequestBody RegistrarEstudianteRequest request
@@ -100,8 +100,8 @@ public class EstudianteController {
 
     @Operation(summary = "Importar estudiantes masivamente",
             description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
-            + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+            + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<ImportarEstudiantesResponse> importarEstudiantes(
             @RequestParam("file") MultipartFile file
@@ -110,8 +110,8 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Descargar planilla de estudiantes en CSV",
-            description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+            description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
     @GetMapping("/planilla.csv")
     public ResponseEntity<byte[]> planillaCsv() {
         return descarga(planillaEstudiantesService.csv(), "planilla_estudiantes.csv",
@@ -119,8 +119,8 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Descargar planilla de estudiantes en PDF",
-            description = "Estudiantes registrados con los nombres de su facultad y carrera. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+            description = "Estudiantes registrados con los nombres de su facultad y carrera. ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
     @GetMapping("/planilla.pdf")
     public ResponseEntity<byte[]> planillaPdf() {
         return descarga(planillaEstudiantesService.pdf(), "planilla_estudiantes.pdf", MediaType.APPLICATION_PDF);
