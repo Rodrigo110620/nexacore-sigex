@@ -36,7 +36,15 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   useEffect(() => {
     if (!open || !form.idFacultad) return
-    getCarreras(form.idFacultad).then(setCarreras).catch(() => setResultado({ tipo: 'error', mensaje: 'No se pudieron cargar las carreras.' }))
+    // Cancela la petición anterior para que una respuesta vieja no pise la de la facultad actual.
+    const controller = new AbortController()
+    getCarreras(form.idFacultad, controller.signal)
+      .then(setCarreras)
+      .catch((error) => {
+        if (axios.isCancel(error)) return
+        setResultado({ tipo: 'error', mensaje: 'No se pudieron cargar las carreras.' })
+      })
+    return () => controller.abort()
   }, [form.idFacultad, open])
 
   const selectedCareer = useMemo(() => carreras.find((item) => String(item.idCarrera) === form.idCarrera), [carreras, form.idCarrera])

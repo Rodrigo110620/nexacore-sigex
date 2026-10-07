@@ -16,6 +16,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,6 +54,23 @@ class EstudianteControllerTests {
             1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void docentePuedeRegistrar() throws Exception {
+        when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
+            1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
+        mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void docentePuedeListarCarreras() throws Exception {
+        when(estudianteService.listarCarreras(1)).thenReturn(List.of());
+        mockMvc.perform(get("/estudiantes/carreras").param("idFacultad", "1"))
+            .andExpect(status().isOk());
     }
 
     @Test
