@@ -1,3 +1,7 @@
+import { pareceUnaPalabra } from './palabras'
+
+export { pareceUnaPalabra }
+
 export const RAZON_MIN = 10
 export const RAZON_MAX = 40
 export const BUSQUEDA_MAX = 40
@@ -5,45 +9,6 @@ export const BUSQUEDA_MAX = 40
 /** Solo palabras: letras (con tildes y ñ) y espacios. */
 const RAZON_CARACTERES = /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ ]+$/
 const RAZON_NO_PERMITIDOS = /[^A-Za-záéíóúÁÉÍÓÚüÜñÑ ]/g
-
-const VOCALES = 'aeiouáéíóúü'
-/** Pares de consonantes con los que puede empezar una sílaba en español (tr, bl, ch...). */
-const GRUPOS_CONSONANTES = new Set([
-  'ch', 'll', 'rr', 'ps', 'bl', 'br', 'cl', 'cr', 'dl', 'dr', 'fl', 'fr',
-  'gl', 'gr', 'kl', 'kr', 'pl', 'pr', 'tl', 'tr',
-])
-
-function esVocal(palabra: string, i: number): boolean {
-  if (VOCALES.includes(palabra[i])) return true
-  // "y" suena a vocal al final o antes de consonante: "muy", "y", "hay".
-  const siguiente = palabra[i + 1]
-  return palabra[i] === 'y' && (siguiente === undefined || !VOCALES.includes(siguiente))
-}
-
-/**
- * Sin diccionario no se puede saber si una palabra existe, pero sí si tiene forma de palabra
- * en español: sílabas pronunciables, sin amontonar consonantes ni repetir sin sentido.
- * Rechaza "fsfasfsaf", "qwerty", "asdfgh" o "jajaja". Recorrido lineal, sin regex anidadas.
- */
-export function pareceUnaPalabra(palabra: string): boolean {
-  const p = palabra.toLocaleLowerCase('es-BO')
-  if (/(.)\1\1/.test(p) || /^(.{1,3})\1{2,}$/.test(p)) return false
-  const tramos: { vocal: boolean; texto: string }[] = []
-  for (let i = 0; i < p.length; i++) {
-    const vocal = esVocal(p, i)
-    const ultimo = tramos[tramos.length - 1]
-    if (ultimo && ultimo.vocal === vocal) ultimo.texto += p[i]
-    else tramos.push({ vocal, texto: p[i] })
-  }
-  if (!tramos.some((t) => t.vocal)) return false
-  return tramos.every((t, i) => {
-    const n = t.texto.length
-    if (t.vocal) return n <= 3
-    if (i === 0) return n === 1 || (n === 2 && GRUPOS_CONSONANTES.has(t.texto))
-    if (i === tramos.length - 1) return n <= 2
-    return n <= 3 || (n === 4 && GRUPOS_CONSONANTES.has(t.texto.slice(2)))
-  })
-}
 
 /**
  * Razón de inhabilitación: obligatoria, 10 a 40 caracteres, solo palabras reconocibles,

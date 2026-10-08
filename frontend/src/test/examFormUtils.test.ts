@@ -150,6 +150,20 @@ describe('normas: longitud 10–150 y espacios', () => {
   })
 })
 
+describe('normas: solo palabras reales', () => {
+  it('acepta números, ordinales y puntuación', () => {
+    expect(validateNormaTexto('Tolerancia de 30 minutos')).toBeNull()
+    expect(validateNormaTexto('Traer CI del 2do semestre')).toBeNull()
+    expect(validateNormaTexto('¿Dudas? Consultar al docente.')).toBeNull()
+  })
+
+  it('rechaza garabatos señalando la palabra', () => {
+    expect(validateNormaTexto('Traer fsfasfsaf al examen')).toMatch(/"fsfasfsaf" no parece una palabra/)
+    expect(validateNormaTexto('Asdfgh qwerty zxcvb')).toMatch(/no parece una palabra/)
+    expect(validateNormaTexto('No usar celular abc123')).toMatch(/"abc123" no parece una palabra/)
+  })
+})
+
 describe('nuevo ambiente', () => {
   const existentes = [{ nombre: '692F' }, { nombre: 'INFLAB' }]
 
@@ -160,11 +174,19 @@ describe('nuevo ambiente', () => {
   })
 
   it('valida caracteres, longitud y duplicado real', () => {
-    expect(validateAmbienteNombre('LAB3', existentes)).toBeNull()
+    expect(validateAmbienteNombre('LABQUI', existentes)).toBeNull()
+    expect(validateAmbienteNombre('682L0IN', existentes)).toBeNull()
+    expect(validateAmbienteNombre('L813', existentes)).toBeNull()
     expect(validateAmbienteNombre('', existentes)).toMatch(/obligatorio/)
     expect(validateAmbienteNombre('LAB-3', existentes)).toMatch(/letras y números/)
     expect(validateAmbienteNombre('A', existentes)).toMatch(/al menos 2/)
     expect(validateAmbienteNombre('inflab', existentes)).toMatch(/Ya existe/)
+  })
+
+  it('rechaza garabatos y números sueltos como nombre de ambiente', () => {
+    for (const nombre of ['ASDFGH', 'QWERTY', 'FSFASF', 'XKCD', '1234567', 'LAB3']) {
+      expect(validateAmbienteNombre(nombre, existentes)).toMatch(/código de aula/)
+    }
   })
 
   it('solo informa duplicado cuando el backend responde 409', () => {

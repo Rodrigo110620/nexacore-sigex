@@ -32,6 +32,7 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.nexacore.examenes.utils.ValidacionPalabras;
 import java.text.Normalizer;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -623,6 +624,11 @@ public class ExamenService {
         }
         if (PATRON_REPETIDO.matcher(compacto).matches()) {
             throw new IllegalArgumentException(prefijo + "no puede ser un patrón repetitivo sin significado.");
+        }
+        String garabato = ValidacionPalabras.primerGarabato(texto);
+        if (garabato != null) {
+            throw new IllegalArgumentException(
+                    prefijo + "\"" + garabato + "\" no parece una palabra. Escribe la norma con palabras reales.");
         }
     }
 
