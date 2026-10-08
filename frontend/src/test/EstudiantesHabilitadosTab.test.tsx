@@ -78,21 +78,30 @@ describe('EstudiantesHabilitadosTab', () => {
     expect(screen.getAllByText('Deuda en biblioteca').length).toBeGreaterThan(0)
   })
 
-  it.each([
-    ['Deuda', /al menos 10/],
-    [' Deuda en biblioteca', /empezar con espacios/],
-    ['Deuda en biblioteca ', /terminar con espacios/],
-    ['Deuda  en biblioteca', /espacios consecutivos/],
-    ['Deuda en biblioteca!', /Solo se permiten letras/],
-  ])('rechaza la razón "%s" sin guardar', async (razon, mensaje) => {
+  it('al escribir la razón deja solo palabras y pone mayúscula inicial', async () => {
     await renderTab()
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
     const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
     fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
-    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: razon } })
+    const campo = within(dialogo).getByLabelText(/Razón de inhabilitación/)
+    fireEvent.change(campo, { target: { value: '  deuda #2 en  biblioteca! ' } })
+
+    expect(campo).toHaveValue('Deuda en biblioteca ')
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
+    await waitFor(() => expect(habilitacionService.actualizarHabilitacion).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.objectContaining({ motivo: 'Deuda en biblioteca' }),
+    ))
+  })
+
+  it('rechaza una razón demasiado corta sin guardar', async () => {
+    await renderTab()
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
+    const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
+    fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
+    fireEvent.change(within(dialogo).getByLabelText(/Razón de inhabilitación/), { target: { value: 'Deuda' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Guardar' }))
 
-    expect(await within(dialogo).findByText(mensaje)).toBeInTheDocument()
+    expect(await within(dialogo).findByText(/al menos 10/)).toBeInTheDocument()
     expect(habilitacionService.actualizarHabilitacion).not.toHaveBeenCalled()
   })
 

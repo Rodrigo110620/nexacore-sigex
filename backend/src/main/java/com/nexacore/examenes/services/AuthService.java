@@ -33,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -81,7 +82,7 @@ public class AuthService {
     @Transactional(noRollbackFor = {
             CredencialesInvalidasException.class, CuentaBloqueadaException.class, CuentaInactivaException.class})
     public AuthResponse login(LoginRequest peticion) {
-        Usuario usuario = usuarioRepository.findByEmail(peticion.email())
+        Usuario usuario = usuarioRepository.findByEmail(peticion.email().trim().toLowerCase(Locale.ROOT))
                 .orElseThrow(CredencialesInvalidasException::new);
 
         LocalDateTime ahora = LocalDateTime.now();
@@ -175,7 +176,7 @@ public class AuthService {
      */
     @Transactional
     public void solicitarResetPassword(ForgotPasswordRequest request) {
-        Optional<Usuario> opt = usuarioRepository.findByEmail(request.email().trim());
+        Optional<Usuario> opt = usuarioRepository.findByEmail(request.email().trim().toLowerCase(Locale.ROOT));
         if (opt.isEmpty()) {
             return;
         }

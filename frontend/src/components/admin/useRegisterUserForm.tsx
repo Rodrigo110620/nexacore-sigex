@@ -139,7 +139,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
       nombre: sanitizeNombreInput(form.nombre, { trimEnds: true }),
       apellidos: sanitizeNombreInput(form.apellidos, { trimEnds: true }),
       documento: form.documento.trim(),
-      email: form.email.trim(),
+      email: form.email.trim().toLowerCase(),
     };
 
     const formErrors = validateForm(cleanForm);
@@ -194,6 +194,9 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
         } else {
           setGeneralError(data?.mensaje ?? 'Verifica los datos ingresados.');
         }
+      } else if (status === 503) {
+        // El correo con la clave temporal no salió: el backend no registró al usuario.
+        setGeneralError(data?.mensaje ?? 'No se pudo enviar el correo. El usuario no fue registrado.');
       } else if (status === 403) {
         setGeneralError('No tienes permisos para registrar usuarios.');
       } else if (status === 401) {

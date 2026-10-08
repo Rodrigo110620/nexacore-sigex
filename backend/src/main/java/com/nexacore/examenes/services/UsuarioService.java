@@ -6,6 +6,7 @@ import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.dto.UsuarioStatsResponse;
+import com.nexacore.examenes.exceptions.CiDuplicadoException;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
@@ -90,18 +91,24 @@ public class UsuarioService {
         // No hay lista fija: cualquier rol que se inserte en BD pasa a ser válido.
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        if (usuarioRepository.findByEmail(request.email()).isPresent()) {
-            throw new EmailDuplicadoException(request.email());
+        String email = normalizarEmail(request.email());
+        String ci = request.ci().trim();
+        if (usuarioRepository.findByEmail(email).isPresent()) {
+            throw new EmailDuplicadoException(email);
+        }
+        if (usuarioRepository.existsByCi(ci)) {
+            throw new CiDuplicadoException(ci);
         }
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
         usuario.setNombre(normalizarNombre(request.nombre()));
         usuario.setApellidos(normalizarNombre(request.apellidos()));
-        usuario.setCi(request.ci());
-        usuario.setEmail(request.email());
+        usuario.setCi(ci);
+        usuario.setEmail(email);
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
-        usuarioRepository.save(usuario);
+        // Flush antes del correo: si la BD rechaza algo, no se manda una clave de una cuenta inexistente.
+        usuarioRepository.saveAndFlush(usuario);
         UsuarioRolId urId = new UsuarioRolId();
         urId.setIdUsuario(usuario.getId());
         urId.setIdRol(rol.getId());
@@ -114,14 +121,17 @@ public class UsuarioService {
         sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
-        emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
+        // Si el envío falla, la excepción revierte el registro.
+        boolean enviado = emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
                 usuario.getEmail(),
                 rolNombre,
                 null,
-                "Usuario registrado. Credenciales enviadas por correo."
+                enviado
+                        ? "Usuario registrado. Credenciales enviadas por correo."
+                        : "Usuario registrado, pero el correo está deshabilitado: no se enviaron credenciales."
         );
     }
     /**
@@ -132,11 +142,15 @@ public class UsuarioService {
         // 1. Buscar el usuario existente (Ya recibe Integer correctamente)
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNoEncontradoException(id));
-        // 2. Validar si el correo cambió y si ya pertenece a otro usuario
-        if (!usuario.getEmail().equalsIgnoreCase(request.email())) {
-            if (usuarioRepository.findByEmail(request.email()).isPresent()) {
-                throw new EmailDuplicadoException(request.email());
-            }
+        // 2. Validar si el correo o el CI cambiaron y ya pertenecen a otro usuario
+        String email = normalizarEmail(request.email());
+        String ci = request.ci().trim();
+        if (!usuario.getEmail().equalsIgnoreCase(email)
+                && usuarioRepository.findByEmail(email).isPresent()) {
+            throw new EmailDuplicadoException(email);
+        }
+        if (usuarioRepository.existsByCiAndIdNot(ci, id)) {
+            throw new CiDuplicadoException(ci);
         }
         // 3. Validar el rol
         String rolNombre = request.rol().toUpperCase();
@@ -145,8 +159,8 @@ public class UsuarioService {
         // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
         usuario.setNombre(normalizarNombre(request.nombre()));
         usuario.setApellidos(normalizarNombre(request.apellidos()));
-        usuario.setCi(request.ci());
-        usuario.setEmail(request.email());
+        usuario.setCi(ci);
+        usuario.setEmail(email);
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
         usuarioRepository.save(usuario);
         // 5. Borrar el rol antiguo antes de asignar el nuevo
@@ -361,6 +375,11 @@ public class UsuarioService {
      * Guarda nombres y apellidos en formato Título (ej. Rodrigo Figueroa).
      * Elimina espacios extremos, colapsa espacios dobles y rechaza la misma letra repetida.
      */
+    /** Los correos se guardan en minúsculas: "Ana@UMSS.edu.bo" y "ana@umss.edu.bo" son el mismo usuario. */
+    private static String normalizarEmail(String valor) {
+        return valor.trim().toLowerCase(Locale.ROOT);
+    }
+
     private static String normalizarNombre(String valor) {
         if (valor == null) {
             return null;

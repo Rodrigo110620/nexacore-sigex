@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -57,8 +58,8 @@ public class HabilitacionService {
     private static final String SIN_FACULTAD = "—";
     static final int RAZON_MIN = 10;
     static final int RAZON_MAX = 40;
-    /** Letras (con tildes y ñ), números y espacios simples. */
-    private static final Pattern RAZON_CARACTERES = Pattern.compile("[\\p{L}0-9 ]+");
+    /** Solo palabras: letras (con tildes y ñ) y espacios simples. */
+    private static final Pattern RAZON_CARACTERES = Pattern.compile("[\\p{L} ]+");
 
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final EstudianteRepository estudianteRepository;
@@ -263,12 +264,83 @@ public class HabilitacionService {
             throw new IllegalArgumentException("La razón no puede tener espacios consecutivos");
         }
         if (!RAZON_CARACTERES.matcher(razon).matches()) {
-            throw new IllegalArgumentException("La razón solo admite letras, números, espacios, tildes y ñ");
+            throw new IllegalArgumentException("La razón solo admite palabras: letras, espacios, tildes y ñ");
+        }
+        if (!Character.isUpperCase(razon.codePointAt(0))) {
+            throw new IllegalArgumentException("La razón debe empezar con mayúscula");
         }
         if (razon.length() < RAZON_MIN || razon.length() > RAZON_MAX) {
             throw new IllegalArgumentException(
                     "La razón debe tener entre " + RAZON_MIN + " y " + RAZON_MAX + " caracteres");
         }
+        for (String palabra : razon.split(" ")) {
+            if (!pareceUnaPalabra(palabra)) {
+                throw new IllegalArgumentException(
+                        "\"" + palabra + "\" no parece una palabra. Escribe la razón con palabras reales");
+            }
+        }
+    }
+
+    private static final String VOCALES = "aeiouáéíóúü";
+    /** Pares de consonantes con los que puede empezar una sílaba en español (tr, bl, ch...). */
+    private static final Set<String> GRUPOS_CONSONANTES = Set.of(
+            "ch", "ll", "rr", "ps", "bl", "br", "cl", "cr", "dl", "dr", "fl", "fr",
+            "gl", "gr", "kl", "kr", "pl", "pr", "tl", "tr");
+    private static final Pattern LETRA_TRIPLE = Pattern.compile("(.)\\1\\1");
+    private static final Pattern PATRON_REPETIDO = Pattern.compile("(.{1,3})\\1{2,}");
+
+    /**
+     * Sin diccionario no se puede saber si una palabra existe, pero sí si tiene forma de palabra
+     * en español: sílabas pronunciables, sin amontonar consonantes ni repetir sin sentido.
+     * Rechaza "fsfasfsaf", "qwerty", "asdfgh" o "jajaja". Misma regla que el frontend.
+     */
+    static boolean pareceUnaPalabra(String palabra) {
+        String p = palabra.toLowerCase(Locale.ROOT);
+        if (LETRA_TRIPLE.matcher(p).find() || PATRON_REPETIDO.matcher(p).matches()) {
+            return false;
+        }
+        List<StringBuilder> tramos = new ArrayList<>();
+        List<Boolean> esVocalTramo = new ArrayList<>();
+        for (int i = 0; i < p.length(); i++) {
+            boolean vocal = esVocal(p, i);
+            int ultimo = tramos.size() - 1;
+            if (ultimo >= 0 && esVocalTramo.get(ultimo) == vocal) {
+                tramos.get(ultimo).append(p.charAt(i));
+            } else {
+                tramos.add(new StringBuilder().append(p.charAt(i)));
+                esVocalTramo.add(vocal);
+            }
+        }
+        if (!esVocalTramo.contains(true)) {
+            return false;
+        }
+        for (int i = 0; i < tramos.size(); i++) {
+            String t = tramos.get(i).toString();
+            int n = t.length();
+            boolean valido;
+            if (esVocalTramo.get(i)) {
+                valido = n <= 3;
+            } else if (i == 0) {
+                valido = n == 1 || (n == 2 && GRUPOS_CONSONANTES.contains(t));
+            } else if (i == tramos.size() - 1) {
+                valido = n <= 2;
+            } else {
+                valido = n <= 3 || (n == 4 && GRUPOS_CONSONANTES.contains(t.substring(2)));
+            }
+            if (!valido) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean esVocal(String p, int i) {
+        char c = p.charAt(i);
+        if (VOCALES.indexOf(c) >= 0) {
+            return true;
+        }
+        // "y" suena a vocal al final o antes de consonante: "muy", "y", "hay".
+        return c == 'y' && (i + 1 == p.length() || VOCALES.indexOf(p.charAt(i + 1)) < 0);
     }
 
     /** Un examen cancelado o finalizado ya no admite asociaciones ni cambios de habilitación (409). */
