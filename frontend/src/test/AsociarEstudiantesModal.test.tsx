@@ -146,9 +146,10 @@ describe('AsociarEstudiantesModal', () => {
     fireEvent.change(buscador, { target: { value: '  Juan   Pérez' } })
     expect(buscador).toHaveValue('Juan Pérez')
 
-    fireEvent.change(await screen.findByLabelText('Facultad'), { target: { value: '1' } })
-    await screen.findByRole('option', { name: 'Ingeniería de Sistemas' })
-    fireEvent.change(screen.getByLabelText('Carrera'), { target: { value: '5' } })
+    fireEvent.click(await screen.findByLabelText('Facultad'))
+    fireEvent.click(await screen.findByRole('option', { name: 'FCyT' }))
+    fireEvent.click(screen.getByLabelText('Carrera'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Ingeniería de Sistemas' }))
 
     await waitFor(() => expect(estudianteService.getEstudiantes).toHaveBeenLastCalledWith(
       expect.objectContaining({ search: 'Juan Pérez', idFacultad: '1', idCarrera: '5' }),

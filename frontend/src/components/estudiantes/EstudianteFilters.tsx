@@ -1,6 +1,7 @@
-import { Search, ChevronDown } from 'lucide-react'
-import { useCallback, useEffect, useId, useState } from 'react'
+import { Search } from 'lucide-react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { getCarreras, getFacultades } from '../../services/estudianteService'
+import FiltroDesplegable from '../ui/FiltroDesplegable'
 import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
 import type {
   CarreraOption,
@@ -52,6 +53,25 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
     [onChange, value],
   )
 
+  const opcionesFacultad = useMemo(
+    () => [...facultades]
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+      .map((f) => ({ value: String(f.id), label: f.nombre })),
+    [facultades],
+  )
+  // Sin facultad elegida se listan todas las carreras agrupadas por su facultad.
+  const opcionesCarrera = useMemo(
+    () => [...carreras]
+      .sort((a, b) => a.nombreFacultad.localeCompare(b.nombreFacultad, 'es') || a.nombre.localeCompare(b.nombre, 'es'))
+      .map((c) => ({
+        value: String(c.idCarrera),
+        label: c.nombre,
+        grupo: value.idFacultad ? undefined : c.nombreFacultad,
+      })),
+    [carreras, value.idFacultad],
+  )
+  const campoClass = `${compact ? 'h-10 rounded-lg' : 'h-11 rounded-md'} text-xs sm:text-sm`
+
   return (
     <section aria-labelledby={`${id}-title`} className="min-w-0 bg-transparent">
       <h2 id={`${id}-title`} className="sr-only">Filtros de estudiantes</h2>
@@ -78,50 +98,35 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
           </div>
         </div>
 
-        {compact && <span className="text-sm font-semibold text-[#011140]">Filtros:</span>}
+        {/* En móvil se omite la etiqueta para que "Todas las facultades" quepa sin cortarse. */}
+        {compact && <span className="hidden text-sm font-semibold text-[#011140] sm:inline">Filtros:</span>}
 
-        <div className={compact ? 'min-w-0 flex-1 sm:w-56 sm:flex-none' : 'min-w-0'}>
+        <div className={compact ? 'min-w-0 flex-1 sm:w-60 sm:flex-none' : 'min-w-0'}>
           <label htmlFor={facultadId} className="sr-only">Facultad</label>
-          <div className="relative">
-            <select
-              id={facultadId}
-              value={value.idFacultad}
-              onChange={(e) => handleFacultadChange(e.target.value)}
-               disabled={disabled}
-              className={`${compact ? 'h-10 rounded-lg' : 'h-11 rounded-md'} w-full min-w-0 appearance-none border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm`}
-            >
-              <option value="">Todas las facultades</option>
-              {facultades.map((f) => (
-                <option key={f.id} value={String(f.id)}>
-                  {f.nombre}
-                </option>
-              ))}
-            </select>
-            <ChevronDown aria-hidden="true" size={17} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3" />
-          </div>
+          <FiltroDesplegable
+            id={facultadId}
+            value={value.idFacultad}
+            onChange={handleFacultadChange}
+            opciones={opcionesFacultad}
+            textoTodas="Todas las facultades"
+            placeholderBusqueda="Buscar facultad…"
+            disabled={disabled}
+            className={campoClass}
+          />
         </div>
 
-        <div className={compact ? 'min-w-0 flex-1 sm:w-56 sm:flex-none' : 'min-w-0'}>
+        <div className={compact ? 'min-w-0 flex-1 sm:w-60 sm:flex-none' : 'min-w-0'}>
           <label htmlFor={carreraId} className="sr-only">Carrera</label>
-          <div className="relative">
-            <select
-              id={carreraId}
-              value={value.idCarrera}
-              onChange={(e) => onChange({ ...value, idCarrera: e.target.value })}
-              disabled={disabled}
-              className={`${compact ? 'h-10 rounded-lg' : 'h-11 rounded-md'} w-full min-w-0 appearance-none border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm`}
-            >
-              <option value="">
-                {value.idFacultad ? 'Todas las carreras' : 'Todas las carreras'}
-              </option>
-              {carreras.map((c) => (
-                <option key={c.idCarrera} value={String(c.idCarrera)}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-            <ChevronDown aria-hidden="true" size={17} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3" />
-          </div>
+          <FiltroDesplegable
+            id={carreraId}
+            value={value.idCarrera}
+            onChange={(idCarrera) => onChange({ ...value, idCarrera })}
+            opciones={opcionesCarrera}
+            textoTodas="Todas las carreras"
+            placeholderBusqueda="Buscar carrera…"
+            disabled={disabled}
+            className={campoClass}
+          />
         </div>
       </div>
     </section>
