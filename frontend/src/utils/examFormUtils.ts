@@ -114,7 +114,12 @@ export function formatearNorma(value: string): string {
 }
 
 export const NORMA_MIN = 10
-export const NORMA_MAX = 60
+export const NORMA_MAX = 150
+
+/** Mientras se escribe: sin espacios al inicio, sin espacios dobles y dentro del máximo. */
+export function sanitizeNormaInput(value: string): string {
+  return formatearNorma(value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')).slice(0, NORMA_MAX)
+}
 /** Letras (con tildes y ñ), números, espacios y puntuación básica: "CI: original y vigente", "30 minutos". */
 const NORMA_CARACTERES = /^[A-Za-z0-9áéíóúÁÉÍÓÚüÜñÑ .,;:()¿?¡!"'/%-]+$/
 
@@ -133,6 +138,38 @@ export function validateNormaTexto(raw: string, existentes: string[] = []): stri
   const normalizada = raw.toLowerCase()
   if (existentes.some((t) => t.trim().toLowerCase() === normalizada)) return 'Esta norma ya fue registrada'
   return null
+}
+
+export const AMBIENTE_MIN = 2
+export const AMBIENTE_MAX = 20
+const AMBIENTE_CARACTERES = /^[A-Za-z0-9]+$/
+
+/** Deja solo letras y números en mayúsculas: "692-f" → "692F". */
+export function sanitizeAmbienteInput(value: string): string {
+  return value.replace(/[^A-Za-z0-9]/g, '').slice(0, AMBIENTE_MAX).toUpperCase()
+}
+
+export function validateAmbienteNombre(raw: string, existentes: { nombre: string }[] = []): string | null {
+  const nombre = raw.trim()
+  if (!nombre) return 'El nombre del ambiente es obligatorio'
+  if (!AMBIENTE_CARACTERES.test(nombre)) return 'Solo se permiten letras y números, sin espacios ni símbolos'
+  if (nombre.length < AMBIENTE_MIN) return `Debe tener al menos ${AMBIENTE_MIN} caracteres`
+  if (nombre.length > AMBIENTE_MAX) return `No puede superar ${AMBIENTE_MAX} caracteres`
+  if (existentes.some((a) => a.nombre.toUpperCase() === nombre.toUpperCase())) return 'Ya existe un ambiente con ese nombre'
+  return null
+}
+
+/** Mensaje según la respuesta real del backend, sin suponer que todo error es un duplicado. */
+export function mensajeErrorCrearAmbiente(err: unknown): string {
+  if (isNetworkError(err)) return 'Sin conexión. Intenta de nuevo.'
+  const response = (err as { response?: { status?: number; data?: { mensaje?: string; errores?: Record<string, string> } } }).response
+  const mensaje = response?.data?.errores?.nombre ?? response?.data?.mensaje
+  switch (response?.status) {
+    case 409: return mensaje ?? 'Ya existe un ambiente con ese nombre.'
+    case 403: return 'Solo un administrador puede crear ambientes.'
+    case 400: return mensaje ?? 'El nombre del ambiente no es válido.'
+    default: return 'No se pudo crear el ambiente. Intenta de nuevo.'
+  }
 }
 
 export function isOffline(): boolean {

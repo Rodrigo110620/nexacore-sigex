@@ -32,9 +32,14 @@ import {
   isNetworkError,
   isOffline,
   minutesBetween,
-  formatearNorma,
+  sanitizeNormaInput,
+  sanitizeAmbienteInput,
+  validateAmbienteNombre,
+  mensajeErrorCrearAmbiente,
   toTitleCaseTexto,
+  NORMA_MIN,
   NORMA_MAX,
+  AMBIENTE_MAX,
   todayISO,
   validateExamenForm,
   validateNormaTexto,
@@ -81,6 +86,8 @@ const STEP_DESCRIPCION: Record<Step, string> = {
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
   const { nombre, roles } = useAuth()
   const esDocente = roles.includes('DOCENTE') && !roles.includes('ADMIN')
+  // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
+  const esAdmin = roles.includes('ADMIN')
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
@@ -91,6 +98,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [loadingAmbientes, setLoadingAmbientes] = useState(false)
   const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
+  const [ambienteError, setAmbienteError] = useState('')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -224,6 +232,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setNuevaParticularIdEst(null)
     setNuevaParticularTexto('')
     setNuevoAmbienteNombre('')
+    setAmbienteError('')
     setEditingGeneralId(null)
     setEditingParticularId(null)
     submittingRef.current = false
@@ -375,11 +384,34 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     }
   }
 
-  const addNormaGeneral = () => {
-    const texto = nuevaNormaGeneral
-    const otras = normasGenerales
+  const otrasNormasGenerales = () =>
+    normasGenerales
       .filter((n) => n.activa !== false && n.id !== editingGeneralId)
       .map((n) => n.texto)
+
+  const guardarAmbiente = async () => {
+    const nombre = nuevoAmbienteNombre.trim().toUpperCase()
+    const error = validateAmbienteNombre(nombre, ambientes)
+    setAmbienteError(error ?? '')
+    if (error) return
+    try {
+      const creado = await crearAmbiente({ nombre })
+      setAmbientes((prev) =>
+        [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      )
+      handleChange('idAmbiente', String(creado.id))
+      setAmbienteFilter(creado.nombre)
+      setAmbienteListOpen(false)
+      setNuevoAmbienteNombre('')
+      setShowNuevoAmbiente(false)
+    } catch (err) {
+      setAmbienteError(mensajeErrorCrearAmbiente(err))
+    }
+  }
+
+  const addNormaGeneral = () => {
+    const texto = nuevaNormaGeneral.trim()
+    const otras = otrasNormasGenerales()
     const error = validateNormaTexto(texto, otras)
     setNormaGeneralError(error ?? '')
     if (error) return
@@ -398,7 +430,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
   const addNormaParticular = () => {
     const estudiante = nuevaParticularEst.trim()
-    const texto = nuevaParticularTexto
+    const texto = nuevaParticularTexto.trim()
     const otras = normasParticulares
       .filter((n) => n.activa !== false && n.id !== editingParticularId && n.idEstudiante === nuevaParticularIdEst)
       .map((n) => n.texto)
@@ -669,46 +701,43 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                         Ambiente ocupado
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setShowNuevoAmbiente((v) => !v)}
-                      className="text-[11px] font-semibold text-[#0439D9] hover:underline"
-                    >
-                      + Nuevo ambiente
-                    </button>
+                    {esAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNuevoAmbiente((v) => !v)}
+                        className="text-[11px] font-semibold text-[#0439D9] hover:underline"
+                      >
+                        + Nuevo ambiente
+                      </button>
+                    )}
                   </div>
                 </div>
-                {showNuevoAmbiente && (
-                  <div className="mb-2 flex gap-2">
-                    <input
-                      value={nuevoAmbienteNombre}
-                      onChange={(e) => setNuevoAmbienteNombre(e.target.value)}
-                      placeholder="Código o nombre (ej. 692F, INFLAB)"
-                      className={fieldClass()}
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const nombre = nuevoAmbienteNombre.trim()
-                        if (!nombre) return
-                        try {
-                          const creado = await crearAmbiente({ nombre })
-                          setAmbientes((prev) =>
-                            [...prev, creado].sort((a, b) => a.nombre.localeCompare(b.nombre)),
-                          )
-                          handleChange('idAmbiente', String(creado.id))
-                          setAmbienteFilter(creado.nombre)
-                          setAmbienteListOpen(false)
-                          setNuevoAmbienteNombre('')
-                          setShowNuevoAmbiente(false)
-                        } catch {
-                          setGeneralError('No se pudo crear el ambiente (¿nombre duplicado?).')
-                        }
-                      }}
-                      className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
-                    >
-                      Guardar
-                    </button>
+                {esAdmin && showNuevoAmbiente && (
+                  <div className="mb-2">
+                    <div className="flex gap-2">
+                      <input
+                        value={nuevoAmbienteNombre}
+                        onChange={(e) => {
+                          setNuevoAmbienteNombre(sanitizeAmbienteInput(e.target.value))
+                          if (ambienteError) setAmbienteError('')
+                        }}
+                        placeholder="Código o nombre (ej. 692F, INFLAB)"
+                        maxLength={AMBIENTE_MAX}
+                        aria-invalid={Boolean(ambienteError)}
+                        className={fieldClass(ambienteError)}
+                      />
+                      <button
+                        type="button"
+                        onClick={guardarAmbiente}
+                        className="shrink-0 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                    <div className="mt-1 flex justify-between gap-2 text-[10px]">
+                      <span className="text-red-600">{ambienteError}</span>
+                      <span className="shrink-0 text-gray-400">{nuevoAmbienteNombre.length}/{AMBIENTE_MAX}</span>
+                    </div>
                   </div>
                 )}
 
@@ -911,10 +940,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     <input
                       value={nuevaNormaGeneral}
                       onChange={(e) => {
-                        setNuevaNormaGeneral(formatearNorma(e.target.value))
-                        if (normaGeneralError) setNormaGeneralError('')
+                        const valor = sanitizeNormaInput(e.target.value)
+                        setNuevaNormaGeneral(valor)
+                        // Tras un intento fallido, el mensaje se recalcula en cada tecla.
+                        if (normaGeneralError) setNormaGeneralError(validateNormaTexto(valor.trim(), otrasNormasGenerales()) ?? '')
                       }}
-                      placeholder="Escribe la norma general… (10–60)"
+                      onBlur={() => setNuevaNormaGeneral((v) => v.trim())}
+                      placeholder={`Escribe la norma general… (${NORMA_MIN}–${NORMA_MAX})`}
                       maxLength={NORMA_MAX}
                       aria-invalid={Boolean(normaGeneralError)}
                       className={fieldClass(normaGeneralError)}
@@ -1021,10 +1053,11 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     <input
                       value={nuevaParticularTexto}
                       onChange={(e) => {
-                        setNuevaParticularTexto(formatearNorma(e.target.value))
+                        setNuevaParticularTexto(sanitizeNormaInput(e.target.value))
                         if (normaParticularError) setNormaParticularError('')
                       }}
-                      placeholder="Norma o adaptación… (10–60)"
+                      onBlur={() => setNuevaParticularTexto((v) => v.trim())}
+                      placeholder={`Norma o adaptación… (${NORMA_MIN}–${NORMA_MAX})`}
                       maxLength={NORMA_MAX}
                       aria-invalid={Boolean(normaParticularError)}
                       className={fieldClass(normaParticularError)}

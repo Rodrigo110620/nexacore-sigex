@@ -12,6 +12,11 @@ import {
   sanitizeCatalogQuery,
   validateExamenForm,
   validateNormaTexto,
+  sanitizeNormaInput,
+  sanitizeAmbienteInput,
+  validateAmbienteNombre,
+  mensajeErrorCrearAmbiente,
+  NORMA_MAX,
 } from '../utils/examFormUtils'
 
 const baseForm = {
@@ -125,5 +130,47 @@ describe('helpers compartidos de los modales de examen', () => {
     fireEvent.change(screen.getByLabelText('Hora de inicio: hora'), { target: { value: '14' } })
     fireEvent.change(screen.getByLabelText('Hora de inicio: minutos'), { target: { value: '30' } })
     expect(screen.getByText('2:30 PM')).toBeInTheDocument()
+  })
+})
+
+describe('normas: longitud 10–150 y espacios', () => {
+  it('acepta hasta 150 caracteres y rechaza 151', () => {
+    const base = 'Traer carnet universitario vigente '
+    const texto150 = base.repeat(5).slice(0, 149) + 'x'
+    expect(texto150).toHaveLength(150)
+    expect(validateNormaTexto(texto150)).toBeNull()
+    expect(validateNormaTexto(texto150 + 'x')).toMatch(/no puede superar 150/)
+    expect(validateNormaTexto('Corto ok.')).toMatch(/al menos 10/)
+  })
+
+  it('no deja empezar con espacios, colapsa dobles y respeta el máximo', () => {
+    expect(sanitizeNormaInput('   traer carnet')).toBe('Traer carnet')
+    expect(sanitizeNormaInput('Traer  carnet')).toBe('Traer carnet')
+    expect(sanitizeNormaInput('a'.repeat(200))).toHaveLength(NORMA_MAX)
+  })
+})
+
+describe('nuevo ambiente', () => {
+  const existentes = [{ nombre: '692F' }, { nombre: 'INFLAB' }]
+
+  it('deja solo letras y números en mayúsculas', () => {
+    expect(sanitizeAmbienteInput('692-f ')).toBe('692F')
+    expect(sanitizeAmbienteInput('aula#1!')).toBe('AULA1')
+    expect(sanitizeAmbienteInput('A'.repeat(30))).toHaveLength(20)
+  })
+
+  it('valida caracteres, longitud y duplicado real', () => {
+    expect(validateAmbienteNombre('LAB3', existentes)).toBeNull()
+    expect(validateAmbienteNombre('', existentes)).toMatch(/obligatorio/)
+    expect(validateAmbienteNombre('LAB-3', existentes)).toMatch(/letras y números/)
+    expect(validateAmbienteNombre('A', existentes)).toMatch(/al menos 2/)
+    expect(validateAmbienteNombre('inflab', existentes)).toMatch(/Ya existe/)
+  })
+
+  it('solo informa duplicado cuando el backend responde 409', () => {
+    expect(mensajeErrorCrearAmbiente({ response: { status: 409, data: { mensaje: 'Ya existe LAB3' } } })).toBe('Ya existe LAB3')
+    expect(mensajeErrorCrearAmbiente({ response: { status: 403 } })).toMatch(/administrador/)
+    expect(mensajeErrorCrearAmbiente({ response: { status: 400, data: { errores: { nombre: 'Solo letras' } } } })).toBe('Solo letras')
+    expect(mensajeErrorCrearAmbiente({ response: { status: 500 } })).not.toMatch(/duplicad|Ya existe/)
   })
 })
