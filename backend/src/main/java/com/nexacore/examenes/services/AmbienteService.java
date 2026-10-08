@@ -7,6 +7,7 @@ import com.nexacore.examenes.exceptions.AmbienteDuplicadoException;
 import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
+import com.nexacore.examenes.utils.ValidacionPalabras;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,10 @@ public class AmbienteService {
     @Transactional
     public AmbienteResponse crear(CrearAmbienteRequest request) {
         String nombre = request.nombre().trim().toUpperCase();
+        if (!ValidacionPalabras.esCodigoDeAmbiente(nombre)) {
+            throw new IllegalArgumentException("Usa un código de aula (ej. 692F, 682L0IN, L813) "
+                    + "o un nombre abreviado que se pueda leer (ej. INFLAB, LABMAT)");
+        }
         if (ambienteRepository.existsByNombreIgnoreCase(nombre)) {
             throw new AmbienteDuplicadoException(nombre);
         }

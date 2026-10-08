@@ -1,4 +1,5 @@
 import type { RegisterExamenFormErrors, RegisterExamenFormState } from '../types/examen.types'
+import { pareceUnaPalabra, primerGarabato } from './palabras'
 
 export function parseHora24(value: string): { h: number; m: number } | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
@@ -135,6 +136,8 @@ export function validateNormaTexto(raw: string, existentes: string[] = []): stri
   const compacto = raw.replace(/\s/g, '')
   if (/^(.)\1+$/i.test(compacto)) return 'La norma no puede ser un mismo carácter repetido'
   if (/^(.{1,3})\1{3,}$/i.test(compacto)) return 'La norma no puede ser un patrón repetitivo sin significado'
+  const garabato = primerGarabato(raw)
+  if (garabato) return `"${garabato}" no parece una palabra. Escribe la norma con palabras reales`
   const normalizada = raw.toLowerCase()
   if (existentes.some((t) => t.trim().toLowerCase() === normalizada)) return 'Esta norma ya fue registrada'
   return null
@@ -149,12 +152,27 @@ export function sanitizeAmbienteInput(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').slice(0, AMBIENTE_MAX).toUpperCase()
 }
 
+/**
+ * Formas de los 103 ambientes reales: aula numérica con sufijo opcional que empieza con letra
+ * ("692F", "682L0IN", "690MAT"), letra + 3 dígitos ("L813") o abreviatura legible ("INFLAB").
+ * Así no pasan garabatos como "ASDFGH" ni números sueltos como "1234567".
+ */
+export function esCodigoDeAmbiente(nombre: string): boolean {
+  const n = nombre.toUpperCase()
+  return /^\d{3}(?:[A-Z][A-Z0-9]{0,5})?$/.test(n)
+    || /^[A-Z]\d{3}$/.test(n)
+    || (/^[A-Z]{2,12}$/.test(n) && pareceUnaPalabra(n))
+}
+
 export function validateAmbienteNombre(raw: string, existentes: { nombre: string }[] = []): string | null {
   const nombre = raw.trim()
   if (!nombre) return 'El nombre del ambiente es obligatorio'
   if (!AMBIENTE_CARACTERES.test(nombre)) return 'Solo se permiten letras y números, sin espacios ni símbolos'
   if (nombre.length < AMBIENTE_MIN) return `Debe tener al menos ${AMBIENTE_MIN} caracteres`
   if (nombre.length > AMBIENTE_MAX) return `No puede superar ${AMBIENTE_MAX} caracteres`
+  if (!esCodigoDeAmbiente(nombre)) {
+    return 'Usa un código de aula (ej. 692F, 682L0IN, L813) o un nombre abreviado que se pueda leer (ej. INFLAB, LABMAT)'
+  }
   if (existentes.some((a) => a.nombre.toUpperCase() === nombre.toUpperCase())) return 'Ya existe un ambiente con ese nombre'
   return null
 }
