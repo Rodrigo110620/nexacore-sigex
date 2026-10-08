@@ -487,7 +487,7 @@ public class ExamenService {
     }
 
     private static final int NORMA_MIN = 10;
-    private static final int NORMA_MAX = 60;
+    private static final int NORMA_MAX = 150;
     private static final Pattern LETRA = Pattern.compile("\\p{L}");
     /** Letras (con tildes y ñ), números, espacios y puntuación básica: "CI: original y vigente", "30 minutos". */
     private static final Pattern NORMA_CARACTERES = Pattern.compile("[\\p{L}0-9 .,;:()¿?¡!\"'/%\\-]+");

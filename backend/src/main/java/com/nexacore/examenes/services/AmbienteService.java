@@ -7,6 +7,7 @@ import com.nexacore.examenes.exceptions.AmbienteDuplicadoException;
 import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +48,12 @@ public class AmbienteService {
         ambiente.setCapacidad(request.capacidad());
         ambiente.setPabellon(
                 request.pabellon() == null || request.pabellon().isBlank() ? null : request.pabellon().trim());
-        return toResponse(ambienteRepository.save(ambiente));
+        try {
+            return toResponse(ambienteRepository.saveAndFlush(ambiente));
+        } catch (DataIntegrityViolationException e) {
+            // Otro usuario lo creó entre la verificación y el guardado (uq_ambiente_nombre).
+            throw new AmbienteDuplicadoException(nombre);
+        }
     }
 
     private AmbienteResponse toResponse(Ambiente ambiente) {
