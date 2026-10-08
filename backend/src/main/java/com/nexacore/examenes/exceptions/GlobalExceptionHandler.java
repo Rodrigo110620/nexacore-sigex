@@ -110,6 +110,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
+    @ExceptionHandler(CiDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarCiDuplicado(CiDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    @ExceptionHandler(CorreoNoEnviadoException.class)
+    public ResponseEntity<ErrorResponse> manejarCorreoNoEnviado(CorreoNoEnviadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(cuerpo);
+    }
+
     @ExceptionHandler(EstudianteDuplicadoException.class)
     public ResponseEntity<ErrorResponse> manejarEstudianteDuplicado(EstudianteDuplicadoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());

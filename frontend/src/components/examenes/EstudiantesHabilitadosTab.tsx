@@ -8,7 +8,7 @@ import {
   BUSQUEDA_MAX,
   RAZON_MAX,
   sanearBusqueda,
-  sanearPegado,
+  sanearRazon,
   validateRazonInhabilitacion,
 } from '../../utils/habilitacionValidators'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
@@ -564,12 +564,15 @@ export default function EstudiantesHabilitadosTab({
             onSubmit={(event) => {
               event.preventDefault()
               if (cambiarEstado === 'NO_HABILITADO') {
-                const errorRazon = validateRazonInhabilitacion(cambiarMotivo)
+                // El espacio final que queda al terminar de escribir se recorta antes de validar.
+                const razon = cambiarMotivo.trim()
+                setCambiarMotivo(razon)
+                const errorRazon = validateRazonInhabilitacion(razon)
                 if (errorRazon) {
                   setMotivoError(errorRazon)
                   return
                 }
-                void applyEstado(cambio.ids, 'NO_HABILITADO', cambiarMotivo)
+                void applyEstado(cambio.ids, 'NO_HABILITADO', razon)
                 return
               }
               void applyEstado(cambio.ids, 'HABILITADO')
@@ -656,8 +659,12 @@ export default function EstudiantesHabilitadosTab({
                   aria-invalid={Boolean(motivoError)}
                   aria-describedby={motivoError ? 'cambiar-motivo-error' : undefined}
                   placeholder="Ej. Deuda en biblioteca"
-                  onChange={(e) => { setCambiarMotivo(sanearPegado(e.target.value)); if (motivoError) setMotivoError('') }}
-                  onBlur={() => { if (cambiarMotivo) setMotivoError(validateRazonInhabilitacion(cambiarMotivo) ?? '') }}
+                  onChange={(e) => { setCambiarMotivo(sanearRazon(e.target.value)); if (motivoError) setMotivoError('') }}
+                  onBlur={() => {
+                    const razon = cambiarMotivo.trim()
+                    setCambiarMotivo(razon)
+                    if (razon) setMotivoError(validateRazonInhabilitacion(razon) ?? '')
+                  }}
                   className={`mt-3 h-12 w-full rounded-xl border bg-white px-4 text-sm text-[#101828] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${motivoError ? 'border-red-400' : 'border-[#B8CBEF]'}`}
                 />
                 <div className="mt-1 flex justify-between gap-2 text-xs">

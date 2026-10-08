@@ -13,6 +13,10 @@ import java.util.Optional;
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     Optional<Usuario> findByEmail(String email);
 
+    boolean existsByCi(String ci);
+
+    boolean existsByCiAndIdNot(String ci, Integer id);
+
     @Query("""
             SELECT COUNT(u) > 0 FROM Usuario u
             WHERE u.email = :email AND LOWER(CAST(u.estado AS String)) = 'activo'

@@ -164,6 +164,11 @@ class HabilitacionServiceTests {
             "Deuda en biblioteca ",                        // espacio final
             "Deuda  en biblioteca",                        // espacios consecutivos
             "Deuda en biblioteca!",                        // carácter no permitido
+            "Deuda de credencial 2026",                    // números: solo palabras
+            "deuda en biblioteca",                         // no empieza con mayúscula
+            "Fsfasfsaf en caja",                           // letras al azar
+            "Deuda en qwerty",                             // letras al azar
+            "Jajajajaja ja",                               // repetición sin sentido
     })
     void razonInvalidaSeRechazaSinCambiarNada(String razon) {
         Estudiante ana = estudiante("Ana");
@@ -182,9 +187,9 @@ class HabilitacionServiceTests {
         habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
 
         List<EstudianteHabilitacionResponse> lista = habilitacionService.actualizar(EXAMEN, PARALELO,
-                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Daño de credencial 2026"));
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "Daño de credencial única"));
 
-        assertThat(lista).singleElement().satisfies(e -> assertThat(e.motivo()).isEqualTo("Daño de credencial 2026"));
+        assertThat(lista).singleElement().satisfies(e -> assertThat(e.motivo()).isEqualTo("Daño de credencial única"));
     }
 
     @Test

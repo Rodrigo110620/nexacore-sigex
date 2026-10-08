@@ -2,6 +2,8 @@ package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.dto.ImportarUsuariosResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
+import com.nexacore.examenes.exceptions.CiDuplicadoException;
+import com.nexacore.examenes.exceptions.CorreoNoEnviadoException;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
 import jakarta.validation.ConstraintViolation;
@@ -125,7 +127,8 @@ public class ImportacionUsuariosService {
         try {
             usuarioService.registrar(request);
             return null;
-        } catch (EmailDuplicadoException | RolInvalidoException | IllegalArgumentException e) {
+        } catch (EmailDuplicadoException | CiDuplicadoException | CorreoNoEnviadoException
+                 | RolInvalidoException | IllegalArgumentException e) {
             return e.getMessage();
         } catch (DataIntegrityViolationException e) {
             return "no se pudo guardar por una restricción de la base de datos.";
