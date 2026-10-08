@@ -80,6 +80,11 @@ describe('EstudiantesHabilitadosTab', () => {
 
   it('al escribir la razón deja solo palabras y pone mayúscula inicial', async () => {
     await renderTab()
+    // Sin respuesta el componente guardaría undefined como lista y fallaría al renderizar.
+    vi.mocked(habilitacionService.actualizarHabilitacion).mockResolvedValue([
+      { ...ana, estadoHabilitacion: 'NO_HABILITADO', motivo: 'Deuda en biblioteca' },
+      luis,
+    ])
     fireEvent.click(primero(screen.getAllByRole('button', { name: 'Cambiar' })))
     const dialogo = screen.getByRole('dialog', { name: 'Cambiar estado de habilitación' })
     fireEvent.click(within(dialogo).getByRole('radio', { name: 'No habilitado' }))
