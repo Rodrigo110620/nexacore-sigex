@@ -1,5 +1,8 @@
 import api from './api'
 
+/** ALFABETICO: cada uno sabe su aula antes. LLEGADA: se llena la primera aula con los que van llegando. */
+export type ModoReparto = 'ALFABETICO' | 'LLEGADA'
+
 export interface NormaParticularDto {
   estudiante: string
   texto: string
@@ -19,6 +22,7 @@ export interface CrearExamenPayload {
   idDocente?: number | null
   /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
   idAmbientesAdicionales?: number[]
+  modoReparto?: ModoReparto
 }
 
 /** Aula de un examen en el orden en que se llena (0 = principal). capacidad null: aforo sin registrar. */
@@ -48,6 +52,7 @@ export interface ExamenDto {
   idDocente?: number | null
   /** Aula principal y adicionales; puede faltar en respuestas antiguas. */
   aulas?: AulaExamenDto[]
+  modoReparto?: ModoReparto
 }
 
 export async function listarExamenes(): Promise<ExamenDto[]> {
@@ -75,6 +80,8 @@ export interface ActualizarExamenPayload {
   normasParticularesEliminadas?: NormaParticularDto[]
   /** Sin enviar, el examen conserva sus aulas adicionales. */
   idAmbientesAdicionales?: number[]
+  /** Sin enviar, el examen conserva su modo. */
+  modoReparto?: ModoReparto
 }
 
 export async function actualizarExamen(

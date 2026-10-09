@@ -41,15 +41,19 @@ export function examFieldClass(hasError?: string): string {
 }
 
 /** Pabellón, ubicación y aforo de un ambiente, en una línea. */
-export function detalleAmbiente(a: {
-  ubicacion?: string | null
-  pabellon?: string | null
-  capacidad?: number | null
-}): string {
+export function detalleAmbiente(
+  a: {
+    ubicacion?: string | null
+    pabellon?: string | null
+    capacidad?: number | null
+  },
+  /** El aforo solo importa al repartir en varias aulas; con una sola se muestra solo el aula. */
+  { conAforo = false }: { conAforo?: boolean } = {},
+): string {
   return [
     a.pabellon ? `Pabellón ${a.pabellon}` : null,
     a.ubicacion,
-    a.capacidad ? `Aforo ${a.capacidad}` : 'Aforo sin registrar',
+    conAforo ? (a.capacidad ? `Aforo ${a.capacidad}` : 'Aforo sin registrar') : null,
   ].filter(Boolean).join(' · ')
 }
 

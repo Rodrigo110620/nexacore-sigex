@@ -1,6 +1,7 @@
 import { CircleAlert, Users, X } from 'lucide-react'
 import { useId, useState } from 'react'
 import { actualizarAforo, type AmbienteDto } from '../../services/ambienteService'
+import type { ModoReparto } from '../../services/examenService'
 import FiltroDesplegable from '../ui/FiltroDesplegable'
 import { aulasSinAforo, MAX_AULAS_ADICIONALES } from '../../utils/examFormUtils'
 
@@ -14,14 +15,29 @@ interface AulasAdicionalesEditorProps {
   /** Solo ADMIN registra el aforo; el resto ve el aviso para pedírselo. */
   esAdmin: boolean
   onAforoGuardado: (ambiente: AmbienteDto) => void
+  modoReparto: ModoReparto
+  onModoRepartoChange: (modo: ModoReparto) => void
 }
+
+const MODOS: { valor: ModoReparto; titulo: string; detalle: string }[] = [
+  {
+    valor: 'ALFABETICO',
+    titulo: 'Por orden alfabético',
+    detalle: 'Cada estudiante sabe su aula antes del examen, según sus apellidos.',
+  },
+  {
+    valor: 'LLEGADA',
+    titulo: 'Por orden de llegada',
+    detalle: 'Se llena la primera aula con los que van llegando; cuando se completa, los siguientes van a la otra.',
+  },
+]
 
 /**
  * Aulas que se suman a la principal cuando los estudiantes no caben en una. Se llenan en el orden
  * de la lista, por orden alfabético de los estudiantes, hasta el aforo de cada una.
  */
 export default function AulasAdicionalesEditor({
-  ambientes, idPrincipal, value, onChange, esAdmin, onAforoGuardado,
+  ambientes, idPrincipal, value, onChange, esAdmin, onAforoGuardado, modoReparto, onModoRepartoChange,
 }: AulasAdicionalesEditorProps) {
   const id = useId()
   const [aforos, setAforos] = useState<Record<number, string>>({})
@@ -37,7 +53,7 @@ export default function AulasAdicionalesEditor({
   const aulas = [principal, ...elegidas]
   const opciones = ambientes
     .filter((a) => a.id !== principal.id && !value.includes(a.id) && a.disponible !== false)
-    .map((a) => ({ value: String(a.id), label: a.capacidad ? `${a.nombre} — Aforo ${a.capacidad}` : `${a.nombre} — Aforo sin registrar` }))
+    .map((a) => ({ value: String(a.id), label: a.nombre }))
   const total = aulas.reduce((suma, a) => suma + (a.capacidad ?? 0), 0)
   const hayVarias = elegidas.length > 0
 
@@ -119,8 +135,37 @@ export default function AulasAdicionalesEditor({
         {hayVarias && <span className="ml-auto text-[11px] text-[#45628D]">Capacidad total: {total} lugares</span>}
       </div>
       <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
-        Si los estudiantes no caben en una, agrega más aulas: se reparten por orden alfabético y se llenan en este orden.
+        Si los estudiantes no caben en una, agrega más aulas: se llenan en este orden, cada una hasta su aforo.
       </p>
+
+      {hayVarias && (
+        <fieldset className="mt-2">
+          <legend className="text-[11px] font-semibold text-[#011140]">¿Cómo se reparten los estudiantes?</legend>
+          <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+            {MODOS.map((m) => (
+              <label
+                key={m.valor}
+                className={`flex cursor-pointer gap-2 rounded-lg border px-3 py-2 ${
+                  modoReparto === m.valor ? 'border-[#0439D9] bg-[#E9F1FF]' : 'border-[#D8E3F5] bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={`${id}-modo`}
+                  value={m.valor}
+                  checked={modoReparto === m.valor}
+                  onChange={() => onModoRepartoChange(m.valor)}
+                  className="mt-0.5 accent-[#0439D9]"
+                />
+                <span>
+                  <span className="block text-xs font-semibold text-[#011140]">{m.titulo}</span>
+                  <span className="block text-[10px] leading-snug text-[#627A9B]">{m.detalle}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {hayVarias && <ol className="mt-2 space-y-1.5">{aulas.map(filaAula)}</ol>}
       {hayVarias && aulasSinAforo(ambientes, idPrincipal, value).length > 0 && (

@@ -23,7 +23,7 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
-import { crearExamen } from '../../services/examenService'
+import { crearExamen, type ModoReparto } from '../../services/examenService'
 import { getEstudiantes } from '../../services/estudianteService'
 import {
   detalleAmbiente,
@@ -102,6 +102,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
   const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -243,6 +244,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setNuevoAmbienteNombre('')
     setAmbienteError('')
     setAulasAdicionales([])
+    setModoReparto('ALFABETICO')
     setEditingGeneralId(null)
     setEditingParticularId(null)
     submittingRef.current = false
@@ -368,6 +370,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         idMateria,
         idDocente,
         idAmbientesAdicionales: adicionalesVigentes,
+        modoReparto,
       })
       setSuccess(true)
       onSuccess?.()
@@ -768,7 +771,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
                       }
                       placeholder={
                         loadingAmbientes
@@ -876,6 +879,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   value={adicionalesVigentes}
                   onChange={(ids) => { setAulasAdicionales(ids); setDirty(true) }}
                   esAdmin={esAdmin}
+                  modoReparto={modoReparto}
+                  onModoRepartoChange={(modo) => { setModoReparto(modo); setDirty(true) }}
                   onAforoGuardado={(actualizado) => setAmbientes((prev) => prev.map((a) => (
                     a.id === actualizado.id ? { ...a, capacidad: actualizado.capacidad } : a
                   )))}
@@ -908,8 +913,10 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   {
                     label: 'Ambiente',
                     value: ambienteSeleccionado
-                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
-                        + (nombresAdicionales ? ` · también ${nombresAdicionales}` : '')
+                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
+                        + (nombresAdicionales
+                          ? ` · también ${nombresAdicionales} (${modoReparto === 'LLEGADA' ? 'por orden de llegada' : 'por orden alfabético'})`
+                          : '')
                       : '',
                     paso: 2 as Step,
                   },

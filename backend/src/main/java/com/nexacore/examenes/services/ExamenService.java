@@ -162,6 +162,7 @@ public class ExamenService {
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
         examen.setEstado("programado");
+        examen.setModoReparto(modoReparto(request.modoReparto(), Examen.MODO_ALFABETICO));
         validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), NormasGuardadas.VACIAS, null);
         examen.setNormas(serializarNormas(new NormasGuardadas(
                 listaSegura(request.normasGenerales()), listaSegura(request.normasParticulares()),
@@ -226,6 +227,7 @@ public class ExamenService {
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
         examen.setNormas(normas);
+        examen.setModoReparto(modoReparto(request.modoReparto(), examen.getModoReparto()));
 
         Examen guardado = examenRepository.save(examen);
         guardarAulasAdicionales(idExamen, adicionales);
@@ -316,6 +318,18 @@ public class ExamenService {
     }
 
     static final int MAX_AULAS_ADICIONALES = 9;
+
+    /** ALFABETICO o LLEGADA; null deja el valor por defecto (al crear) o el que ya tenía (al editar). */
+    private static String modoReparto(String valor, String porDefecto) {
+        if (valor == null || valor.isBlank()) {
+            return porDefecto == null ? Examen.MODO_ALFABETICO : porDefecto;
+        }
+        String modo = valor.trim().toUpperCase(Locale.ROOT);
+        if (!modo.equals(Examen.MODO_ALFABETICO) && !modo.equals(Examen.MODO_LLEGADA)) {
+            throw new IllegalArgumentException("El reparto debe ser por orden alfabético o por orden de llegada.");
+        }
+        return modo;
+    }
 
     /**
      * Aulas que se suman a la principal, en el orden recibido. No pueden repetirse ni estar ocupadas
@@ -742,6 +756,7 @@ public class ExamenService {
         datos.put("duracionMinutos", examen.getDuracionMinutos());
         datos.put("estado", examen.getEstado());
         datos.put("normas", examen.getNormas());
+        datos.put("modoReparto", examen.getModoReparto());
         return datos;
     }
 
@@ -846,6 +861,7 @@ public class ExamenService {
                 particulares,
                 examen.getIdMateria(),
                 examen.getIdDocente(),
-                aulas);
+                aulas,
+                examen.getModoReparto());
     }
 }

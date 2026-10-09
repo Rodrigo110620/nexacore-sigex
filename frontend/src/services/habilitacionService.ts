@@ -30,6 +30,8 @@ export interface OcupacionAulaDto {
 export interface RepartoAulasDto {
   aulas: OcupacionAulaDto[]
   sinAula: number
+  /** ALFABETICO: asignados = quienes van a cada aula. LLEGADA: asignados = quienes ya ingresaron. */
+  modo?: 'ALFABETICO' | 'LLEGADA'
 }
 
 export interface ActualizarHabilitacionPayload {

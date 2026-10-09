@@ -108,7 +108,7 @@ public class HabilitacionService {
                 .map(a -> new RepartoAulasResponse.OcupacionAula(a.idAmbiente(), a.nombre(), a.capacidad(), a.orden(),
                         reparto.asignados().getOrDefault(a.idAmbiente(), 0)))
                 .toList();
-        return new RepartoAulasResponse(aulas, reparto.sinAula().size());
+        return new RepartoAulasResponse(aulas, reparto.sinAula().size(), examen.getModoReparto());
     }
 
     private boolean esDelDocenteActual(Examen examen) {

@@ -22,7 +22,7 @@ import {
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { useAuth } from '../../context/AuthContext'
 import AulasAdicionalesEditor from './AulasAdicionalesEditor'
-import { actualizarExamen, type ExamenDto } from '../../services/examenService'
+import { actualizarExamen, type ExamenDto, type ModoReparto } from '../../services/examenService'
 import { listarEstudiantesExamen, type EstudianteHabilitacionDto } from '../../services/habilitacionService'
 import {
   detalleAmbiente,
@@ -106,6 +106,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
   const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([])
   const [normasParticulares, setNormasParticulares] = useState<NormaParticular[]>([])
   const [nuevaNormaGeneral, setNuevaNormaGeneral] = useState('')
@@ -152,6 +153,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       })
       setAmbienteFilter(examen.ambienteNombre ?? '')
       setAulasAdicionales((examen.aulas ?? []).filter((a) => a.orden > 0).map((a) => a.idAmbiente))
+      setModoReparto(examen.modoReparto ?? 'ALFABETICO')
       setNormasGenerales(
         (examen.normasGenerales ?? []).map((t, i) => ({ id: `ng-${i}`, texto: t })),
       )
@@ -356,6 +358,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
           idEstudiante: n.idEstudiante ?? null,
         })),
         idAmbientesAdicionales: adicionalesVigentes,
+        modoReparto,
       })
       setSuccess(true)
       setDirty(false)
@@ -673,7 +676,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
                       }
                       placeholder={loadingAmbientes ? 'Cargando…' : 'Buscar aula…'}
                       onFocus={() => {
@@ -749,6 +752,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   value={adicionalesVigentes}
                   onChange={(ids) => { setAulasAdicionales(ids); setDirty(true) }}
                   esAdmin={esAdmin}
+                  modoReparto={modoReparto}
+                  onModoRepartoChange={(modo) => { setModoReparto(modo); setDirty(true) }}
                   onAforoGuardado={(actualizado) => setAmbientes((prev) => prev.map((a) => (
                     a.id === actualizado.id ? { ...a, capacidad: actualizado.capacidad } : a
                   )))}

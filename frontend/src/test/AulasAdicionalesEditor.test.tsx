@@ -17,6 +17,7 @@ const AMBIENTES: AmbienteDto[] = [
 function renderEditor(props: Partial<Parameters<typeof AulasAdicionalesEditor>[0]> = {}) {
   const onChange = vi.fn()
   const onAforoGuardado = vi.fn()
+  const onModoRepartoChange = vi.fn()
   render(
     <AulasAdicionalesEditor
       ambientes={AMBIENTES}
@@ -25,10 +26,12 @@ function renderEditor(props: Partial<Parameters<typeof AulasAdicionalesEditor>[0
       onChange={onChange}
       esAdmin
       onAforoGuardado={onAforoGuardado}
+      modoReparto="ALFABETICO"
+      onModoRepartoChange={onModoRepartoChange}
       {...props}
     />,
   )
-  return { onChange, onAforoGuardado }
+  return { onChange, onAforoGuardado, onModoRepartoChange }
 }
 
 describe('AulasAdicionalesEditor', () => {
@@ -47,7 +50,7 @@ describe('AulasAdicionalesEditor', () => {
 
     expect(screen.queryByRole('option', { name: /692A/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /690B/ })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: '691A — Aforo 30' }))
+    fireEvent.click(screen.getByRole('option', { name: '691A' }))
 
     expect(onChange).toHaveBeenCalledWith([2])
   })
@@ -74,6 +77,22 @@ describe('AulasAdicionalesEditor', () => {
     renderEditor({ value: [3], esAdmin: false })
     expect(screen.getByText('Pide al administrador que registre el aforo de esta aula.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Guardar aforo' })).not.toBeInTheDocument()
+  })
+
+  it('con una sola aula no muestra aforos ni pregunta cómo repartir', () => {
+    renderEditor()
+    expect(screen.queryByText('¿Cómo se reparten los estudiantes?')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Aforo/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Capacidad total/)).not.toBeInTheDocument()
+  })
+
+  it('con varias aulas permite elegir reparto por orden de llegada', () => {
+    const { onModoRepartoChange } = renderEditor({ value: [2] })
+    expect(screen.getByRole('radio', { name: /Por orden alfabético/ })).toBeChecked()
+
+    fireEvent.click(screen.getByRole('radio', { name: /Por orden de llegada/ }))
+
+    expect(onModoRepartoChange).toHaveBeenCalledWith('LLEGADA')
   })
 
   it('aulasSinAforo solo exige aforo cuando hay varias aulas', () => {
