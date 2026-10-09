@@ -47,6 +47,7 @@ import {
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
   aulasSinAforo,
+  aulasAdicionalesOcupadas,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
@@ -236,7 +237,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     const handle = window.setTimeout(() => {
       setLoadingAmbientes(true)
       listarAmbientes()
-        .then((data) => { if (!cancelled) setAmbientes(data) })
+        // Si la disponibilidad ya llegó, no la pisa con la lista sin "Ocupado".
+        .then((data) => { if (!cancelled) setAmbientes((prev) => (prev.some((a) => a.disponible !== undefined) ? prev : data)) })
         .catch(() => { if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.') })
         .finally(() => { if (!cancelled) setLoadingAmbientes(false) })
     }, 0)
@@ -326,6 +328,13 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     }
     const dur = minutesBetween(form.horaInicio, form.horaFin)
     if (dur === null) { setGeneralError('La hora de fin debe ser posterior al inicio.'); return }
+    const ocupadas = aulasAdicionalesOcupadas(ambientes, adicionalesVigentes)
+    if (ocupadas.length > 0) {
+      setGeneralError(`${ocupadas.length === 1 ? 'El aula' : 'Las aulas'} ${ocupadas.join(', ')} ${
+        ocupadas.length === 1 ? 'está ocupada' : 'están ocupadas'
+      } en ese horario. Quítala del examen o cambia el horario.`)
+      return
+    }
     const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
     if (sinAforo.length > 0) {
       setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
@@ -676,7 +685,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
                       }
                       placeholder={loadingAmbientes ? 'Cargando…' : 'Buscar aula…'}
                       onFocus={() => {

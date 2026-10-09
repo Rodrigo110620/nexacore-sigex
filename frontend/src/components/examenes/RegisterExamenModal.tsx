@@ -47,6 +47,7 @@ import {
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
   aulasSinAforo,
+  aulasAdicionalesOcupadas,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
@@ -165,7 +166,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       setGeneralError('')
       listarAmbientes()
         .then((data) => {
-          if (!cancelled) setAmbientes(data)
+          // Si la disponibilidad ya llegó, no la pisa con la lista sin "Ocupado".
+          if (!cancelled) setAmbientes((prev) => (prev.some((a) => a.disponible !== undefined) ? prev : data))
         })
         .catch(() => {
           if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
@@ -344,6 +346,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       return
     }
 
+    const ocupadas = aulasAdicionalesOcupadas(ambientes, adicionalesVigentes)
+    if (ocupadas.length > 0) {
+      setGeneralError(`${ocupadas.length === 1 ? 'El aula' : 'Las aulas'} ${ocupadas.join(', ')} ${
+        ocupadas.length === 1 ? 'está ocupada' : 'están ocupadas'
+      } en ese horario. Quítala del examen o cambia el horario.`)
+      return
+    }
     const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
     if (sinAforo.length > 0) {
       setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
@@ -765,7 +774,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
                       }
                       placeholder={
                         loadingAmbientes
@@ -907,7 +916,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   {
                     label: 'Ambiente',
                     value: ambienteSeleccionado
-                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
+                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
                         + (nombresAdicionales
                           ? ` · también ${nombresAdicionales} (${modoReparto === 'LLEGADA' ? 'por orden de llegada' : 'por orden alfabético'})`
                           : '')

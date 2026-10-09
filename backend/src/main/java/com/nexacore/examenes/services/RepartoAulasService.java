@@ -26,7 +26,7 @@ import java.util.Map;
  *   <li>LLEGADA: nadie tiene aula de antemano; al ingresar se le asigna la primera aula con lugar.
  *       Cada estudiante queda en el aula donde ingresó (asistencia_examen.id_ambiente_ingreso).</li>
  * </ul>
- * Con una sola aula sin aforo registrado, entran todos.
+ * Con una sola aula entran todos, tenga o no aforo guardado: el aforo solo sirve para pasar a la siguiente.
  */
 @Service
 public class RepartoAulasService {
@@ -150,12 +150,13 @@ public class RepartoAulasService {
         Map<Integer, Integer> asignados = new LinkedHashMap<>();
         aulas.forEach(a -> asignados.put(a.idAmbiente(), 0));
         List<Integer> sinAula = new ArrayList<>();
-        boolean unicaSinAforo = aulas.size() == 1 && aulas.get(0).capacidad() == null;
+        // Con una sola aula no hay a dónde pasar: entran todos aunque tenga aforo guardado.
+        boolean unica = aulas.size() == 1;
 
         int indiceAula = 0;
         for (Candidato c : ordenados) {
             // Con varias aulas, una sin aforo no recibe a nadie: no se sabe cuántos caben.
-            while (indiceAula < aulas.size() && !unicaSinAforo
+            while (indiceAula < aulas.size() && !unica
                     && asignados.get(aulas.get(indiceAula).idAmbiente()) >= cupo(aulas.get(indiceAula))) {
                 indiceAula++;
             }

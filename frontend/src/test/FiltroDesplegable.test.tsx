@@ -78,4 +78,14 @@ describe('FiltroDesplegable', () => {
     fireEvent.click(screen.getByLabelText('Carrera'))
     expect(screen.queryByPlaceholderText('Buscar…')).not.toBeInTheDocument()
   })
+
+  it('una opción deshabilitada se ve con su motivo y no se puede elegir', () => {
+    render(<Filtro opciones={[{ value: '1', label: '692A', deshabilitada: 'Ocupada' }, { value: '2', label: '691A' }]} />)
+    fireEvent.click(screen.getByLabelText('Carrera'))
+    const ocupada = screen.getByRole('option', { name: /692A/ })
+
+    expect(ocupada).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(ocupada)
+    expect(screen.getByText('ninguna')).toBeInTheDocument()
+  })
 })

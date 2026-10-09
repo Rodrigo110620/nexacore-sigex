@@ -8,6 +8,8 @@ export interface OpcionDesplegable {
   label: string
   /** Encabezado bajo el que se agrupa la opción (p. ej. la facultad de una carrera). */
   grupo?: string
+  /** Se muestra en gris con este motivo (p. ej. "Ocupada") y no se puede elegir. */
+  deshabilitada?: string
 }
 
 interface FiltroDesplegableProps {
@@ -96,6 +98,7 @@ export default function FiltroDesplegable({
   }
 
   const seleccionar = (opcion: OpcionDesplegable) => {
+    if (opcion.deshabilitada) return
     onChange(opcion.value)
     cerrar(true)
   }
@@ -228,14 +231,22 @@ export default function FiltroDesplegable({
                     id={`${listaId}-${i}`}
                     role="option"
                     aria-selected={elegida}
+                    aria-disabled={opcion.deshabilitada ? true : undefined}
                     onMouseEnter={() => setActivo(i)}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => seleccionar(opcion)}
-                    className={`flex cursor-pointer items-start gap-2 px-3 py-2 text-sm leading-snug ${
-                      i === activo ? 'bg-[#E9F1FF]' : ''
-                    } ${elegida ? 'font-semibold text-[#0439D9]' : 'text-[#011140]'} ${opcion.grupo ? 'pl-5' : ''}`}
+                    className={`flex items-start gap-2 px-3 py-2 text-sm leading-snug ${
+                      opcion.deshabilitada ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer'
+                    } ${i === activo && !opcion.deshabilitada ? 'bg-[#E9F1FF]' : ''} ${
+                      opcion.deshabilitada ? '' : elegida ? 'font-semibold text-[#0439D9]' : 'text-[#011140]'
+                    } ${opcion.grupo ? 'pl-5' : ''}`}
                   >
                     <span className="min-w-0 flex-1 whitespace-normal break-words">{opcion.label}</span>
+                    {opcion.deshabilitada && (
+                      <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                        {opcion.deshabilitada}
+                      </span>
+                    )}
                     {elegida && <Check aria-hidden="true" size={15} className="mt-0.5 shrink-0" />}
                   </div>
                 </div>
