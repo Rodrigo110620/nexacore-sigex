@@ -24,6 +24,13 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
     /** id_examen es único por sí solo (uq_id_examen), aunque la PK incluya id_paralelo. */
     boolean existsByIdIdExamen(Integer idExamen);
 
+    /** Exámenes vigentes (no cancelados) de una fecha, para calcular la disponibilidad de todas las aulas. */
+    @Query("""
+            SELECT e FROM Examen e
+            WHERE e.fecha = :fecha AND COALESCE(e.estado, 'programado') <> 'cancelado'
+            """)
+    List<Examen> findVigentesEnFecha(@Param("fecha") LocalDate fecha);
+
     /**
      * Exámenes vigentes que ocupan el ambiente en la fecha, como aula principal o adicional;
      * los cancelados ya no lo ocupan.
@@ -40,13 +47,4 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
             @Param("idAmbiente") Integer idAmbiente,
             @Param("fecha") LocalDate fecha);
 
-    /** Exámenes vigentes del docente en la fecha, para no asignarle dos a la misma hora. */
-    @Query("""
-            SELECT e FROM Examen e
-            WHERE e.idDocente = :idDocente AND e.fecha = :fecha
-              AND COALESCE(e.estado, 'programado') <> 'cancelado'
-            """)
-    List<Examen> findByDocenteAndFecha(
-            @Param("idDocente") Integer idDocente,
-            @Param("fecha") LocalDate fecha);
 }
