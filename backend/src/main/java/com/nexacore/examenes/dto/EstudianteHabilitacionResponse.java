@@ -12,7 +12,9 @@ public record EstudianteHabilitacionResponse(
         String ci,
         String facultad,
         EstadoHabilitacion estadoHabilitacion,
-        String motivo
+        String motivo,
+        /** Aula que le toca por orden alfabético y aforo; null si no entra o no rinde. */
+        String aula
 ) {
     /** Refleja asistencia_examen.habilitado: true → HABILITADO; false → NO_HABILITADO; null → PENDIENTE. */
     public enum EstadoHabilitacion { PENDIENTE, HABILITADO, NO_HABILITADO }

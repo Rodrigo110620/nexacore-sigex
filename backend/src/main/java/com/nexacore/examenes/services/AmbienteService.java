@@ -61,6 +61,14 @@ public class AmbienteService {
         }
     }
 
+    @Transactional
+    public AmbienteResponse actualizarAforo(Integer id, Integer capacidad) {
+        Ambiente ambiente = ambienteRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
+        ambiente.setCapacidad(capacidad);
+        return toResponse(ambienteRepository.save(ambiente));
+    }
+
     private AmbienteResponse toResponse(Ambiente ambiente) {
         return new AmbienteResponse(ambiente.getId(), ambiente.getNombre(), ambiente.getUbicacion(),
                 ambiente.getCapacidad(), ambiente.getPabellon());

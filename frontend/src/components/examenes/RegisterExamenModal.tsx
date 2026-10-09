@@ -46,9 +46,11 @@ import {
   filtrarAmbientes,
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
+  aulasSinAforo,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
+import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
@@ -99,6 +101,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
+  const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -197,6 +200,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
+  // Si el aula principal pasa a ser una de las adicionales, deja de contarse dos veces.
+  const adicionalesVigentes = aulasAdicionales.filter((idAula) => String(idAula) !== form.idAmbiente)
+  const nombresAdicionales = adicionalesVigentes
+    .map((idAula) => ambientes.find((a) => a.id === idAula)?.nombre)
+    .filter(Boolean)
+    .join(', ')
   const horarioCompleto = Boolean(form.fecha && form.horaInicio && form.horaFin && duracion !== null)
   const ambienteOcupado = horarioCompleto && ambienteSeleccionado?.disponible === false
   const sinSolapamientoUi = horarioCompleto && ambienteSeleccionado?.disponible === true
@@ -233,6 +242,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setNuevaParticularTexto('')
     setNuevoAmbienteNombre('')
     setAmbienteError('')
+    setAulasAdicionales([])
     setEditingGeneralId(null)
     setEditingParticularId(null)
     submittingRef.current = false
@@ -332,6 +342,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       return
     }
 
+    const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
+    if (sinAforo.length > 0) {
+      setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
+      return
+    }
+
     submittingRef.current = true
     setSaving(true)
     setGeneralError('')
@@ -351,6 +367,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         })),
         idMateria,
         idDocente,
+        idAmbientesAdicionales: adicionalesVigentes,
       })
       setSuccess(true)
       onSuccess?.()
@@ -853,6 +870,16 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
                   </p>
                 )}
+                <AulasAdicionalesEditor
+                  ambientes={ambientes}
+                  idPrincipal={form.idAmbiente}
+                  value={adicionalesVigentes}
+                  onChange={(ids) => { setAulasAdicionales(ids); setDirty(true) }}
+                  esAdmin={esAdmin}
+                  onAforoGuardado={(actualizado) => setAmbientes((prev) => prev.map((a) => (
+                    a.id === actualizado.id ? { ...a, capacidad: actualizado.capacidad } : a
+                  )))}
+                />
               </div>
             </section>
             </>
@@ -882,6 +909,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     label: 'Ambiente',
                     value: ambienteSeleccionado
                       ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                        + (nombresAdicionales ? ` · también ${nombresAdicionales}` : '')
                       : '',
                     paso: 2 as Step,
                   },

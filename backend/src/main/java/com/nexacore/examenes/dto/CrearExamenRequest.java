@@ -34,5 +34,15 @@ public record CrearExamenRequest(
 
         Integer idMateria,
 
-        Integer idDocente
-) {}
+        Integer idDocente,
+
+        /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
+        List<Integer> idAmbientesAdicionales
+) {
+    public CrearExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                              Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                              List<NormaParticularRequest> normasParticulares, Integer idMateria, Integer idDocente) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, null);
+    }
+}

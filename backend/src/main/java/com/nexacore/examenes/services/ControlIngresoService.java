@@ -11,6 +11,7 @@ import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.CatalogoIncidencia;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
@@ -37,6 +38,8 @@ public class ControlIngresoService {
     private final RegistroControlIngresoRepository registroRepository;
     private final ObjectMapper objectMapper;
 
+    private final RepartoAulasService repartoAulasService;
+
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
             CatalogoIncidenciaRepository catalogoRepository,
@@ -44,7 +47,8 @@ public class ControlIngresoService {
             UsuarioRepository usuarioRepository,
             EstudianteRepository estudianteRepository,
             RegistroControlIngresoRepository registroRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            RepartoAulasService repartoAulasService) {
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
         this.incidenciaRepository = incidenciaRepository;
@@ -52,6 +56,7 @@ public class ControlIngresoService {
         this.estudianteRepository = estudianteRepository;
         this.registroRepository = registroRepository;
         this.objectMapper = objectMapper;
+        this.repartoAulasService = repartoAulasService;
     }
 
     @Transactional
@@ -92,8 +97,9 @@ public class ControlIngresoService {
                     "Confirma la verificación de identidad antes de autorizar");
         }
 
+        Integer idAula = aulaDelEstudiante(asistencia);
         int actualizados = asistenciaRepository.autorizarConFechaServidor(
-                request.idEstudiante(), request.idExamen(), asistencia.getExamen().getIdAmbiente(),
+                request.idEstudiante(), request.idExamen(), idAula,
                 control.getId(), limpiar(request.observaciones()));
         if (actualizados != 1) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
@@ -105,7 +111,7 @@ public class ControlIngresoService {
         }
         LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraIngreso(request.idEstudiante(), request.idExamen());
         asistencia.setFechaHoraIngreso(ahora);
-        asistencia.setIdAmbienteIngreso(asistencia.getExamen().getIdAmbiente());
+        asistencia.setIdAmbienteIngreso(idAula);
         asistencia.setIdUsuarioControl(control.getId());
         asistencia.setObservacionesControl(limpiar(request.observaciones()));
 
@@ -114,6 +120,18 @@ public class ControlIngresoService {
         guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size());
+    }
+
+    /**
+     * Aula que le toca al estudiante según el reparto alfabético; si no entra en ninguna
+     * (aforo insuficiente), se registra la principal para no perder el ingreso.
+     */
+    private Integer aulaDelEstudiante(AsistenciaExamen asistencia) {
+        Examen examen = asistencia.getExamen();
+        RepartoAulasService.Aula aula = repartoAulasService.repartir(examen,
+                asistenciaRepository.listarDelExamen(asistencia.getId().getIdExamen(), asistencia.getIdParalelo()))
+                .aulaDe(asistencia.getId().getIdEstudiante());
+        return aula != null ? aula.idAmbiente() : examen.getIdAmbiente();
     }
 
     @Transactional

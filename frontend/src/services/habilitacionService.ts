@@ -13,6 +13,23 @@ export interface EstudianteHabilitacionDto {
   facultad: string
   estadoHabilitacion: EstadoHabilitacion
   motivo: string | null
+  /** Aula que le toca por orden alfabético y aforo; null si no entra o no rinde. */
+  aula?: string | null
+}
+
+export interface OcupacionAulaDto {
+  idAmbiente: number
+  nombre: string
+  /** null: aforo sin registrar (con una sola aula entran todos). */
+  capacidad: number | null
+  orden: number
+  asignados: number
+}
+
+/** sinAula: estudiantes que rinden y no entran en el aforo de las aulas del examen. */
+export interface RepartoAulasDto {
+  aulas: OcupacionAulaDto[]
+  sinAula: number
 }
 
 export interface ActualizarHabilitacionPayload {
@@ -30,6 +47,11 @@ export async function listarEstudiantesExamen(
   idParalelo: number,
 ): Promise<EstudianteHabilitacionDto[]> {
   const { data } = await api.get<EstudianteHabilitacionDto[]>(basePath(idExamen, idParalelo))
+  return data
+}
+
+export async function obtenerRepartoAulas(idExamen: number, idParalelo: number): Promise<RepartoAulasDto> {
+  const { data } = await api.get<RepartoAulasDto>(`${basePath(idExamen, idParalelo)}/aulas`)
   return data
 }
 
