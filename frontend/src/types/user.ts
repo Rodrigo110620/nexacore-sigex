@@ -27,4 +27,7 @@ export interface UserListItem {
   ci: string
   rol: UserRole
   estado: UserStatus
+  titulo?: string | null
+  /** Fin del bloqueo por intentos fallidos (ISO), o null si no está bloqueado. */
+  bloqueadoHasta?: string | null
 }

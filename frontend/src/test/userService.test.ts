@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getUsers } from '../services/userService'
+import { cambiarEstadoUsuario, exportarUsuarios, getUsers, importarUsuarios } from '../services/userService'
 import api from '../services/api'
 import type { UserListPage } from '../types/userApi'
 
@@ -117,5 +117,52 @@ describe('userService — getUsers', () => {
       },
       signal: controller.signal,
     })
+  })
+})
+
+describe('userService — exportar y cambiar estado', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('exporta pidiendo un blob con solo los filtros que tienen valor', async () => {
+    mockedApi.get = vi.fn().mockResolvedValue({ data: new Blob(['id;nombre']) })
+    const createObjectURL = vi.fn(() => 'blob:usuarios')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    await exportarUsuarios({ search: '  ana ', rol: '', estado: 'activo' })
+
+    expect(mockedApi.get).toHaveBeenCalledWith('/usuarios/exportar.csv', {
+      params: { search: 'ana', estado: 'activo' },
+      responseType: 'blob',
+    })
+    expect(click).toHaveBeenCalled()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:usuarios')
+    click.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('importa enviando el archivo como multipart con un timeout amplio', async () => {
+    mockedApi.post = vi.fn().mockResolvedValue({ data: { insertados: 1, ignorados: 0, errores: [] } })
+    const archivo = new File(['nombre,apellidos,ci,email,rol\n'], 'usuarios.csv', { type: 'text/csv' })
+
+    const resultado = await importarUsuarios(archivo)
+
+    const [url, cuerpo, config] = vi.mocked(mockedApi.post).mock.calls[0]
+    expect(url).toBe('/usuarios/importar')
+    expect((cuerpo as FormData).get('file')).toBe(archivo)
+    expect(config).toMatchObject({ headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 })
+    expect(resultado.insertados).toBe(1)
+  })
+
+  it('cambia el estado con PATCH /usuarios/{id}/estado', async () => {
+    mockedApi.patch = vi.fn().mockResolvedValue({ data: { ...responseData.contenido[0], estado: 'inactivo' } })
+
+    const usuario = await cambiarEstadoUsuario(1, false)
+
+    expect(mockedApi.patch).toHaveBeenCalledWith('/usuarios/1/estado', { activo: false })
+    expect(usuario.estado).toBe('inactivo')
   })
 })

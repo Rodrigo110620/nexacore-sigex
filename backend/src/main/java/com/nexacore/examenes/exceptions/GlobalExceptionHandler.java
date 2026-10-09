@@ -2,6 +2,7 @@ package com.nexacore.examenes.exceptions;
 
 import com.nexacore.examenes.dto.ErrorResponse;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -18,11 +19,18 @@ import java.util.Map;
  *
  * 400 Bad Request  -> validaciones fallidas o cuerpo JSON ausente/malformado
  * 401 Unauthorized -> credenciales incorrectas o cuenta inactiva
+ * 423 Locked       -> cuenta bloqueada temporalmente por intentos fallidos
  *
  * Tarea B4 - Sprint 1.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ControlIngresoException.class)
+    public ResponseEntity<ErrorResponse> manejarControlIngreso(ControlIngresoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(ex.getStatus().value(), ex.getMessage());
+        return ResponseEntity.status(ex.getStatus()).body(cuerpo);
+    }
 
     /** Falla alguna anotacion de validacion del LoginRequest. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -73,13 +81,50 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(cuerpo);
     }
 
-    /** Email ya registrado en la base de datos (HU#2). */
+    /** Cuenta bloqueada temporalmente por intentos fallidos consecutivos. */
+    @ExceptionHandler(CuentaBloqueadaException.class)
+    public ResponseEntity<ErrorResponse> manejarCuentaBloqueada(CuentaBloqueadaException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.LOCKED.value(),
+                ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.LOCKED).body(cuerpo);
+    }
+
+    /** El usuario de la ruta no existe. */
+    @ExceptionHandler(UsuarioNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarUsuarioNoEncontrado(UsuarioNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
+    }
+
+    /** Email ya registrado en la base de datos. */
     @ExceptionHandler(EmailDuplicadoException.class)
     public ResponseEntity<ErrorResponse> manejarEmailDuplicado(EmailDuplicadoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 ex.getMessage());
 
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    @ExceptionHandler(CiDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarCiDuplicado(CiDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    @ExceptionHandler(CorreoNoEnviadoException.class)
+    public ResponseEntity<ErrorResponse> manejarCorreoNoEnviado(CorreoNoEnviadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(cuerpo);
+    }
+
+    @ExceptionHandler(EstudianteDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarEstudianteDuplicado(EstudianteDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
@@ -93,7 +138,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
-    /** Rol enviado no existe o no esta permitido (HU#2). */
+    /** Ambiente (aula) con nombre ya existente. */
+    @ExceptionHandler(AmbienteDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> manejarAmbienteDuplicado(AmbienteDuplicadoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    /** Conflicto al registrar o editar un examen: ambiente o docente ocupados, cambio de paralelo bloqueado. */
+    @ExceptionHandler(ConflictoExamenException.class)
+    public ResponseEntity<ErrorResponse> manejarConflictoExamen(ConflictoExamenException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
+    }
+
+    /** Rol enviado no existe o no esta permitido. */
     @ExceptionHandler(RolInvalidoException.class)
     public ResponseEntity<ErrorResponse> manejarRolInvalido(RolInvalidoException ex) {
         ErrorResponse cuerpo = new ErrorResponse(
@@ -101,6 +164,24 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
 
         return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** El examen de la ruta no existe. */
+    @ExceptionHandler(ExamenNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarExamenNoEncontrado(ExamenNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
+    }
+
+    /** Ningún estudiante tiene el código universitario o CI buscado (ACCS-01). */
+    @ExceptionHandler(EstudianteNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> manejarEstudianteNoEncontrado(EstudianteNoEncontradoException ex) {
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cuerpo);
     }
 
     /** Contraseña actual incorrecta al cambiarla. */
@@ -137,6 +218,22 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage());
         return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /** FK u otra restricción de BD (p. ej. docente con exámenes asignados). */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> manejarIntegridad(DataIntegrityViolationException ex) {
+        String detalle = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : "";
+        String mensaje;
+        if (detalle != null && detalle.contains("fk_paralelo_docente")) {
+            mensaje = "No se puede quitar el rol DOCENTE porque este usuario tiene exámenes o paralelos asignados.";
+        } else {
+            mensaje = "No se pudo guardar el cambio porque hay datos relacionados que lo impiden.";
+        }
+        ErrorResponse cuerpo = new ErrorResponse(HttpStatus.CONFLICT.value(), mensaje);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(cuerpo);
     }
 
     /** Usuario autenticado pero sin permisos suficientes (403). */

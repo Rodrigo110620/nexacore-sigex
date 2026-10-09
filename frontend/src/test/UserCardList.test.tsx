@@ -55,21 +55,32 @@ describe('UserCardList', () => {
     expect(avatar).toHaveClass(...getUserAvatarPalette(users[0]).split(' '))
   })
 
-  it('habilita editar cuando hay callback y mantiene bloquear deshabilitado', () => {
+  it('habilita editar y bloquear/desbloquear según el estado de cada cuenta', () => {
     const onEditClick = vi.fn()
-    render(<UserCardList users={users} onEditClick={onEditClick} />)
+    const onToggleBlockClick = vi.fn()
+    render(<UserCardList users={users} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />)
 
     const list = screen.getByRole('list', { name: '4 usuarios visibles' })
     expect(within(list).getAllByRole('button', { name: /^Editar a/ })).toHaveLength(4)
-    expect(within(list).getAllByRole('button', { name: /Bloquear a/ })).toHaveLength(4)
-    users.forEach((user) => {
-      const fullName = `${user.nombre} ${user.apellidos}`
-      expect(screen.getByRole('button', { name: `Editar a ${fullName}` })).toBeEnabled()
-      expect(screen.getByRole('button', { name: `Bloquear a ${fullName}, no disponible` })).toBeDisabled()
-    })
+    expect(within(list).getAllByRole('button', { name: /^Bloquear a/ })).toHaveLength(2)
+    expect(within(list).getAllByRole('button', { name: /^Desbloquear a/ })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Bloquear a Ana Rojas Vidal' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Desbloquear a Bruno Flores Paz' })).toBeEnabled()
+    expect(within(list).queryByRole('button', { name: /Más acciones/ })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Editar a Ana Rojas Vidal' }))
     expect(onEditClick).toHaveBeenCalledWith(users[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Desbloquear a Bruno Flores Paz' }))
+    expect(onToggleBlockClick).toHaveBeenCalledWith(users[1])
+  })
+
+  it('muestra "Bloqueado" y ofrece desbloquear si la cuenta tiene bloqueo por intentos fallidos', () => {
+    const bloqueado: UserListItem = { ...users[0], bloqueadoHasta: '2026-10-04T18:00:00' }
+    render(<UserCardList users={[bloqueado]} onToggleBlockClick={vi.fn()} />)
+
+    expect(screen.getByText('Bloqueado')).toBeInTheDocument()
+    expect(screen.queryByText('Activo')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Desbloquear a Ana Rojas Vidal' })).toBeEnabled()
   })
 
   it('mantiene editar deshabilitado si no hay callback', () => {

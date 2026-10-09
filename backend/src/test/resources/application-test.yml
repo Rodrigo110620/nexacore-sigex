@@ -23,6 +23,10 @@ app:
   security:
     jwt:
       secret: test_secret_key_muy_larga_para_que_pase_la_validacion_de_longitud_minima
+    swagger-enabled: true
+    require-https: false
+    rate-limit:
+      enabled: false
   mail:
     enabled: false
     from: test@sigex.local

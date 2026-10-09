@@ -12,7 +12,7 @@ Instala esto en tu PC antes de empezar:
 | Herramienta | Versión requerida | Link |
 |---|---|---|
 | Git | Última | https://git-scm.com |
-| Java JDK | **17** (Temurin recomendado) | https://adoptium.net/es |
+| Java JDK | **21** (Temurin recomendado) | https://adoptium.net/es |
 | Docker Desktop | Última | https://www.docker.com |
 | Node.js | **20.19.0 estrictamente** | https://nodejs.org |
 | pnpm | >= 8 | `npm install -g pnpm` |
@@ -41,16 +41,16 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Abre el `.env` y ajusta al menos `DB_PASSWORD` y `JWT_SECRET`.
+Abre el `.env` y ajusta al menos `DOCKER_DB_PASSWORD` y `JWT_SECRET`.
 El backend carga este archivo automáticamente al arrancar (no hace falta exportar variables a mano).
 
 ### 3. Levantar la base de datos
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Esto levanta PostgreSQL en `:5432` y PgAdmin en `:5050`.
+Esto levanta PostgreSQL en `:5432` y PgAdmin en `:5050` (solo para desarrollo).
 
 ### 4. Ejecutar el backend
 
@@ -118,6 +118,48 @@ test: agregar test de integración para HealthController
 - **Nunca modificar** archivos `V_` ya commiteados.
 - Los archivos van en `backend/src/main/resources/db/migration/`.
 
+---
+
+## Despliegue con Docker (todo en contenedores)
+
+`docker-compose.yml` levanta los tres servicios: **base de datos** (PostgreSQL 15.10),
+**backend** (Spring Boot, Java 21) y **frontend** (React compilado, servido por Nginx).
+No hace falta instalar Java, Node ni PostgreSQL: solo Docker.
+
+```bash
+cp .env.example .env            # completa DOCKER_DB_PASSWORD, JWT_SECRET y el correo (MAIL_*)
+docker compose up -d --build
+```
+
+Abre **http://localhost** (o `http://localhost:<APP_PORT>` si cambiaste el puerto).
+Usuario inicial: `201904725@est.umss.edu` / `Admin123*` — **cámbiala** con "Olvidé mi contraseña".
+
+**Orden de arranque** (automático, no hay que hacer nada):
+
+1. `db` — PostgreSQL; el backend espera a que esté lista (healthcheck).
+2. `backend` — al iniciar aplica las migraciones de Flyway (crea tablas y datos iniciales).
+3. `frontend` — Nginx sirve los archivos estáticos y reenvía `/api/` al backend.
+
+Solo el frontend publica un puerto (`APP_PORT`, por defecto 80). La base y el backend
+quedan en la red interna de Docker.
+
+| Comando | Para qué |
+|---|---|
+| `docker compose ps` | Ver el estado de los contenedores |
+| `docker compose logs -f backend` | Ver el log del backend (migraciones, errores) |
+| `docker compose down` | Detener (los datos se conservan) |
+| `docker compose down -v` | Detener y **borrar** la base de datos |
+
+**En producción** (servidor del laboratorio):
+
+- `SPRING_PROFILES_ACTIVE=docker,prod` — cierra Swagger y exige HTTPS (requiere un proxy con TLS delante).
+- `FRONTEND_URL=https://<dominio>` — se usa en el enlace de recuperación de contraseña.
+- Para usar el PostgreSQL del laboratorio en lugar del contenedor `db`: `DB_HOST`, `DB_PORT`,
+  `DOCKER_DB_NAME`, `DOCKER_DB_USER` y `DOCKER_DB_PASSWORD` con sus datos.
+  Las migraciones funcionan con cualquier usuario que pueda crear tablas en `public`
+  (no necesita ser `postgres` ni superusuario). En ese caso levanta solo
+  `docker compose up -d --build --no-deps backend frontend`.
+
 ### Variables de entorno
 
 - **Nunca** subir `.env` a Git. Solo `.env.example` con valores de ejemplo.
@@ -130,7 +172,8 @@ test: agregar test de integración para HealthController
 ```
 nexacore-sigex/
 ├── .env.example              Variables de entorno (plantilla)
-├── docker-compose.yml        PostgreSQL + PgAdmin
+├── docker-compose.yml        Despliegue: PostgreSQL + backend + frontend
+├── docker-compose.dev.yml    Desarrollo: PostgreSQL + PgAdmin
 ├── backend/                  Spring Boot 3 / Java 17
 │   ├── mvnw / mvnw.cmd       Maven Wrapper (no necesitas Maven instalado)
 │   ├── pom.xml

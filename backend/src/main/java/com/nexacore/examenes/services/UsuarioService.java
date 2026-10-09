@@ -6,28 +6,44 @@ import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.dto.UsuarioStatsResponse;
+import com.nexacore.examenes.exceptions.CiDuplicadoException;
 import com.nexacore.examenes.exceptions.EmailDuplicadoException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import com.nexacore.examenes.exceptions.RolInvalidoException;
+import com.nexacore.examenes.exceptions.UsuarioNoEncontradoException;
+import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
+import com.nexacore.examenes.repositories.DocenteRepository;
 import com.nexacore.examenes.repositories.RolRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 /**
- * Lógica de negocio para la gestión de usuarios (HU#2).
+ * Lógica de negocio para la gestión de usuarios.
  *
  * Orden de validaciones en registrar():
  *   1. Rol válido  → 400 si no es ADMIN/DOCENTE/CONTROL
@@ -43,16 +59,22 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioRolRepository usuarioRolRepository;
+    private final DocenteRepository docenteRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
                           UsuarioRolRepository usuarioRolRepository,
+                          DocenteRepository docenteRepository,
                           PasswordEncoder passwordEncoder,
                           EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
+        this.docenteRepository = docenteRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
@@ -69,18 +91,24 @@ public class UsuarioService {
         // No hay lista fija: cualquier rol que se inserte en BD pasa a ser válido.
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        if (usuarioRepository.findByEmail(request.email()).isPresent()) {
-            throw new EmailDuplicadoException(request.email());
+        String email = normalizarEmail(request.email());
+        String ci = request.ci().trim();
+        if (usuarioRepository.findByEmail(email).isPresent()) {
+            throw new EmailDuplicadoException(email);
+        }
+        if (usuarioRepository.existsByCi(ci)) {
+            throw new CiDuplicadoException(ci);
         }
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
-        usuario.setCi(request.ci());
-        usuario.setEmail(request.email());
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
+        usuario.setCi(ci);
+        usuario.setEmail(email);
         usuario.setPassword(passwordEncoder.encode(passwordTemporal));
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
-        usuarioRepository.save(usuario);
+        // Flush antes del correo: si la BD rechaza algo, no se manda una clave de una cuenta inexistente.
+        usuarioRepository.saveAndFlush(usuario);
         UsuarioRolId urId = new UsuarioRolId();
         urId.setIdUsuario(usuario.getId());
         urId.setIdRol(rol.getId());
@@ -89,16 +117,21 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
-        emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
+        // Si el envío falla, la excepción revierte el registro.
+        boolean enviado = emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
                 usuario.getEmail(),
                 rolNombre,
                 null,
-                "Usuario registrado. Credenciales enviadas por correo."
+                enviado
+                        ? "Usuario registrado. Credenciales enviadas por correo."
+                        : "Usuario registrado, pero el correo está deshabilitado: no se enviaron credenciales."
         );
     }
     /**
@@ -108,22 +141,26 @@ public class UsuarioService {
     public RegisterUserResponse actualizar(Integer id, RegisterUserRequest request) {
         // 1. Buscar el usuario existente (Ya recibe Integer correctamente)
         Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
-        // 2. Validar si el correo cambió y si ya pertenece a otro usuario
-        if (!usuario.getEmail().equalsIgnoreCase(request.email())) {
-            if (usuarioRepository.findByEmail(request.email()).isPresent()) {
-                throw new EmailDuplicadoException(request.email());
-            }
+                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        // 2. Validar si el correo o el CI cambiaron y ya pertenecen a otro usuario
+        String email = normalizarEmail(request.email());
+        String ci = request.ci().trim();
+        if (!usuario.getEmail().equalsIgnoreCase(email)
+                && usuarioRepository.findByEmail(email).isPresent()) {
+            throw new EmailDuplicadoException(email);
+        }
+        if (usuarioRepository.existsByCiAndIdNot(ci, id)) {
+            throw new CiDuplicadoException(ci);
         }
         // 3. Validar el rol
         String rolNombre = request.rol().toUpperCase();
         Rol rol = rolRepository.findByNombre(rolNombre)
                 .orElseThrow(() -> new RolInvalidoException(rolNombre));
-        // 4. Actualizar campos personales y de estado
-        usuario.setNombre(request.nombre());
-        usuario.setApellidos(request.apellidos());
-        usuario.setCi(request.ci());
-        usuario.setEmail(request.email());
+        // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
+        usuario.setNombre(normalizarNombre(request.nombre()));
+        usuario.setApellidos(normalizarNombre(request.apellidos()));
+        usuario.setCi(ci);
+        usuario.setEmail(email);
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
         usuarioRepository.save(usuario);
         // 5. Borrar el rol antiguo antes de asignar el nuevo
@@ -137,6 +174,8 @@ public class UsuarioService {
         usuarioRol.setIdUsuario(usuario);
         usuarioRol.setIdRol(rol);
         usuarioRolRepository.save(usuarioRol);
+        // Si el nuevo rol es DOCENTE, crear/mantener fila en tabla docente
+        sincronizarDocente(usuario, rolNombre);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -147,6 +186,67 @@ public class UsuarioService {
                 "Usuario actualizado correctamente"
         );
     }
+    /**
+     * Bloquea (inactivo) o desbloquea (activo) a un usuario desde el listado.
+     * Desbloquear también levanta el bloqueo temporal por intentos fallidos.
+     * El cambio surte efecto en la siguiente petición del usuario: JwtAuthFilter relee su estado.
+     *
+     * @throws UsuarioNoEncontradoException si no existe (404)
+     * @throws IllegalArgumentException     si el administrador intenta bloquear su propia cuenta (400)
+     */
+    @Transactional
+    public UsuarioListResponse cambiarEstado(Integer id, boolean activo, String emailSolicitante) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        if (!activo && usuario.getEmail().equalsIgnoreCase(emailSolicitante)) {
+            throw new IllegalArgumentException("No puedes bloquear tu propia cuenta.");
+        }
+        usuario.setEstado(activo ? "activo" : "inactivo");
+        if (activo) {
+            usuario.setIntentosFallidos(0);
+            usuario.setBloqueadoHasta(null);
+        }
+        usuarioRepository.save(usuario);
+        return aListResponse(usuario);
+    }
+
+    /**
+     * CSV con los usuarios que cumplen los mismos filtros del listado, sin paginar,
+     * ordenados por nombre. Separador ';' y BOM para que Excel en español lo abra en columnas.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportarCsv(String search, String rol, String estado) {
+        List<UsuarioListResponse> filas = usuarioRepository.buscar(
+                        escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                        normalizar(rol).toUpperCase(Locale.ROOT),
+                        normalizar(estado).toLowerCase(Locale.ROOT),
+                        Pageable.unpaged())
+                .stream()
+                .sorted(Comparator.comparing(Usuario::getNombre, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Usuario::getApellidos, String.CASE_INSENSITIVE_ORDER))
+                .map(this::aListResponse)
+                .toList();
+
+        var out = new ByteArrayOutputStream();
+        var formato = CSVFormat.DEFAULT.builder()
+                .setDelimiter(';')
+                .setRecordSeparator("\n")
+                .setHeader("id", "nombre", "apellidos", "ci", "email", "rol", "estado")
+                .build();
+        try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
+            // El BOM va antes de crear el printer: CSVPrinter escribe el encabezado al construirse.
+            writer.write('\uFEFF');
+            var printer = new CSVPrinter(writer, formato);
+            for (UsuarioListResponse u : filas) {
+                printer.printRecord(u.id(), u.nombre(), u.apellidos(), u.ci(), u.email(), u.rol(), u.estado());
+            }
+            printer.flush();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo generar el CSV de usuarios.", e);
+        }
+        return out.toByteArray();
+    }
+
     /** Devuelve todos los roles disponibles para el selector del formulario. */
     public List<Rol> listarRoles() {
         return rolRepository.findAll();
@@ -204,6 +304,10 @@ public class UsuarioService {
     }
     /** Convierte la entidad al DTO del listado, sin exponer el password. */
     private UsuarioListResponse aListResponse(Usuario usuario) {
+        String titulo = docenteRepository.findById(usuario.getId())
+                .map(Docente::getTitulo)
+                .filter(valor -> valor != null && !valor.isBlank())
+                .orElse(null);
         return new UsuarioListResponse(
                 usuario.getId(),
                 usuario.getNombre(),
@@ -211,8 +315,16 @@ public class UsuarioService {
                 usuario.getEmail(),
                 usuario.getCi(),
                 obtenerPrimerRol(usuario),
-                usuario.getEstado()
+                usuario.getEstado(),
+                titulo,
+                bloqueoVigente(usuario)
         );
+    }
+
+    /** Fin del bloqueo por intentos fallidos si sigue vigente; null si ya venció o no hay bloqueo. */
+    private static LocalDateTime bloqueoVigente(Usuario usuario) {
+        LocalDateTime hasta = usuario.getBloqueadoHasta();
+        return hasta != null && LocalDateTime.now().isBefore(hasta) ? hasta : null;
     }
     /**
      * Genera una contraseña provisional de 10 caracteres usando SecureRandom.
@@ -257,5 +369,80 @@ public class UsuarioService {
                 activos,
                 inactivos
         );
+    }
+
+    /**
+     * Guarda nombres y apellidos en formato Título (ej. Rodrigo Figueroa).
+     * Elimina espacios extremos, colapsa espacios dobles y rechaza la misma letra repetida.
+     */
+    /** Los correos se guardan en minúsculas: "Ana@UMSS.edu.bo" y "ana@umss.edu.bo" son el mismo usuario. */
+    private static String normalizarEmail(String valor) {
+        return valor.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizarNombre(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        Locale locale = Locale.forLanguageTag("es-BO");
+        String normalizado = aFormatoTitulo(
+                valor.trim().replaceAll("\\s{2,}", " "),
+                locale);
+        String soloLetras = normalizado.replaceAll("[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", "");
+        if (soloLetras.length() >= 2) {
+            String upper = soloLetras.toUpperCase(locale);
+            char primera = upper.charAt(0);
+            boolean mismaLetra = true;
+            for (int i = 1; i < upper.length(); i++) {
+                if (upper.charAt(i) != primera) {
+                    mismaLetra = false;
+                    break;
+                }
+            }
+            if (mismaLetra) {
+                throw new IllegalArgumentException(
+                        "El nombre o apellido no puede ser la misma letra repetida");
+            }
+        }
+        return normalizado;
+    }
+
+    /**
+     * Si el rol es DOCENTE y no tiene fila en docente, la crea.
+     * No borra la fila al pasar a ADMIN/CONTROL: paralelo y examen siguen
+     * apuntando a ese docente y un DELETE rompe la FK.
+     */
+    @Transactional
+    private void sincronizarDocente(Usuario usuario, String rolNombre) {
+        if (!"DOCENTE".equals(rolNombre) || docenteRepository.existsById(usuario.getId())) {
+            return;
+        }
+        entityManager.createNativeQuery(
+                "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
+                .setParameter("id", usuario.getId())
+                .executeUpdate();
+    }
+
+    /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+    private static String aFormatoTitulo(String valor, Locale locale) {
+        StringBuilder out = new StringBuilder(valor.length());
+        boolean nuevaPalabra = true;
+        for (int i = 0; i < valor.length(); ) {
+            int cp = valor.codePointAt(i);
+            i += Character.charCount(cp);
+            if (cp == ' ' || cp == '\'' || cp == '-') {
+                out.appendCodePoint(cp);
+                nuevaPalabra = true;
+                continue;
+            }
+            String ch = new String(Character.toChars(cp));
+            if (nuevaPalabra) {
+                out.append(ch.toUpperCase(locale));
+                nuevaPalabra = false;
+            } else {
+                out.append(ch.toLowerCase(locale));
+            }
+        }
+        return out.toString();
     }
 }

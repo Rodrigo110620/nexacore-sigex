@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  security:
+    swagger-enabled: false
+    require-https: true
+    rate-limit:
+      enabled: true
+      max-requests: 10
+      window-ms: 60000
+  cors:
+    # En prod define orígenes exactos vía CORS_ALLOWED_ORIGINS; sin patterns LAN.
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}

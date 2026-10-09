@@ -2,20 +2,64 @@ import type { FormErrors, RegisterUserFormState } from '../types/usuario.types';
 
 /** Límites de longitud alineados con el backend (@Size). */
 export const FIELD_LIMITS = {
-  nombre: { min: 2, max: 30 },
-  apellidos: { min: 2, max: 40 },
+  nombre: { min: 3, max: 30 },
+  apellidos: { min: 4, max: 40 },
   email: { min: 5, max: 50 }, 
   documento: { min: 7, max: 8 },
+  codigoSis: { min: 9, max: 9 },
   rol: { min: 2, max: 30 },
 } as const
 
+/** Cada palabra ≥ 2 letras; formato Título (primera mayúscula, resto minúsculas). */
 const NOMBRE_REGEX =
-  /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:[ '-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*$/
+  /^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/
 
-export function sanitizeNombreInput(value: string): string {
-  return value
+const LOCALE_NOMBRE = 'es-BO'
+
+/** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */
+export function toTitleCaseNombre(value: string): string {
+  return value.replace(
+    /[A-Za-záéíóúÁÉÍÓÚüÜñÑ]+(?:['-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]+)*/g,
+    (word) =>
+      word
+        .split(/(['-])/)
+        .map((part) => {
+          if (part === "'" || part === '-' || !part) return part
+          const lower = part.toLocaleLowerCase(LOCALE_NOMBRE)
+          return lower.charAt(0).toLocaleUpperCase(LOCALE_NOMBRE) + lower.slice(1)
+        })
+        .join(''),
+  )
+}
+
+/**
+ * Solo letras (con tildes), espacio, ' y -; formato Título.
+ * Quita espacios iniciales y colapsa espacios dobles.
+ * Con `trimEnds` también elimina el espacio final (blur/submit).
+ */
+export function sanitizeNombreInput(
+  value: string,
+  options?: { trimEnds?: boolean },
+): string {
+  let cleaned = value
     .replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ '-]/g, '')
+    .replace(/^\s+/, '')
     .replace(/\s{2,}/g, ' ')
+
+  cleaned = toTitleCaseNombre(cleaned)
+
+  if (options?.trimEnds) {
+    cleaned = cleaned.trimEnd()
+  }
+  return cleaned
+}
+
+/** True si, ignorando separadores, todas las letras son la misma (ej. Jjjjjjjjj). */
+export function esMismaLetraRepetida(value: string): boolean {
+  const letters = value.replace(/[^A-Za-záéíóúÁÉÍÓÚüÜñÑ]/g, '').toLocaleUpperCase(LOCALE_NOMBRE)
+  if (letters.length < 2) return false
+  const first = letters[0]
+  return [...letters].every((c) => c === first)
 }
 
 function validateNombrePersona(
@@ -35,10 +79,18 @@ function validateNombrePersona(
       ? 'El nombre no puede contener números'
       : 'Los apellidos no pueden contener números'
   }
+  if (/\s{2,}/.test(trimmed)) {
+    return 'No se permiten espacios consecutivos'
+  }
+  if (esMismaLetraRepetida(trimmed)) {
+    return etiqueta === 'nombre'
+      ? 'El nombre no puede ser la misma letra repetida'
+      : 'Los apellidos no pueden ser la misma letra repetida'
+  }
   if (!NOMBRE_REGEX.test(trimmed)) {
     return etiqueta === 'nombre'
-      ? 'Ingresa un nombre válido (solo letras)'
-      : 'Ingresa apellidos válidos (solo letras)'
+      ? 'Ingresa un nombre válido (solo letras; cada palabra mínimo 2)'
+      : 'Ingresa apellidos válidos (solo letras; cada palabra mínimo 2)'
   }
   return ''
 }
@@ -49,32 +101,86 @@ export const validateNombre = (value: string): string =>
 export const validateApellidos = (value: string): string =>
   validateNombrePersona(value, 'apellidos', FIELD_LIMITS.apellidos)
 
+
+
 export const validateDocumento = (value: string): string => {
   if (!value.trim()) return 'El documento es obligatorio'
   if (!/^\d+$/.test(value)) return 'Solo números'
-  if (
-    value.length < FIELD_LIMITS.documento.min ||
-    value.length > FIELD_LIMITS.documento.max
-  ) {
-    return `Debe tener ${FIELD_LIMITS.documento.min} u ${FIELD_LIMITS.documento.max} dígitos`
+  if (value.length < FIELD_LIMITS.documento.min || value.length > FIELD_LIMITS.documento.max) {
+    return 'Debe tener 7 u 8 dígitos'
   }
+  // No ceros
+  if (/^0+$/.test(value)) {
+    return 'El documento no puede ser solo ceros'
+  }
+  // No repetidos (ej: 11111111)
+  if (/^(\d)\1+$/.test(value)) {
+    return 'El documento no puede ser un número repetido' 
+  }
+
+  // Demasiados dígitos repetidos (ej: 1111144)
+  const counts = [...value].reduce((acc, d) => {
+    acc[d] = (acc[d] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const maxRepeticiones = Math.max(...Object.values(counts));
+  if (maxRepeticiones >= 6) {
+    return 'El documento no es válido (demasiados dígitos repetidos)'
+  }
+
+  // >>> BLOQUEAR SECUENCIAS CONSECUTIVAS (ej: 12345678, 87654321) <<<
+  const secuenciasAscendentes = "0123456789";
+  const secuenciasDescendentes = "9876543210";
+  if (secuenciasAscendentes.includes(value) || secuenciasDescendentes.includes(value)) {
+    return 'El documento no puede ser una secuencia consecutiva'
+  }
+
+  return ''
+}
+export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
+
+/** Personal: @umss.edu.bo. Estudiantes: @est.umss.edu / @est.umss.edu.bo. */
+const INSTITUTIONAL_EMAIL_REGEX =
+  /^[a-zA-Z0-9._%+-]+@(est\.)?umss\.edu(?:\.bo)?$/i
+
+/* Validacion de correo*/
+export const validateEmail = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'El correo es obligatorio'
+  if (trimmed.length > FIELD_LIMITS.email.max) return `Máximo ${FIELD_LIMITS.email.max} caracteres`
+  if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) return 'Solo se permiten correos institucionales UMSS'
+
+  const [local] = trimmed.split('@')
+  if (local.length < 3) return 'La parte inicial del correo debe tener al menos 3 caracteres'
+  if (/^0+$/.test(local)) return 'La parte inicial del correo no puede ser todo ceros'
+  if (/^(\w)\1+$/.test(local)) return 'La parte inicial del correo no puede ser un dato repetido'
+
   return ''
 }
 
-export const validateEmail = (value: string): string => {
+/**
+ * Arma el correo del login a partir de lo que escribe el usuario.
+ * Sin '@' se completa con el dominio institucional; con '@' se respeta
+ * tal cual (la cuenta admin usa otro dominio).
+ */
+export const buildLoginEmail = (value: string): string => {
   const trimmed = value.trim()
+  if (!trimmed || trimmed.includes('@')) return trimmed
+  return `${trimmed}@${ALLOWED_EMAIL_DOMAIN}`
+}
 
+/** Formato de correo genérico (login de cuentas ya existentes). */
+export const validateEmailFormat = (value: string): string => {
+  const trimmed = value.trim()
   if (!trimmed) return 'El correo es obligatorio'
-
   if (trimmed.length > FIELD_LIMITS.email.max) {
     return `Máximo ${FIELD_LIMITS.email.max} caracteres`
   }
-
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
   if (!emailRegex.test(trimmed)) {
     return 'Formato de correo inválido'
   }
-
   return ''
 }
 
@@ -110,4 +216,20 @@ export const validateForm = (form: RegisterUserFormState): FormErrors => {
 
 export const hasErrors = (errors: FormErrors): boolean => {
   return Object.keys(errors).length > 0
+}
+
+/**
+ * Reglas del Código SIS:
+ *  - 9 dígitos exactos
+ *  - No puede ser todo ceros (000000000)
+ *  - No puede ser todos los dígitos iguales (111111111, 222222222, etc.)
+    - La unicidad la valida el backend.
+ */
+export const validateCodigoSis = (value: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'El código SIS es obligatorio'
+  if (!/^\d{9}$/.test(trimmed)) return 'El código SIS debe tener 9 dígitos'
+  if (/^0+$/.test(trimmed)) return 'El código SIS no puede ser solo ceros'
+  if (/^(\d)\1+$/.test(trimmed)) return 'El código SIS no puede ser un número repetido'
+  return ''
 }

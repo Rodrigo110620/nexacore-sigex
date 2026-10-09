@@ -11,9 +11,8 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -25,18 +24,11 @@ public class AsistenciaExamen {
     private AsistenciaExamenId id;
 
     @NotNull
-    @Column(name = "id_usuario", nullable = false)
-    private Integer idUsuario;
-
-    @NotNull
     @Column(name = "id_paralelo", nullable = false)
     private Integer idParalelo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumns({
-        @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false),
-        @JoinColumn(name = "id_usuario", referencedColumnName = "id_usuario", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "id_estudiante", referencedColumnName = "id_estudiante", insertable = false, updatable = false)
     private Estudiante estudiante;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -46,7 +38,6 @@ public class AsistenciaExamen {
     })
     private Examen examen;
 
-    @ColumnDefault("true")
     @Column(name = "habilitado")
     private Boolean habilitado;
 
@@ -54,8 +45,24 @@ public class AsistenciaExamen {
     private String motivoInhabilitacion;
 
     @Column(name = "fecha_hora_ingreso")
-    private Instant fechaHoraIngreso;
+    private LocalDateTime fechaHoraIngreso;
 
-    @Column(name = "ambiente_ingreso")
-    private String ambienteIngreso;
+    /** Ambiente real de ingreso (null si aún no ingresó). */
+    @Column(name = "id_ambiente_ingreso")
+    private Integer idAmbienteIngreso;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_ambiente_ingreso", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
+    private Ambiente ambienteIngreso;
+
+    /** Usuario CONTROL que autorizó el último ingreso efectivo. */
+    @Column(name = "id_usuario_control")
+    private Integer idUsuarioControl;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_usuario_control", referencedColumnName = "id_usuario", insertable = false, updatable = false)
+    private Usuario usuarioControl;
+
+    @Column(name = "observaciones_control")
+    private String observacionesControl;
 }

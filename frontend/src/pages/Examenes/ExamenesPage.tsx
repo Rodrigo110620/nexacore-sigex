@@ -1,0 +1,428 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
+import PanelLayout from '../../components/layout/PanelLayout'
+import MobileBottomNav from '../../components/navigation/MobileBottomNav'
+import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
+import UserPagination from '../../components/users/TablePagination'
+import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
+import { useAuth } from '../../context/AuthContext'
+import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { addMinutes, estadoLabel, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+
+const PAGE_SIZE = 5
+
+function ExamAvatar({ examen, size = 'card' }: { examen: ExamenDto; size?: 'card' | 'compact' }) {
+  const sizeClass = size === 'card' ? 'h-9 w-9 text-xs' : 'h-8 w-8 text-[11px]'
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex shrink-0 items-center justify-center rounded-lg border font-bold ${sizeClass} ${getUserAvatarPalette({ id: examen.idExamen })}`}
+    >
+      {initialsOfName(examen.asignatura)}
+    </span>
+  )
+}
+
+function EstadoDot({ estado, className = 'text-[11px]' }: { estado: string; className?: string }) {
+  const cancelado = estado === 'cancelado'
+  return (
+    <span className={`inline-flex items-center gap-1.5 font-medium ${cancelado ? 'text-red-600' : 'text-[#15803D]'} ${className}`}>
+      <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
+        {!cancelado && (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22C55E] opacity-60 motion-reduce:hidden" />
+        )}
+        <span
+          className={`relative inline-flex h-2 w-2 rounded-full ${
+            cancelado ? 'bg-red-500' : 'bg-[#16A34A] motion-safe:animate-pulse'
+          }`}
+        />
+      </span>
+      {estadoLabel(estado)}
+    </span>
+  )
+}
+
+export default function ExamenesPage() {
+  const { isAdmin, roles } = useAuth()
+  const location = useLocation()
+  const isControlView = location.pathname === '/dashboard/control'
+  const canControl = isAdmin || roles.includes('CONTROL') || roles.includes('DOCENTE')
+  const canRegister = (isAdmin || roles.includes('DOCENTE')) && !isControlView
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [ambienteFiltro, setAmbienteFiltro] = useState('')
+  const [fechaFiltro, setFechaFiltro] = useState('')
+  const [page, setPage] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [examenes, setExamenes] = useState<ExamenDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      setExamenes(await listarExamenes())
+    } catch {
+      setError('No se pudo cargar la lista de exámenes.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(handle)
+  }, [load])
+
+  const ambientes = useMemo(
+    () => [...new Set(examenes.map((e) => e.ambienteNombre).filter(Boolean))].sort(),
+    [examenes],
+  )
+  const fechas = useMemo(
+    () => [...new Set(examenes.map((e) => e.fecha).filter(Boolean))].sort(),
+    [examenes],
+  )
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return examenes.filter((e) => {
+      if (ambienteFiltro && e.ambienteNombre !== ambienteFiltro) return false
+      if (fechaFiltro && e.fecha !== fechaFiltro) return false
+      if (!q) return true
+      return (
+        (e.asignatura ?? '').toLowerCase().includes(q) ||
+        (e.sigla ?? '').toLowerCase().includes(q) ||
+        (e.ambienteNombre ?? '').toLowerCase().includes(q) ||
+        (e.fecha ?? '').includes(q) ||
+        formatFecha(e.fecha).includes(q) ||
+        (e.docente ?? '').toLowerCase().includes(q)
+      )
+    })
+  }, [examenes, query, ambienteFiltro, fechaFiltro])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages - 1)
+  const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+
+  return (
+    <PanelLayout
+      compactDesktop
+      title={isControlView ? 'CONTROL DE INGRESO' : 'GESTIÓN DE EXÁMENES'}
+      description={isControlView ? 'Selecciona un examen para realizar el control de ingreso.' : 'Administra los exámenes programados y su habilitación.'}
+      topBarVariant={isControlView ? 'control' : 'default'}
+    >
+      <div
+        className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
+        style={{
+          background:
+            'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)',
+        }}
+      >
+        <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
+              <h1 className="text-sm font-extrabold text-[#011140]">{isControlView ? 'CONTROL DE INGRESO' : 'GESTIÓN DE EXÁMENES'}</h1>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
+                {isControlView ? 'Selecciona un examen para realizar el control de ingreso.' : 'Administra los exámenes programados y su habilitación.'}
+              </p>
+            </div>
+
+            <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
+              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
+                {canRegister && (
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0439D9] text-sm font-semibold text-white shadow-sm hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 min-[960px]:hidden"
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                    Registrar Examen
+                  </button>
+                )}
+                <div className="relative w-full min-[960px]:hidden">
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]"
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => { setQuery(e.target.value); setPage(0) }}
+                    placeholder="Buscar por asignatura, fecha o ambiente..."
+                    aria-label="Buscar exámenes"
+                    className="h-11 w-full rounded-full border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                  />
+                </div>
+                <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 min-[960px]:hidden">
+                  <div className="relative min-w-0">
+                    <select
+                      value={ambienteFiltro}
+                      onChange={(e) => { setAmbienteFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por ambiente"
+                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Todos los ambientes</option>
+                      {ambientes.map((nombre) => (
+                        <option key={nombre} value={nombre}>{nombre}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
+                  <div className="relative min-w-0">
+                    <select
+                      value={fechaFiltro}
+                      onChange={(e) => { setFechaFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por fecha"
+                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Todas las fechas</option>
+                      {fechas.map((fecha) => (
+                        <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Exportar exámenes, no disponible"
+                    className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#D8E3F5] bg-white px-3 text-xs font-semibold text-[#627A9B] disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    <Upload size={14} aria-hidden="true" />
+                    <span className="truncate">Exportar</span>
+                  </button>
+                </div>
+                <div className="hidden min-w-0 flex-1 grid-cols-[minmax(0,1fr)_12rem_12rem] gap-2 min-[960px]:grid">
+                  <div className="relative">
+                    <Search
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#011140]"
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => { setQuery(e.target.value); setPage(0) }}
+                      placeholder="Buscar por asignatura, fecha o ambiente..."
+                      aria-label="Buscar exámenes"
+                      className="h-11 w-full rounded-md border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    />
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={ambienteFiltro}
+                      onChange={(e) => { setAmbienteFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por ambiente"
+                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Todos los ambientes</option>
+                      {ambientes.map((nombre) => (
+                        <option key={nombre} value={nombre}>{nombre}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={fechaFiltro}
+                      onChange={(e) => { setFechaFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por fecha"
+                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Todas las fechas</option>
+                      {fechas.map((fecha) => (
+                        <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
+                </div>
+                <div className="hidden min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0 min-[960px]:gap-2">
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="Exportar exámenes, no disponible"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-4 text-sm font-semibold text-[#627A9B] disabled:cursor-not-allowed disabled:opacity-80"
+                  >
+                    <Upload size={16} aria-hidden="true" />
+                    <span className="truncate">Exportar</span>
+                  </button>
+                  {canRegister && (
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(true)}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                      <span className="truncate">Registrar Examen</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {error}
+              </p>
+            )}
+
+            <div>
+            {loading ? (
+              <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
+              <LoaderCircle className="mx-auto animate-spin text-[#0439D9]" size={30} aria-hidden="true" />
+              <p className="mt-3 text-sm font-semibold">Cargando exámenes...</p>
+            </div>
+            ) : filtered.length === 0 ? (
+              <section className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#B8CBEF] bg-white/70 px-4 py-14 text-center">
+                <BookCheck size={36} className="mb-3 text-[#0439D9]/70" aria-hidden="true" />
+                <p className="text-sm font-semibold text-[#011140]">Aún no hay exámenes para mostrar</p>
+                <p className="mt-1 max-w-sm text-xs text-gray-500">
+                  {query.trim() || ambienteFiltro || fechaFiltro
+                    ? 'Sin resultados para los filtros aplicados.'
+                    : isControlView ? 'No hay exámenes disponibles para realizar control.' : 'Usa “Registrar Examen” para planificar una evaluación.'}
+                </p>
+              </section>
+            ) : (
+              <>
+                <div className="min-[960px]:hidden space-y-1.5">
+                  {paged.map((e) => (
+                    <article
+                      key={`${e.idExamen}-${e.idParalelo}`}
+                      className="rounded-xl border border-[#D8E3F5] bg-white px-3 py-2"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <ExamAvatar examen={e} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
+                              <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
+                            </div>
+                            <EstadoDot estado={e.estado} />
+                          </div>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-600">
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarDays size={11} aria-hidden="true" className="text-[#627A9B]" />
+                              {formatFecha(e.fecha)}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={11} aria-hidden="true" className="text-[#627A9B]" />
+                              {horaCorta(e.horaInicio)}-{addMinutes(e.horaInicio, e.duracionMinutos)}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin size={11} aria-hidden="true" className="text-[#627A9B]" />
+                              {e.ambienteNombre}
+                            </span>
+                          </p>
+                          <div className="mt-1 flex items-center justify-end gap-2">
+                            {canControl && e.estado !== 'cancelado' && (
+                              <Link
+                                to={`/dashboard/control/${e.idExamen}`}
+                                aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                                className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-2 py-1 text-[11px] font-semibold text-white"
+                              >
+                                Iniciar control <ArrowRight size={12} aria-hidden="true" />
+                              </Link>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/dashboard/examenes/${e.idExamen}/${e.idParalelo}`)}
+                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-[#3D70C9] hover:bg-[#F1F6FF]"
+                            >
+                              <Eye size={13} aria-hidden="true" />
+                              Ver detalle
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white min-[960px]:block">
+                  <table className="w-full min-w-[860px] text-left">
+                    <caption className="sr-only">Lista de exámenes programados</caption>
+                    <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
+                      <tr>
+                        <th scope="col" className="px-5 py-3 font-bold">Asignatura</th>
+                        <th scope="col" className="px-5 py-3 font-bold">Fecha</th>
+                        <th scope="col" className="px-5 py-3 font-bold">Hora</th>
+                        <th scope="col" className="px-5 py-3 font-bold">Ambiente</th>
+                        <th scope="col" className="px-5 py-3 font-bold">Estado / Aforo</th>
+                        <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EDF1F7] bg-white text-sm text-[#011140]">
+                      {paged.map((e) => (
+                        <tr key={`${e.idExamen}-${e.idParalelo}`}>
+                          <th scope="row" className="px-5 py-3 font-normal">
+                            <div className="flex items-center gap-3">
+                              <ExamAvatar examen={e} size="compact" />
+                              <span>
+                                <span className="block font-semibold">{e.asignatura}</span>
+                                <span className="mt-0.5 block text-xs text-gray-500">Cód: {e.sigla || '—'}</span>
+                              </span>
+                            </div>
+                          </th>
+                          <td className="whitespace-nowrap px-5 py-3 text-gray-600">{formatFecha(e.fecha)}</td>
+                          <td className="whitespace-nowrap px-5 py-3 text-gray-600">
+                            {horaCorta(e.horaInicio)} - {addMinutes(e.horaInicio, e.duracionMinutos)}
+                          </td>
+                          <td className="px-5 py-3 text-gray-600">{e.ambienteNombre}</td>
+                          <td className="px-5 py-3">
+                            <EstadoDot estado={e.estado} className="text-sm" />
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center justify-center gap-2">
+                        {canControl && e.estado !== 'cancelado' && (
+                          <Link to={`/dashboard/control/${e.idExamen}`}
+                            aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">
+                            Iniciar control <ArrowRight size={14} aria-hidden="true" />
+                          </Link>
+                        )}
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/dashboard/examenes/${e.idExamen}/${e.idParalelo}`)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium text-[#3D70C9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                              >
+                                <Eye size={15} aria-hidden="true" />
+                                Ver detalle
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <UserPagination
+                  page={currentPage}
+                  pageSize={PAGE_SIZE}
+                  totalRecords={filtered.length}
+                  totalPages={Math.ceil(filtered.length / PAGE_SIZE)}
+                  onPageChange={setPage}
+                  itemLabel="exámenes programados"
+                />
+              </>
+            )}
+            </div>
+          </div>
+        </section>
+        <MobileBottomNav />
+        <RegisterExamenModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={() => void load()}
+        />
+      </div>
+    </PanelLayout>
+  )
+}

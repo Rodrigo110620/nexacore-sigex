@@ -1,6 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${DOCKER_DB_PORT:5432}/${DOCKER_DB_NAME:taller_TIS}
+    # DOCKER_DB_HOST: "db" dentro de docker compose; localhost al correr el backend fuera de Docker;
+    # el host del PostgreSQL del laboratorio en producción.
+    url: jdbc:postgresql://${DOCKER_DB_HOST:localhost}:${DOCKER_DB_PORT:5432}/${DOCKER_DB_NAME:taller_TIS}
     username: ${DOCKER_DB_USER:postgres}
-    password: ${DOCKER_DB_PASSWORD:dfigueroa}
+    password: ${DOCKER_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver

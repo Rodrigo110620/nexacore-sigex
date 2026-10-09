@@ -1,10 +1,10 @@
-import { CircleAlert, Download, LoaderCircle, UserPlus } from 'lucide-react'
+import { CircleAlert, FileUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
 import UserFilters from './UserFilters'
 import UserTable from './UserTable'
-import UserPagination from './UserPagination'
+import UserPagination from './TablePagination'
 import UserStatsCards from './UserStatsCards'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import type { UserLoadError } from '../../hooks/useUsers'
@@ -25,6 +25,10 @@ interface UserListContentProps {
   onRetry?: () => void
   onRegisterClick?: () => void
   onEditClick?: (user: UserListItem) => void
+  onToggleBlockClick?: (user: UserListItem) => void
+  /** Descarga el CSV con los filtros que muestra el listado. */
+  onExportClick?: (filters: UserFilterParams) => Promise<void>
+  onImportClick?: () => void
 }
 
 const initialFilters: UserFilterParams = { search: '', rol: '', estado: '' }
@@ -43,12 +47,30 @@ export default function UserListContent({
   onRetry,
   onRegisterClick,
   onEditClick,
+  onToggleBlockClick,
+  onExportClick,
+  onImportClick,
 }: UserListContentProps) {
   const [draftFilters, setDraftFilters] = useState<UserFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const lastEmittedRef = useRef<UserFilterParams>(initialFilters)
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.rol || draftFilters.estado)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const handleExport = async () => {
+    if (!onExportClick || exporting) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      await onExportClick(lastEmittedRef.current)
+    } catch {
+      setExportError('No se pudo exportar el listado. Verifica tu conexión e inténtalo de nuevo.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     if (!onFiltersChange) return
@@ -74,33 +96,54 @@ export default function UserListContent({
   return (
     <section aria-label="Gestión de usuarios" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-4 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
+        <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
           <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
             <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
               <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
             </div>
-            <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
+            <div className="order-first grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
               <button
                 type="button"
-                disabled
-                aria-label="Exportar usuarios, no disponible"
-                className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#627A9B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:bg-[#F8FAFC] min-[960px]:px-4"
+                onClick={onImportClick}
+                disabled={!onImportClick || filtersDisabled}
+                aria-label="Importar usuarios desde CSV"
+                className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-[#627A9B] disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
               >
-                <Download size={16} aria-hidden="true" />
-                <span className="truncate">Exportar</span>
+                <FileUp size={16} aria-hidden="true" />
+                <span className="hidden truncate sm:inline">Importar</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={!onExportClick || exporting || filtersDisabled}
+                aria-label="Exportar usuarios en CSV"
+                aria-busy={exporting}
+                className="order-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-[#627A9B] disabled:opacity-80 min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
+              >
+                {exporting ? (
+                  <LoaderCircle size={16} aria-hidden="true" className="animate-spin" />
+                ) : (
+                  <Upload size={16} aria-hidden="true" />
+                )}
+                <span className="hidden truncate sm:inline">{exporting ? 'Exportando...' : 'Exportar'}</span>
               </button>
               <button
                 type="button"
                 onClick={onRegisterClick}
                 disabled={!onRegisterClick}
                 aria-label="Registrar Usuario"
-                className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
+                className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0c41e1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 min-[960px]:order-3 min-[960px]:w-auto min-[960px]:px-4"
               >
                 <UserPlus size={16} aria-hidden="true" className="shrink-0" />
                 <span className="truncate">Registrar Usuario</span>
               </button>
             </div>
           </div>
+          {exportError && (
+            <p role="alert" className="mt-2 flex items-center gap-1 text-xs text-[#B91C1C]">
+              <CircleAlert size={13} aria-hidden="true" /> {exportError}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col">
@@ -139,10 +182,10 @@ export default function UserListContent({
             ) : users.length > 0 ? (
               <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
                 <div className="min-[960px]:hidden">
-                  <UserCardList users={users} onEditClick={onEditClick} />
+                  <UserCardList users={users} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />
                 </div>
                 <div className="hidden min-[960px]:block">
-                  <UserTable users={users} onEditClick={onEditClick} />
+                  <UserTable users={users} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />
                 </div>
                 {onPageChange ? (
                   <UserPagination

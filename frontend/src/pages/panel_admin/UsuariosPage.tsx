@@ -6,12 +6,24 @@ import UserListContent from '../../components/users/UserListContent'
 import useUsers from '../../hooks/useUsers'
 import useUserStats from '../../hooks/useUserStats'
 import EditUserModal from '../../components/users/EditUserModal'
-import type { UserListItem } from '../../types/user'
+import ConfirmarEstadoUsuarioModal from '../../components/users/ConfirmarEstadoUsuarioModal'
+import ImportarUsuariosModal from '../../components/users/ImportarUsuariosModal'
+import { cambiarEstadoUsuario, exportarUsuarios } from '../../services/userService'
+import type { UserFilterParams, UserListItem } from '../../types/user'
+
+/** Mensaje del backend ({ mensaje }) o uno genérico si no hay respuesta. */
+function mensajeDeError(error: unknown): string {
+  const err = error as { response?: { data?: { mensaje?: string } } }
+  if (!err.response) return 'No se pudo conectar con el servidor. Intenta más tarde.'
+  return err.response.data?.mensaje || 'No se pudo cambiar el estado del usuario.'
+}
 
 export default function UsuariosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null)
+  const [userToToggle, setUserToToggle] = useState<UserListItem | null>(null)
+  const [isImportOpen, setIsImportOpen] = useState(false)
 
   const handleEditClick = (user: UserListItem) => {
     setSelectedUser(user)
@@ -34,6 +46,19 @@ export default function UsuariosPage() {
     retryStats()
   }
 
+  const handleExport = (filters: UserFilterParams) => exportarUsuarios(filters)
+
+  const handleConfirmToggle = async (activo: boolean) => {
+    if (!userToToggle) return
+    try {
+      await cambiarEstadoUsuario(userToToggle.id, activo)
+    } catch (error) {
+      throw new Error(mensajeDeError(error))
+    }
+    setUserToToggle(null)
+    refreshUsers()
+  }
+
   return (
     <PanelLayout compactDesktop>
       <div
@@ -54,6 +79,9 @@ export default function UsuariosPage() {
           onRetry={retry}
           onRegisterClick={() => setIsModalOpen(true)}
           onEditClick={handleEditClick}
+          onToggleBlockClick={setUserToToggle}
+          onExportClick={handleExport}
+          onImportClick={() => setIsImportOpen(true)}
         />
         <MobileBottomNav />
         <RegisterUserModal
@@ -61,6 +89,23 @@ export default function UsuariosPage() {
           onClose={() => setIsModalOpen(false)}
           onSuccess={refreshUsers}
         />
+        {isImportOpen && (
+          <ImportarUsuariosModal
+            open
+            onClose={() => setIsImportOpen(false)}
+            onImported={(result) => {
+              if (result.insertados > 0) refreshUsers()
+            }}
+          />
+        )}
+        {userToToggle && (
+          <ConfirmarEstadoUsuarioModal
+            key={userToToggle.id}
+            user={userToToggle}
+            onCancel={() => setUserToToggle(null)}
+            onConfirm={handleConfirmToggle}
+          />
+        )}
         {isEditModalOpen && selectedUser && (
           <EditUserModal
             key={selectedUser.id}

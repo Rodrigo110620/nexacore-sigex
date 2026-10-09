@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.exceptions.CorreoNoEnviadoException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -41,16 +42,19 @@ public class EmailService {
 
     /**
      * Envía la contraseña temporal al correo del usuario recién registrado.
-     * Fallos de SMTP se registran pero no se propagan (el usuario ya quedó creado).
+     * La clave solo viaja por correo, así que un fallo se propaga para revertir el registro.
+     *
+     * @return true si se envió; false si el correo está deshabilitado (MAIL_ENABLED=false)
+     * @throws CorreoNoEnviadoException si el correo está habilitado pero no se pudo enviar
      */
-    public void enviarPasswordTemporal(String destinatario, String nombreCompleto, String passwordTemporal) {
+    public boolean enviarPasswordTemporal(String destinatario, String nombreCompleto, String passwordTemporal) {
         if (!enabled) {
-            log.debug("Correo deshabilitado (MAIL_ENABLED=false); no se envía a {}", destinatario);
-            return;
+            log.warn("Correo deshabilitado (MAIL_ENABLED=false); no se envía la clave temporal a {}", destinatario);
+            return false;
         }
         if (!StringUtils.hasText(username)) {
-            log.warn("MAIL_USERNAME vacío: no se envía correo a {}", destinatario);
-            return;
+            log.error("MAIL_USERNAME vacío: no se puede enviar la clave temporal a {}", destinatario);
+            throw new CorreoNoEnviadoException(destinatario);
         }
 
         try {
@@ -62,8 +66,10 @@ public class EmailService {
             helper.setText(construirHtmlBienvenida(nombreCompleto, destinatario, passwordTemporal), true);
             mailSender.send(mimeMessage);
             log.info("Correo de bienvenida enviado a {}", destinatario);
+            return true;
         } catch (MessagingException | MailException ex) {
             log.error("No se pudo enviar correo a {}: {}", destinatario, ex.getMessage());
+            throw new CorreoNoEnviadoException(destinatario);
         }
     }
 

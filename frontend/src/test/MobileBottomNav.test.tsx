@@ -1,37 +1,105 @@
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
-import { AuthProvider } from '../context/AuthContext'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import MobileBottomNav from '../components/navigation/MobileBottomNav'
 
-function renderNav(path = '/dashboard/usuarios') {
+// Mock useAuth para controlar el rol en tests
+vi.mock('../context/AuthContext', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../context/AuthContext')>()
+  return {
+    ...mod,
+    useAuth: vi.fn(() => ({ isAdmin: false, isAuthenticated: true, roles: [] })),
+  }
+})
+
+import { useAuth } from '../context/AuthContext'
+
+function renderNav(path: string, roles: string[], variant: 'default' | 'controlHome' | 'controlDetail' = 'default') {
+  vi.mocked(useAuth).mockReturnValue({
+    isAdmin: roles.includes('ADMIN'),
+    isAuthenticated: true,
+    roles,
+    token: 'tok',
+    nombre: 'Test',
+    login: vi.fn(),
+    logout: vi.fn(),
+  })
   return render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <MobileBottomNav />
-      </MemoryRouter>
-    </AuthProvider>,
+    <MemoryRouter initialEntries={[path]}>
+      <MobileBottomNav variant={variant} />
+    </MemoryRouter>,
   )
 }
 
 describe('MobileBottomNav', () => {
-  it('muestra opciones móviles y marca Usuarios activo', () => {
-    renderNav()
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('ADMIN: Inicio, Exámenes, Control, Estudiantes y Usuarios', () => {
+    renderNav('/dashboard/usuarios', ['ADMIN'])
 
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
     expect(navigation).toHaveClass('min-[960px]:hidden')
-    expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toHaveAttribute('aria-current', 'page')
+    expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
+    expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
-    expect(within(navigation).queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()
   })
 
-  it('deshabilita las opciones que todavía no tienen ruta real', () => {
-    renderNav()
+  it('DOCENTE: Inicio, Exámenes, Control y Estudiantes, sin Usuarios', () => {
+    renderNav('/dashboard/examenes', ['DOCENTE'])
 
-    expect(screen.getByRole('button', { name: 'Inicio, no disponible' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Exámenes, no disponible' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Estudiantes, no disponible' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Más, no disponible' })).toBeDisabled()
-    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
+    expect(screen.getByRole('link', { name: 'Exámenes' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
+    expect(screen.getByRole('link', { name: 'Estudiantes' })).toHaveAttribute(
+      'href',
+      '/dashboard/estudiantes',
+    )
+    expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+  })
+
+  it('CONTROL: Inicio, Control y Estudiantes están disponibles en el mismo panel', () => {
+    renderNav('/dashboard/examenes', ['CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
+    expect(screen.getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
+    expect(screen.getByRole('link', { name: 'Estudiantes' })).toHaveAttribute(
+      'href',
+      '/dashboard/estudiantes',
+    )
+    expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
+  it('ADMIN + CONTROL conserva Usuarios y muestra Exámenes', () => {
+    renderNav('/dashboard/examenes', ['ADMIN', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
+  })
+
+  it('DOCENTE + CONTROL muestra Inicio, Control y Estudiantes sin acceso a Usuarios', () => {
+    renderNav('/dashboard/examenes', ['DOCENTE', 'CONTROL'])
+
+    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
+  it('en Control muestra las opciones de navegación del mockup móvil', () => {
+    renderNav('/dashboard/control/7', ['ADMIN'], 'controlDetail')
+    const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(navigation).getByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/dashboard/perfil')
+    expect(within(navigation).queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
   })
 })

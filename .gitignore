@@ -18,6 +18,7 @@ frontend/dist-ssr/
 .pnpm-store/
 npm-debug.log*
 pnpm-debug.log*
+*.tsbuildinfo
 
 # =========================
 # 3. Backend (Java / Maven / Spring Boot)

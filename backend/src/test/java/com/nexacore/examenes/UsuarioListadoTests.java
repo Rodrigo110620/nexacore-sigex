@@ -13,18 +13,26 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -446,5 +454,150 @@ class UsuarioListadoTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalRegistros").value(0));
         }
+    }
+
+    private Integer idDe(String email) {
+        return transaction.execute(estado -> entityManager
+                .createQuery("SELECT u.id FROM Usuario u WHERE u.email = :email", Integer.class)
+                .setParameter("email", email)
+                .getSingleResult());
+    }
+
+    private Usuario leer(String email) {
+        return transaction.execute(estado -> entityManager
+                .createQuery("SELECT u FROM Usuario u WHERE u.email = :email", Usuario.class)
+                .setParameter("email", email)
+                .getSingleResult());
+    }
+
+    @Test
+    @WithMockUser(username = "ana.rojas@umss.edu.bo", roles = "ADMIN")
+    @DisplayName("IMP-04: bloquear deja al usuario inactivo")
+    void bloquearDejaInactivo() throws Exception {
+        mockMvc.perform(patch("/usuarios/" + idDe("zoe.quispe@umss.edu.bo") + "/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("inactivo"));
+        Assertions.assertEquals("inactivo", leer("zoe.quispe@umss.edu.bo").getEstado());
+    }
+
+    @Test
+    @WithMockUser(username = "ana.rojas@umss.edu.bo", roles = "ADMIN")
+    @DisplayName("IMP-04: desbloquear activa al usuario y levanta el bloqueo por intentos fallidos")
+    void desbloquearActivaYLevantaBloqueo() throws Exception {
+        transaction.executeWithoutResult(estado -> {
+            Usuario marco = entityManager
+                    .createQuery("SELECT u FROM Usuario u WHERE u.email = :email", Usuario.class)
+                    .setParameter("email", "marco.torrez@umss.edu.bo")
+                    .getSingleResult();
+            marco.setBloqueadoHasta(LocalDateTime.now().plusMinutes(10));
+            marco.setIntentosFallidos(2);
+        });
+
+        mockMvc.perform(patch("/usuarios/" + idDe("marco.torrez@umss.edu.bo") + "/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("activo"))
+                .andExpect(jsonPath("$.bloqueadoHasta").doesNotExist());
+
+        Usuario marco = leer("marco.torrez@umss.edu.bo");
+        Assertions.assertNull(marco.getBloqueadoHasta());
+        Assertions.assertEquals(0, marco.getIntentosFallidos());
+    }
+
+    @Test
+    @WithMockUser(username = "ana.rojas@umss.edu.bo", roles = "ADMIN")
+    @DisplayName("IMP-04: un ADMIN no puede bloquear su propia cuenta")
+    void adminNoPuedeBloquearse() throws Exception {
+        mockMvc.perform(patch("/usuarios/" + idDe("ana.rojas@umss.edu.bo") + "/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":false}"))
+                .andExpect(status().isBadRequest());
+        Assertions.assertEquals("activo", leer("ana.rojas@umss.edu.bo").getEstado());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("IMP-04: cambiar el estado de un usuario inexistente devuelve 404")
+    void cambiarEstadoInexistenteDevuelve404() throws Exception {
+        mockMvc.perform(patch("/usuarios/999999/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":false}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    @DisplayName("IMP-04: solo ADMIN puede bloquear usuarios")
+    void docenteNoPuedeBloquear() throws Exception {
+        mockMvc.perform(patch("/usuarios/" + idDe("zoe.quispe@umss.edu.bo") + "/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\":false}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("IMP-03: exportar CSV respeta los filtros, ordena por nombre y no expone el password")
+    void exportarCsvRespetaFiltros() throws Exception {
+        String csv = mockMvc.perform(get("/usuarios/exportar.csv").param("estado", "activo"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("usuarios.csv")))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        String[] lineas = csv.replace("\uFEFF", "").strip().split("\n");
+        Assertions.assertEquals("id;nombre;apellidos;ci;email;rol;estado", lineas[0]);
+        Assertions.assertEquals(5, lineas.length, "encabezado + 4 usuarios activos");
+        Assertions.assertTrue(lineas[1].contains(";Ana;"));
+        Assertions.assertTrue(lineas[4].contains(";Zoe;"));
+        Assertions.assertFalse(csv.contains(HASH_PASSWORD));
+        Assertions.assertFalse(csv.contains("inactivo"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Editar un usuario inexistente devuelve 404, no 500")
+    void editarInexistenteDevuelve404() throws Exception {
+        mockMvc.perform(put("/usuarios/999999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Ana\",\"apellidos\":\"Rojas\",\"ci\":\"6512340\","
+                                + "\"email\":\"ana.nueva@est.umss.edu\",\"rol\":\"ADMIN\",\"activo\":true}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    @DisplayName("Importar usuarios es solo para ADMIN")
+    void importarSoloAdmin() throws Exception {
+        mockMvc.perform(multipart("/usuarios/importar")
+                        .file(new MockMultipartFile("file", "usuarios.csv", "text/csv",
+                                "nombre,apellidos,ci,email,rol\n".getBytes(StandardCharsets.UTF_8))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Importar usuarios registra las filas válidas e informa las demás")
+    void importarRegistraFilasValidas() throws Exception {
+        String csv = "nombre;apellidos;ci;email;rol\n"
+                + "Elena;Prado Villa;7123456;elena.prado@est.umss.edu;CONTROL\n"
+                + "Ana;Rojas Vidal;6512340;ana.rojas@umss.edu.bo;ADMIN\n";
+        mockMvc.perform(multipart("/usuarios/importar")
+                        .file(new MockMultipartFile("file", "usuarios.csv", "text/csv",
+                                csv.getBytes(StandardCharsets.UTF_8))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.insertados").value(1))
+                .andExpect(jsonPath("$.ignorados").value(1))
+                .andExpect(jsonPath("$.errores[0]").value(org.hamcrest.Matchers.containsString("Fila 3")));
+
+        Usuario elena = leer("elena.prado@est.umss.edu");
+        Assertions.assertEquals("activo", elena.getEstado());
+        String rol = transaction.execute(e -> entityManager
+                .createQuery("SELECT r.nombre FROM UsuarioRol ur JOIN ur.idRol r WHERE ur.idUsuario.email = :m", String.class)
+                .setParameter("m", "elena.prado@est.umss.edu")
+                .getSingleResult());
+        Assertions.assertEquals("CONTROL", rol);
     }
 }

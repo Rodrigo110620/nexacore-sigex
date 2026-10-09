@@ -7,6 +7,7 @@ import com.nexacore.examenes.dto.LoginRequest;
 import com.nexacore.examenes.dto.PerfilResponse;
 import com.nexacore.examenes.dto.ResetPasswordRequest;
 import com.nexacore.examenes.exceptions.CredencialesInvalidasException;
+import com.nexacore.examenes.exceptions.CuentaBloqueadaException;
 import com.nexacore.examenes.exceptions.CuentaInactivaException;
 import com.nexacore.examenes.exceptions.PasswordActualIncorrectaException;
 import com.nexacore.examenes.exceptions.PasswordConfirmacionException;
@@ -17,6 +18,7 @@ import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.repositories.PasswordResetTokenRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.security.JwtService;
+import com.nexacore.examenes.security.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,10 +28,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -48,6 +52,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final int resetExpirationMinutes;
+    private final int maxIntentosFallidos;
+    private final int minutosBloqueo;
 
     public AuthService(
             UsuarioRepository usuarioRepository,
@@ -55,22 +61,43 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             EmailService emailService,
-            @Value("${app.password-reset.expiration-minutes:30}") int resetExpirationMinutes) {
+            @Value("${app.password-reset.expiration-minutes:30}") int resetExpirationMinutes,
+            @Value("${app.security.login.max-intentos:3}") int maxIntentosFallidos,
+            @Value("${app.security.login.minutos-bloqueo:15}") int minutosBloqueo) {
         this.usuarioRepository = usuarioRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.resetExpirationMinutes = resetExpirationMinutes;
+        this.maxIntentosFallidos = Math.max(1, maxIntentosFallidos);
+        this.minutosBloqueo = Math.max(1, minutosBloqueo);
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Tras maxIntentosFallidos contraseñas incorrectas seguidas, la cuenta queda bloqueada
+     * minutosBloqueo minutos; mientras dure, ni la contraseña correcta permite entrar.
+     * El contador se guarda aunque se lance la excepción (noRollbackFor).
+     */
+    @Transactional(noRollbackFor = {
+            CredencialesInvalidasException.class, CuentaBloqueadaException.class, CuentaInactivaException.class})
     public AuthResponse login(LoginRequest peticion) {
-        Usuario usuario = usuarioRepository.findByEmail(peticion.email())
+        Usuario usuario = usuarioRepository.findByEmail(peticion.email().trim().toLowerCase(Locale.ROOT))
                 .orElseThrow(CredencialesInvalidasException::new);
 
+        LocalDateTime ahora = LocalDateTime.now();
+        if (usuario.getBloqueadoHasta() != null && ahora.isBefore(usuario.getBloqueadoHasta())) {
+            throw new CuentaBloqueadaException(minutosRestantes(ahora, usuario.getBloqueadoHasta()));
+        }
+
         if (!passwordEncoder.matches(peticion.password(), usuario.getPassword())) {
-            throw new CredencialesInvalidasException();
+            registrarIntentoFallido(usuario, ahora);
+        }
+
+        if (usuario.getIntentosFallidos() > 0 || usuario.getBloqueadoHasta() != null) {
+            usuario.setIntentosFallidos(0);
+            usuario.setBloqueadoHasta(null);
+            usuarioRepository.save(usuario);
         }
 
         if (!ESTADO_ACTIVO.equalsIgnoreCase(usuario.getEstado())) {
@@ -82,6 +109,27 @@ public class AuthService {
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
 
         return new AuthResponse(token, nombreCompleto, roles);
+    }
+
+    /** Suma el fallo y, al llegar al máximo, bloquea la cuenta y reinicia el contador. Siempre lanza. */
+    private void registrarIntentoFallido(Usuario usuario, LocalDateTime ahora) {
+        int intentos = usuario.getIntentosFallidos() + 1;
+        if (intentos >= maxIntentosFallidos) {
+            usuario.setIntentosFallidos(0);
+            usuario.setBloqueadoHasta(ahora.plusMinutes(minutosBloqueo));
+            usuarioRepository.save(usuario);
+            throw new CuentaBloqueadaException(minutosBloqueo);
+        }
+        usuario.setIntentosFallidos(intentos);
+        usuario.setBloqueadoHasta(null);
+        usuarioRepository.save(usuario);
+        throw new CredencialesInvalidasException();
+    }
+
+    /** Minutos que faltan, redondeados hacia arriba para no mostrar "0 minutos". */
+    private static long minutosRestantes(LocalDateTime ahora, LocalDateTime hasta) {
+        long segundos = Duration.between(ahora, hasta).getSeconds();
+        return Math.max(1, (segundos + 59) / 60);
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +150,7 @@ public class AuthService {
 
     @Transactional
     public void cambiarPassword(String email, CambiarPasswordRequest request) {
+        PasswordPolicy.validate(request.passwordNueva());
         if (!request.passwordNueva().equals(request.passwordConfirmacion())) {
             throw new PasswordConfirmacionException();
         }
@@ -127,7 +176,7 @@ public class AuthService {
      */
     @Transactional
     public void solicitarResetPassword(ForgotPasswordRequest request) {
-        Optional<Usuario> opt = usuarioRepository.findByEmail(request.email().trim());
+        Optional<Usuario> opt = usuarioRepository.findByEmail(request.email().trim().toLowerCase(Locale.ROOT));
         if (opt.isEmpty()) {
             return;
         }
@@ -153,6 +202,7 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        PasswordPolicy.validate(request.passwordNueva());
         if (!request.passwordNueva().equals(request.passwordConfirmacion())) {
             throw new PasswordConfirmacionException();
         }

@@ -67,7 +67,7 @@ describe('UsuariosPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrar Usuario' }))
 
     expect(screen.getByRole('heading', { name: 'Registrar Usuario' })).toBeInTheDocument()
-    expect(screen.getByText('Credenciales por correo')).toBeInTheDocument()
+    expect(screen.queryByText('Credenciales por correo')).not.toBeInTheDocument()
     expect(screen.queryByRole('switch', { name: 'Notificar por email' })).not.toBeInTheDocument()
   })
 
@@ -79,7 +79,7 @@ describe('UsuariosPage', () => {
         <MemoryRouter initialEntries={['/dashboard']}>
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/dashboard/usuarios" element={<p>Gestión unificada</p>} />
+            <Route path="/dashboard/examenes" element={<p>Gestión unificada</p>} />
           </Routes>
         </MemoryRouter>
       </AuthProvider>,
