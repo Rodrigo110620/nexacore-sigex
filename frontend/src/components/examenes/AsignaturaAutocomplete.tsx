@@ -91,8 +91,8 @@ export default function AsignaturaAutocomplete({
           }}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           placeholder="Escribe al menos 3 letras…"
-          className={`w-full rounded-lg border bg-white py-2.5 pl-3 pr-10 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-            error ? 'border-red-400' : 'border-gray-200'
+          className={`w-full rounded-md border bg-white py-2.5 pl-3 pr-10 text-xs text-[#011140] transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF] ${
+            error ? 'border-red-400' : 'border-gray-300'
           }`}
         />
         {loading ? (

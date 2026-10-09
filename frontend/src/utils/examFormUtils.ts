@@ -35,8 +35,9 @@ export function filtrarAmbientes<T extends { nombre: string; ubicacion?: string 
 
 /** Clase de los campos del formulario de examen, con borde rojo si tienen error. */
 export function examFieldClass(hasError?: string): string {
-  return `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${
-    hasError ? 'border-red-400' : 'border-gray-200'
+  // Mismo estilo que los campos del registro de usuario.
+  return `w-full rounded-md border bg-white px-3 py-2.5 text-xs text-[#011140] transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF] ${
+    hasError ? 'border-red-400' : 'border-gray-300'
   }`
 }
 
@@ -57,7 +58,8 @@ export function detalleAmbiente(
   ].filter(Boolean).join(' · ')
 }
 
-export const EXAM_SECTION_CARD_CLASS = 'rounded-xl border border-[#E8EEF7] bg-[#FAFCFF] p-4'
+/** Secciones sin tarjeta, separadas por una línea, como en el registro de usuario. */
+export const EXAM_SECTION_CARD_CLASS = 'border-b border-gray-100 pb-5 last:border-b-0 last:pb-0'
 
 export function minutesBetween(start: string, end: string): number | null {
   const a = parseHora24(start)
