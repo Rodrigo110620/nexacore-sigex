@@ -1,38 +1,79 @@
-version: '3.8'
+# ==========================================
+# SIGEX — DESPLIEGUE: base de datos, backend y frontend
+#
+#   cp .env.example .env        # completa contraseñas, JWT_SECRET y correo
+#   docker compose up -d --build
+#   → http://localhost (o el puerto de APP_PORT)
+#
+# Orden de arranque (automático): db (espera a estar lista) → backend (aplica las
+# migraciones Flyway) → frontend (Nginx sirve la app y reenvía /api/ al backend).
+# Para desarrollo (solo base de datos + pgAdmin) usa docker-compose.dev.yml.
+# ==========================================
+
+# Proyecto propio: no se mezcla con el de desarrollo (nexacore-sigex).
+name: sigex
 
 services:
   db:
     image: postgres:15.10
-    container_name: nexacore_postgres
-    restart: always
+    container_name: sigex_db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DOCKER_DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD:?Define DOCKER_DB_PASSWORD en .env}
       POSTGRES_DB: ${DOCKER_DB_NAME:-taller_TIS}
-    ports:
-      - "${DOCKER_DB_PORT:-5432}:5432"
+    # Sin puerto publicado: solo el backend le habla por la red interna.
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOCKER_DB_USER:-postgres} -d ${DOCKER_DB_NAME:-taller_TIS}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
-      - nexacore_net
+      - sigex_net
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: nexacore_pgadmin
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@nexacore.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Define PGADMIN_PASSWORD en .env}
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
+  backend:
+    build: ./backend
+    container_name: sigex_backend
+    restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    # JWT, correo, CORS, seguridad... salen del .env (ver .env.example).
+    env_file: .env
+    environment:
+      # Dentro de Docker siempre usa la base del compose, aunque .env diga otra cosa.
+      DB_TARGET: docker
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      # "db" = la base de este compose. En producción, el host del PostgreSQL del laboratorio.
+      DOCKER_DB_HOST: ${DB_HOST:-db}
+      DOCKER_DB_PORT: ${DB_PORT:-5432}
+      SERVER_PORT: "8080"
+    # Sin puerto publicado: solo el frontend (Nginx) le habla por la red interna.
+    expose:
+      - "8080"
     networks:
-      - nexacore_net
+      - sigex_net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: sigex_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-80}:80"
+    networks:
+      - sigex_net
 
 volumes:
   pgdata:
+    name: sigex_pgdata
 
 networks:
-  nexacore_net:
+  sigex_net:
     driver: bridge

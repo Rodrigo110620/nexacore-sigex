@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS public.carrera (
     CONSTRAINT uq_carrera_nombre UNIQUE (nombre),
     CONSTRAINT uq_carrera_codigo UNIQUE (codigo)
 );
-ALTER TABLE public.carrera OWNER TO postgres;
 
 COMMENT ON TABLE public.carrera IS
     'Catálogo de carreras. Referenciado por estudiante (MAST-01).';
