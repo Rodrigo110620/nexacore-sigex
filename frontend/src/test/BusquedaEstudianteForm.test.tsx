@@ -10,7 +10,7 @@ function escribirYEnviar(input: HTMLElement, valor: string) {
 }
 
 describe('BusquedaEstudianteForm', () => {
-  it('deshabilita Buscar con el input vacío y busca sin los espacios de los extremos', () => {
+  it('deshabilita Buscar con el input vacío o con espacios, y busca con un código válido', () => {
     const onBuscar = vi.fn()
     render(<BusquedaEstudianteForm tipo="codigo" onBuscar={onBuscar} />)
     const input = screen.getByLabelText('Ingresa el Código Universitario:')
@@ -22,6 +22,11 @@ describe('BusquedaEstudianteForm', () => {
     expect(onBuscar).not.toHaveBeenCalled()
 
     escribirYEnviar(input, ' 201904725 ')
+    expect(buscar).toBeDisabled()
+    expect(screen.getByText(/no puede contener espacios/)).toBeInTheDocument()
+    expect(onBuscar).not.toHaveBeenCalled()
+
+    escribirYEnviar(input, '201904725')
     expect(buscar).toBeEnabled()
     expect(onBuscar).toHaveBeenCalledWith('201904725')
   })
