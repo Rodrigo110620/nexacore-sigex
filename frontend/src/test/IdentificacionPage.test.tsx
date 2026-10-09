@@ -175,6 +175,46 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeDisabled()
   })
 
+  it('BUG-A01: con un valor inválido (escrito o pegado) muestra el motivo y no busca', () => {
+    mockedIdentificar.mockClear()
+    renderPage()
+    const input = screen.getByLabelText('Ingresa el Código Universitario:')
+
+    fireEvent.change(input, { target: { value: '20190A' } })
+    expect(screen.getByText('El código universitario no puede contener letras')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Buscar' })).toBeDisabled()
+
+    fireEvent.change(input, { target: { value: '2019047' } })
+    fireEvent.submit(input.closest('form')!)
+    expect(screen.getByText('El código universitario debe tener exactamente 9 dígitos')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: '121212121' } })
+    expect(screen.getByText('El código universitario no puede ser un patrón repetido')).toBeInTheDocument()
+    expect(mockedIdentificar).not.toHaveBeenCalled()
+  })
+
+  it('BUG-A01: al cambiar a C.I. limpia el campo y aplica la regla de 8 dígitos', async () => {
+    mockedIdentificar.mockClear()
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage()
+    fireEvent.change(screen.getByLabelText('Ingresa el Código Universitario:'), { target: { value: '2019A' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /Carnet \/ CI/ }))
+    const ci = screen.getByLabelText('Ingresa el Carnet / CI:')
+    expect(ci).toHaveValue('')
+    expect(screen.queryByText(/no puede contener letras/)).not.toBeInTheDocument()
+
+    fireEvent.change(ci, { target: { value: '7845123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar' }))
+    expect(screen.getByText('El C.I. debe tener exactamente 8 dígitos')).toBeInTheDocument()
+    expect(mockedIdentificar).not.toHaveBeenCalled()
+
+    fireEvent.change(ci, { target: { value: '78451236' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar' }))
+    await screen.findByText('María José González Flores')
+    expect(mockedIdentificar).toHaveBeenCalledWith(7, 'ci', '78451236')
+  })
+
   it('con ?codigo= busca una sola vez por código universitario y deja el valor en el input', async () => {
     mockedIdentificar.mockClear()
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
