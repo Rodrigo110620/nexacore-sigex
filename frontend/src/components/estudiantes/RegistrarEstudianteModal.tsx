@@ -6,6 +6,7 @@ import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '
 import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateEmail, validateNombre } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
+import EmailDomainSuggest from './EmailDomainSuggest'
 
 interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: string) => void }
 
@@ -144,20 +145,45 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
         </header>
 
         <div className="grid grid-cols-2 border-b border-[#D8E3F5] px-4 pt-2 text-[12px] font-semibold sm:px-5">
-          <div className={`flex gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0439D9] text-white">{step === 2 ? <Check size={13}/> : '1'}</span><span>Información Personal del Estudiante<br/><small>{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</small></span></div>
-          <div className={`flex gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200'}`}>2</span><span>Información Académica<br/><small>{step === 2 ? 'EN CURSO' : 'Pendiente'}</small></span></div>
+          <div className={`flex gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}><span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0439D9] text-white">{step === 2 ? <Check size={13} /> : '1'}</span><span>Información Personal del Estudiante<br /><small>{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</small></span></div>
+          <div className={`flex gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}><span className={`flex h-5 w-5 items-center justify-center rounded-full ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200'}`}>2</span><span>Información Académica<br /><small>{step === 2 ? 'EN CURSO' : 'Pendiente'}</small></span></div>
         </div>
 
         <div className="space-y-4 px-4 py-3 sm:px-5">
           {step === 1 ? <>
-            <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input name="nombre" autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => { update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true })); handleBlur('nombre') }} placeholder="Ej: María José" className={inputClass}/></label>
-            <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass}/></label>
-            <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass}/></label>
-            <label className="block text-xs font-semibold text-[#011140]">Correo electrónico <b className="text-red-500">*</b><div className="relative"><input name="email" type="email" value={form.email} maxLength={FIELD_LIMITS.email.max} onChange={(e) => update('email', e.target.value)} onBlur={() => handleBlur('email')} placeholder="Ej: maria.gonzalez@umss.edu" className={`${inputClass} pr-10`}/><Mail className="absolute right-3 top-4 text-[#627A9B]" size={16}/></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input name="nombre" autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => { update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true })); handleBlur('nombre') }} placeholder="Ej: María José" className={inputClass} /></label>
+            <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass} /></label>
+            <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass} /></label>
+            <label className="block text-xs font-semibold text-[#011140]">
+              Correo electrónico <b className="text-red-500">*</b>
+              <div className="relative">
+                <input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  maxLength={FIELD_LIMITS.email.max}
+                  onChange={(e) => update('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  placeholder="Ej: maria.gonzalez@umss.edu"
+                  className={`${inputClass} pr-32`}
+                />
+                {/*Sugerencia de dominio cuando aún no escribió el @ */}
+                {form.email.length > 0 && !form.email.includes('@') && (
+                  <EmailDomainSuggest
+                    visible
+                    onAccept={() => update('email', `${form.email}@est.umss.edu`)}
+                  />
+                )}
+                {/* Ícono de sobre solo cuando ya escribió el @ */}
+                {form.email.includes('@') && (
+                  <Mail className="absolute right-3 top-4 text-[#627A9B]" size={16} />
+                )}
+              </div>
+            </label>
           </> : <>
-            <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('codigoSis')} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`}/><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
-            <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16}/></div></label>
-            <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16}/></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
+            <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('codigoSis')} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`} /><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div></label>
+            <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
           </>}
         </div>
 
