@@ -31,6 +31,7 @@
 .control-input { display: block; width: 100%; border: 1px solid transparent; border-radius: 7px; background: #f3f3f3; padding: 10px; margin-top: 5px; resize: none; font-size: 12px; }
 .control-input::placeholder { color: #85899b; }
 .control-input:focus { outline: 2px solid #6085ff; }
+.control-input[aria-invalid="true"] { border-color: #f87171; }
 .control-verification { position: relative; display: flex; gap: 8px; align-items: center; background: #f3f3f3; padding: 9px 10px; margin-top: 5px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
 .control-verification input { position: absolute; opacity: 0; width: 100%; height: 100%; inset: 0; cursor: pointer; }
 .control-verification:focus-within { outline: 2px solid #6085ff; }

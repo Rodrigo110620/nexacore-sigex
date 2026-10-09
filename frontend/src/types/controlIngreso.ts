@@ -25,6 +25,8 @@ export interface AutorizarIngresoPayload {
   identidadVerificada: boolean
   verificacionesAdicionales: string[]
   incidencias: Array<{ idTipoIncidencia: number; descripcion: string }>
+  /** Solo al denegar: "Detalle adicional" del modal (opcional). */
+  detalleDenegacion?: string
 }
 
 export interface AutorizarIngresoResultado {

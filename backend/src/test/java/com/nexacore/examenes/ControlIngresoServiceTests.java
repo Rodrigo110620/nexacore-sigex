@@ -80,6 +80,34 @@ class ControlIngresoServiceTests {
         verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
     }
 
+    /** BUG-D02: se guarda en el orden de antes: razón — detalle — observaciones. */
+    @Test
+    void deniegaConDetalleAdicionalEntreLaRazonYLasObservaciones() {
+        var request = new AutorizarIngresoRequest(10, 20, "Documento inválido — Se informó al estudiante", false,
+                List.of(), List.of(), "  CI vencido (2019),\n¿renovado? No.  ");
+        var response = service.denegar(request, "control@umss.edu.bo");
+        String causa = "Documento inválido — CI vencido (2019),\n¿renovado? No. — Se informó al estudiante";
+        assertEquals(causa, response.causa());
+        assertEquals("Ingreso denegado por CONTROL: " + causa, asistencia.getMotivoInhabilitacion());
+        verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", causa, "[]", causa);
+    }
+
+    @Test
+    void deniegaConDetalleAdicionalSinObservaciones() {
+        var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), "CI vencido");
+        assertEquals("Documento inválido — CI vencido", service.denegar(request, "control@umss.edu.bo").causa());
+    }
+
+    /** BUG-D02: con un detalle inválido no se deniega ni se registra nada. */
+    @Test
+    void rechazaDetalleAdicionalInvalidoSinEscribirDatos() {
+        var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), "???????");
+        var error = assertThrows(IllegalArgumentException.class, () -> service.denegar(request, "control@umss.edu.bo"));
+        assertEquals("El detalle adicional debe tener letras o números, no solo signos", error.getMessage());
+        verify(asistenciaRepository, never()).save(any());
+        verifyNoInteractions(registroRepository);
+    }
+
     @Test
     void denegacionExigeMotivo() {
         assertThrows(ControlIngresoException.class, () -> service.denegar(requestVacio(), "control@umss.edu.bo"));
