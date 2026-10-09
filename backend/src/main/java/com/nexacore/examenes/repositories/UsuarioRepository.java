@@ -17,6 +17,11 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
     boolean existsByCiAndIdNot(String ci, Integer id);
 
+    boolean existsByCiIgnoreCase(String ci);
+
+    boolean existsByEmailIgnoreCase(String email);
+
+
     @Query("""
             SELECT COUNT(u) > 0 FROM Usuario u
             WHERE u.email = :email AND LOWER(CAST(u.estado AS String)) = 'activo'

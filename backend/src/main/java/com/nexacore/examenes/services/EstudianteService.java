@@ -13,6 +13,7 @@ import com.nexacore.examenes.models.EstudianteCarreraId;
 import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import com.nexacore.examenes.repositories.UsuarioRepository;  // 🆕
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -30,15 +31,18 @@ public class EstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final EstudianteCarreraRepository estudianteCarreraRepository;
     private final CarreraRepository carreraRepository;
+    private final UsuarioRepository usuarioRepository;  
 
     public EstudianteService(
             EstudianteRepository estudianteRepository,
             EstudianteCarreraRepository estudianteCarreraRepository,
-            CarreraRepository carreraRepository
+            CarreraRepository carreraRepository,
+            UsuarioRepository usuarioRepository 
     ) {
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
         this.carreraRepository = carreraRepository;
+        this.usuarioRepository = usuarioRepository;  
     }
 
     public PageResponse<EstudianteListResponse> listar(
@@ -52,7 +56,6 @@ public class EstudianteService {
         return PageResponse.de(pagina.map(this::toResponse));
     }
 
-    /** Sin espacios al borde ni repetidos (p. ej. al pegar "Juan   Pérez"), y hasta 40 caracteres. */
     static String normalizarBusqueda(String search) {
         if (search == null) {
             return null;
@@ -87,6 +90,7 @@ public class EstudianteService {
         String ci = limpiar(request.ci());
         String email = limpiar(request.email()).toLowerCase();
 
+        // BUG-A03: Validar duplicados en ESTUDIANTES
         if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
         }
@@ -95,6 +99,14 @@ public class EstudianteService {
         }
         if (estudianteRepository.existsByEmailIgnoreCase(email)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese correo electrónico.");
+        }
+
+        // BUG-A03: Validar duplicados también contra USUARIOS del sistema
+        if (usuarioRepository.existsByCiIgnoreCase(ci)) {
+            throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese CI.");
+        }
+        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+            throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese correo electrónico.");
         }
 
         CarreraId carreraId = new CarreraId();
@@ -146,7 +158,7 @@ public class EstudianteService {
         String nuevoCi = limpiar(request.ci());
         String nuevoEmail = limpiar(request.email()).toLowerCase();
 
-        // Validar duplicados solo si el valor cambió
+        // Validar duplicados en ESTUDIANTES (solo si el valor cambió)
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)
                 && estudianteRepository.existsByCodigoSisIgnoreCase(nuevoCodigo)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
@@ -159,6 +171,17 @@ public class EstudianteService {
                 && !nuevoEmail.equalsIgnoreCase(e.getEmail())
                 && estudianteRepository.existsByEmailIgnoreCase(nuevoEmail)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese correo electrónico.");
+        }
+
+        // BUG-A03: Validar duplicados también contra USUARIOS del sistema
+        if (!e.getCi().equalsIgnoreCase(nuevoCi)
+                && usuarioRepository.existsByCiIgnoreCase(nuevoCi)) {
+            throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese CI.");
+        }
+        if (!nuevoEmail.isEmpty()
+                && !nuevoEmail.equalsIgnoreCase(e.getEmail())
+                && usuarioRepository.existsByEmailIgnoreCase(nuevoEmail)) {
+            throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese correo electrónico.");
         }
 
         // Validar que la carrera pertenezca a la facultad

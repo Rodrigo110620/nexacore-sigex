@@ -144,18 +144,17 @@ export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 const INSTITUTIONAL_EMAIL_REGEX =
   /^[a-zA-Z0-9._%+-]+@(est\.)?umss\.edu(?:\.bo)?$/i
 
+/* Validacion de correo*/
 export const validateEmail = (value: string): string => {
   const trimmed = value.trim()
-
   if (!trimmed) return 'El correo es obligatorio'
+  if (trimmed.length > FIELD_LIMITS.email.max) return `Máximo ${FIELD_LIMITS.email.max} caracteres`
+  if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) return 'Solo se permiten correos institucionales UMSS'
 
-  if (trimmed.length > FIELD_LIMITS.email.max) {
-    return `Máximo ${FIELD_LIMITS.email.max} caracteres`
-  }
-
-  if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) {
-    return 'Solo se permiten correos institucionales UMSS'
-  }
+  const [local] = trimmed.split('@')
+  if (local.length < 3) return 'La parte inicial del correo debe tener al menos 3 caracteres'
+  if (/^0+$/.test(local)) return 'La parte inicial del correo no puede ser todo ceros'
+  if (/^(\w)\1+$/.test(local)) return 'La parte inicial del correo no puede ser un dato repetido'
 
   return ''
 }
