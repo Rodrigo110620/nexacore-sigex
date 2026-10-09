@@ -4,8 +4,10 @@ import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse.EstadoHabilitacion;
+import com.nexacore.examenes.dto.RepartoAulasResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
+import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExamenId;
@@ -58,6 +60,7 @@ class HabilitacionServiceTests {
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
         jdbcTemplate.execute("DELETE FROM asistencia_examen");
         jdbcTemplate.execute("DELETE FROM inscripcion_paralelo");
+        jdbcTemplate.execute("DELETE FROM examen_aula");
         ExamenId id = new ExamenId();
         id.setIdExamen(EXAMEN);
         id.setIdParalelo(PARALELO);
@@ -255,6 +258,42 @@ class HabilitacionServiceTests {
     private static EstadoHabilitacion estadoDe(List<EstudianteHabilitacionResponse> lista, Estudiante estudiante) {
         return lista.stream().filter(e -> e.idEstudiante().equals(estudiante.getId()))
                 .findFirst().orElseThrow().estadoHabilitacion();
+    }
+
+    @Test
+    void repartePorOrdenAlfabeticoEntreLasAulasDelExamen() {
+        examen.setIdAmbiente(9101);
+        examen.setAmbiente(ambiente(9101, "692A", 1));
+        jdbcTemplate.update("DELETE FROM ambiente WHERE id_ambiente = 9102");
+        jdbcTemplate.update("INSERT INTO ambiente (id_ambiente, nombre, ubicacion, capacidad) VALUES (9102, '691A', 'FCyT', 1)");
+        jdbcTemplate.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, 9102, 1)", EXAMEN);
+        Estudiante carla = estudiante("Carla");
+        Estudiante ana = estudiante("Ana");
+        Estudiante beto = estudiante("Beto");
+
+        habilitacionService.asociarLote(EXAMEN, PARALELO,
+                List.of(carla.getCodigoSis(), ana.getCodigoSis(), beto.getCodigoSis()));
+        List<EstudianteHabilitacionResponse> lista = habilitacionService.listar(EXAMEN, PARALELO);
+
+        // Mismos apellidos: decide el nombre. Ana → 692A, Beto → 691A, Carla no entra.
+        assertThat(lista).filteredOn(e -> e.nombre().equals("Ana")).singleElement()
+                .satisfies(e -> assertThat(e.aula()).isEqualTo("692A"));
+        assertThat(lista).filteredOn(e -> e.nombre().equals("Beto")).singleElement()
+                .satisfies(e -> assertThat(e.aula()).isEqualTo("691A"));
+        assertThat(lista).filteredOn(e -> e.nombre().equals("Carla")).singleElement()
+                .satisfies(e -> assertThat(e.aula()).isNull());
+
+        RepartoAulasResponse reparto = habilitacionService.reparto(EXAMEN, PARALELO);
+        assertThat(reparto.aulas()).extracting(RepartoAulasResponse.OcupacionAula::asignados).containsExactly(1, 1);
+        assertThat(reparto.sinAula()).isEqualTo(1);
+    }
+
+    private static Ambiente ambiente(int id, String nombre, Integer capacidad) {
+        Ambiente a = new Ambiente();
+        a.setId(id);
+        a.setNombre(nombre);
+        a.setCapacidad(capacidad);
+        return a;
     }
 
     private Estudiante estudiante(String nombre) {

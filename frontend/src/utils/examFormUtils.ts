@@ -258,3 +258,19 @@ export function validateExamenForm(
   }
   return errors
 }
+
+/** Igual que en el backend: un examen admite hasta 9 aulas además de la principal. */
+export const MAX_AULAS_ADICIONALES = 9
+
+/** Nombres de las aulas (principal y adicionales) sin aforo: con varias aulas, todas lo necesitan. */
+export function aulasSinAforo(
+  ambientes: { id: number; nombre: string; capacidad?: number | null }[],
+  idPrincipal: string,
+  adicionales: number[],
+): string[] {
+  if (adicionales.length === 0) return []
+  return [Number(idPrincipal), ...adicionales]
+    .map((id) => ambientes.find((a) => a.id === id))
+    .filter((a): a is { id: number; nombre: string; capacidad?: number | null } => Boolean(a) && !a?.capacidad)
+    .map((a) => a.nombre)
+}

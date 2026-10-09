@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacore.examenes.dto.ActualizarExamenRequest;
+import com.nexacore.examenes.dto.AulaExamenResponse;
 import com.nexacore.examenes.dto.CrearExamenRequest;
 import com.nexacore.examenes.dto.ExamenResponse;
 import com.nexacore.examenes.dto.NormaParticularRequest;
@@ -13,6 +14,8 @@ import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Examen;
+import com.nexacore.examenes.models.ExamenAula;
+import com.nexacore.examenes.models.ExamenAulaId;
 import com.nexacore.examenes.models.ExamenId;
 import com.nexacore.examenes.models.Materia;
 import com.nexacore.examenes.models.Paralelo;
@@ -21,6 +24,7 @@ import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.DocenteRepository;
+import com.nexacore.examenes.repositories.ExamenAulaRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
@@ -41,6 +45,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Comparator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -57,6 +64,7 @@ public class ExamenService {
     private final EstudianteRepository estudianteRepository;
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
+    private final ExamenAulaRepository examenAulaRepository;
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
             "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "AL", "PARA", "POR", "CON");
@@ -73,7 +81,8 @@ public class ExamenService {
             UsuarioRepository usuarioRepository,
             EstudianteRepository estudianteRepository,
             AsistenciaExamenRepository asistenciaExamenRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ExamenAulaRepository examenAulaRepository) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.materiaRepository = materiaRepository;
@@ -83,6 +92,7 @@ public class ExamenService {
         this.estudianteRepository = estudianteRepository;
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.objectMapper = objectMapper;
+        this.examenAulaRepository = examenAulaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +141,8 @@ public class ExamenService {
         docenteRepository.bloquear(docente.getIdUsuario());
         validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
                 request.duracionMinutos(), null);
+        List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente);
 
         Integer idExamen = ((Number) entityManager
@@ -156,6 +168,7 @@ public class ExamenService {
                 List.of(), List.of())));
 
         Examen guardado = examenRepository.save(examen);
+        guardarAulasAdicionales(idExamen, adicionales);
         registrarAuditoria("EXAMEN_CREADO", Map.of(
                 "idExamen", guardado.getId().getIdExamen(),
                 "idParalelo", guardado.getId().getIdParalelo(),
@@ -190,6 +203,12 @@ public class ExamenService {
         docenteRepository.bloquear(docente.getIdUsuario());
         validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
                 request.duracionMinutos(), idExamen);
+        // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
+        List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
+                ? request.idAmbientesAdicionales()
+                : examenAulaRepository.adicionalesDe(idExamen).stream().map(ea -> ea.getId().getIdAmbiente()).toList();
+        List<Ambiente> adicionales = validarAulasAdicionales(ambiente, idsAdicionales,
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         Map<String, Object> antes = resumen(examen);
         NormasGuardadas previas = leerNormas(examen.getNormas());
@@ -209,6 +228,7 @@ public class ExamenService {
         examen.setNormas(normas);
 
         Examen guardado = examenRepository.save(examen);
+        guardarAulasAdicionales(idExamen, adicionales);
         registrarAuditoria("EXAMEN_MODIFICADO", Map.of(
                 "idExamen", idExamen,
                 "idParaleloAnterior", idParalelo,
@@ -287,11 +307,67 @@ public class ExamenService {
         Examen otro = primerSolapado(examenRepository.findByAmbienteAndFecha(idAmbiente, fecha),
                 inicio, duracionMinutos, idExamenExcluido);
         if (otro != null) {
+            String nombre = ambienteRepository.findById(idAmbiente).map(Ambiente::getNombre).orElse("indicado");
             throw new ConflictoExamenException(
-                    "El ambiente ya tiene un examen el " + fecha
+                    "El ambiente " + nombre + " ya tiene un examen el " + fecha
                             + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
                             + ". Elige otro horario o ambiente.");
         }
+    }
+
+    static final int MAX_AULAS_ADICIONALES = 9;
+
+    /**
+     * Aulas que se suman a la principal, en el orden recibido. No pueden repetirse ni estar ocupadas
+     * a esa hora, y si hay más de una aula todas necesitan aforo: el reparto llena cada una hasta su aforo.
+     */
+    private List<Ambiente> validarAulasAdicionales(
+            Ambiente principal, List<Integer> ids, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+            Integer idExamenExcluido) {
+        List<Integer> lista = listaSegura(ids);
+        if (lista.size() > MAX_AULAS_ADICIONALES) {
+            throw new IllegalArgumentException(
+                    "Un examen admite hasta " + MAX_AULAS_ADICIONALES + " aulas adicionales.");
+        }
+        Set<Integer> vistos = new HashSet<>(Set.of(principal.getId()));
+        for (Integer id : lista) {
+            if (id == null || !vistos.add(id)) {
+                throw new IllegalArgumentException("Cada aula del examen debe ser distinta.");
+            }
+        }
+        // Bloqueo en orden de id (igual que en crear) para que dos registros no se crucen.
+        Map<Integer, Ambiente> bloqueados = new HashMap<>();
+        for (Integer id : lista.stream().sorted().toList()) {
+            bloqueados.put(id, ambienteRepository.bloquear(id)
+                    .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe")));
+        }
+        List<Ambiente> aulas = lista.stream().map(bloqueados::get).toList();
+        for (Ambiente aula : aulas) {
+            validarSinConflicto(aula.getId(), fecha, inicio, duracionMinutos, idExamenExcluido);
+        }
+        if (!aulas.isEmpty()) {
+            List<String> sinAforo = Stream.concat(Stream.of(principal), aulas.stream())
+                    .filter(a -> a.getCapacidad() == null)
+                    .map(Ambiente::getNombre)
+                    .toList();
+            if (!sinAforo.isEmpty()) {
+                throw new IllegalArgumentException("Para repartir a los estudiantes en varias aulas, registra el aforo de: "
+                        + String.join(", ", sinAforo) + ".");
+            }
+        }
+        return aulas;
+    }
+
+    private void guardarAulasAdicionales(Integer idExamen, List<Ambiente> aulas) {
+        examenAulaRepository.eliminarDe(idExamen);
+        List<ExamenAula> filas = new ArrayList<>();
+        for (int i = 0; i < aulas.size(); i++) {
+            ExamenAula fila = new ExamenAula();
+            fila.setId(new ExamenAulaId(idExamen, aulas.get(i).getId()));
+            fila.setOrden((short) (i + 1));
+            filas.add(fila);
+        }
+        examenAulaRepository.saveAll(filas);
     }
 
     /** Un docente no puede tener dos exámenes que se crucen, aunque sean en ambientes distintos. */
@@ -693,7 +769,8 @@ public class ExamenService {
     private record Catalogos(
             Map<Integer, Materia> materias,
             Map<Integer, String> docentes,
-            Map<Integer, Ambiente> ambientes) {
+            Map<Integer, Ambiente> ambientes,
+            Map<Integer, List<ExamenAula>> adicionales) {
     }
 
     private Catalogos catalogosDe(Collection<Examen> examenes) {
@@ -718,7 +795,11 @@ public class ExamenService {
         for (Ambiente ambiente : ambienteRepository.findAllById(idsAmbiente)) {
             ambientes.put(ambiente.getId(), ambiente);
         }
-        return new Catalogos(materias, docentes, ambientes);
+        Set<Integer> idsExamen = examenes.stream().map(e -> e.getId().getIdExamen()).collect(Collectors.toSet());
+        Map<Integer, List<ExamenAula>> adicionales = idsExamen.isEmpty() ? Map.of()
+                : examenAulaRepository.adicionalesDe(idsExamen).stream()
+                        .collect(Collectors.groupingBy(ea -> ea.getId().getIdExamen()));
+        return new Catalogos(materias, docentes, ambientes, adicionales);
     }
 
     private ExamenResponse toResponse(Examen examen) {
@@ -737,6 +818,13 @@ public class ExamenService {
         Ambiente ambiente = catalogos.ambientes().get(examen.getIdAmbiente());
         String ambienteNombre = ambiente != null ? ambiente.getNombre() : "—";
         String ambienteUbicacion = ambiente != null ? ambiente.getUbicacion() : null;
+        List<AulaExamenResponse> aulas = new ArrayList<>();
+        aulas.add(new AulaExamenResponse(examen.getIdAmbiente(), ambienteNombre,
+                ambiente != null ? ambiente.getCapacidad() : null, 0));
+        catalogos.adicionales().getOrDefault(examen.getId().getIdExamen(), List.of()).stream()
+                .sorted(Comparator.comparing(ExamenAula::getOrden))
+                .forEach(ea -> aulas.add(new AulaExamenResponse(ea.getAmbiente().getId(),
+                        ea.getAmbiente().getNombre(), ea.getAmbiente().getCapacidad(), ea.getOrden())));
 
         return new ExamenResponse(
                 examen.getId().getIdExamen(),
@@ -754,6 +842,7 @@ public class ExamenService {
                 generales,
                 particulares,
                 examen.getIdMateria(),
-                examen.getIdDocente());
+                examen.getIdDocente(),
+                aulas);
     }
 }

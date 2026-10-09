@@ -23,6 +23,12 @@ export async function crearAmbiente(payload: {
   return data
 }
 
+/** Aforo de un aula existente; necesario para repartir un examen en varias aulas. Solo ADMIN. */
+export async function actualizarAforo(idAmbiente: number, capacidad: number): Promise<AmbienteDto> {
+  const { data } = await api.patch<AmbienteDto>(`/ambientes/${idAmbiente}/aforo`, { capacidad })
+  return data
+}
+
 export interface DisponibilidadParams {
   fecha: string
   horaInicio: string       // HH:MM:SS

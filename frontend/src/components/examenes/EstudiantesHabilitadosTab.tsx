@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -17,8 +17,10 @@ import { ConfirmDiscardDialog } from './ExamFormDialogs'
 import {
   actualizarHabilitacion,
   listarEstudiantesExamen,
+  obtenerRepartoAulas,
   type EstadoHabilitacion,
   type EstudianteHabilitacionDto,
+  type RepartoAulasDto,
 } from '../../services/habilitacionService'
 
 const PAGE_SIZE = 5
@@ -122,6 +124,7 @@ export default function EstudiantesHabilitadosTab({
   const [motivoError, setMotivoError] = useState('')
   const [confirmarCierre, setConfirmarCierre] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
+  const [reparto, setReparto] = useState<RepartoAulasDto | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -143,6 +146,18 @@ export default function EstudiantesHabilitadosTab({
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  // Asociar o cambiar la habilitación mueve el reparto alfabético: se vuelve a pedir con cada cambio.
+  useEffect(() => {
+    let cancelado = false
+    Promise.resolve(obtenerRepartoAulas(idExamen, idParalelo))
+      .then((r) => { if (!cancelado) setReparto(r ?? null) })
+      .catch(() => { if (!cancelado) setReparto(null) })
+    return () => { cancelado = true }
+  }, [estudiantes, idExamen, idParalelo])
+
+  // Con una sola aula y todos ubicados, la columna y el resumen no aportan nada.
+  const mostrarAulas = Boolean(reparto && (reparto.aulas.length > 1 || reparto.sinAula > 0))
 
   const asociadosIds = useMemo(() => new Set(estudiantes.map((e) => e.idEstudiante)), [estudiantes])
 
@@ -248,6 +263,7 @@ export default function EstudiantesHabilitadosTab({
 
   return (
     <section className="flex flex-col gap-4">
+      {mostrarAulas && reparto && <ResumenAulas reparto={reparto} />}
       <div className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
@@ -367,6 +383,9 @@ export default function EstudiantesHabilitadosTab({
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Motivo / Razón</p>
                       <p className={`text-sm ${noHabilitado ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>{e.motivo || '—'}</p>
+                      {mostrarAulas && (
+                        <p className="mt-1.5 text-[11px] text-[#627A9B]">Aula: <AulaDe estudiante={e} /></p>
+                      )}
                     </div>
                     {isAdmin && (
                       <button
@@ -407,13 +426,14 @@ export default function EstudiantesHabilitadosTab({
                   <th scope="col" className="px-4 py-3 font-bold">CI</th>
                   <th scope="col" className="px-4 py-3 font-bold">Estado de habilitación</th>
                   <th scope="col" className="px-4 py-3 font-bold">Motivo / Razón</th>
+                  {mostrarAulas && <th scope="col" className="px-4 py-3 font-bold">Aula</th>}
                   <th scope="col" className="px-4 py-3 text-center font-bold">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EDF1F7] text-sm">
                 {paged.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500">
+                    <td colSpan={mostrarAulas ? 7 : 6} className="px-4 py-10 text-center text-sm text-gray-500">
                       {hasActiveFilters
                         ? 'Sin resultados para los filtros aplicados.'
                         : 'No hay estudiantes asociados a este examen.'}
@@ -458,6 +478,7 @@ export default function EstudiantesHabilitadosTab({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{e.motivo ?? '—'}</td>
+                      {mostrarAulas && <td className="px-4 py-3"><AulaDe estudiante={e} /></td>}
                       <td className="px-4 py-3 text-center">
                         {isAdmin ? (
                           <button
@@ -719,5 +740,42 @@ export default function EstudiantesHabilitadosTab({
 
       <ResultadoModal resultado={resultado} onClose={() => setResultado(null)} />
     </section>
+  )
+}
+
+/** Aula del estudiante; los NO habilitados no ocupan lugar y quien no entra se marca en rojo. */
+function AulaDe({ estudiante }: { estudiante: EstudianteHabilitacionDto }) {
+  if (estudiante.aula) return <span className="font-semibold text-[#011140]">{estudiante.aula}</span>
+  if (estudiante.estadoHabilitacion === 'NO_HABILITADO') return <span className="text-gray-400">—</span>
+  return <span className="font-semibold text-red-600">Sin aula</span>
+}
+
+/** Ocupación por aula según el reparto alfabético, con aviso si alguien no tiene lugar. */
+function ResumenAulas({ reparto }: { reparto: RepartoAulasDto }) {
+  return (
+    <div className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm">
+      <p className="flex items-center gap-1.5 text-xs font-bold text-[#011140]">
+        <DoorOpen size={15} aria-hidden="true" className="text-[#0439D9]" />
+        Reparto por aula (orden alfabético)
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {reparto.aulas.map((a) => {
+          const lleno = a.capacidad !== null && a.asignados >= a.capacidad
+          return (
+            <li key={a.idAmbiente} className={`rounded-lg border px-3 py-1.5 text-xs ${lleno ? 'border-amber-300 bg-amber-50' : 'border-[#D8E3F5] bg-[#F8FAFD]'}`}>
+              <span className="font-semibold text-[#011140]">{a.nombre}</span>{' '}
+              <span className="text-[#45628D]">{a.capacidad !== null ? `${a.asignados}/${a.capacidad}` : `${a.asignados} · sin aforo`}</span>
+            </li>
+          )
+        })}
+      </ul>
+      {reparto.sinAula > 0 && (
+        <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-red-600">
+          <CircleAlert size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
+          {reparto.sinAula === 1 ? '1 estudiante no tiene aula' : `${reparto.sinAula} estudiantes no tienen aula`}:
+          agrega otra aula al examen o registra un aforo mayor.
+        </p>
+      )}
+    </div>
   )
 }
