@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS public.ambiente (
     CONSTRAINT pk_ambiente PRIMARY KEY (id_ambiente),
     CONSTRAINT uq_ambiente_nombre UNIQUE (nombre)
 );
-ALTER TABLE public.ambiente OWNER TO postgres;
 
 COMMENT ON TABLE public.ambiente IS
     'Catálogo de ambientes de evaluación. Permite incorporar espacios sin tocar el esquema.';
@@ -126,7 +125,6 @@ CREATE TABLE IF NOT EXISTS public.intento_ingreso (
     CONSTRAINT pk_intento_ingreso PRIMARY KEY (id_intento, id_examen, id_paralelo),
     CONSTRAINT uq_id_intento UNIQUE (id_intento)
 );
-ALTER TABLE public.intento_ingreso OWNER TO postgres;
 
 COMMENT ON TABLE public.intento_ingreso IS
     'Intentos de ingreso a un examen que no corresponde al estudiante (pliego req. 9 y 13).';
@@ -195,7 +193,6 @@ CREATE TABLE IF NOT EXISTS public.docente (
     CONSTRAINT pk_docente PRIMARY KEY (id_usuario),
     CONSTRAINT ck_docente_categoria CHECK (categoria IN ('TITULAR', 'INTERINO', 'INVITADO'))
 );
-ALTER TABLE public.docente OWNER TO postgres;
 
 COMMENT ON TABLE public.docente IS
     'Datos propios del docente. categoria: TITULAR | INTERINO | INVITADO (régimen UMSS/CEUB).';
@@ -256,7 +253,6 @@ CREATE TABLE IF NOT EXISTS public.inscripcion_paralelo (
     CONSTRAINT pk_inscripcion_paralelo
         PRIMARY KEY (id_estudiante, id_paralelo, id_materia, id_docente)
 );
-ALTER TABLE public.inscripcion_paralelo OWNER TO postgres;
 
 COMMENT ON TABLE public.inscripcion_paralelo IS
     'Inscripción del estudiante a un paralelo. Base para precargar asistencia_examen al crear un examen.';
