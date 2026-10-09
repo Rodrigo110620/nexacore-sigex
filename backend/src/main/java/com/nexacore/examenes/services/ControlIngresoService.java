@@ -34,6 +34,8 @@ public class ControlIngresoService {
     /** Máximo del "Detalle adicional" al denegar (BUG-D02). */
     public static final int DETALLE_DENEGACION_MAX = 500;
     private static final String SEPARADOR_CAUSA = " — ";
+    /** Con esta razón el detalle adicional es obligatorio (BUG-D01). */
+    private static final String OTRA_RAZON = "Otra razón";
 
     private final AsistenciaExamenRepository asistenciaRepository;
     private final CatalogoIncidenciaRepository catalogoRepository;
@@ -164,6 +166,9 @@ public class ControlIngresoService {
         if (razon == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");
         String detalle = ValidacionTextoLibre.validarOpcional(
                 request.detalleDenegacion(), "El detalle adicional", 1, DETALLE_DENEGACION_MAX);
+        if (detalle == null && razon.startsWith(OTRA_RAZON)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
+        }
         String causa = causaDenegacion(razon, detalle);
         Usuario control = usuarioRepository.findByEmail(emailControl)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));

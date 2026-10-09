@@ -125,6 +125,36 @@ describe('ControlIngresoPage', () => {
     })))
   })
 
+  it('BUG-D01: con "Otra razón" y el detalle vacío pide la razón y no deja confirmar', async () => {
+    renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Otra razón' } })
+
+    expect(screen.getByLabelText('Detalle adicional *')).toHaveAttribute('placeholder', 'Especifique la razón de la denegación...')
+    expect(screen.getByText('Especifique la razón de la denegación')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
+    expect(screen.getByRole('button', { name: 'Confirmar Denegación' })).toBeDisabled()
+    expect(service.denegarIngreso).not.toHaveBeenCalled()
+  })
+
+  it('BUG-D01: con "Otra razón" y un detalle válido envía la denegación', async () => {
+    vi.mocked(service.denegarIngreso).mockResolvedValue({
+      autorizado: false, resultado: 'DENEGADO_CONTROL', causa: 'Otra razón — Usó el celular en la fila',
+      fechaHoraIngreso: '2026-09-26T18:00:00Z', autorizadoPor: 'Carla Control',
+    })
+    renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Otra razón' } })
+    fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: 'Usó el celular en la fila' } })
+
+    expect(screen.queryByText('Especifique la razón de la denegación')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
+    await waitFor(() => expect(service.denegarIngreso).toHaveBeenCalledWith(expect.objectContaining({
+      observaciones: 'Otra razón',
+      detalleDenegacion: 'Usó el celular en la fila',
+    })))
+  })
+
   it('permite registrar una denegación sin mostrar el botón de autorizar', async () => {
     vi.mocked(service.denegarIngreso).mockResolvedValue({
       autorizado: false, resultado: 'DENEGADO_CONTROL', causa: 'Deuda pendiente',
