@@ -59,9 +59,13 @@ class ExamenAulasIntegracionTests {
     }
 
     private ExamenResponse editar(List<Integer> adicionales) {
+        return editar(adicionales, null);
+    }
+
+    private ExamenResponse editar(List<Integer> adicionales, String modo) {
         return examenService.actualizar(EXAMEN, PARALELO, new ActualizarExamenRequest(
                 "Calculo Uno", "Ana Rojas", FECHA, LocalTime.of(9, 0), 90, AULA_PRINCIPAL,
-                List.of(), List.of(), MATERIA, DOCENTE, List.of(), List.of(), adicionales));
+                List.of(), List.of(), MATERIA, DOCENTE, List.of(), List.of(), adicionales, modo));
     }
 
     @Test
@@ -79,5 +83,19 @@ class ExamenAulasIntegracionTests {
         assertThat(editar(List.of(AULA_EXTRA)).aulas()).hasSize(2);
 
         assertThat(editar(List.of()).aulas()).extracting(AulaExamenResponse::nombre).containsExactly("692A");
+    }
+
+    @Test
+    void elModoDeRepartoSeGuardaYSeConservaSiNoSeEnvia() {
+        assertThat(editar(List.of(AULA_EXTRA)).modoReparto()).isEqualTo("ALFABETICO");
+        assertThat(editar(List.of(AULA_EXTRA), "llegada").modoReparto()).isEqualTo("LLEGADA");
+        assertThat(editar(List.of(AULA_EXTRA), null).modoReparto()).isEqualTo("LLEGADA");
+    }
+
+    @Test
+    void rechazaUnModoDeRepartoDesconocido() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> editar(List.of(AULA_EXTRA), "AL_AZAR"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("orden alfabético o por orden de llegada");
     }
 }

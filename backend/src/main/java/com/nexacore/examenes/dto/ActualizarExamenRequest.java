@@ -41,8 +41,22 @@ public record ActualizarExamenRequest(
         List<NormaParticularRequest> normasParticularesEliminadas,
 
         /** Aulas que se suman a la principal; null conserva las que ya tenía el examen. */
-        List<Integer> idAmbientesAdicionales
+        List<Integer> idAmbientesAdicionales,
+
+        /** ALFABETICO o LLEGADA; null conserva el que tenía el examen. */
+        String modoReparto
 ) {
+    public ActualizarExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                                   Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                                   List<NormaParticularRequest> normasParticulares, Integer idMateria,
+                                   Integer idDocente, List<String> normasGeneralesEliminadas,
+                                   List<NormaParticularRequest> normasParticularesEliminadas,
+                                   List<Integer> idAmbientesAdicionales) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, normasGeneralesEliminadas,
+                normasParticularesEliminadas, idAmbientesAdicionales, null);
+    }
+
     public ActualizarExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
                                    Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
                                    List<NormaParticularRequest> normasParticulares, Integer idMateria,
@@ -50,6 +64,6 @@ public record ActualizarExamenRequest(
                                    List<NormaParticularRequest> normasParticularesEliminadas) {
         this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
                 normasParticulares, idMateria, idDocente, normasGeneralesEliminadas,
-                normasParticularesEliminadas, null);
+                normasParticularesEliminadas, null, null);
     }
 }

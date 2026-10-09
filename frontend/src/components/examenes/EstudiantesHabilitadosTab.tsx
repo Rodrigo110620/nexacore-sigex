@@ -384,7 +384,7 @@ export default function EstudiantesHabilitadosTab({
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Motivo / Razón</p>
                       <p className={`text-sm ${noHabilitado ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>{e.motivo || '—'}</p>
                       {mostrarAulas && (
-                        <p className="mt-1.5 text-[11px] text-[#627A9B]">Aula: <AulaDe estudiante={e} /></p>
+                        <p className="mt-1.5 text-[11px] text-[#627A9B]">Aula: <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></p>
                       )}
                     </div>
                     {isAdmin && (
@@ -478,7 +478,7 @@ export default function EstudiantesHabilitadosTab({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{e.motivo ?? '—'}</td>
-                      {mostrarAulas && <td className="px-4 py-3"><AulaDe estudiante={e} /></td>}
+                      {mostrarAulas && <td className="px-4 py-3"><AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></td>}
                       <td className="px-4 py-3 text-center">
                         {isAdmin ? (
                           <button
@@ -743,28 +743,41 @@ export default function EstudiantesHabilitadosTab({
   )
 }
 
-/** Aula del estudiante; los NO habilitados no ocupan lugar y quien no entra se marca en rojo. */
-function AulaDe({ estudiante }: { estudiante: EstudianteHabilitacionDto }) {
+/**
+ * Aula del estudiante; los NO habilitados no ocupan lugar. Por orden de llegada, quien no ingresó
+ * todavía no tiene aula ("Al llegar"); por orden alfabético, quien no entra se marca en rojo.
+ */
+function AulaDe({ estudiante, porLlegada }: { estudiante: EstudianteHabilitacionDto; porLlegada: boolean }) {
   if (estudiante.aula) return <span className="font-semibold text-[#011140]">{estudiante.aula}</span>
   if (estudiante.estadoHabilitacion === 'NO_HABILITADO') return <span className="text-gray-400">—</span>
+  if (porLlegada) return <span className="text-[#627A9B]">Al llegar</span>
   return <span className="font-semibold text-red-600">Sin aula</span>
 }
 
-/** Ocupación por aula según el reparto alfabético, con aviso si alguien no tiene lugar. */
+/** Ocupación por aula según el modo de reparto, con aviso si alguien no tiene lugar. */
 function ResumenAulas({ reparto }: { reparto: RepartoAulasDto }) {
+  const porLlegada = reparto.modo === 'LLEGADA'
   return (
     <div className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm">
       <p className="flex items-center gap-1.5 text-xs font-bold text-[#011140]">
         <DoorOpen size={15} aria-hidden="true" className="text-[#0439D9]" />
-        Reparto por aula (orden alfabético)
+        {porLlegada ? 'Reparto por aula (orden de llegada)' : 'Reparto por aula (orden alfabético)'}
       </p>
+      {porLlegada && (
+        <p className="mt-1 text-[11px] text-[#627A9B]">
+          El aula se asigna al ingresar: se llena la primera y, cuando se completa, los siguientes van a la otra.
+        </p>
+      )}
       <ul className="mt-2 flex flex-wrap gap-2">
         {reparto.aulas.map((a) => {
           const lleno = a.capacidad !== null && a.asignados >= a.capacidad
           return (
             <li key={a.idAmbiente} className={`rounded-lg border px-3 py-1.5 text-xs ${lleno ? 'border-amber-300 bg-amber-50' : 'border-[#D8E3F5] bg-[#F8FAFD]'}`}>
               <span className="font-semibold text-[#011140]">{a.nombre}</span>{' '}
-              <span className="text-[#45628D]">{a.capacidad !== null ? `${a.asignados}/${a.capacidad}` : `${a.asignados} · sin aforo`}</span>
+              <span className="text-[#45628D]">
+                {a.capacidad !== null ? `${a.asignados}/${a.capacidad}` : `${a.asignados} · sin aforo`}
+                {porLlegada ? ' ingresaron' : ''}
+              </span>
             </li>
           )
         })}

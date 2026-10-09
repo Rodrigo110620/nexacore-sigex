@@ -33,6 +33,8 @@ export interface AutorizarIngresoResultado {
   causa: string | null
   fechaHoraIngreso: string
   autorizadoPor: string
+  /** Aula a la que debe ir el estudiante (en reparto por llegada, la primera con lugar). */
+  ambiente?: string
 }
 
 export interface TipoIncidencia {

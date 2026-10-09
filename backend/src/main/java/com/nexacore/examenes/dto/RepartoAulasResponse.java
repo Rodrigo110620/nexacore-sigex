@@ -8,7 +8,9 @@ import java.util.List;
  */
 public record RepartoAulasResponse(
         List<OcupacionAula> aulas,
-        int sinAula
+        int sinAula,
+        /** ALFABETICO: asignados = quienes van a cada aula. LLEGADA: asignados = quienes ya ingresaron. */
+        String modo
 ) {
     /** capacidad null: aforo sin registrar (con una sola aula entran todos). */
     public record OcupacionAula(Integer idAmbiente, String nombre, Integer capacidad, int orden, int asignados) {}

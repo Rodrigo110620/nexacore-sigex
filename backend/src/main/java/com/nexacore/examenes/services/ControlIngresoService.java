@@ -97,7 +97,8 @@ public class ControlIngresoService {
                     "Confirma la verificación de identidad antes de autorizar");
         }
 
-        Integer idAula = aulaDelEstudiante(asistencia);
+        RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);
+        Integer idAula = aula.idAmbiente();
         int actualizados = asistenciaRepository.autorizarConFechaServidor(
                 request.idEstudiante(), request.idExamen(), idAula,
                 control.getId(), limpiar(request.observaciones()));
@@ -119,19 +120,37 @@ public class ControlIngresoService {
 
         guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
 
-        return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size());
+        return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
+                aula.nombre());
     }
 
     /**
-     * Aula que le toca al estudiante según el reparto alfabético; si no entra en ninguna
-     * (aforo insuficiente), se registra la principal para no perder el ingreso.
+     * Aula del estudiante al autorizar su ingreso. ALFABETICO: la que le toca por apellidos; si no
+     * entra en ninguna, la principal para no perder el ingreso. LLEGADA: la primera aula con lugar;
+     * si todas están llenas, no se autoriza hasta que se agregue otra aula.
      */
-    private Integer aulaDelEstudiante(AsistenciaExamen asistencia) {
+    private RepartoAulasService.Aula aulaDelEstudiante(AsistenciaExamen asistencia) {
         Examen examen = asistencia.getExamen();
-        RepartoAulasService.Aula aula = repartoAulasService.repartir(examen,
-                asistenciaRepository.listarDelExamen(asistencia.getId().getIdExamen(), asistencia.getIdParalelo()))
-                .aulaDe(asistencia.getId().getIdEstudiante());
-        return aula != null ? aula.idAmbiente() : examen.getIdAmbiente();
+        Integer idExamen = asistencia.getId().getIdExamen();
+        if (examen.repartePorLlegada()) {
+            repartoAulasService.bloquearExamen(idExamen);
+        }
+        RepartoAulasService.Reparto reparto = repartoAulasService.repartir(examen,
+                asistenciaRepository.listarDelExamen(idExamen, asistencia.getIdParalelo()));
+        if (reparto.porLlegada()) {
+            RepartoAulasService.Aula aula = RepartoAulasService.aulaParaLlegada(reparto);
+            if (aula == null) {
+                throw new ControlIngresoException(HttpStatus.CONFLICT,
+                        "Todas las aulas del examen están llenas. Pide que agreguen otra aula al examen.");
+            }
+            return aula;
+        }
+        RepartoAulasService.Aula aula = reparto.aulaDe(asistencia.getId().getIdEstudiante());
+        if (aula != null) {
+            return aula;
+        }
+        String nombre = examen.getAmbiente() != null ? examen.getAmbiente().getNombre() : null;
+        return new RepartoAulasService.Aula(examen.getIdAmbiente(), nombre, null, 0);
     }
 
     @Transactional
@@ -233,6 +252,21 @@ public class ControlIngresoService {
             String causa,
             LocalDateTime ahora,
             int incidenciasRegistradas) {
+        return crearRespuesta(asistencia, control, request, autorizado, resultado, causa, ahora,
+                incidenciasRegistradas, null);
+    }
+
+    /** aula: la asignada al autorizar; null en las denegaciones (se informa el aula principal). */
+    private AutorizarIngresoResponse crearRespuesta(
+            AsistenciaExamen asistencia,
+            Usuario control,
+            AutorizarIngresoRequest request,
+            boolean autorizado,
+            String resultado,
+            String causa,
+            LocalDateTime ahora,
+            int incidenciasRegistradas,
+            String aula) {
         List<String> verificaciones = request.verificacionesAdicionales().stream()
                 .map(ControlIngresoService::limpiar)
                 .filter(valor -> valor != null && !valor.isBlank())
@@ -249,7 +283,7 @@ public class ControlIngresoService {
                 (estudiante.getNombre() + " " + estudiante.getApellidos()).trim(),
                 estudiante.getCodigoSis(),
                 examen.getParalelo().getMateria().getSigla() + " - " + examen.getParalelo().getMateria().getNombre(),
-                examen.getAmbiente().getNombre(),
+                aula != null ? aula : examen.getAmbiente().getNombre(),
                 examen.getNormas(),
                 (control.getNombre() + " " + control.getApellidos()).trim(),
                 ahora,

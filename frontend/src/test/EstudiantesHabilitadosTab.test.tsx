@@ -57,6 +57,22 @@ describe('EstudiantesHabilitadosTab', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('1 estudiante no tiene aula')
   })
 
+  it('por orden de llegada, quien no ingresó todavía aparece como Al llegar', async () => {
+    vi.mocked(habilitacionService.obtenerRepartoAulas).mockResolvedValue({
+      aulas: [
+        { idAmbiente: 1, nombre: '692A', capacidad: 60, orden: 0, asignados: 1 },
+        { idAmbiente: 2, nombre: '691A', capacidad: 50, orden: 1, asignados: 0 },
+      ],
+      sinAula: 0,
+      modo: 'LLEGADA',
+    })
+    await renderTab([{ ...ana, aula: '692A' }, { ...luis, aula: null }])
+
+    expect(await screen.findByText('Reparto por aula (orden de llegada)')).toBeInTheDocument()
+    expect(screen.getAllByText('Al llegar').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Sin aula')).not.toBeInTheDocument()
+  })
+
   it('con una sola aula y todos ubicados no muestra la columna Aula', async () => {
     vi.mocked(habilitacionService.obtenerRepartoAulas).mockResolvedValue({
       aulas: [{ idAmbiente: 1, nombre: '692A', capacidad: null, orden: 0, asignados: 2 }],

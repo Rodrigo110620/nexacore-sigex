@@ -22,5 +22,7 @@ public record ExamenResponse(
         Integer idMateria,
         Integer idDocente,
         /** Aula principal y adicionales, en el orden en que se llenan. */
-        List<AulaExamenResponse> aulas
+        List<AulaExamenResponse> aulas,
+        /** ALFABETICO o LLEGADA. */
+        String modoReparto
 ) {}

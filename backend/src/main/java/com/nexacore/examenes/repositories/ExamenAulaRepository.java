@@ -20,6 +20,10 @@ public interface ExamenAulaRepository extends JpaRepository<ExamenAula, ExamenAu
     @Query("SELECT ea FROM ExamenAula ea JOIN FETCH ea.ambiente WHERE ea.id.idExamen IN :ids ORDER BY ea.orden")
     List<ExamenAula> adicionalesDe(@Param("ids") Collection<Integer> idsExamen);
 
+    /** Bloquea la fila del examen hasta el fin de la transacción (asignación de aula por llegada). */
+    @Query(value = "SELECT id_examen FROM public.examen WHERE id_examen = :idExamen FOR UPDATE", nativeQuery = true)
+    Integer bloquearExamen(@Param("idExamen") Integer idExamen);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM ExamenAula ea WHERE ea.id.idExamen = :idExamen")
     void eliminarDe(@Param("idExamen") Integer idExamen);

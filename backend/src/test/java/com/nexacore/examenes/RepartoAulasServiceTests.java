@@ -79,4 +79,34 @@ class RepartoAulasServiceTests {
         assertThat(r.asignados()).containsEntry(1, 2).containsEntry(2, 0);
         assertThat(r.sinAula()).hasSize(1);
     }
+
+    @Test
+    void porLlegadaCadaUnoQuedaEnElAulaDondeIngresoYLosDemasSinAulaTodavia() {
+        Reparto r = RepartoAulasService.porLlegada(List.of(A692, A691), List.of(
+                new Candidato(1, "Zapata", "Ana", false, 1),
+                new Candidato(2, "Álvarez", "Luis", false, 2),
+                new Candidato(3, "Pérez", "María", false, null)));
+
+        assertThat(r.porLlegada()).isTrue();
+        assertThat(r.aulaDe(1)).isEqualTo(A692);
+        assertThat(r.aulaDe(2)).isEqualTo(A691);
+        assertThat(r.aulaDe(3)).isNull();
+        assertThat(r.asignados()).containsEntry(1, 1).containsEntry(2, 1);
+        assertThat(r.sinAula()).isEmpty();
+    }
+
+    @Test
+    void porLlegadaSeLlenaLaPrimeraAulaAntesDeUsarLaSiguiente() {
+        Reparto vacio = RepartoAulasService.porLlegada(List.of(A692, A691), List.of());
+        assertThat(RepartoAulasService.aulaParaLlegada(vacio)).isEqualTo(A692);
+
+        Reparto primeraLlena = RepartoAulasService.porLlegada(List.of(A692, A691), List.of(
+                new Candidato(1, "A", "A", false, 1), new Candidato(2, "B", "B", false, 1)));
+        assertThat(RepartoAulasService.aulaParaLlegada(primeraLlena)).isEqualTo(A691);
+
+        Reparto todasLlenas = RepartoAulasService.porLlegada(List.of(A692, A691), List.of(
+                new Candidato(1, "A", "A", false, 1), new Candidato(2, "B", "B", false, 1),
+                new Candidato(3, "C", "C", false, 2), new Candidato(4, "D", "D", false, 2)));
+        assertThat(RepartoAulasService.aulaParaLlegada(todasLlenas)).isNull();
+    }
 }
