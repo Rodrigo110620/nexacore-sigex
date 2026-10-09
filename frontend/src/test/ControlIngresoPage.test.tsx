@@ -89,6 +89,42 @@ describe('ControlIngresoPage', () => {
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
   })
 
+  it('BUG-D02: el detalle adicional inválido muestra el motivo, no deja confirmar y se corta en 500', async () => {
+    renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Deuda pendiente' } })
+    const detalle = screen.getByLabelText(/Detalle adicional/)
+
+    fireEvent.change(detalle, { target: { value: '???????' } })
+    expect(screen.getByText('El detalle adicional debe tener letras o números, no solo signos')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirmar Denegación' })).toBeDisabled()
+
+    fireEvent.change(detalle, { target: { value: 'Sin credencial ’oficial’' } })
+    expect(screen.getByText('El detalle adicional tiene caracteres no permitidos: ’')).toBeInTheDocument()
+
+    fireEvent.change(detalle, { target: { value: 'a'.repeat(520) } })
+    expect(detalle).toHaveValue('a'.repeat(500))
+    expect(screen.getByText('500/500')).toBeInTheDocument()
+    expect(service.denegarIngreso).not.toHaveBeenCalled()
+  })
+
+  it('BUG-D02: envía el detalle adicional válido por separado', async () => {
+    vi.mocked(service.denegarIngreso).mockResolvedValue({
+      autorizado: false, resultado: 'DENEGADO_CONTROL', causa: 'Deuda pendiente — Debe 2 libros',
+      fechaHoraIngreso: '2026-09-26T18:00:00Z', autorizadoPor: 'Carla Control',
+    })
+    renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Deuda pendiente' } })
+    fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: '  Debe 2 libros\nde la biblioteca  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
+
+    await waitFor(() => expect(service.denegarIngreso).toHaveBeenCalledWith(expect.objectContaining({
+      observaciones: 'Deuda pendiente',
+      detalleDenegacion: 'Debe 2 libros\nde la biblioteca',
+    })))
+  })
+
   it('permite registrar una denegación sin mostrar el botón de autorizar', async () => {
     vi.mocked(service.denegarIngreso).mockResolvedValue({
       autorizado: false, resultado: 'DENEGADO_CONTROL', causa: 'Deuda pendiente',
