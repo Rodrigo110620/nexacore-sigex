@@ -33,7 +33,7 @@ export default function ControlIngresoPage() {
   const [denialDetail, setDenialDetail] = useState(''), [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(valid), [saving, setSaving] = useState(false), [error, setError] = useState(valid ? '' : 'Identificadores inválidos.')
   const [result, setResult] = useState<AutorizarIngresoResultado | null>(null)
-  const [horaDispositivo, setHoraDispositivo] = useState<string | null>(null)
+  const [_horaDispositivo, setHoraDispositivo] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false), [historyLoading, setHistoryLoading] = useState(false), [history, setHistory] = useState<RegistroControlIngreso[]>([])
   const [verificarAmbienteOpen, setVerificarAmbienteOpen] = useState(false)
   const [ambienteConfirmado, setAmbienteConfirmado] = useState(true)
