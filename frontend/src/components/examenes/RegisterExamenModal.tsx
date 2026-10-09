@@ -10,7 +10,7 @@ import {
   Plus,
   ShieldCheck,
   UserRoundCheck,
-  Lock,
+  Dot,
   ChevronsDown,
   ChevronLeft,
   ChevronRight,
@@ -23,7 +23,7 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
-import { crearExamen } from '../../services/examenService'
+import { crearExamen, type ModoReparto } from '../../services/examenService'
 import { getEstudiantes } from '../../services/estudianteService'
 import {
   detalleAmbiente,
@@ -46,9 +46,11 @@ import {
   filtrarAmbientes,
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
+  aulasSinAforo,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
+import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
@@ -99,6 +101,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
+  const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
       id: 'ng-1',
@@ -197,6 +201,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
+  // Si el aula principal pasa a ser una de las adicionales, deja de contarse dos veces.
+  const adicionalesVigentes = aulasAdicionales.filter((idAula) => String(idAula) !== form.idAmbiente)
+  const nombresAdicionales = adicionalesVigentes
+    .map((idAula) => ambientes.find((a) => a.id === idAula)?.nombre)
+    .filter(Boolean)
+    .join(', ')
   const horarioCompleto = Boolean(form.fecha && form.horaInicio && form.horaFin && duracion !== null)
   const ambienteOcupado = horarioCompleto && ambienteSeleccionado?.disponible === false
   const sinSolapamientoUi = horarioCompleto && ambienteSeleccionado?.disponible === true
@@ -233,6 +243,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setNuevaParticularTexto('')
     setNuevoAmbienteNombre('')
     setAmbienteError('')
+    setAulasAdicionales([])
+    setModoReparto('ALFABETICO')
     setEditingGeneralId(null)
     setEditingParticularId(null)
     submittingRef.current = false
@@ -332,6 +344,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       return
     }
 
+    const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
+    if (sinAforo.length > 0) {
+      setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
+      return
+    }
+
     submittingRef.current = true
     setSaving(true)
     setGeneralError('')
@@ -351,6 +369,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         })),
         idMateria,
         idDocente,
+        idAmbientesAdicionales: adicionalesVigentes,
+        modoReparto,
       })
       setSuccess(true)
       onSuccess?.()
@@ -471,7 +491,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       aria-modal="true"
       aria-labelledby="register-examen-title"
     >
-      <div className="relative flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
+      <div className="relative flex h-[70dvh] max-h-[680px] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-5">
           <div className="min-w-0 flex-1">
             <div aria-hidden="true" className="mx-auto mb-3 h-1 w-11 rounded-full bg-[#C4D2E7] sm:hidden" />
@@ -480,15 +500,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 <FilePenLine size={18} aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 id="register-examen-title" className="text-base font-bold text-[#011140] sm:text-xl">
-                  Registrar Nuevo Examen
-                </h2>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-[#E9F1FF] px-2 py-0.5 text-[10px] font-bold text-[#0439D9]">
+                  <h2 id="register-examen-title" className="text-sm font-bold text-[#011140]">
+                    Registrar Nuevo Examen
+                  </h2>
+                  <span className="rounded bg-[#E9F1FF] px-2 py-0.5 text-xs font-bold text-[#0439D9]">
                     Paso {step} de {STEPS.length}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">{STEP_DESCRIPCION[step]}</p>
+                <p className="mt-0.5 text-xs text-gray-500">{STEP_DESCRIPCION[step]}</p>
               </div>
             </div>
           </div>
@@ -503,41 +523,35 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           </button>
         </div>
 
-        <ol className="grid shrink-0 grid-cols-3 gap-2 border-b border-gray-100 px-4 py-3 sm:px-6" aria-label="Progreso del registro">
+        <ol className="grid shrink-0 grid-cols-3 border-b border-gray-100 px-4 pt-3 sm:px-6" aria-label="Progreso del registro">
           {STEPS.map((s) => {
             const done = step > s.id
             const current = step === s.id
             return (
-              <li key={s.id} aria-current={current ? 'step' : undefined} className="min-w-0">
-                <div
-                  className={`mb-2 h-1 rounded-full transition-colors ${
-                    done ? 'bg-emerald-400' : current ? 'bg-[#0439D9]' : 'bg-gray-200'
+              <li
+                key={s.id}
+                aria-current={current ? 'step' : undefined}
+                className={`flex min-w-0 items-center gap-2 border-b-2 pb-3 ${s.id > 1 ? 'pl-3' : ''} ${
+                  current
+                    ? 'border-[#0439D9] text-[#011140]'
+                    : done
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                      : 'border-gray-200 text-gray-400'
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    done ? 'bg-emerald-500 text-white' : current ? 'bg-[#0439D9] text-white' : 'bg-gray-200 text-gray-500'
                   }`}
-                />
-                <div className="flex items-start gap-2">
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                      done
-                        ? 'bg-emerald-500 text-white'
-                        : current
-                          ? 'bg-[#0439D9] text-white'
-                          : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {done ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : s.id}
-                  </span>
-                  <div className="min-w-0">
-                    <p
-                      className={`truncate text-[11px] font-semibold ${
-                        current ? 'text-[#011140]' : done ? 'text-emerald-700' : 'text-gray-400'
-                      }`}
-                    >
-                      {s.titulo}
-                    </p>
-                    <p className="hidden truncate text-[10px] text-gray-400 sm:block">
-                      {done ? 'Completado' : current ? s.detalle : 'Pendiente'}
-                    </p>
-                  </div>
+                >
+                  {done ? <Check size={12} aria-hidden="true" /> : s.id}
+                </span>
+                {/* En móvil solo el paso actual muestra su nombre, para que no se corten los textos. */}
+                <div className={`min-w-0 ${current ? '' : 'hidden sm:block'}`}>
+                  <p className="truncate text-[11px] font-bold">{s.titulo}</p>
+                  <p className="truncate text-[11px] text-gray-500">
+                    {current ? 'EN CURSO' : done ? `PASO ${s.id} COMPLETADO` : 'Pendiente'}
+                  </p>
                 </div>
               </li>
             )
@@ -556,13 +570,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
             {step === 1 && (
             <section className={sectionCardClass}>
-              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
                 INFORMACIÓN BÁSICA DEL EXAMEN
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
-                  <label htmlFor="registrar-asignatura" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-asignatura" className="mb-1 block text-xs font-medium text-[#011140]">
                     Asignatura <span className="text-red-500">*</span>
                   </label>
                   <AsignaturaAutocomplete
@@ -581,7 +595,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   )}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="registrar-docente" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-docente" className="mb-1 block text-xs font-medium text-[#011140]">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
                   {esDocente ? (
@@ -625,13 +639,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             </div>
 
             <section className={sectionCardClass}>
-              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
                 PROGRAMACIÓN Y AMBIENTE
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-[#011140]">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -648,7 +662,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">
                 <div className="min-w-0">
-                  <label htmlFor="registrar-hora-inicio" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-hora-inicio" className="mb-1 block text-xs font-medium text-[#011140]">
                     Hora de Inicio <span className="text-red-500">*</span>
                   </label>
                   <HoraSelector
@@ -663,7 +677,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   )}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="registrar-hora-fin" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="registrar-hora-fin" className="mb-1 block text-xs font-medium text-[#011140]">
                     Hora de Fin / Duración <span className="text-red-500">*</span>
                   </label>
                   <HoraSelector
@@ -685,7 +699,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
 
               <div className="mt-3">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <label className="block text-xs font-semibold text-gray-700" htmlFor="ambiente-buscar">
+                  <label className="block text-xs font-medium text-[#011140]" htmlFor="ambiente-buscar">
                     Ambiente / Aula Asignada <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -751,7 +765,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
                       }
                       placeholder={
                         loadingAmbientes
@@ -853,6 +867,18 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
                   </p>
                 )}
+                <AulasAdicionalesEditor
+                  ambientes={ambientes}
+                  idPrincipal={form.idAmbiente}
+                  value={adicionalesVigentes}
+                  onChange={(ids) => { setAulasAdicionales(ids); setDirty(true) }}
+                  esAdmin={esAdmin}
+                  modoReparto={modoReparto}
+                  onModoRepartoChange={(modo) => { setModoReparto(modo); setDirty(true) }}
+                  onAforoGuardado={(actualizado) => setAmbientes((prev) => prev.map((a) => (
+                    a.id === actualizado.id ? { ...a, capacidad: actualizado.capacidad } : a
+                  )))}
+                />
               </div>
             </section>
             </>
@@ -861,7 +887,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             {step === 3 && (
             <>
             <section className="rounded-xl border border-[#D8E3F5] bg-white p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
                 RESUMEN DEL EXAMEN
               </h3>
@@ -881,7 +907,10 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   {
                     label: 'Ambiente',
                     value: ambienteSeleccionado
-                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                      ? `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
+                        + (nombresAdicionales
+                          ? ` · también ${nombresAdicionales} (${modoReparto === 'LLEGADA' ? 'por orden de llegada' : 'por orden alfabético'})`
+                          : '')
                       : '',
                     paso: 2 as Step,
                   },
@@ -906,7 +935,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             <section className={sectionCardClass}>
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
                     <ShieldCheck size={14} className="shrink-0" aria-hidden="true" />
                     <span className="leading-tight">NORMAS GENERALES DEL EXAMEN</span>
                   </h3>
@@ -1014,7 +1043,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             <section className={sectionCardClass}>
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
                     <UserRoundCheck size={14} className="shrink-0" aria-hidden="true" />
                     <span className="leading-tight">NORMAS PARTICULARES POR ESTUDIANTE</span>
                   </h3>
@@ -1146,9 +1175,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               </div>
             )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="hidden items-center text-[0.75rem] text-gray-400 sm:flex">
-                <Lock size={12} aria-hidden="true" className="mr-1.5" />
-                Todos los exámenes son registrados y auditados en SIGEX.
+              <p className="hidden text-[10px] text-gray-400 sm:flex sm:items-center">
+                <span className="text-[#3B82F6]"><Dot /></span> Campos con (*) son mandatorios
               </p>
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button

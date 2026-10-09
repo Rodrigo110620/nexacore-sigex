@@ -11,6 +11,7 @@ import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.CatalogoIncidencia;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
@@ -37,6 +38,8 @@ public class ControlIngresoService {
     private final RegistroControlIngresoRepository registroRepository;
     private final ObjectMapper objectMapper;
 
+    private final RepartoAulasService repartoAulasService;
+
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
             CatalogoIncidenciaRepository catalogoRepository,
@@ -44,7 +47,8 @@ public class ControlIngresoService {
             UsuarioRepository usuarioRepository,
             EstudianteRepository estudianteRepository,
             RegistroControlIngresoRepository registroRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            RepartoAulasService repartoAulasService) {
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
         this.incidenciaRepository = incidenciaRepository;
@@ -52,6 +56,7 @@ public class ControlIngresoService {
         this.estudianteRepository = estudianteRepository;
         this.registroRepository = registroRepository;
         this.objectMapper = objectMapper;
+        this.repartoAulasService = repartoAulasService;
     }
 
     @Transactional
@@ -92,8 +97,10 @@ public class ControlIngresoService {
                     "Confirma la verificación de identidad antes de autorizar");
         }
 
+        RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);
+        Integer idAula = aula.idAmbiente();
         int actualizados = asistenciaRepository.autorizarConFechaServidor(
-                request.idEstudiante(), request.idExamen(), asistencia.getExamen().getIdAmbiente(),
+                request.idEstudiante(), request.idExamen(), idAula,
                 control.getId(), limpiar(request.observaciones()));
         if (actualizados != 1) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
@@ -105,7 +112,7 @@ public class ControlIngresoService {
         }
         LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraIngreso(request.idEstudiante(), request.idExamen());
         asistencia.setFechaHoraIngreso(ahora);
-        asistencia.setIdAmbienteIngreso(asistencia.getExamen().getIdAmbiente());
+        asistencia.setIdAmbienteIngreso(idAula);
         asistencia.setIdUsuarioControl(control.getId());
         asistencia.setObservacionesControl(limpiar(request.observaciones()));
 
@@ -113,7 +120,37 @@ public class ControlIngresoService {
 
         guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
 
-        return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size());
+        return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
+                aula.nombre());
+    }
+
+    /**
+     * Aula del estudiante al autorizar su ingreso. ALFABETICO: la que le toca por apellidos; si no
+     * entra en ninguna, la principal para no perder el ingreso. LLEGADA: la primera aula con lugar;
+     * si todas están llenas, no se autoriza hasta que se agregue otra aula.
+     */
+    private RepartoAulasService.Aula aulaDelEstudiante(AsistenciaExamen asistencia) {
+        Examen examen = asistencia.getExamen();
+        Integer idExamen = asistencia.getId().getIdExamen();
+        if (examen.repartePorLlegada()) {
+            repartoAulasService.bloquearExamen(idExamen);
+        }
+        RepartoAulasService.Reparto reparto = repartoAulasService.repartir(examen,
+                asistenciaRepository.listarDelExamen(idExamen, asistencia.getIdParalelo()));
+        if (reparto.porLlegada()) {
+            RepartoAulasService.Aula aula = RepartoAulasService.aulaParaLlegada(reparto);
+            if (aula == null) {
+                throw new ControlIngresoException(HttpStatus.CONFLICT,
+                        "Todas las aulas del examen están llenas. Pide que agreguen otra aula al examen.");
+            }
+            return aula;
+        }
+        RepartoAulasService.Aula aula = reparto.aulaDe(asistencia.getId().getIdEstudiante());
+        if (aula != null) {
+            return aula;
+        }
+        String nombre = examen.getAmbiente() != null ? examen.getAmbiente().getNombre() : null;
+        return new RepartoAulasService.Aula(examen.getIdAmbiente(), nombre, null, 0);
     }
 
     @Transactional
@@ -215,6 +252,21 @@ public class ControlIngresoService {
             String causa,
             LocalDateTime ahora,
             int incidenciasRegistradas) {
+        return crearRespuesta(asistencia, control, request, autorizado, resultado, causa, ahora,
+                incidenciasRegistradas, null);
+    }
+
+    /** aula: la asignada al autorizar; null en las denegaciones (se informa el aula principal). */
+    private AutorizarIngresoResponse crearRespuesta(
+            AsistenciaExamen asistencia,
+            Usuario control,
+            AutorizarIngresoRequest request,
+            boolean autorizado,
+            String resultado,
+            String causa,
+            LocalDateTime ahora,
+            int incidenciasRegistradas,
+            String aula) {
         List<String> verificaciones = request.verificacionesAdicionales().stream()
                 .map(ControlIngresoService::limpiar)
                 .filter(valor -> valor != null && !valor.isBlank())
@@ -231,7 +283,7 @@ public class ControlIngresoService {
                 (estudiante.getNombre() + " " + estudiante.getApellidos()).trim(),
                 estudiante.getCodigoSis(),
                 examen.getParalelo().getMateria().getSigla() + " - " + examen.getParalelo().getMateria().getNombre(),
-                examen.getAmbiente().getNombre(),
+                aula != null ? aula : examen.getAmbiente().getNombre(),
                 examen.getNormas(),
                 (control.getNombre() + " " + control.getApellidos()).trim(),
                 ahora,

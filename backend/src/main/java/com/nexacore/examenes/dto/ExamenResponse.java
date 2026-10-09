@@ -20,5 +20,9 @@ public record ExamenResponse(
         List<String> normasGenerales,
         List<NormaParticularRequest> normasParticulares,
         Integer idMateria,
-        Integer idDocente
+        Integer idDocente,
+        /** Aula principal y adicionales, en el orden en que se llenan. */
+        List<AulaExamenResponse> aulas,
+        /** ALFABETICO o LLEGADA. */
+        String modoReparto
 ) {}

@@ -1,5 +1,6 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.ActualizarAforoRequest;
 import com.nexacore.examenes.dto.AmbienteResponse;
 import com.nexacore.examenes.dto.AmbienteDisponibilidadResponse;
 import com.nexacore.examenes.dto.CrearAmbienteRequest;
@@ -12,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,6 +48,15 @@ public class AmbienteController {
     @PostMapping
     public ResponseEntity<AmbienteResponse> crear(@Valid @RequestBody CrearAmbienteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ambienteService.crear(request));
+    }
+
+    @Operation(summary = "Registrar el aforo de un ambiente",
+            description = "Necesario para repartir a los estudiantes de un examen en varias aulas. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/aforo")
+    public ResponseEntity<AmbienteResponse> actualizarAforo(
+            @PathVariable Integer id, @Valid @RequestBody ActualizarAforoRequest request) {
+        return ResponseEntity.ok(ambienteService.actualizarAforo(id, request.capacidad()));
     }
 
     @Operation(summary = "Disponibilidad de ambientes",

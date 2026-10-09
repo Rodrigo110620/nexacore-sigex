@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.AsociarEstudiantesLoteRequest;
 import com.nexacore.examenes.dto.AsociarEstudianteRequest;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
+import com.nexacore.examenes.dto.RepartoAulasResponse;
 import com.nexacore.examenes.services.HabilitacionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +52,15 @@ public class HabilitacionController {
     public ResponseEntity<List<EstudianteHabilitacionResponse>> listar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
         return ResponseEntity.ok(habilitacionService.listar(idExamen, idParalelo));
+    }
+
+    @Operation(summary = "Reparto de estudiantes por aula",
+            description = "Por orden alfabético, llena cada aula del examen hasta su aforo. Los NO habilitados no ocupan lugar.")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE','CONTROL')")
+    @GetMapping("/aulas")
+    public ResponseEntity<RepartoAulasResponse> reparto(
+            @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
+        return ResponseEntity.ok(habilitacionService.reparto(idExamen, idParalelo));
     }
 
     @Operation(summary = "Asociar estudiante al examen",

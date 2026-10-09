@@ -71,4 +71,16 @@ public class Examen {
     @ColumnDefault("'programado'")
     @Column(name = "estado")
     private String estado;
+
+    /** ALFABETICO: aula conocida de antemano. LLEGADA: se asigna al ingresar, llenando las aulas en orden. */
+    @ColumnDefault("'ALFABETICO'")
+    @Column(name = "modo_reparto", nullable = false, length = 12)
+    private String modoReparto = MODO_ALFABETICO;
+
+    public static final String MODO_ALFABETICO = "ALFABETICO";
+    public static final String MODO_LLEGADA = "LLEGADA";
+
+    public boolean repartePorLlegada() {
+        return MODO_LLEGADA.equals(modoReparto);
+    }
 }

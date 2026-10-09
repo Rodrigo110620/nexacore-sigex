@@ -11,12 +11,14 @@ import com.nexacore.examenes.repositories.IncidenciaRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
 import com.nexacore.examenes.services.ControlIngresoService;
+import com.nexacore.examenes.services.RepartoAulasService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,7 +50,8 @@ class ControlIngresoServiceTests {
                 usuarioRepository,
                 mock(EstudianteRepository.class),
                 registroRepository,
-                new ObjectMapper());
+                new ObjectMapper(),
+                repartoSinAula());
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -389,5 +392,13 @@ class ControlIngresoServiceTests {
         // Comprueba que el ID del ambiente verificado se asocie de forma correcta al registro
         assertEquals(5, asistencia.getIdAmbienteIngreso());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
+    }
+
+    /** Reparto que no asigna aula: el ingreso queda registrado en el aula principal del examen. */
+    private static RepartoAulasService repartoSinAula() {
+        RepartoAulasService reparto = mock(RepartoAulasService.class);
+        when(reparto.repartir(any(), any())).thenReturn(
+                new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
+        return reparto;
     }
 }

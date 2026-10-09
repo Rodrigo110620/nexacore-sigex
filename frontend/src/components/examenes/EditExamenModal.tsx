@@ -10,7 +10,7 @@ import {
   Plus,
   ShieldCheck,
   UserRoundCheck,
-  Lock,
+  Dot,
   ChevronsDown,
 } from 'lucide-react'
 import {
@@ -21,7 +21,8 @@ import {
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { useAuth } from '../../context/AuthContext'
-import { actualizarExamen, type ExamenDto } from '../../services/examenService'
+import AulasAdicionalesEditor from './AulasAdicionalesEditor'
+import { actualizarExamen, type ExamenDto, type ModoReparto } from '../../services/examenService'
 import { listarEstudiantesExamen, type EstudianteHabilitacionDto } from '../../services/habilitacionService'
 import {
   detalleAmbiente,
@@ -45,6 +46,7 @@ import {
   filtrarAmbientes,
   examFieldClass,
   EXAM_SECTION_CARD_CLASS,
+  aulasSinAforo,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
@@ -103,6 +105,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
   const [nuevoAmbienteNombre, setNuevoAmbienteNombre] = useState('')
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
+  const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([])
   const [normasParticulares, setNormasParticulares] = useState<NormaParticular[]>([])
   const [nuevaNormaGeneral, setNuevaNormaGeneral] = useState('')
@@ -148,6 +152,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
         idAmbiente: String(examen.idAmbiente ?? ''),
       })
       setAmbienteFilter(examen.ambienteNombre ?? '')
+      setAulasAdicionales((examen.aulas ?? []).filter((a) => a.orden > 0).map((a) => a.idAmbiente))
+      setModoReparto(examen.modoReparto ?? 'ALFABETICO')
       setNormasGenerales(
         (examen.normasGenerales ?? []).map((t, i) => ({ id: `ng-${i}`, texto: t })),
       )
@@ -260,6 +266,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
+  // Si el aula principal pasa a ser una de las adicionales, deja de contarse dos veces.
+  const adicionalesVigentes = aulasAdicionales.filter((idAula) => String(idAula) !== form.idAmbiente)
   const horarioCompleto = Boolean(form.fecha && form.horaInicio && form.horaFin && duracion !== null)
   const ambienteOcupado = horarioCompleto && ambienteSeleccionado?.disponible === false
   const sinSolapamientoUi = horarioCompleto && ambienteSeleccionado?.disponible === true
@@ -318,6 +326,11 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
     }
     const dur = minutesBetween(form.horaInicio, form.horaFin)
     if (dur === null) { setGeneralError('La hora de fin debe ser posterior al inicio.'); return }
+    const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
+    if (sinAforo.length > 0) {
+      setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
+      return
+    }
 
     submittingRef.current = true
     setSaving(true)
@@ -344,6 +357,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
           texto: n.texto,
           idEstudiante: n.idEstudiante ?? null,
         })),
+        idAmbientesAdicionales: adicionalesVigentes,
+        modoReparto,
       })
       setSuccess(true)
       setDirty(false)
@@ -461,7 +476,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       aria-modal="true"
       aria-labelledby="edit-examen-title"
     >
-      <div className="relative flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
+      <div className="relative flex h-[70dvh] max-h-[680px] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-5">
           <div className="min-w-0 flex-1">
             <div aria-hidden="true" className="mx-auto mb-3 h-1 w-11 rounded-full bg-[#C4D2E7] sm:hidden" />
@@ -470,10 +485,10 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                 <FilePenLine size={18} aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 id="edit-examen-title" className="text-base font-bold text-[#011140] sm:text-xl">
+                <h2 id="edit-examen-title" className="text-sm font-bold text-[#011140]">
                   Editar Examen
                 </h2>
-                <p className="mt-0.5 text-[11px] text-gray-500 sm:text-xs">
+                <p className="mt-0.5 text-xs text-gray-500">
                   Modifica la asignatura, fecha, horario, ambiente o normas de la evaluación.
                 </p>
               </div>
@@ -501,13 +516,13 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
             </div>
 
             <section className={sectionCardClass}>
-              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
                 1. INFORMACIÓN BÁSICA DEL EXAMEN
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
-                  <label htmlFor="editar-asignatura" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="editar-asignatura" className="mb-1 block text-xs font-medium text-[#011140]">
                     Asignatura <span className="text-red-500">*</span>
                   </label>
                   <AsignaturaAutocomplete
@@ -524,7 +539,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   {errors.asignatura && <p className="mt-1 text-[10px] text-red-500">{errors.asignatura}</p>}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="editar-docente" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="editar-docente" className="mb-1 block text-xs font-medium text-[#011140]">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
                   <DocenteAutocomplete
@@ -544,13 +559,13 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
             </section>
 
             <section className={sectionCardClass}>
-              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#0439D9]">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />
                 2. PROGRAMACIÓN Y AMBIENTE
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label className="mb-1 block text-xs font-medium text-[#011140]">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -567,7 +582,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">
                 <div className="min-w-0">
-                  <label htmlFor="editar-hora-inicio" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="editar-hora-inicio" className="mb-1 block text-xs font-medium text-[#011140]">
                     Hora de Inicio <span className="text-red-500">*</span>
                   </label>
                   <HoraSelector
@@ -580,7 +595,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   {errors.horaInicio && <p className="mt-1 text-[10px] text-red-500">{errors.horaInicio}</p>}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor="editar-hora-fin" className="mb-1 block text-xs font-semibold text-gray-700">
+                  <label htmlFor="editar-hora-fin" className="mb-1 block text-xs font-medium text-[#011140]">
                     Hora de Fin / Duración <span className="text-red-500">*</span>
                   </label>
                   <HoraSelector
@@ -598,7 +613,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
 
               <div className="mt-3">
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <label className="block text-xs font-semibold text-gray-700" htmlFor="edit-ambiente-buscar">
+                  <label className="block text-xs font-medium text-[#011140]" htmlFor="edit-ambiente-buscar">
                     Ambiente / Aula Asignada <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -661,7 +676,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                       value={
                         ambienteListOpen || !ambienteSeleccionado
                           ? ambienteFilter
-                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado)}`
+                          : `${ambienteSeleccionado.nombre} — ${detalleAmbiente(ambienteSeleccionado, { conAforo: adicionalesVigentes.length > 0 })}`
                       }
                       placeholder={loadingAmbientes ? 'Cargando…' : 'Buscar aula…'}
                       onFocus={() => {
@@ -731,13 +746,25 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
                   </p>
                 )}
+                <AulasAdicionalesEditor
+                  ambientes={ambientes}
+                  idPrincipal={form.idAmbiente}
+                  value={adicionalesVigentes}
+                  onChange={(ids) => { setAulasAdicionales(ids); setDirty(true) }}
+                  esAdmin={esAdmin}
+                  modoReparto={modoReparto}
+                  onModoRepartoChange={(modo) => { setModoReparto(modo); setDirty(true) }}
+                  onAforoGuardado={(actualizado) => setAmbientes((prev) => prev.map((a) => (
+                    a.id === actualizado.id ? { ...a, capacidad: actualizado.capacidad } : a
+                  )))}
+                />
               </div>
             </section>
 
             <section className={sectionCardClass}>
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
                     <ShieldCheck size={14} className="shrink-0" aria-hidden="true" />
                     <span className="leading-tight">NORMAS GENERALES DEL EXAMEN</span>
                   </h3>
@@ -799,7 +826,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
             <section className={sectionCardClass}>
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#0439D9]">
+                  <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
                     <UserRoundCheck size={14} className="shrink-0" aria-hidden="true" />
                     <span className="leading-tight">NORMAS PARTICULARES POR ESTUDIANTE</span>
                   </h3>
@@ -897,16 +924,15 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               </div>
             )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="hidden items-center text-[0.75rem] text-gray-400 sm:flex">
-                <Lock size={12} aria-hidden="true" className="mr-1.5" />
-                Cambios auditados en SIGEX.
+              <p className="hidden text-[10px] text-gray-400 sm:flex sm:items-center">
+                <span className="text-[#3B82F6]"><Dot /></span> Campos con (*) son mandatorios
               </p>
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
                   onClick={requestClose}
                   disabled={saving}
-                  className="w-full rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5 sm:text-[#011140]"
+                  className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-[#C9D7EC] px-4 py-2 text-sm font-semibold text-[#45628D] transition-colors hover:bg-gray-100 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
                 >
                   Cancelar
                 </button>

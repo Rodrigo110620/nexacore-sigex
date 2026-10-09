@@ -10,6 +10,7 @@ import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.InscripcionParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.HabilitacionService;
+import com.nexacore.examenes.services.RepartoAulasService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,11 +23,13 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,13 +48,16 @@ class HabilitacionAccesoDocenteTests {
     @Mock ExamenRepository examenRepository;
     @Mock InscripcionParaleloRepository inscripcionParaleloRepository;
     @Mock UsuarioRepository usuarioRepository;
+    @Mock RepartoAulasService repartoAulasService;
 
     HabilitacionService service;
 
     @BeforeEach
     void preparar() {
         service = new HabilitacionService(asistenciaRepository, estudianteRepository, estudianteCarreraRepository,
-                examenRepository, inscripcionParaleloRepository, usuarioRepository);
+                examenRepository, inscripcionParaleloRepository, usuarioRepository, repartoAulasService);
+        lenient().when(repartoAulasService.repartir(any(), any())).thenReturn(
+                new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
         ExamenId id = new ExamenId();
         id.setIdExamen(EXAMEN);
         id.setIdParalelo(PARALELO);

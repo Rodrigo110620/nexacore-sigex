@@ -10,6 +10,7 @@ import com.nexacore.examenes.exceptions.ExamenNoEncontradoException;
 import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Examen;
+import com.nexacore.examenes.models.ExamenAula;
 import com.nexacore.examenes.models.ExamenId;
 import com.nexacore.examenes.models.Materia;
 import com.nexacore.examenes.models.Paralelo;
@@ -19,6 +20,7 @@ import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.DocenteRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import com.nexacore.examenes.repositories.ExamenAulaRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -70,6 +73,7 @@ class ExamenServiceTests {
     @Mock EstudianteRepository estudianteRepository;
     @Mock AsistenciaExamenRepository asistenciaExamenRepository;
     @Mock EntityManager entityManager;
+    @Mock ExamenAulaRepository examenAulaRepository;
 
     ExamenService service;
 
@@ -77,7 +81,7 @@ class ExamenServiceTests {
     void preparar() {
         service = new ExamenService(examenRepository, ambienteRepository, materiaRepository,
                 docenteRepository, paraleloRepository, usuarioRepository, estudianteRepository,
-                asistenciaExamenRepository, new ObjectMapper());
+                asistenciaExamenRepository, new ObjectMapper(), examenAulaRepository);
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
     }
 
@@ -107,7 +111,7 @@ class ExamenServiceTests {
 
         assertThatThrownBy(() -> service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90)))
                 .isInstanceOf(ConflictoExamenException.class)
-                .hasMessageContaining("El ambiente ya tiene un examen");
+                .hasMessageContaining("ya tiene un examen el");
         verify(examenRepository, never()).save(any());
     }
 
@@ -281,6 +285,76 @@ class ExamenServiceTests {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("selecciona un estudiante registrado");
         verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearConAulaAdicionalExigeAforoEnTodasLasAulas() {
+        prepararCatalogo();
+        when(ambienteRepository.bloquear(OTRO_AMBIENTE)).thenReturn(Optional.of(ambiente(OTRO_AMBIENTE)));
+        when(examenRepository.findByAmbienteAndFecha(any(), any())).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.crear(crearConAulas(List.of(OTRO_AMBIENTE))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("registra el aforo de");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearRechazaAulaAdicionalOcupadaEnEseHorario() {
+        prepararCatalogo();
+        when(ambienteRepository.bloquear(OTRO_AMBIENTE)).thenReturn(Optional.of(ambiente(OTRO_AMBIENTE)));
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByAmbienteAndFecha(OTRO_AMBIENTE, FECHA))
+                .thenReturn(List.of(examen(91, OTRO_AMBIENTE, 30, LocalTime.of(9, 30), 60)));
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.crear(crearConAulas(List.of(OTRO_AMBIENTE))))
+                .isInstanceOf(ConflictoExamenException.class)
+                .hasMessageContaining("ya tiene un examen el");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearRechazaAulaAdicionalRepetida() {
+        prepararCatalogo();
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.crear(crearConAulas(List.of(AMBIENTE))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("debe ser distinta");
+    }
+
+    @Test
+    void crearGuardaLasAulasAdicionalesEnOrden() {
+        when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(conAforo(ambiente(AMBIENTE), 40)));
+        when(ambienteRepository.bloquear(OTRO_AMBIENTE)).thenReturn(Optional.of(conAforo(ambiente(OTRO_AMBIENTE), 30)));
+        when(materiaRepository.findById(MATERIA)).thenReturn(Optional.of(materia()));
+        when(docenteRepository.findById(DOCENTE)).thenReturn(Optional.of(docente()));
+        when(examenRepository.findByAmbienteAndFecha(any(), any())).thenReturn(List.of());
+        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
+        prepararRespuesta();
+        prepararRegistro();
+
+        service.crear(crearConAulas(List.of(OTRO_AMBIENTE)));
+
+        ArgumentCaptor<List<ExamenAula>> filas = ArgumentCaptor.forClass(List.class);
+        verify(examenAulaRepository).saveAll(filas.capture());
+        assertThat(filas.getValue()).singleElement().satisfies(fila -> {
+            assertThat(fila.getId().getIdAmbiente()).isEqualTo(OTRO_AMBIENTE);
+            assertThat(fila.getOrden()).isEqualTo((short) 1);
+        });
+    }
+
+    private static CrearExamenRequest crearConAulas(List<Integer> adicionales) {
+        return new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA, LocalTime.of(9, 0), 90, AMBIENTE,
+                List.of(), List.of(), MATERIA, DOCENTE, adicionales);
+    }
+
+    private static Ambiente conAforo(Ambiente ambiente, int capacidad) {
+        ambiente.setCapacidad(capacidad);
+        return ambiente;
     }
 
     /** Lo que se consulta al validar: ambiente (bloqueado), asignatura y docente. */

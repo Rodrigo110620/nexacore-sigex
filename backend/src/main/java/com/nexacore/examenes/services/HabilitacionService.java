@@ -4,6 +4,7 @@ import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteExamenFila;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
+import com.nexacore.examenes.dto.RepartoAulasResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse.EstadoHabilitacion;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
@@ -67,19 +68,22 @@ public class HabilitacionService {
     private final ExamenRepository examenRepository;
     private final InscripcionParaleloRepository inscripcionParaleloRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RepartoAulasService repartoAulasService;
 
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
                                EstudianteCarreraRepository estudianteCarreraRepository,
                                ExamenRepository examenRepository,
                                InscripcionParaleloRepository inscripcionParaleloRepository,
-                               UsuarioRepository usuarioRepository) {
+                               UsuarioRepository usuarioRepository,
+                               RepartoAulasService repartoAulasService) {
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
         this.examenRepository = examenRepository;
         this.inscripcionParaleloRepository = inscripcionParaleloRepository;
         this.usuarioRepository = usuarioRepository;
+        this.repartoAulasService = repartoAulasService;
     }
 
     @Transactional(readOnly = true)
@@ -89,6 +93,22 @@ public class HabilitacionService {
             throw new AccessDeniedException("El examen no está asignado a este docente");
         }
         return listarSinVerificar(idExamen, idParalelo);
+    }
+
+    /** Cuántos van a cada aula del examen y cuántos no entran, según el reparto alfabético. */
+    @Transactional(readOnly = true)
+    public RepartoAulasResponse reparto(Integer idExamen, Integer idParalelo) {
+        Examen examen = buscarExamen(idExamen, idParalelo);
+        if (SesionActual.esSoloDocente() && !esDelDocenteActual(examen)) {
+            throw new AccessDeniedException("El examen no está asignado a este docente");
+        }
+        RepartoAulasService.Reparto reparto = repartoAulasService.repartir(
+                examen, asistenciaExamenRepository.listarDelExamen(idExamen, idParalelo));
+        List<RepartoAulasResponse.OcupacionAula> aulas = reparto.aulas().stream()
+                .map(a -> new RepartoAulasResponse.OcupacionAula(a.idAmbiente(), a.nombre(), a.capacidad(), a.orden(),
+                        reparto.asignados().getOrDefault(a.idAmbiente(), 0)))
+                .toList();
+        return new RepartoAulasResponse(aulas, reparto.sinAula().size(), examen.getModoReparto());
     }
 
     private boolean esDelDocenteActual(Examen examen) {
@@ -301,13 +321,15 @@ public class HabilitacionService {
     }
 
     private List<EstudianteHabilitacionResponse> listarSinVerificar(Integer idExamen, Integer idParalelo) {
-        return aRespuestas(asistenciaExamenRepository.listarDelExamen(idExamen, idParalelo));
+        return aRespuestas(buscarExamen(idExamen, idParalelo),
+                asistenciaExamenRepository.listarDelExamen(idExamen, idParalelo));
     }
 
-    private List<EstudianteHabilitacionResponse> aRespuestas(List<AsistenciaExamen> asistencias) {
+    private List<EstudianteHabilitacionResponse> aRespuestas(Examen examen, List<AsistenciaExamen> asistencias) {
         if (asistencias.isEmpty()) {
             return List.of();
         }
+        RepartoAulasService.Reparto reparto = repartoAulasService.repartir(examen, asistencias);
         Set<Integer> ids = asistencias.stream()
                 .map(a -> a.getId().getIdEstudiante())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -323,8 +345,10 @@ public class HabilitacionService {
             EstadoHabilitacion estado = a.getHabilitado() == null
                     ? EstadoHabilitacion.PENDIENTE
                     : a.getHabilitado() ? EstadoHabilitacion.HABILITADO : EstadoHabilitacion.NO_HABILITADO;
+            RepartoAulasService.Aula aula = reparto.aulaDe(e.getId());
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
-                    e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion());
+                    e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
+                    aula != null ? aula.nombre() : null);
         }).toList();
     }
 

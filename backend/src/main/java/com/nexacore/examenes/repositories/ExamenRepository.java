@@ -24,11 +24,17 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
     /** id_examen es único por sí solo (uq_id_examen), aunque la PK incluya id_paralelo. */
     boolean existsByIdIdExamen(Integer idExamen);
 
-    /** Exámenes vigentes del ambiente en la fecha; los cancelados ya no ocupan el ambiente. */
+    /**
+     * Exámenes vigentes que ocupan el ambiente en la fecha, como aula principal o adicional;
+     * los cancelados ya no lo ocupan.
+     */
     @Query("""
             SELECT e FROM Examen e
-            WHERE e.idAmbiente = :idAmbiente AND e.fecha = :fecha
+            WHERE e.fecha = :fecha
               AND COALESCE(e.estado, 'programado') <> 'cancelado'
+              AND (e.idAmbiente = :idAmbiente OR EXISTS (
+                    SELECT 1 FROM ExamenAula ea
+                    WHERE ea.id.idExamen = e.id.idExamen AND ea.id.idAmbiente = :idAmbiente))
             """)
     List<Examen> findByAmbienteAndFecha(
             @Param("idAmbiente") Integer idAmbiente,

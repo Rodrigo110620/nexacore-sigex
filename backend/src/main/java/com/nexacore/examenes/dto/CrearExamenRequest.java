@@ -34,5 +34,26 @@ public record CrearExamenRequest(
 
         Integer idMateria,
 
-        Integer idDocente
-) {}
+        Integer idDocente,
+
+        /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
+        List<Integer> idAmbientesAdicionales,
+
+        /** ALFABETICO o LLEGADA; null = ALFABETICO. Solo importa con más de un aula. */
+        String modoReparto
+) {
+    public CrearExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                              Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                              List<NormaParticularRequest> normasParticulares, Integer idMateria, Integer idDocente,
+                              List<Integer> idAmbientesAdicionales) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, idAmbientesAdicionales, null);
+    }
+
+    public CrearExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                              Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                              List<NormaParticularRequest> normasParticulares, Integer idMateria, Integer idDocente) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, null, null);
+    }
+}
