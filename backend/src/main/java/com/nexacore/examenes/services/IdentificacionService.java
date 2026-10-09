@@ -9,6 +9,7 @@ import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
+import com.nexacore.examenes.utils.ValidacionIdentificador;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -47,25 +48,26 @@ public class IdentificacionService {
 
     /**
      * @param tipo  "codigo" o "ci", sin distinguir mayúsculas
-     * @param valor código universitario o CI; se ignoran los espacios de los extremos
-     * @throws IllegalArgumentException        si el tipo no es válido o el valor está vacío (400)
+     * @param valor código universitario (9 dígitos) o CI (8 dígitos), sin espacios ni signos
+     * @throws IllegalArgumentException        si el tipo no es válido o el valor no cumple su formato (400)
      * @throws ControlIngresoException         si el examen no existe (404)
      * @throws EstudianteNoEncontradoException si ningún estudiante tiene ese código o CI (404)
      */
     @Transactional(readOnly = true)
     public IdentificacionResponse identificar(Integer idExamen, String tipo, String valor) {
-        String buscado = valor == null ? "" : valor.trim();
-        if (buscado.isEmpty()) {
-            throw new IllegalArgumentException("Ingrese el código universitario o el CI del estudiante");
-        }
         String tipoBusqueda = tipo == null ? "" : tipo.trim().toLowerCase(Locale.ROOT);
         if (!tipoBusqueda.equals("codigo") && !tipoBusqueda.equals("ci")) {
             throw new IllegalArgumentException("El tipo de búsqueda debe ser 'codigo' o 'ci'");
         }
+        if (tipoBusqueda.equals("codigo")) {
+            ValidacionIdentificador.validarCodigoUniversitario(valor);
+        } else {
+            ValidacionIdentificador.validarCi(valor);
+        }
         verificarExamen(idExamen);
         return tipoBusqueda.equals("codigo")
-                ? responder(estudianteRepository.identificarPorCodigoSis(buscado, idExamen), "código universitario", buscado)
-                : responder(estudianteRepository.identificarPorCi(buscado, idExamen), "CI", buscado);
+                ? responder(estudianteRepository.identificarPorCodigoSis(valor, idExamen), "código universitario", valor)
+                : responder(estudianteRepository.identificarPorCi(valor, idExamen), "CI", valor);
     }
 
     /** Asignados al examen con el mismo PageResponse y límites de página que el listado de usuarios. */

@@ -68,10 +68,10 @@ class IdentificacionServiceTests {
     void resuelveElEstadoSegunLaHabilitacionEnElExamen(Integer idExamen, Boolean habilitado,
                                                        IdentificacionResponse.Estado esperado) {
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
-        when(estudianteRepository.identificarPorCi("7845123", ID_EXAMEN)).thenReturn(Optional.of(fila(idExamen, habilitado, null)));
+        when(estudianteRepository.identificarPorCi("78451236", ID_EXAMEN)).thenReturn(Optional.of(fila(idExamen, habilitado, null)));
 
-        // tipo y valor llegan con espacios y mayúsculas, como podría enviarlos el formulario
-        IdentificacionResponse respuesta = identificacionService.identificar(ID_EXAMEN, " CI ", " 7845123 ");
+        // el tipo puede llegar con espacios y mayúsculas; el valor ya llega validado (8 dígitos)
+        IdentificacionResponse respuesta = identificacionService.identificar(ID_EXAMEN, " CI ", "78451236");
 
         assertEquals(esperado, respuesta.estado());
         assertEquals(23, respuesta.idEstudiante());
@@ -99,6 +99,22 @@ class IdentificacionServiceTests {
                 () -> identificacionService.identificar(ID_EXAMEN, "qr", "209999999"));
         assertThrows(IllegalArgumentException.class,
                 () -> identificacionService.identificar(ID_EXAMEN, "ci", "   "));
+    }
+
+    /** BUG-A01: con un valor fuera de formato no se consulta el examen ni se busca al estudiante. */
+    @ParameterizedTest(name = "{0}={1} -> {2}")
+    @CsvSource(delimiter = '|', value = {
+            "codigo | 20190123A | El código universitario no puede contener letras",
+            "codigo | 121212121 | El código universitario no puede ser un patrón repetido",
+            "ci     | 7845123   | El C.I. debe tener exactamente 8 dígitos",
+            "ci     | 7845.123  | El C.I. no puede contener puntos, comas ni caracteres especiales"
+    })
+    void noBuscaSiElValorNoCumpleElFormato(String tipo, String valor, String mensaje) {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> identificacionService.identificar(ID_EXAMEN, tipo, valor));
+
+        assertEquals(mensaje, error.getMessage());
+        verifyNoInteractions(examenRepository, estudianteRepository);
     }
 
     @Test
