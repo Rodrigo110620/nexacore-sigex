@@ -109,4 +109,15 @@ class RepartoAulasServiceTests {
                 new Candidato(3, "C", "C", false, 2), new Candidato(4, "D", "D", false, 2)));
         assertThat(RepartoAulasService.aulaParaLlegada(todasLlenas)).isNull();
     }
+
+    @Test
+    void unaSolaAulaConAforoTambienRecibeATodos() {
+        // Si se quita la segunda aula, la que queda vuelve a su estado general: entran todos.
+        List<Candidato> cien = IntStream.rangeClosed(1, 100).mapToObj(i -> c(i, "A" + i, "N")).toList();
+
+        Reparto r = RepartoAulasService.calcular(List.of(new Aula(1, "692A", 50, 0)), cien);
+
+        assertThat(r.asignados()).containsEntry(1, 100);
+        assertThat(r.sinAula()).isEmpty();
+    }
 }

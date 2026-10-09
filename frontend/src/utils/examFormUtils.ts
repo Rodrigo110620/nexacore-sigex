@@ -41,21 +41,9 @@ export function examFieldClass(hasError?: string): string {
   }`
 }
 
-/** Pabellón, ubicación y aforo de un ambiente, en una línea. */
-export function detalleAmbiente(
-  a: {
-    ubicacion?: string | null
-    pabellon?: string | null
-    capacidad?: number | null
-  },
-  /** El aforo solo importa al repartir en varias aulas; con una sola se muestra solo el aula. */
-  { conAforo = false }: { conAforo?: boolean } = {},
-): string {
-  return [
-    a.pabellon ? `Pabellón ${a.pabellon}` : null,
-    a.ubicacion,
-    conAforo ? (a.capacidad ? `Aforo ${a.capacidad}` : 'Aforo sin registrar') : null,
-  ].filter(Boolean).join(' · ')
+/** Pabellón y ubicación de un ambiente, en una línea. El aforo no se muestra: solo se edita al repartir. */
+export function detalleAmbiente(a: { ubicacion?: string | null; pabellon?: string | null }): string {
+  return [a.pabellon ? `Pabellón ${a.pabellon}` : null, a.ubicacion].filter(Boolean).join(' · ')
 }
 
 /** Secciones sin tarjeta, separadas por una línea, como en el registro de usuario. */
@@ -278,5 +266,16 @@ export function aulasSinAforo(
   return [Number(idPrincipal), ...adicionales]
     .map((id) => ambientes.find((a) => a.id === id))
     .filter((a): a is { id: number; nombre: string; capacidad?: number | null } => Boolean(a) && !a?.capacidad)
+    .map((a) => a.nombre)
+}
+
+/** Aulas adicionales ocupadas a la hora elegida: hay que quitarlas o cambiar el horario. */
+export function aulasAdicionalesOcupadas(
+  ambientes: { id: number; nombre: string; disponible?: boolean }[],
+  adicionales: number[],
+): string[] {
+  return adicionales
+    .map((id) => ambientes.find((a) => a.id === id))
+    .filter((a): a is { id: number; nombre: string; disponible?: boolean } => a?.disponible === false)
     .map((a) => a.nombre)
 }

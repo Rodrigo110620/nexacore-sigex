@@ -127,8 +127,9 @@ public class ExamenService {
     }
     @Transactional
     public ExamenResponse crear(CrearExamenRequest request) {
-        // Bloqueos en orden fijo (ambiente y luego docente) hasta el commit: dos registros
-        // simultáneos no pueden pasar a la vez la validación de horario.
+        // Bloqueo del ambiente hasta el commit: dos registros simultáneos no pueden pasar a la vez
+        // la validación de horario. Un mismo docente sí puede tener exámenes a la misma hora en
+        // aulas distintas (varias materias o paralelos); lo que no se repite es el aula.
         Ambiente ambiente = ambienteRepository.bloquear(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
@@ -138,9 +139,6 @@ public class ExamenService {
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocenteParaRegistro(request);
-        docenteRepository.bloquear(docente.getIdUsuario());
-        validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
-                request.duracionMinutos(), null);
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente);
@@ -201,9 +199,6 @@ public class ExamenService {
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
-        docenteRepository.bloquear(docente.getIdUsuario());
-        validarDocenteLibre(docente.getIdUsuario(), request.fecha(), request.horaInicio(),
-                request.duracionMinutos(), idExamen);
         // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
         List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
                 ? request.idAmbientesAdicionales()
@@ -385,20 +380,6 @@ public class ExamenService {
             filas.add(fila);
         }
         examenAulaRepository.saveAll(filas);
-    }
-
-    /** Un docente no puede tener dos exámenes que se crucen, aunque sean en ambientes distintos. */
-    private void validarDocenteLibre(
-            Integer idDocente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido) {
-        Examen otro = primerSolapado(examenRepository.findByDocenteAndFecha(idDocente, fecha),
-                inicio, duracionMinutos, idExamenExcluido);
-        if (otro != null) {
-            throw new ConflictoExamenException(
-                    "El docente ya tiene un examen el " + fecha
-                            + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
-                            + ". Elige otro horario o docente.");
-        }
     }
 
     private static Examen primerSolapado(

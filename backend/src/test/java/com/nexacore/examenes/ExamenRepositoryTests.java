@@ -1,6 +1,5 @@
 package com.nexacore.examenes;
 
-import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,17 +41,6 @@ class ExamenRepositoryTests {
                 .containsExactly(1);
         // Sin estado se considera programado.
         assertThat(examenRepository.findByAmbienteAndFecha(4, FECHA)).hasSize(1);
-    }
-
-    @Test
-    void buscaLosExamenesVigentesDelDocenteEnLaFecha() {
-        assertThat(examenRepository.findByDocenteAndFecha(20, FECHA))
-                .extracting(e -> e.getId().getIdExamen())
-                .containsExactly(1);
-        assertThat(examenRepository.findByDocenteAndFecha(20, FECHA.plusDays(1))).isEmpty();
-        assertThat(examenRepository.findByDocenteAndFecha(21, FECHA))
-                .extracting(Examen::getIdAmbiente)
-                .containsExactly(4);
     }
 
     private void insertarExamen(int idExamen, int idAmbiente, int idDocente, String estado) {

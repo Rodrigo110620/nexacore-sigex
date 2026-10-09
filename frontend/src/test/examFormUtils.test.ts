@@ -117,11 +117,10 @@ describe('helpers compartidos de los modales de examen', () => {
   })
 
   it('describe pabellón, ubicación y aforo del ambiente', () => {
-    // Con una sola aula se muestra solo el aula; el aforo aparece al repartir en varias.
-    expect(detalleAmbiente({ ubicacion: 'FCyT UMSS', pabellon: 'B', capacidad: 40 })).toBe('Pabellón B · FCyT UMSS')
-    expect(detalleAmbiente({ ubicacion: 'FCyT UMSS', pabellon: 'B', capacidad: 40 }, { conAforo: true }))
-      .toBe('Pabellón B · FCyT UMSS · Aforo 40')
-    expect(detalleAmbiente({ ubicacion: 'FCyT UMSS' }, { conAforo: true })).toBe('FCyT UMSS · Aforo sin registrar')
+    // El aforo no se muestra junto al aula: solo se edita al repartir en varias aulas.
+    const aulaConAforo = { ubicacion: 'FCyT UMSS', pabellon: 'B', capacidad: 40 }
+    expect(detalleAmbiente(aulaConAforo)).toBe('Pabellón B · FCyT UMSS')
+    expect(detalleAmbiente({ ubicacion: 'FCyT UMSS' })).toBe('FCyT UMSS')
   })
 
   it('HoraSelector arma HH:MM con selectores y muestra AM/PM', () => {

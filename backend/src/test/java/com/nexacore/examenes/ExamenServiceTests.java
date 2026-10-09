@@ -93,7 +93,6 @@ class ExamenServiceTests {
         // Termina justo cuando empieza el nuevo: contiguos, no se cruzan.
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA))
                 .thenReturn(List.of(examen(90, AMBIENTE, 30, LocalTime.of(8, 0), 60)));
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
 
         ExamenResponse creado = service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90));
 
@@ -116,16 +115,16 @@ class ExamenServiceTests {
     }
 
     @Test
-    void crearRechazaSiElDocenteYaTieneUnExamenQueSeCruzaEnOtroAmbiente() {
+    void elMismoDocentePuedeTenerOtroExamenALaMismaHoraEnOtraAula() {
+        // Otra materia, misma hora, otra aula: solo se verifica que el aula esté libre.
         prepararCatalogo();
+        prepararRespuesta();
+        prepararRegistro();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA))
-                .thenReturn(List.of(examen(90, OTRO_AMBIENTE, DOCENTE, LocalTime.of(9, 30), 60)));
 
-        assertThatThrownBy(() -> service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90)))
-                .isInstanceOf(ConflictoExamenException.class)
-                .hasMessageContaining("El docente ya tiene un examen");
-        verify(examenRepository, never()).save(any());
+        ExamenResponse creado = service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90));
+
+        assertThat(creado.estado()).isEqualTo("programado");
     }
 
     @Test
@@ -147,27 +146,11 @@ class ExamenServiceTests {
         Examen propio = examen(50, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90);
         when(examenRepository.findById(any())).thenReturn(Optional.of(propio));
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of(propio));
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of(propio));
         when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ExamenResponse editado = service.actualizar(50, PARALELO, actualizarRequest(LocalTime.of(9, 0), 120));
 
         assertThat(editado.duracionMinutos()).isEqualTo(120);
-    }
-
-    @Test
-    void actualizarRechazaSiElNuevoHorarioCruzaOtroExamenDelDocente() {
-        prepararCatalogo();
-        Examen propio = examen(50, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90);
-        when(examenRepository.findById(any())).thenReturn(Optional.of(propio));
-        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of(propio));
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of(
-                propio, examen(91, OTRO_AMBIENTE, DOCENTE, LocalTime.of(11, 0), 60)));
-
-        assertThatThrownBy(() -> service.actualizar(50, PARALELO, actualizarRequest(LocalTime.of(9, 0), 150)))
-                .isInstanceOf(ConflictoExamenException.class)
-                .hasMessageContaining("El docente ya tiene un examen");
-        verify(examenRepository, never()).save(any());
     }
 
     @Test
@@ -243,7 +226,6 @@ class ExamenServiceTests {
     void crearRechazaNormasSinContenidoReal(String norma) {
         prepararCatalogo();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
         prepararParalelo();
 
         assertThatThrownBy(() -> service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
@@ -259,7 +241,6 @@ class ExamenServiceTests {
         prepararRespuesta();
         prepararRegistro();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
         when(estudianteRepository.existsById(7)).thenReturn(true);
 
         ExamenResponse creado = service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
@@ -275,7 +256,6 @@ class ExamenServiceTests {
     void crearRechazaNormaParticularSinEstudianteDelRegistro() {
         prepararCatalogo();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
         prepararParalelo();
 
         assertThatThrownBy(() -> service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
@@ -292,7 +272,6 @@ class ExamenServiceTests {
         prepararCatalogo();
         when(ambienteRepository.bloquear(OTRO_AMBIENTE)).thenReturn(Optional.of(ambiente(OTRO_AMBIENTE)));
         when(examenRepository.findByAmbienteAndFecha(any(), any())).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.crear(crearConAulas(List.of(OTRO_AMBIENTE))))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -307,7 +286,6 @@ class ExamenServiceTests {
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
         when(examenRepository.findByAmbienteAndFecha(OTRO_AMBIENTE, FECHA))
                 .thenReturn(List.of(examen(91, OTRO_AMBIENTE, 30, LocalTime.of(9, 30), 60)));
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.crear(crearConAulas(List.of(OTRO_AMBIENTE))))
                 .isInstanceOf(ConflictoExamenException.class)
@@ -319,7 +297,6 @@ class ExamenServiceTests {
     void crearRechazaAulaAdicionalRepetida() {
         prepararCatalogo();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
 
         assertThatThrownBy(() -> service.crear(crearConAulas(List.of(AMBIENTE))))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -333,7 +310,6 @@ class ExamenServiceTests {
         when(materiaRepository.findById(MATERIA)).thenReturn(Optional.of(materia()));
         when(docenteRepository.findById(DOCENTE)).thenReturn(Optional.of(docente()));
         when(examenRepository.findByAmbienteAndFecha(any(), any())).thenReturn(List.of());
-        when(examenRepository.findByDocenteAndFecha(DOCENTE, FECHA)).thenReturn(List.of());
         prepararRespuesta();
         prepararRegistro();
 
