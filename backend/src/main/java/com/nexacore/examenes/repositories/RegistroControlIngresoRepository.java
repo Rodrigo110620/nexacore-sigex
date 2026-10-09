@@ -15,6 +15,15 @@ public interface RegistroControlIngresoRepository
     List<RegistroControlIngreso> findByIdIdExamenAndIdIdParaleloOrderByFechaHoraAsc(
             Integer idExamen, Integer idParalelo);
 
+    @Query("""
+            SELECT r FROM RegistroControlIngreso r
+            JOIN FETCH r.estudiante
+            JOIN FETCH r.usuarioControl
+            WHERE r.id.idExamen = :idExamen
+            ORDER BY r.fechaHora DESC, r.id.idControl DESC
+            """)
+    List<RegistroControlIngreso> listarPorExamen(@Param("idExamen") Integer idExamen);
+
     List<RegistroControlIngreso> findByIdIdEstudianteAndIdIdExamenOrderByFechaHoraDesc(
             Integer idEstudiante, Integer idExamen);
 

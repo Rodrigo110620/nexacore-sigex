@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -72,6 +73,7 @@ public class IntentoIngresoService {
 
     private LocalDateTime aFecha(Object valor) {
         if (valor instanceof Timestamp timestamp) return timestamp.toLocalDateTime();
+        if (valor instanceof OffsetDateTime offsetDateTime) return offsetDateTime.toLocalDateTime();
         return (LocalDateTime) valor;
     }
 }

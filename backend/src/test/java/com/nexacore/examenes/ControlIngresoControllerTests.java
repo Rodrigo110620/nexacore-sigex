@@ -58,6 +58,14 @@ class ControlIngresoControllerTests {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void consultaRegistrosDeIngresoDelExamen() throws Exception {
+        when(service.consultarRegistrosExamen(20)).thenReturn(List.of());
+        mockMvc.perform(get("/control-ingresos/examen/20/registros"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @WithMockUser(username = "control@umss.edu.bo", roles = "CONTROL")
     void respondeConflictAlDenegarUnIngresoYaAutorizado() throws Exception {
         when(service.denegar(any(AutorizarIngresoRequest.class), anyString()))
@@ -72,4 +80,5 @@ class ControlIngresoControllerTests {
                                 """))
                 .andExpect(status().isConflict());
     }
+
 }

@@ -7,6 +7,7 @@ import com.nexacore.examenes.dto.AutorizarIngresoRequest;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.IncidenciaIngresoRequest;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
+import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
@@ -20,6 +21,7 @@ import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.IncidenciaRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
+import com.nexacore.examenes.utils.ValidacionPalabras;
 import com.nexacore.examenes.utils.ValidacionTextoLibre;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,10 +33,9 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
-    /** Máximo del "Detalle adicional" al denegar (BUG-D02). */
+    /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
     public static final int DETALLE_DENEGACION_MAX = 500;
     private static final String SEPARADOR_CAUSA = " — ";
-
     private final AsistenciaExamenRepository asistenciaRepository;
     private final CatalogoIncidenciaRepository catalogoRepository;
     private final IncidenciaRepository incidenciaRepository;
@@ -66,6 +67,7 @@ public class ControlIngresoService {
 
     @Transactional
     public AutorizarIngresoResponse autorizar(AutorizarIngresoRequest request, String emailControl) {
+        validarTextoLibre(request.observaciones());
         Usuario control = usuarioRepository.findByEmail(emailControl)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
 
@@ -160,6 +162,7 @@ public class ControlIngresoService {
 
     @Transactional
     public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
+        validarTextoLibre(request.observaciones());
         String razon = limpiar(request.observaciones());
         if (razon == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");
         String detalle = ValidacionTextoLibre.validarOpcional(
@@ -182,10 +185,7 @@ public class ControlIngresoService {
         return crearRespuesta(asistencia, control, request, false, "DENEGADO_CONTROL", causa, ahora, request.incidencias().size());
     }
 
-    /**
-     * Texto de la denegación en el orden de siempre: razón — detalle — observaciones (BUG-D02).
-     * Al denegar, observaciones llega como "razón" o "razón — observaciones"; el detalle va tras la razón.
-     */
+    /** Inserta el detalle tras la razón y conserva cualquier observación adicional posterior. */
     private static String causaDenegacion(String observaciones, String detalle) {
         if (detalle == null) return observaciones;
         int finRazon = observaciones.indexOf(SEPARADOR_CAUSA);
@@ -262,6 +262,27 @@ public class ControlIngresoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<RegistroControlIngresoExamenResponse> consultarRegistrosExamen(Integer idExamen) {
+        return registroRepository.listarPorExamen(idExamen).stream()
+                .map(registro -> {
+                    var estudiante = registro.getEstudiante();
+                    var control = registro.getUsuarioControl();
+                    return new RegistroControlIngresoExamenResponse(
+                            registro.getId().getIdControl(),
+                            registro.getId().getIdEstudiante(),
+                            (estudiante.getNombre() + " " + estudiante.getApellidos()).trim(),
+                            estudiante.getCodigoSis(),
+                            registro.getResultadoAutorizacion(),
+                            registro.getMotivoDenegacion(),
+                            registro.getObservaciones(),
+                            leerVerificaciones(registro.getVerificacionesAdicionales()),
+                            (control.getNombre() + " " + control.getApellidos()).trim(),
+                            registro.getFechaHora());
+                })
+                .toList();
+    }
+
     private AutorizarIngresoResponse crearRespuesta(
             AsistenciaExamen asistencia,
             Usuario control,
@@ -320,7 +341,7 @@ public class ControlIngresoService {
         guardarRegistro(asistencia, control, request, resultado, causa, limpiar(request.observaciones()));
     }
 
-    /** observaciones: al denegar, el texto completo (razón — detalle — observaciones), como antes del BUG-D02. */
+    /** En denegaciones el campo observaciones conserva el texto completo de la causa para auditoría. */
     private void guardarRegistro(
             AsistenciaExamen asistencia,
             Usuario control,
@@ -393,6 +414,17 @@ public class ControlIngresoService {
         if (valor == null) return null;
         String limpio = valor.trim();
         return limpio.isEmpty() ? null : limpio;
+    }
+
+    /** Impide guardar garabatos en la evidencia de control aunque el cliente sea omitido. */
+    private static void validarTextoLibre(String valor) {
+        String texto = limpiar(valor);
+        if (texto == null) return;
+        String garabato = ValidacionPalabras.primerGarabato(texto);
+        if (garabato != null) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
+                    "El texto contiene contenido no válido: " + garabato);
+        }
     }
 
     private record NormasExamen(List<String> generales, List<String> particulares) {}
