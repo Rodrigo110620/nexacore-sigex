@@ -50,6 +50,10 @@ services:
       DOCKER_DB_HOST: ${DB_HOST:-db}
       DOCKER_DB_PORT: ${DB_PORT:-5432}
       SERVER_PORT: "8080"
+    # Permite llegar al PostgreSQL instalado en el propio servidor (fuera de Docker)
+    # con DB_HOST=host.docker.internal, como pide el laboratorio ("localhost").
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Sin puerto publicado: solo el frontend (Nginx) le habla por la red interna.
     expose:
       - "8080"

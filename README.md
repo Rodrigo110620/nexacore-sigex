@@ -150,15 +150,40 @@ quedan en la red interna de Docker.
 | `docker compose down` | Detener (los datos se conservan) |
 | `docker compose down -v` | Detener y **borrar** la base de datos |
 
-**En producción** (servidor del laboratorio):
+**En producción** (servidor del laboratorio, `http://nexacore.tis.cs.umss.edu.bo`):
 
-- `SPRING_PROFILES_ACTIVE=docker,prod` — cierra Swagger y exige HTTPS (requiere un proxy con TLS delante).
-- `FRONTEND_URL=https://<dominio>` — se usa en el enlace de recuperación de contraseña.
-- Para usar el PostgreSQL del laboratorio en lugar del contenedor `db`: `DB_HOST`, `DB_PORT`,
-  `DOCKER_DB_NAME`, `DOCKER_DB_USER` y `DOCKER_DB_PASSWORD` con sus datos.
-  Las migraciones funcionan con cualquier usuario que pueda crear tablas en `public`
-  (no necesita ser `postgres` ni superusuario). En ese caso levanta solo
-  `docker compose up -d --build --no-deps backend frontend`.
+La base de datos es la asignada por cómputo (`nexacore_db`), en el mismo servidor. Desde un
+contenedor no se llega a ella con `localhost`, sino con `host.docker.internal` (ya configurado
+en `docker-compose.yml`). En el `.env` del servidor (ver la sección "SERVIDOR DEL LABORATORIO"
+de `.env.example`):
+
+```env
+DB_HOST=host.docker.internal
+DB_PORT=5432
+DOCKER_DB_NAME=nexacore_db
+DOCKER_DB_USER=nexacore
+DOCKER_DB_PASSWORD=<contraseña de la cuenta de base de datos>
+FRONTEND_URL=http://nexacore.tis.cs.umss.edu.bo
+CORS_ALLOWED_ORIGINS=http://nexacore.tis.cs.umss.edu.bo
+CORS_ALLOWED_ORIGIN_PATTERNS=
+SPRING_PROFILES_ACTIVE=docker,prod   # cierra Swagger
+REQUIRE_HTTPS=false                  # true solo si el dominio se sirve con HTTPS
+APP_PORT=80                          # u otro puerto libre si el 80 está ocupado
+```
+
+Se levanta sin el contenedor `db`:
+
+```bash
+docker compose up -d --build --no-deps backend frontend
+```
+
+- El PostgreSQL del servidor debe aceptar conexiones desde la red de Docker
+  (`listen_addresses` y `pg_hba.conf`).
+- Las migraciones funcionan con cualquier usuario que pueda crear tablas en `public`
+  (no necesita ser `postgres` ni superusuario): crean todas las tablas al primer arranque.
+- Si se prefiere servir el frontend desde `public_html`: `cd frontend && pnpm build` y subir el
+  contenido de `frontend/dist/` (incluye `.htaccess` para las rutas de React). En ese caso el
+  servidor web debe reenviar `/api/` al backend.
 
 ### Variables de entorno
 
