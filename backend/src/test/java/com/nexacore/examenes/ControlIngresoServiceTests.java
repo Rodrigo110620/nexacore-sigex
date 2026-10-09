@@ -115,6 +115,18 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void rechazaDetalleAdicionalDeDenegacionMayorA500CaracteresAntesDeEscribir() {
+        var request = new AutorizarIngresoRequest(10, 20, "Fuera de tiempo",
+                false, List.of(), List.of(), "x".repeat(501));
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> service.denegar(request, "control@umss.edu.bo"));
+
+        assertTrue(error.getMessage().contains("no puede superar 500 caracteres"));
+        verifyNoInteractions(asistenciaRepository, usuarioRepository, registroRepository, incidenciaRepository);
+    }
+
+    @Test
     void denegacionManualBloqueaAutorizacionPosterior() {
         service.denegar(new AutorizarIngresoRequest(10, 20, "Fuera de tiempo", false, List.of(), List.of()), "control@umss.edu.bo");
         assertFalse(asistencia.getHabilitado());
@@ -162,6 +174,30 @@ class ControlIngresoServiceTests {
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, "Sin novedades");
         verify(registroRepository).registrar(20, 40, 10, 7, "AUTORIZADO", null,
                 "[\"Identidad confirmada\",\"Material revisado\"]", "Sin novedades");
+    }
+
+    @Test
+    void rechazaObservacionesRepetitivasReportadasPorQaAntesDeEscribir() {
+        var request = new AutorizarIngresoRequest(10, 20, "tttttttttttttttttttt", true, List.of(), List.of());
+
+        var error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(asistenciaRepository, usuarioRepository, registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void permiteObservacionLegitimaEnEvidenciaDeControl() {
+        String observacion = "Se verificó el documento y el carnet está en buen estado.";
+        when(asistenciaRepository.autorizarConFechaServidor(10, 20, 5, 7, observacion)).thenReturn(1);
+        var request = new AutorizarIngresoRequest(10, 20, observacion, true, List.of(), List.of());
+
+        var response = service.autorizar(request, "control@umss.edu.bo");
+
+        assertTrue(response.autorizado());
+        assertEquals(observacion, response.observaciones());
+        verify(registroRepository).registrar(20, 40, 10, 7, "AUTORIZADO", null, "[]", observacion);
     }
 
     @Test
@@ -317,6 +353,45 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void consultaRegistrosDelExamenConDatosAsociadosDelEstudianteYControl() {
+        RegistroControlIngresoId id = new RegistroControlIngresoId();
+        id.setIdControl(92);
+        id.setIdEstudiante(10);
+        id.setIdExamen(20);
+        id.setIdParalelo(40);
+
+        Estudiante estudiante = new Estudiante();
+        estudiante.setNombre("Laura");
+        estudiante.setApellidos("Paredes");
+        estudiante.setCodigoSis("20261234");
+
+        Usuario control = new Usuario();
+        control.setId(7);
+        control.setNombre("Carla");
+        control.setApellidos("Control");
+
+        RegistroControlIngreso registro = new RegistroControlIngreso();
+        registro.setId(id);
+        registro.setIdUsuarioControl(7);
+        registro.setEstudiante(estudiante);
+        registro.setUsuarioControl(control);
+        registro.setResultadoAutorizacion("AUTORIZADO");
+        registro.setVerificacionesAdicionales("[\"Identidad contrastada\"]");
+        registro.setFechaHora(LocalDateTime.parse("2026-09-25T16:00:00"));
+        when(registroRepository.listarPorExamen(20)).thenReturn(List.of(registro));
+
+        var filas = service.consultarRegistrosExamen(20);
+
+        assertEquals(1, filas.size());
+        assertEquals(92, filas.get(0).idRegistro());
+        assertEquals("Laura Paredes", filas.get(0).estudiante());
+        assertEquals("20261234", filas.get(0).codigoSis());
+        assertEquals("AUTORIZADO", filas.get(0).resultado());
+        assertEquals("Carla Control", filas.get(0).usuarioControl());
+        assertEquals(List.of("Identidad contrastada"), filas.get(0).verificacionesAdicionales());
+    }
+
+    @Test
     void registraDenegacionConObservacionesYFechaDelServidor() {
         asistencia.setHabilitado(false);
         asistencia.setMotivoInhabilitacion("Deuda pendiente");
@@ -421,7 +496,6 @@ class ControlIngresoServiceTests {
         assertEquals(5, asistencia.getIdAmbienteIngreso());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
     }
-
     /** Reparto que no asigna aula: el ingreso queda registrado en el aula principal del examen. */
     private static RepartoAulasService repartoSinAula() {
         RepartoAulasService reparto = mock(RepartoAulasService.class);

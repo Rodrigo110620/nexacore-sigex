@@ -21,7 +21,7 @@ public final class ValidacionPalabras {
             "gl", "gr", "kl", "kr", "pl", "pr", "tl", "tr");
     private static final Pattern LETRA_TRIPLE = Pattern.compile("(.)\\1\\1");
     private static final Pattern PATRON_REPETIDO = Pattern.compile("(.{1,3})\\1{2,}");
-    private static final Pattern SEPARADORES = Pattern.compile("[\\s.,;:()¿?¡!\"'/%\\-]+");
+    private static final Pattern SEPARADORES = Pattern.compile("[\\s.,;:()¿?¡!\"'/%\\-—]+");
     private static final Pattern SOLO_NUMEROS = Pattern.compile("\\d+");
     /** Número con abreviatura corta: "2do", "1ra", "30min". */
     private static final Pattern NUMERO_ABREVIADO = Pattern.compile("\\d+\\p{L}{1,3}");

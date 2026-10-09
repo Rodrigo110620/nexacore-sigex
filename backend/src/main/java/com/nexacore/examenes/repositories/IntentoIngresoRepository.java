@@ -34,8 +34,9 @@ public interface IntentoIngresoRepository extends JpaRepository<IntentoIngreso, 
 
     @Query(value = """
             SELECT i.id_intento, i.id_examen, i.id_estudiante,
-                   CONCAT(e.nombre, ' ', e.apellidos), e.codigo_sis, i.ci_o_codigo,
-                   i.observacion, CONCAT(u.nombre, ' ', u.apellidos), i.fecha_hora
+                   CAST(CONCAT(e.nombre, ' ', e.apellidos) AS VARCHAR), CAST(e.codigo_sis AS VARCHAR),
+                   CAST(i.ci_o_codigo AS VARCHAR), CAST(i.observacion AS VARCHAR),
+                   CAST(CONCAT(u.nombre, ' ', u.apellidos) AS VARCHAR), i.fecha_hora
             FROM intento_ingreso i
             LEFT JOIN estudiante e ON e.id_estudiante = i.id_estudiante
             JOIN usuario u ON u.id_usuario = i.id_usuario_control
