@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, Check, CheckCircle2, ChevronLeft, LoaderCircle, X } from 'lucide-react'
+import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, Check, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import { useAuth } from '../../context/AuthContext'
 import './ControlIngresoPage.css'
 import { autorizarIngreso, denegarIngreso, obtenerContextoControl, obtenerHistorialControl, obtenerTiposIncidencia } from '../../services/controlIngresoService'
 import type { AutorizarIngresoResultado, ContextoControlIngreso, RegistroControlIngreso, TipoIncidencia } from '../../types/controlIngreso'
+import { VerificarAmbienteModal } from '../../components/control/VerificarAmbienteModal'
+
 
 const VERIFICACION = 'Identidad biométrica cotejada / Carnet físico verificado'
 const card = 'rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)] sm:p-5'
@@ -31,8 +33,10 @@ export default function ControlIngresoPage() {
   const [denialDetail, setDenialDetail] = useState(''), [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(valid), [saving, setSaving] = useState(false), [error, setError] = useState(valid ? '' : 'Identificadores inválidos.')
   const [result, setResult] = useState<AutorizarIngresoResultado | null>(null)
-  const [horaDispositivo, setHoraDispositivo] = useState<string | null>(null)
+  const [_horaDispositivo, setHoraDispositivo] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false), [historyLoading, setHistoryLoading] = useState(false), [history, setHistory] = useState<RegistroControlIngreso[]>([])
+  const [verificarAmbienteOpen, setVerificarAmbienteOpen] = useState(false)
+  const [ambienteConfirmado, setAmbienteConfirmado] = useState(true)
 
   useEffect(() => {
     if (!valid) return
@@ -51,18 +55,92 @@ export default function ControlIngresoPage() {
         <section className="control-exam-header"><div className="flex flex-col justify-between gap-3 border-b border-[#E6EDF8] bg-[#F8F9FB] px-4 py-3 min-[760px]:flex-row min-[760px]:items-center sm:px-5"><div className="flex flex-wrap items-center gap-2"><UserCheck size={16} className="text-[#0439D9]"/><h1 className="text-sm font-extrabold uppercase text-[#15213B]">Control de ingreso</h1><span className="text-sm text-[#15213B]">{ctx.asignatura}</span><span className="text-sm text-[#15213B]">· {ctx.ambiente}</span></div><div className="flex flex-wrap gap-4 text-[10px] text-[#627A9B]"><span>Fecha: <b>{ctx.fecha.split('-').reverse().join('/')}</b></span><span>Hora: <b>{ctx.horaInicio.slice(0,5)} hrs</b></span></div></div></section>
         <section className="grid gap-4">
           <div className="control-student-heading"><span>Estudiante identificado</span></div><article className="control-student"><div className="control-student-row"><div className="flex min-w-0 items-center gap-3"><b className="control-avatar">{ctx.estudiante.split(' ').slice(0,2).map(x=>x[0]).join('')}</b><div><p className="text-sm font-bold text-[#20242a]">{ctx.estudiante}</p><p className="text-xs text-[#45628D]">Código: <span>{ctx.codigoSis}</span></p></div></div><dl className="control-student-details"><div><dt>CI</dt><dd>{ctx.documento}</dd></div><div><dt>Carrera</dt><dd>{ctx.carrera || 'No registrada'}</dd></div></dl><span className={`control-status ${ctx.habilitado?'':'control-status-denied'}`}><CheckCircle2 size={14}/>{ctx.habilitado?'HABILITADA':'NO HABILITADA'}</span></div></article>
+           {/* ======================================================= */}
+          {/* 3. TARJETA VISUAL DE VERIFICACIÓN DE AMBIENTE            */}
+          {/* ======================================================= */}
+          <article className="rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)] sm:p-5">
+            <div className="flex items-center gap-2 border-b border-[#E6EDF8] pb-3 mb-4">
+              <Building2 size={16} className="text-[#0439D9]" />
+              <h2 className="text-xs font-extrabold uppercase text-[#15213B] tracking-wide">Verificación de ambiente</h2>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg bg-[#F8F9FB] p-3.5 border border-[#E6EDF8]">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-blue-50 p-2 text-[#0439D9] mt-0.5">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-[#627A9B]">Aula asignada para este examen:</p>
+                  <p className="text-base font-extrabold text-[#15213B]">{ctx?.ambiente || '—'}</p>
+                  <p className="text-[11px] text-[#7586A0]">Facultad de Ciencias y Tecnología</p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:items-end gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E6EDF8]">
+                {/* Checkbox obligatorio para confirmar ambiente */}
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[#15213B]">
+                  <input 
+                    type="checkbox" 
+                    checked={ambienteConfirmado} 
+                    onChange={(e) => setAmbienteConfirmado(e.target.checked)}
+                    className="rounded border-gray-300 text-[#0439D9] focus:ring-[#0439D9]"
+                  />
+                  Confirmo que el estudiante está físicamente en el {ctx?.ambiente || 'Aula'}
+                </label>
+                {/* Enlace para abrir el modal si el aula es incorrecta */}
+                <button 
+                  type="button"
+                  onClick={() => setVerificarAmbienteOpen(true)}
+                  className="text-[11px] font-semibold text-amber-700 hover:text-amber-800 underline text-left sm:text-right"
+                >
+                  ¿Aula incorrecta? → Reportar ubicación incorrecta
+                </button>
+              </div>
+            </div>
+          </article>
+
           <article className="control-rules"><Title icon={<ListChecks size={14}/>} text="Normas del examen"/><div className="control-rules-box"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div><b>Normas generales: </b>{ctx.normasGenerales.map((x,i)=><span key={x}>{i>0 ? '; ' : ''}{x}</span>)}{ctx.normasGenerales.length===0&&'No registradas.'}</div></div><div className="mt-2 flex items-start gap-2"><ClipboardList size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div><b>Normas particulares: </b>{ctx.normasParticulares.map(x=><span key={x} className="block">{x}</span>)}{ctx.normasParticulares.length===0&&'No se registraron normas particulares para este estudiante.'}</div></div></div></article>
         </section>
         {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF2F4] p-4 text-[#C7193F]"><div className="flex gap-2"><AlertTriangle size={20}/><div><b>No se puede autorizar el ingreso</b><p className="text-sm">{ctx.ingresoRegistrado?'El ingreso ya fue registrado para este examen.':ctx.motivoInhabilitacion||'El estudiante no está habilitado.'}</p></div></div></section>}
         {!ctx.ingresoRegistrado&&<section className="control-register"><Title icon={<ListChecks size={14}/>} text="Registro de control"/><div className="control-fields"><div><label htmlFor="control-observaciones" className="text-xs">Observaciones <span className="text-[#7586A0]">(opcional)</span></label><textarea id="control-observaciones" value={obs} onChange={e=>setObs(e.target.value)} rows={3} maxLength={1000} className="control-input" placeholder="Estudiante ingresa con credencial oficial en regla"/><fieldset className="mt-3"><legend className="text-xs">Verificaciones adicionales</legend><label className={`control-verification ${checks.length ? 'is-verified' : ''}`}><Fingerprint size={17} className="shrink-0 text-[#45628D]"/><input aria-label={VERIFICACION} type="checkbox" checked={checks.length>0} onChange={e=>setChecks(e.target.checked?[VERIFICACION]:[])}/><span>{VERIFICACION}</span></label></fieldset></div><fieldset className="control-incidents"><legend className="sr-only">Incidencias detectadas</legend><p className="mb-3 flex items-center gap-2 font-semibold text-[#A6450A]"><AlertTriangle size={14}/>Incidencias Detectadas</p>{types.filter(t=>['LLEGADA_TARDE','DOCUMENTO_MAL_ESTADO','OTRA_INCIDENCIA'].includes(t.nombre)).map(t=><label key={t.id} className="mb-2 flex items-start gap-2"><input type="checkbox" checked={selectedIncidents.includes(t.id)} onChange={()=>setSelectedIncidents(v=>v.includes(t.id)?v.filter(id=>id!==t.id):[...v,t.id])}/>{{LLEGADA_TARDE:'Estudiante llegó tarde',DOCUMENTO_MAL_ESTADO:'Documento en mal estado',OTRA_INCIDENCIA:'Otra incidencia'}[t.nombre]}</label>)}{selectedIncidents.length>0&&<textarea aria-label="Detalle de incidencias" value={incident} onChange={e=>setIncident(e.target.value)} rows={2} maxLength={1000} className="control-input" placeholder="Opcional: describe la incidencia..."/>}</fieldset></div></section>}
-        {!ctx.ingresoRegistrado&&<div className="control-actions"><button onClick={openHistory} className="control-change" aria-label="Historial del control" title="Historial del control"><ClipboardList size={15}/></button><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||!ctx.habilitado||checks.length===0} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
+        
+        {/* ======================================================= */}
+        {/* 4. BOTÓN DE AUTORIZAR CON LA RESTRICCIÓN DE AMBIENTE     */}
+        {/* ======================================================= */}
+        {!ctx.ingresoRegistrado&&<div className="control-actions">
+          <button onClick={openHistory} className="control-change" aria-label="Historial del control" title="Historial del control">
+            <ClipboardList size={15}/>
+          </button>
+          <div>
+            <button onClick={()=>setDenialOpen(true)} disabled={saving||!!result} className="control-deny">
+              <Ban size={14}/>Denegar
+            </button>
+            <button onClick={()=>void submit()} disabled={saving||!!result||!ctx.habilitado||checks.length===0||!ambienteConfirmado} className="control-authorize">
+              <CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}
+            </button>
+          </div>
+        </div>}
       </div>}
     </div></main>
+
     {denialOpen&&ctx&&<div className="control-overlay fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Denegar ingreso"><section className="control-denial-modal">
       <div className="control-denial-heading"><span><ShieldX size={18}/></span><div><h2>Denegar Ingreso</h2><p>Acta de inadmisibilidad al aula</p></div><button aria-label="Cerrar denegación" onClick={()=>setDenialOpen(false)}><X size={16}/></button></div>
       <div className="control-denial-body"><StudentSummary ctx={ctx}/><div className="mt-3 flex justify-between text-xs"><label htmlFor="denial-reason">Razón de denegación <span className="text-red-600">*</span></label><span className="text-[9px] text-[#45628D]">Requerido para auditoría</span></div><select id="denial-reason" className="control-input" value={reason} onChange={e=>setReason(e.target.value)}><option value="">Seleccionar razón</option>{['Suplantación','Fuera de tiempo','Documento inválido','Incumplimiento de normas','Deuda pendiente','Otra razón'].map(x=><option key={x}>{x}</option>)}</select>{reason&&<p className="mt-2 rounded-md bg-[#f3f3f3] px-2 py-1 text-[10px] text-[#45628D]">{reason}</p>}<label htmlFor="denial-detail" className="mt-3 block text-xs">Detalle adicional <span className="text-[#45628D]">(opcional)</span></label><textarea id="denial-detail" className="control-input" rows={4} maxLength={Math.max(0,990-reason.length-obs.length)} value={denialDetail} onChange={e=>setDenialDetail(e.target.value)} placeholder="Especifique el motivo o detalles de la denegación para auditoría institucional..."/><div className="control-denial-audit"><p>AL CONFIRMAR, SE REGISTRARÁ:</p><div className="flex justify-between"><span>PERSONAL DE CONTROL</span><b>{nombre}</b></div><div className="flex justify-between"><span>FECHA Y HORA OFICIAL</span><span>Al confirmar · servidor</span></div></div></div>
       <div className="control-denial-footer"><button onClick={()=>setDenialOpen(false)} className="control-change">Cancelar</button><button disabled={!reason.trim()||saving} onClick={()=>void submit(true)} className="control-deny"><Ban size={14}/>{saving?'Registrando...':'Confirmar Denegación'}</button></div></section></div>}
     {historyOpen&&<div className="fixed inset-0 z-50 grid place-items-center bg-[#DCE9FA]/80 p-3" role="dialog" aria-modal="true" aria-label="Historial del control"><section className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"><header className="sticky top-0 flex justify-between border-b bg-white p-4"><div><h2 className="font-extrabold">Historial del control realizado</h2><p className="text-xs text-[#7586A0]">Autorizaciones y denegaciones registradas</p></div><button aria-label="Cerrar historial" onClick={()=>setHistoryOpen(false)}><X/></button></header><div className="space-y-3 p-4">{historyLoading&&<p>Cargando...</p>}{history.map(r=><article key={r.idRegistro} className="rounded-xl border p-4"><div className="flex justify-between"><b className={r.resultado==='AUTORIZADO'?'text-green-700':'text-red-700'}>{r.resultado}</b><time className="text-xs text-[#7586A0]">{new Date(r.fechaHora).toLocaleString()}</time></div><p className="mt-2 text-sm font-bold">Personal de control: {r.usuarioControl}</p>{r.causa&&<p className="text-sm text-red-700">Causa: {r.causa}</p>}{r.observaciones&&<p className="text-sm">Observaciones: {r.observaciones}</p>}{r.verificacionesAdicionales.map(x=><p key={x} className="flex items-center gap-1 text-xs text-[#61718A]"><Check size={12}/>{x}</p>)}</article>)}</div></section></div>}
-    {result&&ctx&&<div className="control-overlay fixed inset-0 z-[60] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Resultado del control"><section className="control-receipt"><button aria-label="Cerrar resultado" onClick={()=>{setResult(null); if(result.autorizado) setCtx({...ctx,ingresoRegistrado:true})}} className="absolute right-3 top-3 rounded-full bg-[#F4F5F7] p-1 text-[#7586A0]"><X size={16}/></button><div className={`mx-auto grid h-12 w-12 place-items-center rounded-full ${result.autorizado?'bg-green-100 text-green-600':'bg-red-100 text-red-700'}`}>{result.autorizado?<CheckCircle2 size={30}/>:<AlertTriangle/>}</div><h2 className={`mx-auto mt-3 w-fit rounded-full px-3 py-1 text-[10px] font-bold ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?'Ingreso autorizado':'Ingreso denegado'}</h2><div className="mt-4"><StudentSummary ctx={ctx}/></div><dl className="my-4 space-y-2 text-xs"><div className="flex justify-between gap-3"><dt className="text-[#45628D]">{result.autorizado ? 'Autorizado por' : 'Denegado por'}</dt><dd>{result.autorizadoPor}</dd></div><div className="flex justify-between gap-3"><dt className="text-[#45628D]">Fecha y hora oficial</dt><dd>{new Date(result.fechaHoraIngreso).toLocaleString('es-BO')}</dd></div>{horaDispositivo&&<div className="flex justify-between gap-3"><dt className="text-[#45628D]">Hora de este dispositivo</dt><dd>{horaDispositivo}</dd></div>}</dl><p className={`rounded-lg p-3 text-xs ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?(result.ambiente?<>El estudiante debe ingresar al aula <b className="text-base">{result.ambiente}</b>.</>:'El estudiante puede ingresar al ambiente de evaluación.'):result.causa}</p><button onClick={()=>nav(`/dashboard/control/${idExamen}/identificar`)} className="mt-4 min-h-10 w-full rounded-lg bg-[#0439D9] text-sm font-semibold text-white shadow-md">→ Registrar siguiente estudiante</button></section></div>}
+    {result&&ctx&&<div className="control-overlay fixed inset-0 z-[60] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Resultado del control"><section className="control-receipt"><button aria-label="Cerrar resultado" onClick={()=>{setResult(null); if(result.autorizado) setCtx({...ctx,ingresoRegistrado:true})}} className="absolute right-3 top-3 rounded-full bg-[#F4F5F7] p-1 text-[#7586A0]"><X size={16}/></button><div className={`mx-auto grid h-12 w-12 place-items-center rounded-full ${result.autorizado?'bg-green-100 text-green-600':'bg-red-100 text-red-700'}`}>{result.autorizado?<CheckCircle2 size={30}/>:<AlertTriangle/>}</div><h2 className={`mx-auto mt-3 w-fit rounded-full px-3 py-1 text-[10px] font-bold ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?'Ingreso autorizado':'Ingreso denegado'}</h2><div className="mt-4"><StudentSummary ctx={ctx}/></div><dl className="my-4 space-y-2 text-xs"><div className="flex justify-between gap-3"><dt className="text-[#45628D]">{result.autorizado ? 'Autorizado por' : 'Denegado por'}</dt><dd>{result.autorizadoPor}</dd></div><div className="flex justify-between gap-3"><dt className="text-[#45628D]">Fecha y hora oficial</dt><dd>{new Date(result.fechaHoraIngreso).toLocaleString()}</dd></div></dl><p className={`rounded-lg p-3 text-xs ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?'El estudiante puede ingresar al ambiente de evaluación.':result.causa}</p><button onClick={()=>nav(`/dashboard/control/${idExamen}/identificar`)} className="mt-4 min-h-10 w-full rounded-lg bg-[#0439D9] text-sm font-semibold text-white shadow-md">→ Registrar siguiente estudiante</button></section></div>}
+    {/* ======================================================= */}
+    {/* 5. INVOCACIÓN DEL MODAL            */}
+    {/* ======================================================= */}
+    <VerificarAmbienteModal
+      isOpen={verificarAmbienteOpen}
+      onClose={() => setVerificarAmbienteOpen(false)}
+      onReportIncident={() => {
+        setVerificarAmbienteOpen(false);
+        setAmbienteConfirmado(false);
+      }}
+      ctx={ctx}
+      aulaActual={ctx?.ambiente || "607"}
+    />
+
   </PanelLayout></div>
 }
