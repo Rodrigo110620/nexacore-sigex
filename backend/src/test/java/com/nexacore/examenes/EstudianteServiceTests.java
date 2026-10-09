@@ -6,6 +6,7 @@ import com.nexacore.examenes.models.*;
 import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.EstudianteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
@@ -31,11 +33,12 @@ class EstudianteServiceTests {
     @Mock EstudianteRepository estudianteRepository;
     @Mock EstudianteCarreraRepository estudianteCarreraRepository;
     @Mock CarreraRepository carreraRepository;
+    @Mock UsuarioRepository usuarioRepository; 
     private EstudianteService service;
 
     @BeforeEach
     void setUp() {
-        service = new EstudianteService(estudianteRepository, estudianteCarreraRepository, carreraRepository);
+        service = new EstudianteService(estudianteRepository, estudianteCarreraRepository, carreraRepository, usuarioRepository);
     }
 
     private RegistrarEstudianteRequest request() {
@@ -81,6 +84,22 @@ class EstudianteServiceTests {
         when(estudianteRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
         assertTrue(error.getMessage().contains("correo electrónico"));
+        verify(estudianteRepository, never()).save(any());
+    }
+
+        @Test
+    void rechazaCiDuplicadoEnUsuarios() {
+        when(usuarioRepository.existsByCiIgnoreCase("74892104")).thenReturn(true);
+        var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
+        assertTrue(error.getMessage().contains("usuario del sistema"));
+        verify(estudianteRepository, never()).save(any());
+    }
+
+    @Test
+    void rechazaCorreoDuplicadoEnUsuarios() {
+        when(usuarioRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
+        var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
+        assertTrue(error.getMessage().contains("usuario del sistema"));
         verify(estudianteRepository, never()).save(any());
     }
 
