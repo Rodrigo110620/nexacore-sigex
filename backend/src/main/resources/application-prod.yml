@@ -12,7 +12,8 @@ springdoc:
 app:
   security:
     swagger-enabled: false
-    require-https: true
+    # Con dominio sin HTTPS (http://), pon REQUIRE_HTTPS=false en .env.
+    require-https: ${REQUIRE_HTTPS:true}
     rate-limit:
       enabled: true
       max-requests: 10
