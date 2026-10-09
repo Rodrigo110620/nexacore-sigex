@@ -365,6 +365,9 @@ public class ExamenService {
             ExamenAula fila = new ExamenAula();
             fila.setId(new ExamenAulaId(idExamen, aulas.get(i).getId()));
             fila.setOrden((short) (i + 1));
+            // La relación no se inserta (insertable = false), pero queda en caché tras guardar: sin ella,
+            // la respuesta lee estas mismas filas con el aula en null y falla al armar la lista de aulas.
+            fila.setAmbiente(aulas.get(i));
             filas.add(fila);
         }
         examenAulaRepository.saveAll(filas);
