@@ -55,11 +55,11 @@ export default function ControlExamenPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  to={`/dashboard/control/${idExamen}/intentos`}
-                  className="hidden items-center justify-center gap-2 rounded-lg border border-white/50 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 sm:inline-flex"
+                  to={`/dashboard/control/${idExamen}/informacion`}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
                 >
                   <TriangleAlert size={16} aria-hidden="true" />
-                  Ver intentos
+                  Información de ingreso
                 </Link>
                 <Link
                   to={`/dashboard/control/${idExamen}/identificar`}

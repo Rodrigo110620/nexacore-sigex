@@ -37,7 +37,7 @@ function renderPage() {
           <Route path="/dashboard/control/:idExamen" element={<ControlExamenPage />} />
           <Route path="/dashboard/control" element={<Destino />} />
           <Route path="/dashboard/control/:idExamen/identificar" element={<Destino />} />
-          <Route path="/dashboard/control/:idExamen/intentos" element={<Destino />} />
+          <Route path="/dashboard/control/:idExamen/informacion" element={<Destino />} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -80,10 +80,10 @@ describe('ControlExamenPage', () => {
     expect(await screen.findByText('Destino /dashboard/control')).toBeInTheDocument()
   })
 
-  it('abre los intentos desde el botón del protocolo', async () => {
+  it('abre Información de ingreso desde el acceso del protocolo', async () => {
     renderPage()
-    fireEvent.click(screen.getByRole('link', { name: 'Ver intentos' }))
-    expect(await screen.findByText('Destino /dashboard/control/7/intentos')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Información de ingreso' }))
+    expect(await screen.findByText('Destino /dashboard/control/7/informacion')).toBeInTheDocument()
   })
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {

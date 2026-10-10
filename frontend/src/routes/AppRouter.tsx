@@ -19,7 +19,7 @@ import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
-import IntentosIngresoPage from '../pages/Control/IntentosIngresoPage'
+import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
 import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
 
@@ -144,7 +144,8 @@ export default function AppRouter() {
             </IdentificacionRoute>
           }
         />
-        <Route path="/dashboard/control/:idExamen/intentos" element={<IdentificacionRoute><IntentosIngresoPage /></IdentificacionRoute>} />
+        <Route path="/dashboard/control/:idExamen/informacion" element={<IdentificacionRoute><InformacionIngresoPage /></IdentificacionRoute>} />
+        <Route path="/dashboard/control/:idExamen/intentos" element={<IdentificacionRoute><InformacionIngresoPage /></IdentificacionRoute>} />
         {/* ACCS-02: registrar el control y autorizar o denegar el ingreso. */}
         <Route
           path="/dashboard/control-ingresos/:idEstudiante/:idExamen"

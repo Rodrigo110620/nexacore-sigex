@@ -31,7 +31,7 @@
 .control-input { display: block; width: 100%; border: 1px solid transparent; border-radius: 7px; background: #f3f3f3; padding: 10px; margin-top: 5px; resize: none; font-size: 12px; }
 .control-input::placeholder { color: #85899b; }
 .control-input:focus { outline: 2px solid #6085ff; }
-.control-input[aria-invalid="true"] { border-color: #f87171; }
+.control-input[aria-invalid="true"] { border-color: #c7193f; }
 .control-verification { position: relative; display: flex; gap: 8px; align-items: center; background: #f3f3f3; padding: 9px 10px; margin-top: 5px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
 .control-verification input { position: absolute; opacity: 0; width: 100%; height: 100%; inset: 0; cursor: pointer; }
 .control-verification:focus-within { outline: 2px solid #6085ff; }
@@ -61,23 +61,55 @@
 .control-denial-audit { margin-top: 32px; border-top: 1px solid #eee; padding: 12px; background: #f7f7f7; border-radius: 7px; color: #45628d; font-size: 10px; line-height: 1.8; }
 .control-denial-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 14px 20px; border-top: 1px solid #eee; }
 .control-denial-footer .control-deny { background: #c71924; color: white; }
+.control-rules-list { display: grid; gap: 3px; margin-top: 3px; padding: 0; list-style: none; }
+.control-receipt-meta > div { display: flex; justify-content: space-between; gap: 12px; }
+.control-receipt-meta dd { text-align: right; font-weight: 600; }
 @media (max-width: 959px) {
  .control-screen { padding: 12px 14px 90px; background: #f7f9fc; }
  .control-sheet { background: transparent; box-shadow: none; overflow: visible; }
  .control-exam-header { background: transparent; padding-bottom: 12px; }
  .control-exam-header > div { padding: 0; }
  .control-sheet > section:nth-child(2) { padding: 22px 0 0; }
- .control-student-row { grid-template-columns: 1fr; gap: 12px; }
- .control-student { background: white; padding: 12px; }
- .control-student-details { max-width: none; width: 100%; background: #f7f9fc; }
- .control-status { border-radius: 7px; }
+ .control-screen { padding: 10px 12px calc(84px + env(safe-area-inset-bottom)); }
+ .control-sheet > section:nth-child(2) { gap: 0; }
+ .control-student-heading { margin-bottom: 10px; }
+ .control-student-row { grid-template-columns: minmax(0,1fr); gap: 9px; }
+ .control-student { background: white; padding: 10px; }
+ .control-student-identity { gap: 9px; }
+ .control-student .control-avatar { width: 38px; height: 38px; border-radius: 8px; font-size: 16px; }
+ .control-student-details { grid-template-columns: .8fr 1.2fr; max-width: none; width: 100%; gap: 8px; padding: 8px; background: #f7f9fc; }
+ .control-status { min-height: 29px; border-radius: 7px; }
+ .control-rules { margin-top: 12px; }
+ .control-section-title { margin-bottom: 7px; }
+ .control-rules-box { padding: 9px; font-size: 11px; line-height: 1.4; }
+ .control-rules-box > div { gap: 6px; }
+ .control-rules-list { gap: 3px; margin-top: 2px; padding: 0; }
  .control-rules-box { background: white; border: 1px solid #e1e7f0; }
- .control-register { margin: 20px 0; }
+ .control-register { margin: 12px 0 16px; }
  .control-fields { grid-template-columns: 1fr; }
- .control-fields > div:first-child { background: white; padding: 12px; border: 1px solid #e1e7f0; border-radius: 10px; }
+ .control-fields > div:first-child { background: white; padding: 10px; border: 1px solid #e1e7f0; border-radius: 10px; }
+ .control-fields > div:first-child > textarea { min-height: 54px; }
+ .control-fields > div:first-child .control-verification { padding: 8px; font-size: 11px; }
+ .control-incidents { padding: 10px; }
+ .control-incidents > p { margin-bottom: 7px; }
  .control-input { background: #f7f9fc; border: 1px solid #e1e7f0; }
- .control-actions { padding: 10px; background: white; }
+ .control-actions { position: fixed; inset-inline: 0; bottom: env(safe-area-inset-bottom); z-index: 35; padding: 8px 12px; background: white; box-shadow: 0 -2px 8px #01114018; }
  .control-actions > div { width: 100%; flex-direction: column-reverse; align-items: center; }
  .control-actions > .control-change { display: none; }
- .control-authorize { min-width: 190px; }
+ .control-actions > div { gap: 5px; }
+ .control-authorize, .control-deny { min-height: 34px; min-width: 148px; padding: 6px 12px; }
+ .control-overlay.control-denial-overlay { inset: 0 0 calc(56px + env(safe-area-inset-bottom)); align-items: end; padding: 0 6px; }
+ .control-overlay.control-result-overlay { inset: 0 0 calc(56px + env(safe-area-inset-bottom)); padding: 12px; }
+ .control-receipt { width: 100%; max-width: none; max-height: calc(100dvh - 20px); border-radius: 20px 20px 0 0; padding: 25px 16px 18px; }
+ .control-receipt-icon { width: 42px; height: 42px; }
+ .control-modal-student { padding: 10px; }
+ .control-modal-student .control-avatar { width: 38px; height: 38px; font-size: 16px; }
+ .control-modal-student > div:last-child { font-size: 9px; }
+ .control-denial-modal { width: 100%; max-width: none; max-height: 100%; border-radius: 22px 22px 0 0; }
+ .control-denial-heading { padding: 12px 16px; }
+ .control-denial-body { padding: 12px 16px; }
+ .control-denial-body > .control-modal-student { margin-bottom: 10px; }
+ .control-denial-audit { margin-top: 16px; padding: 9px; font-size: 9px; }
+ .control-denial-footer { flex-direction: column-reverse; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+ .control-denial-footer > button { width: 100%; min-height: 40px; }
 }
