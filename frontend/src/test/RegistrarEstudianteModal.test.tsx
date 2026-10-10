@@ -68,6 +68,21 @@ describe('RegistrarEstudianteModal', () => {
     expect(screen.getByText('Solo se permiten correos institucionales UMSS')).toBeInTheDocument()
   })
 
+  it.each([
+    ['ab@est.umss.edu', 'La parte del correo antes de @ debe tener al menos 3 caracteres'],
+    ['111111@est.umss.edu', 'La parte del correo no puede repetir el mismo carácter'],
+  ])('rechaza el correo institucional %s según QA-A01', (email, error) => {
+    render(<RegistrarEstudianteModal open onClose={vi.fn()} onRegistered={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText('Ej: María José'), { target: { value: 'María' } })
+    fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
+    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '74892104' } })
+    fireEvent.change(screen.getByPlaceholderText('Ej: maria.gonzalez@umss.edu'), { target: { value: email } })
+    fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
+
+    expect(screen.getByText(error)).toBeInTheDocument()
+    expect(screen.queryByText('Paso 2 de 2')).not.toBeInTheDocument()
+  })
+
   it('registra los datos personales y académicos', async () => {
     vi.mocked(service.registrarEstudiante).mockResolvedValue({ id: 5, nombre: 'María', apellidos: 'González', ci: '74892104', email: 'maria@umss.edu', codigoSis: '202404012', carreras: [] })
     const onRegistered = vi.fn()

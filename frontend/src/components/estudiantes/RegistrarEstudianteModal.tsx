@@ -3,7 +3,7 @@ import { Check, ChevronDown, Mail, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
-import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateEmail, validateNombre } from '../../utils/validators'
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 import EmailDomainSuggest from './EmailDomainSuggest'
@@ -82,7 +82,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     if (field === 'nombre') return validateNombre(value)
     if (field === 'apellidos') return validateApellidos(value)
     if (field === 'ci') return validateDocumento(value)
-    if (field === 'email') return validateEmail(value)
+    if (field === 'email') return validateStudentEmail(value)
     if (field === 'codigoSis') return validateCodigoSis(value)
     return ''
   }
@@ -95,7 +95,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const validateStep1 = () => {
     const next: Record<string, string> = {}
     const n = validateNombre(form.nombre); const a = validateApellidos(form.apellidos)
-    const c = validateDocumento(form.ci); const e = validateEmail(form.email)
+    const c = validateDocumento(form.ci); const e = validateStudentEmail(form.email)
     if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (e) next.email = e
     if (Object.keys(next).length > 0) { showFirstError(next); return false }
     return true

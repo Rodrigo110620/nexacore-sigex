@@ -92,7 +92,7 @@ class EstudianteControllerTests {
             .andExpect(jsonPath("$.errores.nombre").exists())
             .andExpect(jsonPath("$.errores.apellidos").exists())
             .andExpect(jsonPath("$.errores.ci").exists())
-            .andExpect(jsonPath("$.errores.email").value("Solo se permiten correos institucionales UMSS"))
+            .andExpect(jsonPath("$.errores.email").value("Use un correo institucional UMSS con al menos 3 caracteres antes de @; no se aceptan caracteres repetidos"))
             .andExpect(jsonPath("$.errores.codigoSis").exists());
     }
 }
