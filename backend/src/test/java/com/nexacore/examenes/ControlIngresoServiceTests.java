@@ -108,6 +108,29 @@ class ControlIngresoServiceTests {
         verifyNoInteractions(registroRepository);
     }
 
+    /** BUG-D01: con "Otra razón" el detalle es obligatorio; sin él no se deniega ni se registra nada. */
+    @Test
+    void otraRazonSinDetalleResponde400SinEscribirDatos() {
+        for (String detalle : new String[] {null, ""}) {
+            var request = new AutorizarIngresoRequest(10, 20, "Otra razón — Se informó al estudiante", false,
+                    List.of(), List.of(), detalle);
+            var error = assertThrows(ControlIngresoException.class, () -> service.denegar(request, "control@umss.edu.bo"));
+            assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+            assertEquals("Especifique la razón de la denegación", error.getMessage());
+        }
+        verify(asistenciaRepository, never()).save(any());
+        verifyNoInteractions(registroRepository);
+    }
+
+    @Test
+    void otraRazonConDetalleDeniegaConElDetalleTrasLaRazon() {
+        var request = new AutorizarIngresoRequest(10, 20, "Otra razón — Se informó al estudiante", false,
+                List.of(), List.of(), "Usó el celular en la fila");
+        String causa = "Otra razón — Usó el celular en la fila — Se informó al estudiante";
+        assertEquals(causa, service.denegar(request, "control@umss.edu.bo").causa());
+        verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", causa, "[]", causa);
+    }
+
     @Test
     void denegacionExigeMotivo() {
         assertThrows(ControlIngresoException.class, () -> service.denegar(requestVacio(), "control@umss.edu.bo"));
