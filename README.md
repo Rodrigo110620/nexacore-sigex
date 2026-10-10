@@ -41,16 +41,16 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Abre el `.env` y ajusta al menos `DB_PASSWORD` y `JWT_SECRET`.
+Abre el `.env` y ajusta al menos `DOCKER_DB_PASSWORD` y `JWT_SECRET`.
 El backend carga este archivo automáticamente al arrancar (no hace falta exportar variables a mano).
 
 ### 3. Levantar la base de datos
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Esto levanta PostgreSQL en `:5432` y PgAdmin en `:5050`.
+Esto levanta PostgreSQL en `:5432` y PgAdmin en `:5050` (solo para desarrollo).
 
 ### 4. Ejecutar el backend
 
@@ -118,6 +118,73 @@ test: agregar test de integración para HealthController
 - **Nunca modificar** archivos `V_` ya commiteados.
 - Los archivos van en `backend/src/main/resources/db/migration/`.
 
+---
+
+## Despliegue con Docker (todo en contenedores)
+
+`docker-compose.yml` levanta los tres servicios: **base de datos** (PostgreSQL 15.10),
+**backend** (Spring Boot, Java 21) y **frontend** (React compilado, servido por Nginx).
+No hace falta instalar Java, Node ni PostgreSQL: solo Docker.
+
+```bash
+cp .env.example .env            # completa DOCKER_DB_PASSWORD, JWT_SECRET y el correo (MAIL_*)
+docker compose up -d --build
+```
+
+Abre **http://localhost** (o `http://localhost:<APP_PORT>` si cambiaste el puerto).
+Usuario inicial: `201904725@est.umss.edu` / `Admin123*` — **cámbiala** con "Olvidé mi contraseña".
+
+**Orden de arranque** (automático, no hay que hacer nada):
+
+1. `db` — PostgreSQL; el backend espera a que esté lista (healthcheck).
+2. `backend` — al iniciar aplica las migraciones de Flyway (crea tablas y datos iniciales).
+3. `frontend` — Nginx sirve los archivos estáticos y reenvía `/api/` al backend.
+
+Solo el frontend publica un puerto (`APP_PORT`, por defecto 80). La base y el backend
+quedan en la red interna de Docker.
+
+| Comando | Para qué |
+|---|---|
+| `docker compose ps` | Ver el estado de los contenedores |
+| `docker compose logs -f backend` | Ver el log del backend (migraciones, errores) |
+| `docker compose down` | Detener (los datos se conservan) |
+| `docker compose down -v` | Detener y **borrar** la base de datos |
+
+**En producción** (servidor del laboratorio, `http://nexacore.tis.cs.umss.edu.bo`):
+
+La base de datos es la asignada por cómputo (`nexacore_db`), en el mismo servidor. Desde un
+contenedor no se llega a ella con `localhost`, sino con `host.docker.internal` (ya configurado
+en `docker-compose.yml`). En el `.env` del servidor (ver la sección "SERVIDOR DEL LABORATORIO"
+de `.env.example`):
+
+```env
+DB_HOST=host.docker.internal
+DB_PORT=5432
+DOCKER_DB_NAME=nexacore_db
+DOCKER_DB_USER=nexacore
+DOCKER_DB_PASSWORD=<contraseña de la cuenta de base de datos>
+FRONTEND_URL=http://nexacore.tis.cs.umss.edu.bo
+CORS_ALLOWED_ORIGINS=http://nexacore.tis.cs.umss.edu.bo
+CORS_ALLOWED_ORIGIN_PATTERNS=
+SPRING_PROFILES_ACTIVE=docker,prod   # cierra Swagger
+REQUIRE_HTTPS=false                  # true solo si el dominio se sirve con HTTPS
+APP_PORT=80                          # u otro puerto libre si el 80 está ocupado
+```
+
+Se levanta sin el contenedor `db`:
+
+```bash
+docker compose up -d --build --no-deps backend frontend
+```
+
+- El PostgreSQL del servidor debe aceptar conexiones desde la red de Docker
+  (`listen_addresses` y `pg_hba.conf`).
+- Las migraciones funcionan con cualquier usuario que pueda crear tablas en `public`
+  (no necesita ser `postgres` ni superusuario): crean todas las tablas al primer arranque.
+- Si se prefiere servir el frontend desde `public_html`: `cd frontend && pnpm build` y subir el
+  contenido de `frontend/dist/` (incluye `.htaccess` para las rutas de React). En ese caso el
+  servidor web debe reenviar `/api/` al backend.
+
 ### Variables de entorno
 
 - **Nunca** subir `.env` a Git. Solo `.env.example` con valores de ejemplo.
@@ -130,7 +197,8 @@ test: agregar test de integración para HealthController
 ```
 nexacore-sigex/
 ├── .env.example              Variables de entorno (plantilla)
-├── docker-compose.yml        PostgreSQL + PgAdmin
+├── docker-compose.yml        Despliegue: PostgreSQL + backend + frontend
+├── docker-compose.dev.yml    Desarrollo: PostgreSQL + PgAdmin
 ├── backend/                  Spring Boot 3 / Java 17
 │   ├── mvnw / mvnw.cmd       Maven Wrapper (no necesitas Maven instalado)
 │   ├── pom.xml

@@ -57,7 +57,6 @@ CREATE TABLE IF NOT EXISTS public.registro_control_ingreso (
     CONSTRAINT ck_registro_control_motivo
         CHECK (resultado_autorizacion <> 'DENEGADO' OR motivo_denegacion IS NOT NULL)
 );
-ALTER TABLE public.registro_control_ingreso OWNER TO postgres;
 
 COMMENT ON TABLE public.registro_control_ingreso IS
     'Historial de cada autorización o denegación de ingreso (ACCS-02). asistencia_examen refleja el estado actual.';

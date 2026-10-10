@@ -12,16 +12,6 @@
 -- ddl-end --
 
 
--- object: "NexaCore" | type: SCHEMA --
--- DROP SCHEMA IF EXISTS "NexaCore" CASCADE;
-CREATE SCHEMA "NexaCore";
--- ddl-end --
-ALTER SCHEMA "NexaCore" OWNER TO postgres;
--- ddl-end --
-
-SET search_path TO pg_catalog,public,"NexaCore";
--- ddl-end --
-
 -- object: public.rol | type: TABLE --
 -- DROP TABLE IF EXISTS public.rol CASCADE;
 CREATE TABLE public.rol (
@@ -30,8 +20,6 @@ CREATE TABLE public.rol (
                             CONSTRAINT pk_rol PRIMARY KEY (id_rol),
                             CONSTRAINT uq_rol_nombre UNIQUE (nombre)
 );
--- ddl-end --
-ALTER TABLE public.rol OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.usuario | type: TABLE --
@@ -49,8 +37,6 @@ CREATE TABLE public.usuario (
                                 CONSTRAINT uq_emails UNIQUE (email)
 );
 -- ddl-end --
-ALTER TABLE public.usuario OWNER TO postgres;
--- ddl-end --
 
 -- object: public.usuario_rol | type: TABLE --
 -- DROP TABLE IF EXISTS public.usuario_rol CASCADE;
@@ -59,8 +45,6 @@ CREATE TABLE public.usuario_rol (
                                     id_rol integer NOT NULL,
                                     CONSTRAINT pk_usuario_rol PRIMARY KEY (id_usuario,id_rol)
 );
--- ddl-end --
-ALTER TABLE public.usuario_rol OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.auditoria_operacion | type: TABLE --
@@ -73,8 +57,6 @@ CREATE TABLE public.auditoria_operacion (
                                             detalles text,
                                             CONSTRAINT pk_auditoria PRIMARY KEY (id_auditoria,id_usuario)
 );
--- ddl-end --
-ALTER TABLE public.auditoria_operacion OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.estudiante | type: TABLE --
@@ -89,8 +71,6 @@ CREATE TABLE public.estudiante (
                                    CONSTRAINT uq_id_estudiante UNIQUE (id_estudiante)
 );
 -- ddl-end --
-ALTER TABLE public.estudiante OWNER TO postgres;
--- ddl-end --
 
 -- object: public.materia | type: TABLE --
 -- DROP TABLE IF EXISTS public.materia CASCADE;
@@ -101,8 +81,6 @@ CREATE TABLE public.materia (
                                 CONSTRAINT pk_materia PRIMARY KEY (id_materia),
                                 CONSTRAINT uq_sigla UNIQUE (sigla)
 );
--- ddl-end --
-ALTER TABLE public.materia OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.paralelo | type: TABLE --
@@ -115,8 +93,6 @@ CREATE TABLE public.paralelo (
                                  CONSTRAINT pk_paralelo PRIMARY KEY (id_paralelo,id_materia,id_docente),
                                  CONSTRAINT uq_id_paralelo UNIQUE (id_paralelo)
 );
--- ddl-end --
-ALTER TABLE public.paralelo OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.examen | type: TABLE --
@@ -134,8 +110,6 @@ CREATE TABLE public.examen (
                                CONSTRAINT uq_id_examen UNIQUE (id_examen)
 );
 -- ddl-end --
-ALTER TABLE public.examen OWNER TO postgres;
--- ddl-end --
 
 -- object: public.asistencia_examen | type: TABLE --
 -- DROP TABLE IF EXISTS public.asistencia_examen CASCADE;
@@ -149,8 +123,6 @@ CREATE TABLE public.asistencia_examen (
                                           CONSTRAINT pk_asistencia_examen PRIMARY KEY (id_estudiante,id_examen)
 );
 -- ddl-end --
-ALTER TABLE public.asistencia_examen OWNER TO postgres;
--- ddl-end --
 
 -- object: public.catalogo_incidencia | type: TABLE --
 -- DROP TABLE IF EXISTS public.catalogo_incidencia CASCADE;
@@ -161,8 +133,6 @@ CREATE TABLE public.catalogo_incidencia (
                                             CONSTRAINT pk_tipo_incidencia PRIMARY KEY (id_tipo_incidencia),
                                             CONSTRAINT uq_nombre UNIQUE (nombre)
 );
--- ddl-end --
-ALTER TABLE public.catalogo_incidencia OWNER TO postgres;
 -- ddl-end --
 
 -- object: public.incidencia | type: TABLE --
@@ -177,8 +147,6 @@ CREATE TABLE public.incidencia (
                                    fecha_hora timestamp DEFAULT CURRENT_TIMESTAMP,
                                    CONSTRAINT pk_incidencia PRIMARY KEY (id_incidencia,id_examen,id_estudiante,id_usuario_control,id_tipo_incidencia)
 );
--- ddl-end --
-ALTER TABLE public.incidencia OWNER TO postgres;
 -- ddl-end --
 
 -- object: fk_usuario_rol | type: CONSTRAINT --

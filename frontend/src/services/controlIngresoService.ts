@@ -31,3 +31,13 @@ export async function obtenerHistorialControl(idEstudiante: number, idExamen: nu
   const { data } = await api.get<RegistroControlIngreso[]>(`/control-ingresos/${idEstudiante}/${idExamen}`)
   return data
 }
+
+export interface RegistroControlIngresoExamen extends RegistroControlIngreso {
+  estudiante: string
+  codigoSis: string | null
+}
+
+export async function listarRegistrosControlExamen(idExamen: number): Promise<RegistroControlIngresoExamen[]> {
+  const { data } = await api.get<RegistroControlIngresoExamen[]>(`/control-ingresos/examen/${idExamen}/registros`)
+  return data
+}

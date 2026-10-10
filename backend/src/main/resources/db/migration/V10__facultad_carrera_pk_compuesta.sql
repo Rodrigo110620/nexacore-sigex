@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS public.facultad (
     CONSTRAINT uq_facultad_nombre UNIQUE (nombre),
     CONSTRAINT uq_facultad_codigo UNIQUE (codigo)
 );
-ALTER TABLE public.facultad OWNER TO postgres;
 
 COMMENT ON TABLE public.facultad IS
     'Catálogo de facultades. Contiene carreras (escalable multi-facultad).';
