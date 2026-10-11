@@ -1,6 +1,7 @@
 package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.IntentoIngresoResponse;
+import com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest;
 import com.nexacore.examenes.dto.RegistrarIntentoIngresoRequest;
 import com.nexacore.examenes.services.IntentoIngresoService;
 import jakarta.validation.Valid;
@@ -24,6 +25,15 @@ public class IntentoIngresoController {
                                           Authentication authentication) {
         service.registrar(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    /** ACCS-06: estudiante del examen que se presentó en un aula distinta de la asignada. */
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
+    @PostMapping("/ambiente-incorrecto")
+    public ResponseEntity<IntentoIngresoResponse> registrarAmbienteIncorrecto(
+            @Valid @RequestBody RegistrarAmbienteIncorrectoRequest request, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.registrarAmbienteIncorrecto(request, authentication.getName()));
     }
 
     @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
