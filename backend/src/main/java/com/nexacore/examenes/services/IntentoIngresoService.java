@@ -1,6 +1,7 @@
 package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.dto.IntentoIngresoResponse;
+import com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest;
 import com.nexacore.examenes.dto.RegistrarIntentoIngresoRequest;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
@@ -55,6 +56,41 @@ public class IntentoIngresoService {
         int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),
                 request.identificador().trim(), request.motivo().trim());
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
+    }
+
+    /**
+     * ACCS-06: guarda como intento de ingreso incorrecto que un estudiante del examen se presentó en
+     * un aula distinta de la asignada. El aula asignada se toma del examen, no de lo que envía el cliente.
+     */
+    @Transactional
+    public IntentoIngresoResponse registrarAmbienteIncorrecto(RegistrarAmbienteIncorrectoRequest request,
+                                                              String emailControl) {
+        var asistencia = asistenciaRepository.buscarContexto(request.idEstudiante(), request.idExamen())
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.CONFLICT,
+                        "El estudiante no está asociado a este examen; registre un intento de ingreso incorrecto"));
+        var examen = asistencia.getExamen();
+        String aulaEsperada = examen.getAmbiente() != null ? examen.getAmbiente().getNombre() : null;
+        String aulaActual = request.aulaActual().trim().toUpperCase();
+        if (aulaEsperada != null && aulaEsperada.trim().equalsIgnoreCase(aulaActual)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
+                    "El aula actual es la misma que el aula asignada al examen");
+        }
+        if (intentoRepository.existeRegistroReciente(request.idExamen(), request.idEstudiante())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "Este reporte ya fue registrado hace unos segundos; no se duplicó el registro");
+        }
+        var control = usuarioRepository.findByEmail(emailControl).orElseThrow(() ->
+                new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        String motivo = "Ambiente incorrecto: se presentó en el aula " + aulaActual
+                + (aulaEsperada != null ? "; aula asignada: " + aulaEsperada : "");
+        int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),
+                asistencia.getEstudiante().getCodigoSis(), motivo);
+        if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
+        // El listado viene ordenado del más reciente al más antiguo: el primero es el que se acaba de guardar.
+        return intentoRepository.listar(request.idExamen(), request.idEstudiante()).stream()
+                .findFirst().map(this::respuesta)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "No se pudo leer el reporte registrado"));
     }
 
     @Transactional(readOnly = true)

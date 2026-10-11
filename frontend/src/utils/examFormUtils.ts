@@ -158,6 +158,18 @@ export function esCodigoDeAmbiente(nombre: string): boolean {
     || (/^[A-Z]{2,12}$/.test(n) && pareceUnaPalabra(n))
 }
 
+/** Mensaje de validación del aula actual, o null si es válida. */
+export function validarAulaActual(aulaActual: string, aulaEsperada: string): string | null {
+  if (!aulaActual) return 'Indica el aula en la que se presentó el estudiante'
+  if (aulaActual.length < AMBIENTE_MIN || aulaActual.length > AMBIENTE_MAX) {
+    return `El aula debe tener entre ${AMBIENTE_MIN} y ${AMBIENTE_MAX} letras o números`
+  }
+  if (aulaActual.toUpperCase() === aulaEsperada.trim().toUpperCase()) {
+    return 'El aula actual es la misma que el aula asignada al examen'
+  }
+  return null
+}
+
 export function validateAmbienteNombre(raw: string, existentes: { nombre: string }[] = []): string | null {
   const nombre = raw.trim()
   if (!nombre) return 'El nombre del ambiente es obligatorio'
