@@ -16,5 +16,6 @@ RUN useradd --system --uid 1001 sigex
 COPY --from=build /app/app.jar app.jar
 USER sigex
 EXPOSE 8080
-# Usa como máximo el 75 % de la memoria que el servidor asigne al contenedor.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# Heap: como máximo el 60 % del límite de memoria del contenedor (docker-compose.yml);
+# el resto lo necesita la JVM fuera del heap (metaspace, hilos, GC).
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60", "-jar", "/app/app.jar"]

@@ -71,6 +71,67 @@ class IntentoIngresoServiceTests {
         verify(intentoRepository, never()).registrar(anyInt(), anyInt(), anyInt(), anyString(), anyString());
     }
 
+    private com.nexacore.examenes.models.AsistenciaExamen asistenciaEnAula(String aula) {
+        var ambiente = mock(com.nexacore.examenes.models.Ambiente.class);
+        when(ambiente.getNombre()).thenReturn(aula);
+        var examen = mock(com.nexacore.examenes.models.Examen.class);
+        when(examen.getAmbiente()).thenReturn(ambiente);
+        var asistencia = mock(com.nexacore.examenes.models.AsistenciaExamen.class);
+        when(asistencia.getExamen()).thenReturn(examen);
+        return asistencia;
+    }
+
+    @Test
+    void registraAmbienteIncorrectoConElAulaAsignadaDelExamen() {
+        var asistencia = asistenciaEnAula("692F");
+        var estudiante = new com.nexacore.examenes.models.Estudiante();
+        estudiante.setCodigoSis("202600001");
+        when(asistencia.getEstudiante()).thenReturn(estudiante);
+        Usuario control = new Usuario(); control.setId(5);
+        when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.of(asistencia));
+        when(intentoRepository.existeRegistroReciente(7, 23)).thenReturn(false);
+        when(usuarioRepository.findByEmail("control@umss.edu.bo")).thenReturn(Optional.of(control));
+        when(intentoRepository.registrar(eq(7), eq(23), eq(5), anyString(), anyString())).thenReturn(1);
+        LocalDateTime ahora = LocalDateTime.parse("2026-10-11T14:35:22");
+        List<Object[]> filas = List.<Object[]>of(new Object[]{9, 7, 23, "Ana Pérez", "202600001", "202600001",
+                "Ambiente incorrecto: se presentó en el aula 691B; aula asignada: 692F", "Carla Control", ahora});
+        when(intentoRepository.listar(7, 23)).thenReturn(filas);
+
+        var registro = service.registrarAmbienteIncorrecto(
+                new com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest(7, 23, " 691b "), "control@umss.edu.bo");
+
+        verify(intentoRepository).registrar(7, 23, 5, "202600001",
+                "Ambiente incorrecto: se presentó en el aula 691B; aula asignada: 692F");
+        org.junit.jupiter.api.Assertions.assertEquals(9, registro.idIntento());
+        org.junit.jupiter.api.Assertions.assertEquals("Carla Control", registro.personalControl());
+        org.junit.jupiter.api.Assertions.assertEquals(ahora, registro.fechaHora());
+    }
+
+    @Test
+    void rechazaAmbienteIncorrectoSiElAulaActualEsLaAsignada() {
+        var asistencia = asistenciaEnAula("692F");
+        when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.of(asistencia));
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.registrarAmbienteIncorrecto(
+                        new com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest(7, 23, "692f"), "control@umss.edu.bo"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(intentoRepository, never()).registrar(anyInt(), anyInt(), anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    void rechazaAmbienteIncorrectoSiElEstudianteNoPerteneceAlExamen() {
+        when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.empty());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.registrarAmbienteIncorrecto(
+                        new com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest(7, 23, "691B"), "control@umss.edu.bo"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verifyNoInteractions(intentoRepository);
+    }
+
     @Test
     void consultaYMapeaMultiplesIntentosDelExamenEnElOrdenDelRepositorio() {
         when(examenRepository.existsByIdIdExamen(7)).thenReturn(true);
