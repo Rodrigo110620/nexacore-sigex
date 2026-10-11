@@ -13,6 +13,13 @@
 # Proyecto propio: no se mezcla con el de desarrollo (nexacore-sigex).
 name: sigex
 
+# Logs rotados: máximo 3 archivos de 10 MB por contenedor, para no llenar el disco.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:15.10
@@ -30,6 +37,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    logging: *logging
     networks:
       - sigex_net
 
@@ -57,6 +70,15 @@ services:
     # Sin puerto publicado: solo el frontend (Nginx) le habla por la red interna.
     expose:
       - "8080"
+    # Sin límite, la JVM calcula su heap sobre la RAM de todo el servidor.
+    # Con 768M y MaxRAMPercentage=60 (Dockerfile): ~460 MB de heap y el resto
+    # para metaspace, hilos y GC.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    logging: *logging
     networks:
       - sigex_net
 
@@ -71,6 +93,12 @@ services:
       - backend
     ports:
       - "${APP_PORT:-80}:80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    logging: *logging
     networks:
       - sigex_net
 
