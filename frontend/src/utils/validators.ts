@@ -144,18 +144,36 @@ export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
 const INSTITUTIONAL_EMAIL_REGEX =
   /^[a-zA-Z0-9._%+-]+@(est\.)?umss\.edu(?:\.bo)?$/i
 
-/* Validacion de correo*/
-export const validateEmail = (value: string): string => {
+const validateInstitutionalEmailBase = (value: string): string => {
   const trimmed = value.trim()
   if (!trimmed) return 'El correo es obligatorio'
   if (trimmed.length > FIELD_LIMITS.email.max) return `Máximo ${FIELD_LIMITS.email.max} caracteres`
   if (!INSTITUTIONAL_EMAIL_REGEX.test(trimmed)) return 'Solo se permiten correos institucionales UMSS'
+  return ''
+}
 
-  const [local] = trimmed.split('@')
+/* Valida las reglas generales de correo institucional usadas por personal. */
+export const validateEmail = (value: string): string => {
+  const baseError = validateInstitutionalEmailBase(value)
+  if (baseError) return baseError
+
+  const [local] = value.trim().split('@')
   if (local.length < 3) return 'La parte inicial del correo debe tener al menos 3 caracteres'
   if (/^0+$/.test(local)) return 'La parte inicial del correo no puede ser todo ceros'
   if (/^(\w)\1+$/.test(local)) return 'La parte inicial del correo no puede ser un dato repetido'
 
+  return ''
+}
+
+/** Criterios QA-A01 de registro de estudiantes: parte local mínima y sin repetición trivial. */
+export const validateStudentEmail = (value: string): string => {
+  const baseError = validateInstitutionalEmailBase(value)
+  if (baseError) return baseError
+
+  const [localPart] = value.trim().split('@')
+  if (localPart.length < 3) return 'La parte del correo antes de @ debe tener al menos 3 caracteres'
+  if (/^0+$/.test(localPart)) return 'La parte inicial del correo no puede ser todo ceros'
+  if (/^(\w)\1+$/.test(localPart)) return 'La parte del correo no puede repetir el mismo carácter'
   return ''
 }
 

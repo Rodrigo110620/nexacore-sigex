@@ -124,12 +124,14 @@ export default function ExamenesPage() {
       >
         <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
-              <h1 className="text-sm font-extrabold text-[#011140]">{isControlView ? 'CONTROL DE INGRESO' : 'GESTIÓN DE EXÁMENES'}</h1>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
-                {isControlView ? 'Selecciona un examen para realizar el control de ingreso.' : 'Administra los exámenes programados y su habilitación.'}
-              </p>
-            </div>
+            {!isControlView && (
+              <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
+                <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE EXÁMENES</h1>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
+                  Administra los exámenes programados y su habilitación.
+                </p>
+              </div>
+            )}
 
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">

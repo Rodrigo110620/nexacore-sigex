@@ -25,15 +25,15 @@ export default function ResumenExamenCards({ resumen }: { resumen?: ResumenEstud
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
       {tarjetas.map(({ titulo, tituloMovil, valor, detalle, detalleMovil, icono: Icono, colores, badge, alerta }) => (
-        <section key={titulo} aria-label={titulo} className="min-w-0 rounded-lg border border-[#D8E3F5] bg-white p-2 shadow-sm sm:rounded-xl sm:p-3">
+        <section key={titulo} aria-label={titulo} className="min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm sm:p-3">
           <div className="flex items-start justify-between gap-2">
-            <h2 className="text-[8px] font-semibold uppercase tracking-wide text-[#627A9B] sm:text-[10px]"><span className="sm:hidden">{tituloMovil}</span><span className="hidden sm:inline">{titulo}</span></h2>
-            <span className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg ${colores}`}>
-              <Icono size={11} className="sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+            <h2 className="text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] sm:text-[10px]"><span className="sm:hidden">{tituloMovil}</span><span className="hidden sm:inline">{titulo}</span></h2>
+            <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg ${colores}`}>
+              <Icono size={12} className="sm:h-3.5 sm:w-3.5" aria-hidden="true" />
             </span>
           </div>
           <p className="mt-1 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 sm:mt-2 sm:gap-x-2 sm:gap-y-1">
-            <span className={`text-xl font-bold sm:text-2xl ${alerta ? 'text-[#B91C1C]' : 'text-[#011140]'}`}>
+            <span className={`text-[22px] font-bold leading-none sm:text-2xl ${alerta ? 'text-[#B91C1C]' : 'text-[#011140]'}`}>
               {valor ?? '—'}
             </span>
             {detalle && (
@@ -42,7 +42,7 @@ export default function ResumenExamenCards({ resumen }: { resumen?: ResumenEstud
               </span>
             )}
           </p>
-          <p className={`text-[9px] sm:hidden ${alerta ? 'text-[#B91C1C]' : 'text-[#627A9B]'}`}>{detalleMovil}</p>
+          <p className={`mt-0.5 text-[10px] sm:hidden ${alerta ? 'text-[#B91C1C]' : 'text-[#627A9B]'}`}>{detalleMovil}</p>
         </section>
       ))}
     </div>
