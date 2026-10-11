@@ -447,6 +447,70 @@ class ControlIngresoServiceTests {
         verifyNoInteractions(registroRepository, incidenciaRepository);
     }
 
+    /** ACCS-02 CA-53/54: las observaciones, si se escriben, tienen de 10 a 100 caracteres. */
+    @Test
+    void rechazaObservacionesFueraDe10A100CaracteresSinEscribirDatos() {
+        for (String observacion : new String[] {"Muy corta", "Presentó su carnet vigente. ".repeat(4)}) {
+            var request = new AutorizarIngresoRequest(10, 20, observacion, true, List.of(), List.of());
+            assertThrows(IllegalArgumentException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+        }
+        verifyNoInteractions(registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void aceptaObservacionDeExactamente100Caracteres() {
+        String observacion = "Presentó su carnet vigente y la credencial universitaria. ".repeat(2).substring(0, 100).strip();
+        when(asistenciaRepository.autorizarConFechaServidor(10, 20, 5, 7, observacion)).thenReturn(1);
+        var response = service.autorizar(
+                new AutorizarIngresoRequest(10, 20, observacion, true, List.of(), List.of()), "control@umss.edu.bo");
+        assertTrue(response.autorizado());
+    }
+
+    @Test
+    void alDenegarValidaSoloLasObservacionesQueSiguenALaRazon() {
+        var request = new AutorizarIngresoRequest(10, 20, "Suplantación — Corta", false, List.of(), List.of());
+        assertThrows(IllegalArgumentException.class, () -> service.denegar(request, "control@umss.edu.bo"));
+        verifyNoInteractions(registroRepository);
+    }
+
+    /** ACCS HU#01 CA-42: denegar no borra la razón que registró el administrador. */
+    @Test
+    void denegarConservaLasRazonesAnterioresDeInhabilitacion() {
+        asistencia.setHabilitado(false);
+        asistencia.setMotivoInhabilitacion("Deuda pendiente en caja");
+
+        service.denegar(new AutorizarIngresoRequest(10, 20, "Fuera de tiempo", false, List.of(), List.of()),
+                "control@umss.edu.bo");
+
+        assertEquals(List.of("Deuda pendiente en caja", "Ingreso denegado por CONTROL: Fuera de tiempo"),
+                ControlIngresoService.razones(asistencia.getMotivoInhabilitacion()));
+    }
+
+    @Test
+    void historialIncluyeLasIncidenciasRegistradasConCadaControl() {
+        LocalDateTime cuando = LocalDateTime.parse("2026-09-25T16:00:00.123456");
+        RegistroControlIngresoId id = new RegistroControlIngresoId();
+        id.setIdControl(93);
+        id.setIdEstudiante(10);
+        id.setIdExamen(20);
+        id.setIdParalelo(40);
+        RegistroControlIngreso registro = new RegistroControlIngreso();
+        registro.setId(id);
+        registro.setIdUsuarioControl(7);
+        registro.setResultadoAutorizacion("AUTORIZADO");
+        registro.setFechaHora(cuando);
+        when(registroRepository.findByIdIdEstudianteAndIdIdExamenOrderByFechaHoraDesc(10, 20))
+                .thenReturn(List.of(registro));
+        when(incidenciaRepository.listarDelControl(10, 20)).thenReturn(List.of(
+                new Object[] {java.sql.Timestamp.valueOf(cuando), "LLEGADA_TARDE", "Llegó 10 minutos tarde"},
+                new Object[] {java.sql.Timestamp.valueOf(cuando.minusHours(1)), "OTRA_INCIDENCIA", "De otro control"}));
+
+        var historial = service.consultarHistorial(10, 20);
+
+        assertEquals(List.of(new com.nexacore.examenes.dto.IncidenciaRegistradaResponse(
+                "LLEGADA_TARDE", "Llegó 10 minutos tarde")), historial.get(0).incidencias());
+    }
+
     private AutorizarIngresoRequest requestVacio() {
         return new AutorizarIngresoRequest(10, 20, null, false, List.of(), List.of());
     }

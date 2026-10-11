@@ -14,6 +14,8 @@ import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;  // 🆕
+import com.nexacore.examenes.models.CondicionEstudiante;
+import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -32,17 +34,25 @@ public class EstudianteService {
     private final EstudianteCarreraRepository estudianteCarreraRepository;
     private final CarreraRepository carreraRepository;
     private final UsuarioRepository usuarioRepository;  
+    private final EstudianteFotoRepository estudianteFotoRepository;
 
     public EstudianteService(
             EstudianteRepository estudianteRepository,
             EstudianteCarreraRepository estudianteCarreraRepository,
             CarreraRepository carreraRepository,
-            UsuarioRepository usuarioRepository 
+            UsuarioRepository usuarioRepository,
+            EstudianteFotoRepository estudianteFotoRepository
     ) {
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
         this.carreraRepository = carreraRepository;
         this.usuarioRepository = usuarioRepository;  
+        this.estudianteFotoRepository = estudianteFotoRepository;
+    }
+
+    /** Ruta de la foto en la API, o null si el estudiante no tiene. */
+    public static String fotoUrl(Integer idEstudiante, boolean tieneFoto) {
+        return tieneFoto ? "/estudiantes/" + idEstudiante + "/foto" : null;
     }
 
     public PageResponse<EstudianteListResponse> listar(
@@ -121,6 +131,7 @@ public class EstudianteService {
         estudiante.setCi(ci);
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
+        estudiante.setCondicion(CondicionEstudiante.normalizar(request.condicion(), CondicionEstudiante.REGULAR));
         estudiante = estudianteRepository.saveAndFlush(estudiante);
 
         EstudianteCarreraId relacionId = new EstudianteCarreraId();
@@ -139,7 +150,7 @@ public class EstudianteService {
                 estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
                 carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
                 carrera.getFacultad().getNombre()
-        ))
+        )), estudiante.getCondicion(), null
         );
     }
 
@@ -197,6 +208,7 @@ public class EstudianteService {
         e.setCodigoSis(nuevoCodigo);
         e.setCi(nuevoCi);
         e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
+        e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
         estudianteRepository.saveAndFlush(e);
 
         // Reemplazar la carrera (borrar y volver a insertar)
@@ -240,7 +252,9 @@ public class EstudianteService {
                 e.getApellidos(),
                 e.getCi(),
                 e.getEmail(),
-                carrerasInfo
+                carrerasInfo,
+                e.getCondicion(),
+                fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId()))
         );
     }
 }

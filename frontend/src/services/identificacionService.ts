@@ -13,6 +13,8 @@ export interface EstudianteIdentificado {
   fotoUrl: string | null
   estado: 'HABILITADO' | 'DESHABILITADO' | 'NO_VINCULADO'
   motivoInhabilitacion?: string | null
+  /** REGULAR o POSTULANTE. */
+  condicion?: string | null
 }
 
 /** 200 con el estado del estudiante en el examen; 404 si el estudiante no existe. */

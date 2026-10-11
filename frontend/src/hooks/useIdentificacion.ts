@@ -5,6 +5,7 @@ import {
   type EstudianteIdentificado,
   type TipoIdentificacion,
 } from '../services/identificacionService'
+import { isNetworkError, isOffline } from '../utils/examFormUtils'
 
 export type BusquedaEstudiante =
   | { status: 'idle' }
@@ -14,8 +15,12 @@ export type BusquedaEstudiante =
 
 const IDLE: BusquedaEstudiante = { status: 'idle' }
 
-/** 404 → no_encontrado; cualquier otro fallo → error, con el mensaje del backend si lo trae. */
+export const SIN_CONEXION_IDENTIFICAR =
+  'Sin conexión a Internet: no es posible identificar al estudiante. Verifica tu conexión y vuelve a presionar Buscar.'
+
+/** Sin conexión → error propio; 404 → no_encontrado; cualquier otro fallo → error, con el mensaje del backend si lo trae. */
 function busquedaFallida(error: unknown): BusquedaEstudiante {
+  if (isNetworkError(error)) return { status: 'error', mensaje: SIN_CONEXION_IDENTIFICAR }
   const respuesta = axios.isAxiosError(error) ? error.response : undefined
   const mensaje = (respuesta?.data as { mensaje?: string } | undefined)?.mensaje
   if (respuesta?.status === 404) {
@@ -36,6 +41,11 @@ export default function useIdentificacion(idExamen: number) {
   const buscar = useCallback(
     async (tipo: TipoIdentificacion, valor: string) => {
       const id = ++ultimaBusqueda.current
+      // Sin conexión no se intenta la búsqueda; el método y el dato quedan en pantalla para reintentar.
+      if (isOffline()) {
+        setBusqueda({ status: 'error', mensaje: SIN_CONEXION_IDENTIFICAR })
+        return
+      }
       setBusqueda({ status: 'loading' })
       try {
         const estudiante = await identificarEstudiante(idExamen, tipo, valor)

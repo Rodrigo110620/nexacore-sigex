@@ -41,7 +41,10 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                    (SELECT listagg(cast(c.nombre as String), ', ') WITHIN GROUP (ORDER BY c.nombre)
                       FROM EstudianteCarrera ec JOIN ec.carrera c
                      WHERE ec.id.idEstudiante = e.id),
-                   a.id.idExamen, a.habilitado, a.motivoInhabilitacion, a.fechaHoraIngreso)
+                   a.id.idExamen, a.habilitado, a.motivoInhabilitacion, a.fechaHoraIngreso,
+                   e.condicion,
+                   CASE WHEN EXISTS (SELECT 1 FROM EstudianteFoto f WHERE f.idEstudiante = e.id)
+                        THEN true ELSE false END)
             """;
     String ESTUDIANTE_EN_EXAMEN = """
             FROM Estudiante e

@@ -5,11 +5,13 @@ import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.ImportarEstudiantesResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
+import com.nexacore.examenes.services.EstudianteFotoService;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
 import com.nexacore.examenes.services.PlanillaEstudiantesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,15 +34,49 @@ public class EstudianteController {
     private final EstudianteService estudianteService;
     private final ImportacionEstudiantesService importacionEstudiantesService;
     private final PlanillaEstudiantesService planillaEstudiantesService;
+    private final EstudianteFotoService estudianteFotoService;
 
     public EstudianteController(
             EstudianteService estudianteService,
             ImportacionEstudiantesService importacionEstudiantesService,
-            PlanillaEstudiantesService planillaEstudiantesService
+            PlanillaEstudiantesService planillaEstudiantesService,
+            EstudianteFotoService estudianteFotoService
     ) {
         this.estudianteService = estudianteService;
         this.importacionEstudiantesService = importacionEstudiantesService;
         this.planillaEstudiantesService = planillaEstudiantesService;
+        this.estudianteFotoService = estudianteFotoService;
+    }
+
+    @Operation(summary = "Fotografía del estudiante",
+            description = "Imagen para identificar al estudiante en el control de ingreso. 404 si no tiene. ADMIN, DOCENTE y CONTROL.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<byte[]> foto(@PathVariable Integer id) {
+        return estudianteFotoService.obtener(id)
+                .map(foto -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(foto.getTipoContenido()))
+                        .cacheControl(CacheControl.noStore())
+                        .header("X-Content-Type-Options", "nosniff")
+                        .body(foto.getContenido()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Subir o reemplazar la fotografía",
+            description = "Imagen JPG, PNG o WEBP de hasta 150 KB. ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PutMapping(value = "/{id}/foto", consumes = "multipart/form-data")
+    public ResponseEntity<Void> subirFoto(@PathVariable Integer id, @RequestParam("file") MultipartFile file) {
+        estudianteFotoService.guardar(id, file);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Quitar la fotografía", description = "ADMIN y DOCENTE.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @DeleteMapping("/{id}/foto")
+    public ResponseEntity<Void> quitarFoto(@PathVariable Integer id) {
+        estudianteFotoService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Listar estudiantes",

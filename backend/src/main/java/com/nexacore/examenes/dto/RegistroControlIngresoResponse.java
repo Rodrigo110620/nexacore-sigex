@@ -12,6 +12,7 @@ public record RegistroControlIngresoResponse(
         String observaciones,
         List<String> verificacionesAdicionales,
         String usuarioControl,
-        LocalDateTime fechaHora
+        LocalDateTime fechaHora,
+        List<IncidenciaRegistradaResponse> incidencias
 ) {
 }

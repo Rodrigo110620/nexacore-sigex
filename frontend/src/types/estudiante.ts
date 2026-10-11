@@ -5,6 +5,9 @@ export interface CarreraInfo {
   nombreFacultad: string
 }
 
+/** Condición o tipo de estudiante. */
+export type CondicionEstudiante = 'REGULAR' | 'POSTULANTE'
+
 export interface EstudianteListItem {
   id: number
   codigoSis: string
@@ -13,6 +16,9 @@ export interface EstudianteListItem {
   ci: string
   email?: string | null
   carreras: CarreraInfo[]
+  condicion?: CondicionEstudiante
+  /** Ruta de la API para descargar la foto, o null si no tiene. */
+  fotoUrl?: string | null
 }
 
 export interface EstudianteFilterParams {
@@ -51,6 +57,7 @@ export interface RegistrarEstudiantePayload {
   codigoSis: string
   idFacultad: number
   idCarrera: number
+  condicion?: CondicionEstudiante
 }
 export interface ActualizarEstudiantePayload {
   nombre: string
@@ -60,5 +67,6 @@ export interface ActualizarEstudiantePayload {
   codigoSis: string
   idFacultad: number
   idCarrera: number
+  condicion?: CondicionEstudiante
 }
 

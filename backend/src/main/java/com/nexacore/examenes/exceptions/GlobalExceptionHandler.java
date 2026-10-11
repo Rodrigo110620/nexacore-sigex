@@ -212,6 +212,14 @@ public class GlobalExceptionHandler {
     }
 
     /** Errores de negocio simples (ej. nueva igual a la actual). */
+    /** Archivo más grande que el límite de Spring (1 MB por defecto), p. ej. un CSV de importación. */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> manejarArchivoMuyGrande(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE.value(), "El archivo no puede superar 1 MB."));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> manejarArgumentoInvalido(IllegalArgumentException ex) {
         ErrorResponse cuerpo = new ErrorResponse(

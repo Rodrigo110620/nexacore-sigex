@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
@@ -43,10 +43,149 @@ function renderPage(contexto: ContextoControlIngreso = contextoBase) {
   )
 }
 
+let onLine: { mockRestore: () => void } | null = null
+const sinConexion = () => {
+  const spy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  onLine = spy
+  return spy
+}
+const errorDeRed = () => Object.assign(new Error('Network Error'), { code: 'ERR_NETWORK' })
+
 describe('ControlIngresoPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(service.obtenerHistorialControl).mockResolvedValue([])
+  })
+
+  afterEach(() => {
+    onLine?.mockRestore()
+    onLine = null
+  })
+
+  it('CA-53/54: la observación tiene de 10 a 100 caracteres y no deja autorizar fuera de ese rango', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    const obs = screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+
+    fireEvent.change(obs, { target: { value: 'Corta' } })
+    expect(screen.getByText('La observación debe tener al menos 10 caracteres')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
+
+    expect(obs).toHaveAttribute('maxLength', '100')
+    fireEvent.change(obs, { target: { value: 'Presentó su carnet vigente. '.repeat(5) } })
+    expect((obs as HTMLTextAreaElement).value).toHaveLength(100)
+    expect(screen.getByText('100/100')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeEnabled()
+  })
+
+  it('CA-68/70: "Ver todo" muestra la observación completa cuando no cabe en el campo', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    const obs = screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla')
+    // jsdom no calcula alturas: el texto "no cabe" si scrollHeight supera a clientHeight.
+    Object.defineProperty(obs, 'scrollHeight', { configurable: true, get: () => 120 })
+    Object.defineProperty(obs, 'clientHeight', { configurable: true, get: () => 60 })
+    const texto = 'El estudiante presentó su carnet y credencial universitaria vigente en la puerta del aula.'
+    fireEvent.change(obs, { target: { value: texto } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todo' }))
+    expect(obs).toHaveValue(texto)
+    expect(obs).toHaveStyle({ height: '120px' })
+    fireEvent.click(screen.getByRole('button', { name: 'Ver menos' }))
+    expect(obs).toHaveValue(texto)
+  })
+
+  it('CA-88 a 92: sin conexión no autoriza, avisa y conserva lo ingresado', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    const obs = screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla')
+    fireEvent.change(obs, { target: { value: 'Sin novedades en el control' } })
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    sinConexion()
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('No se pudo autorizar ni registrar el ingreso')
+    expect(service.autorizarIngreso).not.toHaveBeenCalled()
+    expect(screen.queryByText('Ingreso autorizado')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    expect(obs).toHaveValue('Sin novedades en el control')
+    expect(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado')).toBeChecked()
+  })
+
+  it('CA-93/94: si la conexión se corta durante el envío avisa y permite reintentar', async () => {
+    vi.mocked(service.autorizarIngreso)
+      .mockRejectedValueOnce(errorDeRed())
+      .mockResolvedValueOnce({
+        autorizado: true, resultado: 'AUTORIZADO', causa: null,
+        fechaHoraIngreso: '2026-09-26T18:00:00Z', autorizadoPor: 'Carla Control',
+      })
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
+    expect(screen.queryByText('Ingreso autorizado')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
+    expect(service.autorizarIngreso).toHaveBeenCalledTimes(2)
+  })
+
+  it('CA-150 a 153: sin conexión no deniega y mantiene abierto el formulario con sus datos', async () => {
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Suplantación' } })
+    fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: 'No coincide la foto' } })
+    sinConexion()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
+
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('No se pudo registrar la denegación')
+    expect(service.denegarIngreso).not.toHaveBeenCalled()
+    expect(screen.queryByText('Ingreso denegado')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    expect(screen.getByRole('dialog', { name: 'Denegar ingreso' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Detalle adicional/)).toHaveValue('No coincide la foto')
+  })
+
+  it('sin conexión al cargar avisa y permite reintentar', async () => {
+    vi.mocked(service.obtenerTiposIncidencia).mockResolvedValue([])
+    vi.mocked(service.obtenerContextoControl)
+      .mockRejectedValueOnce(errorDeRed())
+      .mockResolvedValueOnce(contextoBase)
+    render(
+      <MemoryRouter initialEntries={['/control/10/20']}>
+        <Routes><Route path="/control/:idEstudiante/:idExamen" element={<ControlIngresoPage />} /></Routes>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión a Internet')
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    expect(await screen.findByText('Laura Paredes')).toBeInTheDocument()
+  })
+
+  it('HU#4 CA-04 a 06: muestra todas las razones de inhabilitación con "Ver todo"', async () => {
+    renderPage({
+      ...contextoBase,
+      habilitado: false,
+      motivoInhabilitacion: 'Deuda en biblioteca\nDocumentos incompletos\nIngreso denegado por CONTROL: Suplantación',
+    })
+    const razones = await screen.findByRole('list', { name: 'Razones de inhabilitación' })
+    expect(within(razones).getAllByRole('listitem')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Ver todo (3)' }))
+    expect(within(razones).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '1. Deuda en biblioteca',
+      '2. Documentos incompletos',
+      '3. Ingreso denegado por CONTROL: Suplantación',
+    ])
+  })
+
+  it('ACCS HU#01 CA-28/32: muestra la condición del estudiante', async () => {
+    renderPage({ ...contextoBase, condicion: 'POSTULANTE' })
+    expect(await screen.findByText('Laura Paredes')).toBeInTheDocument()
+    expect(screen.getByText('Postulante')).toBeInTheDocument()
+    expect(screen.queryByText('Estudiante regular')).not.toBeInTheDocument()
   })
 
   it('carga el contexto y muestra datos y normas', async () => {
@@ -120,9 +259,9 @@ describe('ControlIngresoPage', () => {
     await screen.findByText('Laura Paredes')
     fireEvent.change(screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla'), { target: { value: 'tttttttttttttttttttt' } })
     fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
-    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('contenido no válido')
+    expect(screen.getByText('La observación no puede ser un mismo carácter repetido')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
     expect(service.autorizarIngreso).not.toHaveBeenCalled()
   })
 
@@ -246,12 +385,14 @@ describe('ControlIngresoPage', () => {
       verificacionesAdicionales: ['Identidad contrastada'],
       usuarioControl: 'Carla Control',
       fechaHora: '2026-09-26T18:00:00Z',
+      incidencias: [{ tipo: 'LLEGADA_TARDE', descripcion: 'Llegó 10 minutos tarde' }],
     }])
     renderPage()
     await screen.findByText('Laura Paredes')
     fireEvent.click(screen.getByRole('button', { name: /Historial del control/ }))
 
     expect(await screen.findByText('Personal de control: Carla Control')).toBeInTheDocument()
+    expect(screen.getByText('Estudiante llegó tarde: Llegó 10 minutos tarde')).toBeInTheDocument()
     expect(screen.getByText('Causa: Matrícula observada')).toBeInTheDocument()
     expect(screen.getByText('Observaciones: Se informó al estudiante')).toBeInTheDocument()
     expect(screen.getAllByText('Identidad contrastada')).toHaveLength(1)

@@ -2,6 +2,8 @@ import { GraduationCap, IdCard } from 'lucide-react'
 import { getUserInitials } from '../users/userAvatar.utils'
 import EstadoHabilitacionBadge from './EstadoHabilitacionBadge'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 
 interface ResultadoEstudianteCardProps {
   estudiante: EstudianteIdentificado
@@ -12,13 +14,16 @@ export default function ResultadoEstudianteCard({ estudiante }: ResultadoEstudia
   return (
     <article className="flex flex-col gap-2.5 rounded-lg border border-[#2C64F4] bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span
-          aria-hidden="true"
+        <FotoEstudiante
+          fotoUrl={estudiante.fotoUrl}
+          nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+          iniciales={getUserInitials(estudiante)}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#0439D9] text-sm font-bold text-white sm:h-12 sm:w-12 sm:text-base"
-        >
-          {getUserInitials(estudiante)}
-        </span>
+        />
         <div className="min-w-0">
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] sm:text-[10px]">
+            {etiquetaCondicion(estudiante.condicion)}
+          </p>
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="text-sm font-bold text-[#011140] sm:text-base">
               {estudiante.nombre} {estudiante.apellidos}

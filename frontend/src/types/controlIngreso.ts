@@ -16,6 +16,10 @@ export interface ContextoControlIngreso {
   motivoInhabilitacion: string | null
   ingresoRegistrado: boolean
   fechaHoraIngreso: string | null
+  /** REGULAR o POSTULANTE. */
+  condicion?: string | null
+  /** Ruta de la API para descargar la foto, o null si no tiene. */
+  fotoUrl?: string | null
 }
 
 export interface AutorizarIngresoPayload {
@@ -55,4 +59,6 @@ export interface RegistroControlIngreso {
   verificacionesAdicionales: string[]
   usuarioControl: string
   fechaHora: string
+  /** Incidencias registradas junto con este control. */
+  incidencias?: Array<{ tipo: string; descripcion: string | null }>
 }
