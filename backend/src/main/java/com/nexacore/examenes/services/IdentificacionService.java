@@ -98,9 +98,9 @@ public class IdentificacionService {
     private IdentificacionResponse responder(Optional<EstudianteExamenFila> resultado, String campo, String valor) {
         EstudianteExamenFila fila = resultado.orElseThrow(() -> new EstudianteNoEncontradoException(campo, valor));
         IdentificacionResponse.Estado estado = estadoDe(fila);
-        // fotoUrl queda en null: todavía no hay columna de foto en estudiante.
         return new IdentificacionResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(), fila.ci(),
-                fila.carrera(), null, estado, motivoDe(fila, estado));
+                fila.carrera(), EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()), estado,
+                motivoDe(fila, estado), fila.condicion());
     }
 
     private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila) {

@@ -3,7 +3,9 @@ package com.nexacore.examenes.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import com.nexacore.examenes.models.CondicionEstudiante;
 
 public record ActualizarEstudianteRequest(
     @NotBlank(message = "El nombre es obligatorio")
@@ -30,5 +32,14 @@ public record ActualizarEstudianteRequest(
     Integer idFacultad,
 
     @NotNull(message = "La carrera es obligatoria")
-    Integer idCarrera
-) {}
+    Integer idCarrera,
+
+    /** Opcional: si no se envía, se conserva la condición actual. */
+    @Pattern(regexp = CondicionEstudiante.PATRON, message = "La condición debe ser Regular o Postulante")
+    String condicion
+) {
+    public ActualizarEstudianteRequest(String nombre, String apellidos, String codigoSis, String ci, String email,
+                                       Integer idFacultad, Integer idCarrera) {
+        this(nombre, apellidos, codigoSis, ci, email, idFacultad, idCarrera, null);
+    }
+}

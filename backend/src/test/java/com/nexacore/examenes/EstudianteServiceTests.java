@@ -34,11 +34,13 @@ class EstudianteServiceTests {
     @Mock EstudianteCarreraRepository estudianteCarreraRepository;
     @Mock CarreraRepository carreraRepository;
     @Mock UsuarioRepository usuarioRepository; 
+    @Mock com.nexacore.examenes.repositories.EstudianteFotoRepository estudianteFotoRepository;
     private EstudianteService service;
 
     @BeforeEach
     void setUp() {
-        service = new EstudianteService(estudianteRepository, estudianteCarreraRepository, carreraRepository, usuarioRepository);
+        service = new EstudianteService(estudianteRepository, estudianteCarreraRepository, carreraRepository, usuarioRepository,
+                estudianteFotoRepository);
     }
 
     private RegistrarEstudianteRequest request() {

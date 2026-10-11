@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface IncidenciaRepository extends JpaRepository<Incidencia, IncidenciaId> {
     @Modifying
@@ -27,4 +28,19 @@ public interface IncidenciaRepository extends JpaRepository<Incidencia, Incidenc
             @Param("idParalelo") Integer idParalelo,
             @Param("descripcion") String descripcion,
             @Param("fechaHora") LocalDateTime fechaHora);
+
+    /**
+     * Incidencias del estudiante en el examen: [fecha_hora, nombre del tipo, descripción].
+     * Se registran en la misma transacción que su control, así que comparten la fecha y hora.
+     */
+    @Query(value = """
+            SELECT i.fecha_hora, c.nombre, i.descripcion
+            FROM incidencia i
+            JOIN catalogo_incidencia c ON c.id_tipo_incidencia = i.id_tipo_incidencia
+            WHERE i.id_estudiante = :idEstudiante AND i.id_examen = :idExamen
+            ORDER BY i.id_incidencia
+            """, nativeQuery = true)
+    List<Object[]> listarDelControl(
+            @Param("idEstudiante") Integer idEstudiante,
+            @Param("idExamen") Integer idExamen);
 }

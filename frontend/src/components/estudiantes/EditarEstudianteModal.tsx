@@ -1,16 +1,23 @@
-import { Check, CircleAlert, LoaderCircle, UserRoundPen, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Camera, Check, CircleAlert, LoaderCircle, Trash2, UserRoundPen, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import {
     actualizarEstudiante,
     getCarreras,
     getEstudianteById,
     getFacultades,
+    quitarFotoEstudiante,
+    subirFotoEstudiante,
 } from '../../services/estudianteService'
 import type {
     CarreraOption,
+    CondicionEstudiante,
     EstudianteListItem,
     FacultadOption,
 } from '../../types/estudiante'
+import FotoEstudiante from './FotoEstudiante'
+import { getInitials } from './avatarColors'
+import { OPCIONES_CONDICION } from '../../utils/condicionEstudiante'
+import { prepararFoto, validarArchivoFoto } from '../../utils/fotoEstudiante'
 import {
     FIELD_LIMITS,
     sanitizeNombreInput,
@@ -36,6 +43,7 @@ interface FormState {
     email: string
     idFacultad: string
     idCarrera: string
+    condicion: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -46,6 +54,7 @@ const EMPTY_FORM: FormState = {
     email: '',
     idFacultad: '',
     idCarrera: '',
+    condicion: 'REGULAR',
 }
 
 const FIELD_NAMES: Record<keyof FormState, string> = {
@@ -56,6 +65,7 @@ const FIELD_NAMES: Record<keyof FormState, string> = {
     email: 'Correo Electrónico',
     idFacultad: 'Facultad',
     idCarrera: 'Carrera',
+    condicion: 'Condición',
 }
 
 function FieldError({ children }: { children?: string }) {
@@ -75,6 +85,23 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [apiError, setApiError] = useState('')
     const [savedNombre, setSavedNombre] = useState('')
+    // La foto se sube o se quita al guardar, junto con los demás cambios.
+    const [fotoNueva, setFotoNueva] = useState<Blob | null>(null)
+    const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+    const [quitarFoto, setQuitarFoto] = useState(false)
+    const [fotoError, setFotoError] = useState('')
+    const [procesandoFoto, setProcesandoFoto] = useState(false)
+    const previewRef = useRef<string | null>(null)
+
+    const cambiarPreview = (url: string | null) => {
+        if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+        previewRef.current = url
+        setFotoPreview(url)
+    }
+
+    useEffect(() => () => {
+        if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    }, [])
 
     useEffect(() => {
         if (!open || !estudianteId) return
@@ -93,6 +120,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     email: est.email ?? '',
                     idFacultad: carrera ? String(carrera.idFacultad) : '',
                     idCarrera: carrera ? String(carrera.idCarrera) : '',
+                    condicion: est.condicion ?? 'REGULAR',
                 }
                 setForm(loadedForm)
                 setOriginalForm(loadedForm)
@@ -129,6 +157,10 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         setSavedNombre('')
         setFacultades([])
         setCarreras([])
+        setFotoNueva(null)
+        cambiarPreview(null)
+        setQuitarFoto(false)
+        setFotoError('')
         setLoading(true)
         onClose()
     }
@@ -137,6 +169,33 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         const nombre = savedNombre || (estudiante ? `${estudiante.nombre} ${estudiante.apellidos}` : '')
         close()
         onSaved(nombre)
+    }
+
+    const elegirFoto = async (e: ChangeEvent<HTMLInputElement>) => {
+        const archivo = e.target.files?.[0]
+        e.target.value = ''
+        if (!archivo) return
+        const motivo = validarArchivoFoto(archivo)
+        setFotoError(motivo ?? '')
+        if (motivo) return
+        setProcesandoFoto(true)
+        try {
+            const foto = await prepararFoto(archivo)
+            setFotoNueva(foto)
+            cambiarPreview(URL.createObjectURL(foto))
+            setQuitarFoto(false)
+        } catch {
+            setFotoError('No se pudo procesar la imagen. Prueba con otra fotografía.')
+        } finally {
+            setProcesandoFoto(false)
+        }
+    }
+
+    const descartarFoto = () => {
+        setFotoNueva(null)
+        cambiarPreview(null)
+        setQuitarFoto(Boolean(estudiante?.fotoUrl))
+        setFotoError('')
     }
 
     const update = (field: keyof FormState, value: string) => {
@@ -177,7 +236,18 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 codigoSis: form.codigoSis.trim(),
                 idFacultad: Number(form.idFacultad),
                 idCarrera: Number(form.idCarrera),
+                condicion: form.condicion as CondicionEstudiante,
             })
+
+            const cambioFoto = Boolean(fotoNueva) || (quitarFoto && Boolean(estudiante?.fotoUrl))
+            try {
+                if (fotoNueva) await subirFotoEstudiante(estudianteId, fotoNueva)
+                else if (quitarFoto && estudiante?.fotoUrl) await quitarFotoEstudiante(estudianteId)
+            } catch (err: unknown) {
+                const error = err as { response?: { data?: { mensaje?: string } } }
+                setApiError(`Los datos se guardaron, pero no la fotografía: ${error.response?.data?.mensaje ?? 'inténtalo de nuevo.'}`)
+                return
+            }
 
             const changed: string[] = []
                 ; (Object.keys(form) as Array<keyof FormState>).forEach((key) => {
@@ -185,6 +255,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                         changed.push(FIELD_NAMES[key])
                     }
                 })
+            if (cambioFoto) changed.push('Fotografía')
             setChangedFields(changed)
 
             setSavedNombre(`${updated.nombre} ${updated.apellidos}`)
@@ -249,6 +320,47 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                     {apiError}
                                 </div>
                             )}
+
+                            <div className="mb-5 flex items-center gap-4 rounded-lg border border-[#E8EEF7] p-3">
+                                <FotoEstudiante
+                                    fotoUrl={quitarFoto ? null : estudiante?.fotoUrl}
+                                    src={fotoPreview}
+                                    nombre={`${form.nombre} ${form.apellidos}`.trim() || 'Estudiante'}
+                                    iniciales={getInitials(form.nombre, form.apellidos)}
+                                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-xl font-bold text-[#0439D9]"
+                                />
+                                <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-[#011140]">Fotografía</p>
+                                    <p className="text-[11px] text-[#627A9B]">
+                                        Se muestra al identificar al estudiante en el control de ingreso. JPG, PNG o WEBP.
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[#C9D7EC] px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
+                                            {procesandoFoto ? <LoaderCircle size={14} className="animate-spin" /> : <Camera size={14} />}
+                                            {fotoPreview || (!quitarFoto && estudiante?.fotoUrl) ? 'Cambiar foto' : 'Subir foto'}
+                                            <input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp"
+                                                className="sr-only"
+                                                aria-label="Seleccionar fotografía del estudiante"
+                                                disabled={procesandoFoto || saving}
+                                                onChange={(e) => void elegirFoto(e)}
+                                            />
+                                        </label>
+                                        {(fotoPreview || (!quitarFoto && estudiante?.fotoUrl)) && (
+                                            <button
+                                                type="button"
+                                                onClick={descartarFoto}
+                                                disabled={saving}
+                                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            >
+                                                <Trash2 size={14} /> Quitar
+                                            </button>
+                                        )}
+                                    </div>
+                                    <FieldError>{fotoError}</FieldError>
+                                </div>
+                            </div>
 
                             <h3 className="mb-2 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                                 <span className="h-1.5 w-1.5 rounded-full bg-[#0439D9]" />
@@ -325,6 +437,19 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                 INFORMACIÓN ACADÉMICA
                             </h3>
                             <div className="space-y-3">
+                                <label className="block text-xs font-semibold text-[#011140]">
+                                    Condición del estudiante <b className="text-red-500">*</b>
+                                    <select
+                                        value={form.condicion}
+                                        onChange={(e) => update('condicion', e.target.value)}
+                                        className={inputClass}
+                                    >
+                                        {OPCIONES_CONDICION.map((o) => (
+                                            <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
+                                        ))}
+                                    </select>
+                                </label>
+
                                 <label className="block text-xs font-semibold text-[#011140]">
                                     Facultad <b className="text-red-500">*</b>
                                     <select

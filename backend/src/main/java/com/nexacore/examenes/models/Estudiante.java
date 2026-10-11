@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 /**
  * Estudiante. No inicia sesión, por eso no es un usuario del sistema:
@@ -42,5 +43,11 @@ public class Estudiante {
     @NotNull
     @Column(name = "email", nullable = false, length = Integer.MAX_VALUE)
     private String email;
+
+    /** Condición o tipo de estudiante: REGULAR o POSTULANTE (ver CondicionEstudiante). */
+    @NotNull
+    @ColumnDefault("'REGULAR'")
+    @Column(name = "condicion", nullable = false, length = 20)
+    private String condicion = CondicionEstudiante.REGULAR;
 
 }

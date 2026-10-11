@@ -22,6 +22,10 @@ public record ContextoControlIngresoResponse(
         String motivoInhabilitacion,
         boolean ingresoRegistrado,
         LocalDateTime fechaHoraIngreso,
-        String carrera
+        String carrera,
+        /** REGULAR o POSTULANTE. */
+        String condicion,
+        /** Ruta de la API para descargar la foto, o null si no tiene. */
+        String fotoUrl
 ) {
 }

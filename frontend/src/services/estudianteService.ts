@@ -102,3 +102,21 @@ export async function actualizarEstudiante(
   const { data } = await api.put<EstudianteListItem>(`/estudiantes/${id}`, payload)
   return data
 }
+/** Sube o reemplaza la fotografía del estudiante (JPG, PNG o WEBP de hasta 150 KB). */
+export async function subirFotoEstudiante(id: number, foto: Blob): Promise<void> {
+  const formData = new FormData()
+  formData.append('file', foto, 'foto.jpg')
+  await api.put(`/estudiantes/${id}/foto`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export async function quitarFotoEstudiante(id: number): Promise<void> {
+  await api.delete(`/estudiantes/${id}/foto`)
+}
+
+/** La foto se pide con el token (un <img src> no lo enviaría). */
+export async function descargarFotoEstudiante(fotoUrl: string, signal?: AbortSignal): Promise<Blob> {
+  const { data } = await api.get<Blob>(fotoUrl, { responseType: 'blob', signal })
+  return data
+}
