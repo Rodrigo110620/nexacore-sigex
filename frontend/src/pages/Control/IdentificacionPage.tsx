@@ -12,7 +12,13 @@ import VerificacionHabilitacionModal from '../../components/control/Verificacion
 import useIdentificacion from '../../hooks/useIdentificacion'
 import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
-import type { EstudianteIdentificado } from '../../services/identificacionService'
+import { identificarEstudiante, type EstudianteIdentificado } from '../../services/identificacionService'
+import { isNetworkError, isOffline } from '../../utils/examFormUtils'
+
+const SIN_CONEXION_VERIFICAR =
+  'Sin conexión a Internet: no se pudo verificar la habilitación del estudiante. No se confirma ningún estado; vuelve a presionar Continuar cuando recuperes la conexión.'
+const SIN_CONEXION_CONTINUAR =
+  'Sin conexión a Internet: no es posible continuar con el control de ingreso. Los datos del estudiante y del examen se conservan; vuelve a presionar Continuar cuando recuperes la conexión.'
 
 /** Control de ingreso: identificar al estudiante por código universitario, CI o QR dentro de un examen. */
 export default function IdentificacionPage() {
@@ -26,6 +32,12 @@ export default function IdentificacionPage() {
   const examen = useExamen(idExamen)
   const { busqueda, buscar, reset } = useIdentificacion(idExamen)
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
+  // Estado de habilitación consultado de nuevo al presionar Continuar (ACCS-03): nunca se asume.
+  const [estudianteVerificado, setEstudianteVerificado] = useState<EstudianteIdentificado | null>(null)
+  const [verificando, setVerificando] = useState(false)
+  // El aviso queda ligado al estudiante con el que se intentó continuar; otra búsqueda lo oculta.
+  const [errorVerificacion, setErrorVerificacion] = useState<{ para: EstudianteIdentificado; mensaje: string } | null>(null)
+  const [errorContinuar, setErrorContinuar] = useState<string | null>(null)
 
   // El ojo de "Control del examen" llega con ?codigo=: se busca una sola vez por código universitario.
   const [searchParams] = useSearchParams()
@@ -38,14 +50,23 @@ export default function IdentificacionPage() {
     void buscar('codigo', codigoUrl)
   }, [codigoUrl, idValido, buscar])
 
+  const limpiarVerificacion = () => {
+    setModalVerificacionOpen(false)
+    setEstudianteVerificado(null)
+    setErrorVerificacion(null)
+    setErrorContinuar(null)
+  }
+
   const cambiarMecanismo = (nuevo: Mecanismo) => {
     setTipo(nuevo)
     setValorInicial('')
+    limpiarVerificacion()
     reset()
   }
 
   // Cambiar la key remonta el formulario con el input vacío, sin tocar el mecanismo.
   const cambiarEstudiante = () => {
+    limpiarVerificacion()
     reset()
     setValorInicial('')
     setReinicios((n) => n + 1)
@@ -58,13 +79,39 @@ export default function IdentificacionPage() {
   // HABILITADO y DESHABILITADO llegan como "encontrado"; NO_VINCULADO no permite continuar.
   const estudiante = busqueda.status === 'encontrado' ? busqueda.estudiante : null
 
+  // Sin conexión no se pasa al control de ingreso: se queda en la verificación con sus datos.
   const onContinuar = (estudianteSeleccionado: EstudianteIdentificado) => {
+    if (isOffline()) {
+      setErrorContinuar(SIN_CONEXION_CONTINUAR)
+      return
+    }
+    setErrorContinuar(null)
     navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}`)
   }
 
-  // Continuar siempre pasa por la verificación de habilitación (ACCS-03/04).
-  const manejarContinuar = () => {
-    if (estudiante) setModalVerificacionOpen(true)
+  // Continuar siempre pasa por la verificación de habilitación (ACCS-03/04), consultada otra vez al servidor.
+  const manejarContinuar = async () => {
+    if (!estudiante || verificando) return
+    setErrorVerificacion(null)
+    if (isOffline()) {
+      setErrorVerificacion({ para: estudiante, mensaje: SIN_CONEXION_VERIFICAR })
+      return
+    }
+    setVerificando(true)
+    try {
+      setEstudianteVerificado(await identificarEstudiante(idExamen, 'codigo', estudiante.codigoSis))
+      setErrorContinuar(null)
+      setModalVerificacionOpen(true)
+    } catch (error) {
+      setErrorVerificacion({
+        para: estudiante,
+        mensaje: isNetworkError(error)
+          ? SIN_CONEXION_VERIFICAR
+          : 'No se pudo verificar la habilitación del estudiante. Intenta de nuevo.',
+      })
+    } finally {
+      setVerificando(false)
+    }
   }
 
   return (
@@ -115,6 +162,9 @@ export default function IdentificacionPage() {
                 {(busqueda.status === 'no_encontrado' || busqueda.status === 'error') && (
                   <p className="text-[#B91C1C]">{busqueda.mensaje}</p>
                 )}
+                {estudiante && errorVerificacion?.para === estudiante && (
+                  <p role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{errorVerificacion.mensaje}</p>
+                )}
               </div>
               <div className="flex items-center justify-between border-t border-[#E1E6EF] pt-4 sm:pt-5">
                 <button
@@ -127,8 +177,9 @@ export default function IdentificacionPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={!estudiante || !puedeContinuar}
-                  onClick={manejarContinuar}
+                  disabled={!estudiante || !puedeContinuar || verificando}
+                  aria-busy={verificando}
+                  onClick={() => void manejarContinuar()}
                   title={!puedeContinuar ? 'Se requiere el rol ADMIN o CONTROL para continuar' : undefined}
                   className="inline-flex h-9 items-center gap-2 rounded-md bg-[#0439D9] px-3.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:px-4"
                 >
@@ -146,15 +197,19 @@ export default function IdentificacionPage() {
                   onCerrar={cambiarEstudiante}
                 />
               )}
-              {modalVerificacionOpen && estudiante && (
+              {modalVerificacionOpen && estudianteVerificado && (
                 <VerificacionHabilitacionModal
-                  estudiante={estudiante}
+                  estudiante={estudianteVerificado}
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
                   fecha={examen?.fecha}
                   hora={examen?.horaInicio}
-                  onVolver={() => setModalVerificacionOpen(false)}
-                  onContinuar={() => onContinuar(estudiante)}
+                  onVolver={() => {
+                    setModalVerificacionOpen(false)
+                    setErrorContinuar(null)
+                  }}
+                  onContinuar={() => onContinuar(estudianteVerificado)}
+                  errorContinuar={errorContinuar}
                 />
               )}
             </div>

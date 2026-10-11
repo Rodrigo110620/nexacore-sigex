@@ -8,9 +8,13 @@ import {
   ShieldAlert,
   XCircle,
   X,
+  WifiOff,
 } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import { formatFechaDisplay } from '../../utils/examFormUtils'
+import RazonesInhabilitacion from './RazonesInhabilitacion'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 
 interface Props {
   estudiante: EstudianteIdentificado
@@ -20,6 +24,8 @@ interface Props {
   hora?: string
   onVolver: () => void
   onContinuar: () => void
+  /** Motivo por el que no se pudo continuar (p. ej. sin conexión); se conserva lo que está en pantalla. */
+  errorContinuar?: string | null
 }
 
 export default function VerificacionHabilitacionModal(p: Props) {
@@ -45,13 +51,10 @@ export default function VerificacionHabilitacionModal(p: Props) {
   const fTxt = [f, h].filter(Boolean).join(' - ')
   const mTxt = [p.materia, p.aula ? `Aula ${p.aula}` : ''].filter(Boolean).join(' - ')
 
-  // El motivo se muestra completo, tal como viene del backend; sin motivo no se inventa ninguno.
-  const rawMotivo = p.estudiante.motivoInhabilitacion?.trim()
-  let motivo = rawMotivo ? `Motivo: ${rawMotivo}` : 'Sin motivo registrado'
-
-  if (habBase && !esAmbienteCorrecto) {
-    motivo = `Ambiente incorrecto: El estudiante pertenece al Aula ${aulaEstudiante}, pero este examen se rinde en el Aula ${p.aula}.`
-  }
+  // Las razones se muestran tal como vienen del backend; sin razón no se inventa ninguna.
+  const ambienteIncorrecto = habBase && !esAmbienteCorrecto
+    ? `Ambiente incorrecto: El estudiante pertenece al Aula ${aulaEstudiante}, pero este examen se rinde en el Aula ${p.aula}.`
+    : null
 
   return (
     <div
@@ -90,12 +93,15 @@ export default function VerificacionHabilitacionModal(p: Props) {
 
         {/* Tarjeta del estudiante */}
         <div className="mb-3.5 flex items-center gap-3.5 rounded-2xl bg-[#F8FAFC] p-3.5 sm:p-4 border border-[#E2E8F0]">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0439D9] text-sm font-bold text-white shadow-sm">
-            {iniciales}
-          </span>
+          <FotoEstudiante
+            fotoUrl={p.estudiante.fotoUrl}
+            nombre={nombre || 'Estudiante'}
+            iniciales={iniciales}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0439D9] text-sm font-bold text-white shadow-sm"
+          />
           <div className="min-w-0">
             <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
-              Estudiante Regular
+              {etiquetaCondicion(p.estudiante.condicion)}
             </span>
             <p className="truncate text-sm sm:text-base font-bold text-[#0F172A]">{nombre || 'Estudiante'}</p>
             <p className="truncate text-xs font-medium text-[#64748B]">
@@ -140,7 +146,7 @@ export default function VerificacionHabilitacionModal(p: Props) {
               Estudiante Habilitado
             </h3>
             <p className="mt-1 text-[11.5px] sm:text-xs text-[#15803D]">
-              Matrícula activa y sin sanciones reglamentarias. Puede continuar con el proceso de ingreso.
+              Está habilitado para rendir este examen. Puede continuar con el proceso de ingreso.
             </p>
           </div>
         ) : (
@@ -155,9 +161,23 @@ export default function VerificacionHabilitacionModal(p: Props) {
             <div className="mt-3 flex flex-col items-center gap-2">
               <div className="inline-flex items-start gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-[#FECDD3] shadow-sm max-w-full">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0 text-[#E11D48]" />
-                <span className="text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] break-words">{motivo}</span>
+                {ambienteIncorrecto ? (
+                  <span className="text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] break-words">{ambienteIncorrecto}</span>
+                ) : (
+                  <RazonesInhabilitacion
+                    motivo={p.estudiante.motivoInhabilitacion}
+                    className="min-w-0 text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239]"
+                  />
+                )}
               </div>
             </div>
+          </div>
+        )}
+
+        {p.errorContinuar && (
+          <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
+            <WifiOff size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{p.errorContinuar}</span>
           </div>
         )}
 

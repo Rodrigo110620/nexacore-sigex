@@ -12,7 +12,12 @@ import {
 vi.mock('../services/controlExamenService')
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
 
-const estudiante = (id: number, nombre: string, estado: EstudianteAsignado['estado']): EstudianteAsignado => ({
+const estudiante = (
+  id: number,
+  nombre: string,
+  estado: EstudianteAsignado['estado'],
+  ingresado = false,
+): EstudianteAsignado => ({
   idEstudiante: id,
   nombre,
   apellidos: 'Flores',
@@ -21,7 +26,7 @@ const estudiante = (id: number, nombre: string, estado: EstudianteAsignado['esta
   carrera: 'Ingeniería de Sistemas',
   estado,
   motivoInhabilitacion: estado === 'DESHABILITADO' ? 'Deuda en biblioteca' : null,
-  ingresado: false,
+  ingresado,
 })
 
 function Destino() {
@@ -37,7 +42,7 @@ function renderPage() {
           <Route path="/dashboard/control/:idExamen" element={<ControlExamenPage />} />
           <Route path="/dashboard/control" element={<Destino />} />
           <Route path="/dashboard/control/:idExamen/identificar" element={<Destino />} />
-          <Route path="/dashboard/control/:idExamen/intentos" element={<Destino />} />
+          <Route path="/dashboard/control/:idExamen/informacion" element={<Destino />} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -51,7 +56,7 @@ describe('ControlExamenPage', () => {
     localStorage.setItem('roles', JSON.stringify(['CONTROL']))
     vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 10 })
     vi.mocked(listarEstudiantesExamen).mockResolvedValue({
-      contenido: [estudiante(1, 'María', 'HABILITADO'), estudiante(2, 'Luis', 'DESHABILITADO')],
+      contenido: [estudiante(1, 'María', 'HABILITADO', true), estudiante(2, 'Luis', 'DESHABILITADO')],
       pagina: 0,
       tamano: 5,
       totalRegistros: 45,
@@ -68,7 +73,9 @@ describe('ControlExamenPage', () => {
     expect(within(screen.getByRole('region', { name: 'Con observación' })).getByText('3')).toBeInTheDocument()
     expect(within(filas[1]).getByText('María Flores')).toBeInTheDocument()
     expect(within(filas[1]).getByText('HABILITADO')).toBeInTheDocument()
+    expect(within(filas[1]).getByText('Ingresó')).toBeInTheDocument()
     expect(within(filas[2]).getByText('NO HABILITADO')).toBeInTheDocument()
+    expect(within(filas[2]).getByText('No ingresó')).toBeInTheDocument()
     expect(within(filas[2]).getByText('7489212')).toBeInTheDocument()
     expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 5)
     expect(screen.getByRole('link', { name: /Iniciar Control de Ingreso/ })).toHaveAttribute('href', '/dashboard/control/7/identificar')
@@ -80,10 +87,10 @@ describe('ControlExamenPage', () => {
     expect(await screen.findByText('Destino /dashboard/control')).toBeInTheDocument()
   })
 
-  it('abre los intentos desde el botón del protocolo', async () => {
+  it('abre Información de ingreso desde el acceso del protocolo', async () => {
     renderPage()
-    fireEvent.click(screen.getByRole('link', { name: 'Ver intentos' }))
-    expect(await screen.findByText('Destino /dashboard/control/7/intentos')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Información de ingreso' }))
+    expect(await screen.findByText('Destino /dashboard/control/7/informacion')).toBeInTheDocument()
   })
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {

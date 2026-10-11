@@ -1,6 +1,8 @@
 import { Building2, GraduationCap, Mail, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
+import FotoEstudiante from './FotoEstudiante'
+import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 
 interface Props {
   open: boolean
@@ -54,9 +56,12 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
 
           {/* Avatar */}
           <div className="mb-5 mx-auto flex items-center justify-center gap-3 p-3">
-            <span className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-lg font-bold sm:h-20 sm:w-24 sm:text-xl ${getAvatarColorById(estudiante.id)}`}>
-              {getInitials(estudiante.nombre, estudiante.apellidos)}
-            </span>
+            <FotoEstudiante
+              fotoUrl={estudiante.fotoUrl}
+              nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+              iniciales={getInitials(estudiante.nombre, estudiante.apellidos)}
+              className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-lg font-bold sm:h-20 sm:w-24 sm:text-xl ${getAvatarColorById(estudiante.id)}`}
+            />
           </div>
 
           {/* 1. INFORMACIÓN PERSONAL */}
@@ -126,13 +131,23 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
               </h3>
             </div>
 
-            <div className="mb-3 rounded-lg border border-[#E8EEF7] bg-white p-3">
-              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                Código Universitario / Matrícula
-              </dt>
-              <dd className="mt-1 truncate text-[12px] font-semibold text-[#0439D9] sm:text-sm">
-                {estudiante.codigoSis || '—'}
-              </dd>
+            <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-[#E8EEF7] bg-white p-3">
+                <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Código Universitario / Matrícula
+                </dt>
+                <dd className="mt-1 truncate text-[12px] font-semibold text-[#0439D9] sm:text-sm">
+                  {estudiante.codigoSis || '—'}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[#E8EEF7] bg-white p-3">
+                <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Condición
+                </dt>
+                <dd className="mt-1 truncate text-[12px] font-semibold text-[#011140] sm:text-sm">
+                  {etiquetaCondicion(estudiante.condicion)}
+                </dd>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

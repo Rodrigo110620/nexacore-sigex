@@ -21,5 +21,15 @@ public record EstudianteExamenFila(
         Integer idExamen,
         Boolean habilitado,
         String motivoInhabilitacion,
-        LocalDateTime fechaHoraIngreso
-) {}
+        LocalDateTime fechaHoraIngreso,
+        /** REGULAR o POSTULANTE. */
+        String condicion,
+        boolean tieneFoto
+) {
+    public EstudianteExamenFila(Integer idEstudiante, String nombre, String apellidos, String codigoSis, String ci,
+                                String carrera, Integer idExamen, Boolean habilitado, String motivoInhabilitacion,
+                                LocalDateTime fechaHoraIngreso) {
+        this(idEstudiante, nombre, apellidos, codigoSis, ci, carrera, idExamen, habilitado, motivoInhabilitacion,
+                fechaHoraIngreso, "REGULAR", false);
+    }
+}

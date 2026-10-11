@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AxiosError, type AxiosResponse } from 'axios'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
 import { identificarEstudiante, type EstudianteIdentificado } from '../services/identificacionService'
@@ -48,12 +48,27 @@ async function buscarEstudiante() {
 
 const continuar = () => screen.getByRole('button', { name: 'Continuar' })
 const verificacion = () => screen.getByRole('dialog', { name: 'Verificación de Habilitación' })
+const abrirVerificacion = async () => {
+  fireEvent.click(continuar())
+  return screen.findByRole('dialog', { name: 'Verificación de Habilitación' })
+}
+let onLine: { mockRestore: () => void } | null = null
+const sinConexion = () => {
+  const spy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+  onLine = spy
+  return spy
+}
 
 describe('IdentificacionPage', () => {
   beforeEach(() => {
     localStorage.clear()
     localStorage.setItem('token', 'token-control')
     localStorage.setItem('roles', JSON.stringify(['CONTROL']))
+  })
+
+  afterEach(() => {
+    onLine?.mockRestore()
+    onLine = null
   })
 
   it('permite volver al detalle del examen sin alterar la identificación', () => {
@@ -76,6 +91,16 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeEnabled()
   })
 
+  it('CA-28: el resultado y la verificación muestran la condición del estudiante', async () => {
+    mockedIdentificar.mockResolvedValue({ ...estudiante('HABILITADO'), condicion: 'POSTULANTE' })
+    renderPage()
+    await buscarEstudiante()
+    expect(screen.getByText('Postulante')).toBeInTheDocument()
+
+    const modal = await abrirVerificacion()
+    expect(within(modal).getByText('Postulante')).toBeInTheDocument()
+  })
+
   it('Regresar vuelve al detalle del examen después de una identificación', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()
@@ -91,22 +116,21 @@ describe('IdentificacionPage', () => {
     renderPage()
     await buscarEstudiante()
 
-    fireEvent.click(continuar())
-    fireEvent.click(within(verificacion()).getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(within(await abrirVerificacion()).getByRole('button', { name: 'Continuar' }))
 
     expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
   })
 
   it.each([
     ['con motivo', 'Deuda en biblioteca, multa pendiente o documentos incompletos',
-      'Motivo: Deuda en biblioteca, multa pendiente o documentos incompletos'],
+      'Deuda en biblioteca, multa pendiente o documentos incompletos'],
     ['sin motivo', null, 'Sin motivo registrado'],
   ])('DESHABILITADO %s: la verificación muestra el motivo real, sin Continuar, y CERRAR no navega', async (_caso, motivo, texto) => {
     mockedIdentificar.mockResolvedValue({ ...estudiante('DESHABILITADO'), motivoInhabilitacion: motivo })
     renderPage()
     await buscarEstudiante()
 
-    fireEvent.click(continuar())
+    await abrirVerificacion()
     expect(within(verificacion()).getByText('Estudiante No Habilitado')).toBeInTheDocument()
     expect(within(verificacion()).getByText(texto)).toBeInTheDocument()
     expect(within(verificacion()).queryByText(/Error de habilitación académica/)).not.toBeInTheDocument()
@@ -224,5 +248,80 @@ describe('IdentificacionPage', () => {
     expect(mockedIdentificar).toHaveBeenCalledTimes(1)
     expect(mockedIdentificar).toHaveBeenCalledWith(7, 'codigo', '202104010')
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('202104010')
+  })
+
+  it('ACCS HU#01 CA-51 a 53: sin conexión no busca, avisa y conserva el dato para reintentar', async () => {
+    mockedIdentificar.mockClear()
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage()
+    const offline = sinConexion()
+    buscar()
+
+    expect(screen.getByText(/Sin conexión a Internet: no es posible identificar al estudiante/)).toBeInTheDocument()
+    expect(mockedIdentificar).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('202104010')
+
+    offline.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar' }))
+    expect(await screen.findByText('María José González Flores')).toBeInTheDocument()
+    expect(mockedIdentificar).toHaveBeenCalledWith(7, 'codigo', '202104010')
+  })
+
+  it('CA-59/60: Continuar consulta de nuevo la habilitación y sin conexión no la da por confirmada', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage()
+    await buscarEstudiante()
+    sinConexion()
+
+    fireEvent.click(continuar())
+
+    expect(screen.getByRole('alert')).toHaveTextContent('no se pudo verificar la habilitación')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('CA-49: la verificación muestra el estado actual del servidor, no el de la búsqueda', async () => {
+    mockedIdentificar
+      .mockResolvedValueOnce(estudiante('HABILITADO'))
+      .mockResolvedValueOnce({ ...estudiante('DESHABILITADO'), motivoInhabilitacion: 'Deuda en biblioteca' })
+    renderPage()
+    await buscarEstudiante()
+
+    const modal = await abrirVerificacion()
+    expect(within(modal).getByText('Estudiante No Habilitado')).toBeInTheDocument()
+    expect(within(modal).getByText('Deuda en biblioteca')).toBeInTheDocument()
+  })
+
+  it('CA-54 a 57: sin conexión el Continuar de la verificación no navega y conserva los datos', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage()
+    await buscarEstudiante()
+    const modal = await abrirVerificacion()
+    const offline = sinConexion()
+
+    fireEvent.click(within(modal).getByRole('button', { name: 'Continuar' }))
+
+    expect(within(modal).getByRole('alert')).toHaveTextContent('no es posible continuar con el control de ingreso')
+    expect(screen.queryByText('Flujo ACCS-02')).not.toBeInTheDocument()
+    expect(within(modal).getByText('202104010')).toBeInTheDocument()
+
+    offline.mockReturnValue(true)
+    fireEvent.click(within(modal).getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
+  })
+
+  it('CA-42 a 45: con varias razones de inhabilitación las lista y ofrece "Ver todo"', async () => {
+    mockedIdentificar.mockResolvedValue({
+      ...estudiante('DESHABILITADO'),
+      motivoInhabilitacion: 'Deuda en biblioteca\nDocumentos incompletos\nIngreso denegado por CONTROL: Suplantación',
+    })
+    renderPage()
+    await buscarEstudiante()
+    const modal = await abrirVerificacion()
+
+    const lista = within(modal).getByRole('list', { name: 'Razones de inhabilitación' })
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(2)
+    fireEvent.click(within(modal).getByRole('button', { name: 'Ver todo (3)' }))
+    await waitFor(() => expect(within(lista).getAllByRole('listitem')).toHaveLength(3))
+    expect(within(lista).getByText('3. Ingreso denegado por CONTROL: Suplantación')).toBeInTheDocument()
   })
 })

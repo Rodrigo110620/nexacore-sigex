@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.http.HttpStatus;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -67,5 +69,29 @@ class IntentoIngresoServiceTests {
 
         org.junit.jupiter.api.Assertions.assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verify(intentoRepository, never()).registrar(anyInt(), anyInt(), anyInt(), anyString(), anyString());
+    }
+
+    @Test
+    void consultaYMapeaMultiplesIntentosDelExamenEnElOrdenDelRepositorio() {
+        when(examenRepository.existsByIdIdExamen(7)).thenReturn(true);
+        LocalDateTime reciente = LocalDateTime.parse("2026-10-08T14:00:00");
+        LocalDateTime anterior = LocalDateTime.parse("2026-10-08T13:30:00");
+        when(intentoRepository.listar(7, null)).thenReturn(List.of(
+                new Object[]{2, 7, 23, "Ana Pérez", "202600001", "202600001", "Examen no asignado", "Carla Control", reciente},
+                new Object[]{1, 7, 24, "Luis Flores", "202600002", "74839201", "No estaba habilitado", "Diego Control", anterior}
+        ));
+
+        var historial = service.listar(7, null);
+
+        org.junit.jupiter.api.Assertions.assertEquals(2, historial.size());
+        org.junit.jupiter.api.Assertions.assertEquals(2, historial.get(0).idIntento());
+        org.junit.jupiter.api.Assertions.assertEquals("Ana Pérez", historial.get(0).estudiante());
+        org.junit.jupiter.api.Assertions.assertEquals("202600001", historial.get(0).codigoSis());
+        org.junit.jupiter.api.Assertions.assertEquals("Carla Control", historial.get(0).personalControl());
+        org.junit.jupiter.api.Assertions.assertEquals(reciente, historial.get(0).fechaHora());
+        org.junit.jupiter.api.Assertions.assertEquals(1, historial.get(1).idIntento());
+        org.junit.jupiter.api.Assertions.assertEquals("Luis Flores", historial.get(1).estudiante());
+        org.junit.jupiter.api.Assertions.assertEquals(anterior, historial.get(1).fechaHora());
+        verify(intentoRepository).listar(7, null);
     }
 }

@@ -60,19 +60,19 @@ export default function ControlIngresoHeader({ materia, aula, fecha, hora, docen
 
   return (
     <>
-    <header className="md:hidden">
-      <h1 className="truncate text-sm font-extrabold text-[#011140]">
+    <header className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm md:hidden">
+      <h1 className="truncate text-[15px] font-extrabold text-[#011140]">
         Control de ingreso · {materia ?? SIN_DATO}
       </h1>
-      <div className="mt-1 rounded-lg bg-[#F1F3F6] px-3 py-2 text-[#011140]">
-        <p className="flex items-center gap-1.5 text-xs font-semibold">
+      <div className="mt-2 rounded-lg bg-[#F1F6FF] px-3 py-2.5 text-[#011140]">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">
           <Building2 size={13} className="text-[#0439D9]" aria-hidden="true" />
           {aula ?? SIN_DATO}
         </p>
-        <dl className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#627A9B]">
+        <dl className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-[#627A9B]">
           {detalles.slice(0, 2).map(({ icono: Icono, valor }, index) => (
-            <div key={`${index}-${valor}`} className="flex items-center gap-1">
-              <Icono size={11} aria-hidden="true" />
+            <div key={`${index}-${valor}`} className="flex items-center gap-1.5">
+              <Icono size={12} aria-hidden="true" />
               <dd>{valor}</dd>
             </div>
           ))}
