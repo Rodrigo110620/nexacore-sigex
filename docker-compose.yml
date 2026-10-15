@@ -1,19 +1,5 @@
-# ==========================================
-# SIGEX — DESPLIEGUE: base de datos, backend y frontend
-#
-#   cp .env.example .env        # completa contraseñas, JWT_SECRET y correo
-#   docker compose up -d --build
-#   → http://localhost (o el puerto de APP_PORT)
-#
-# Orden de arranque (automático): db (espera a estar lista) → backend (aplica las
-# migraciones Flyway) → frontend (Nginx sirve la app y reenvía /api/ al backend).
-# Para desarrollo (solo base de datos + pgAdmin) usa docker-compose.dev.yml.
-# ==========================================
-
-# Proyecto propio: no se mezcla con el de desarrollo (nexacore-sigex).
 name: sigex
 
-# Logs rotados: máximo 3 archivos de 10 MB por contenedor, para no llenar el disco.
 x-logging: &logging
   driver: json-file
   options:
@@ -21,58 +7,19 @@ x-logging: &logging
     max-file: "3"
 
 services:
-  db:
-    image: postgres:15.10
-    container_name: sigex_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DOCKER_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DOCKER_DB_PASSWORD:?Define DOCKER_DB_PASSWORD en .env}
-      POSTGRES_DB: ${DOCKER_DB_NAME:-taller_TIS}
-    # Sin puerto publicado: solo el backend le habla por la red interna.
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DOCKER_DB_USER:-postgres} -d ${DOCKER_DB_NAME:-taller_TIS}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-    logging: *logging
-    networks:
-      - sigex_net
-
   backend:
     build: ./backend
     container_name: sigex_backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    # JWT, correo, CORS, seguridad... salen del .env (ver .env.example).
     env_file: .env
     environment:
-      # Dentro de Docker siempre usa la base del compose, aunque .env diga otra cosa.
       DB_TARGET: docker
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      # "db" = la base de este compose. En producción, el host del PostgreSQL del laboratorio.
-      DOCKER_DB_HOST: ${DB_HOST:-db}
+      DOCKER_DB_HOST: ${DB_HOST}
       DOCKER_DB_PORT: ${DB_PORT:-5432}
       SERVER_PORT: "8080"
-    # Permite llegar al PostgreSQL instalado en el propio servidor (fuera de Docker)
-    # con DB_HOST=host.docker.internal, como pide el laboratorio ("localhost").
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    # Sin puerto publicado: solo el frontend (Nginx) le habla por la red interna.
     expose:
       - "8080"
-    # Sin límite, la JVM calcula su heap sobre la RAM de todo el servidor.
-    # Con 768M y MaxRAMPercentage=60 (Dockerfile): ~460 MB de heap y el resto
-    # para metaspace, hilos y GC.
     deploy:
       resources:
         limits:
@@ -81,6 +28,7 @@ services:
     logging: *logging
     networks:
       - sigex_net
+      - coolify
 
   frontend:
     build:
@@ -91,8 +39,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "${APP_PORT:-80}:80"
+    expose:
+      - "80"
     deploy:
       resources:
         limits:
@@ -101,11 +49,10 @@ services:
     logging: *logging
     networks:
       - sigex_net
-
-volumes:
-  pgdata:
-    name: sigex_pgdata
+      - coolify
 
 networks:
   sigex_net:
     driver: bridge
+  coolify:
+    external: true
