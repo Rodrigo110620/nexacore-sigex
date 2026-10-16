@@ -23,6 +23,13 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: `http://127.0.0.1:${Number.isFinite(backendPort) ? backendPort : 8080}`,
           changeOrigin: true,
+          configure: (proxy) => {
+            // El navegador móvil conserva su Origin LAN al pasar por Vite. El backend
+            // solo necesita ver el origen local del proxy, no la IP del dispositivo.
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('origin', `http://127.0.0.1:${Number.isFinite(frontendPort) ? frontendPort : 3000}`)
+            })
+          },
         },
       },
       hmr: hmrHost

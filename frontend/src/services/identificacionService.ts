@@ -29,3 +29,11 @@ export async function identificarEstudiante(
   )
   return data
 }
+
+/** Valida la credencial firmada del QR en el servidor; el cliente nunca extrae ni confía en el SIS. */
+export async function identificarQr(idExamen: number, contenido: string): Promise<EstudianteIdentificado> {
+  const { data } = await api.post<EstudianteIdentificado>(
+    `/examenes/${idExamen}/estudiantes/identificar-qr`, { contenido },
+  )
+  return data
+}

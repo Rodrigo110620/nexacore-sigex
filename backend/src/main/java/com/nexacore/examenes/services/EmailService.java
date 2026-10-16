@@ -73,6 +73,34 @@ public class EmailService {
         }
     }
 
+    /** Envía el QR como imagen adjunta tras guardar al estudiante. Un fallo no debe borrar su registro. */
+    public boolean enviarQrEstudiante(String destinatario, String nombreCompleto, String codigoSis, byte[] qrPng) {
+        if (!enabled || !StringUtils.hasText(username)) {
+            log.warn("QR no enviado (correo deshabilitado o SMTP no configurado) para {}", destinatario);
+            return false;
+        }
+        try {
+            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, "UTF-8");
+            helper.setFrom(from); helper.setTo(destinatario);
+            helper.setSubject("SIGEX — Tu código QR de ingreso a exámenes");
+            helper.setText(construirHtmlQr(nombreCompleto, codigoSis), true);
+            helper.addAttachment("sigex-qr-" + codigoSis + ".png", new org.springframework.core.io.ByteArrayResource(qrPng), "image/png");
+            mailSender.send(mensaje);
+            log.info("QR enviado a {}", destinatario);
+            return true;
+        } catch (MessagingException | MailException ex) {
+            log.error("No se pudo enviar el QR a {}: {}", destinatario, ex.getMessage());
+            return false;
+        }
+    }
+
+    private static String construirHtmlQr(String nombreCompleto, String codigoSis) {
+        return "<html><body style=\"font-family:Arial;color:#011140\"><h2>SIGEX</h2><p>Hola, " + escapar(nombreCompleto)
+                + ". Adjuntamos tu código QR para el ingreso a exámenes.</p><p><b>Código SIS:</b> " + escapar(codigoSis)
+                + "</p><p>Muéstralo desde tu celular o impreso al personal de control. No lo compartas con otras personas.</p></body></html>";
+    }
+
     /**
      * Envía el enlace de restablecimiento de contraseña.
      * No registra el token ni la URL completa (evita filtrar secretos en logs).

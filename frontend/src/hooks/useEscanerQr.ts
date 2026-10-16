@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import QrScanner from 'qr-scanner'
-import { extraerCodigoSis } from '../utils/extraerCodigoSis'
 
 export type EstadoEscaner =
   | { status: 'iniciando' | 'escaneando' }
@@ -12,11 +11,11 @@ export const MENSAJE_SIN_HTTPS =
 export const MENSAJE_SIN_CAMARA = 'No se encontró ninguna cámara en este dispositivo.'
 export const MENSAJE_SIN_PERMISO =
   'No se pudo acceder a la cámara. Permite el acceso en el navegador o cierra otra aplicación que la esté usando.'
-const MENSAJE_QR_VACIO = 'El código QR no contiene un código universitario.'
+const MENSAJE_QR_VACIO = 'El código QR está vacío o no es legible.'
 
 /**
  * Enciende la cámara (la trasera en celulares) sobre el <video> y lee un solo QR.
- * Al leerlo detiene la cámara y entrega el código SIS; al desmontar la apaga.
+ * Al leerlo detiene la cámara y entrega el contenido intacto al backend; al desmontar la apaga.
  * qr-scanner reporta cualquier fallo de getUserMedia como "Camera not found.",
  * por eso HTTPS y la existencia de cámara se comprueban antes de iniciar.
  */
@@ -45,7 +44,7 @@ export default function useEscanerQr(
       if (leido) return
       leido = true
       escaner?.stop()
-      const codigo = extraerCodigoSis(resultado.data)
+      const codigo = resultado.data.trim()
       if (!codigo) {
         setEstado({ status: 'error', mensaje: MENSAJE_QR_VACIO })
         return

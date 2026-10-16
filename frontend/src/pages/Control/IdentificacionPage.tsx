@@ -9,6 +9,7 @@ import EscanerQr from '../../components/control/EscanerQr'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import VerificacionHabilitacionModal from '../../components/control/VerificacionHabilitacionModal'
+import QrInvalidoModal from '../../components/control/QrInvalidoModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
 import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
@@ -30,7 +31,7 @@ export default function IdentificacionPage() {
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
   const [reinicios, setReinicios] = useState(0)
   const examen = useExamen(idExamen)
-  const { busqueda, buscar, reset } = useIdentificacion(idExamen)
+  const { busqueda, buscar, buscarQr, reset } = useIdentificacion(idExamen)
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
   // Estado de habilitación consultado de nuevo al presionar Continuar (ACCS-03): nunca se asume.
   const [estudianteVerificado, setEstudianteVerificado] = useState<EstudianteIdentificado | null>(null)
@@ -38,6 +39,7 @@ export default function IdentificacionPage() {
   // El aviso queda ligado al estudiante con el que se intentó continuar; otra búsqueda lo oculta.
   const [errorVerificacion, setErrorVerificacion] = useState<{ para: EstudianteIdentificado; mensaje: string } | null>(null)
   const [errorContinuar, setErrorContinuar] = useState<string | null>(null)
+  const [qrInvalidoOpen, setQrInvalidoOpen] = useState(false)
 
   // El ojo de "Control del examen" llega con ?codigo=: se busca una sola vez por código universitario.
   const [searchParams] = useSearchParams()
@@ -61,6 +63,7 @@ export default function IdentificacionPage() {
     setTipo(nuevo)
     setValorInicial('')
     limpiarVerificacion()
+    setQrInvalidoOpen(false)
     reset()
   }
 
@@ -69,6 +72,7 @@ export default function IdentificacionPage() {
     limpiarVerificacion()
     reset()
     setValorInicial('')
+    setQrInvalidoOpen(false)
     setReinicios((n) => n + 1)
   }
 
@@ -114,6 +118,11 @@ export default function IdentificacionPage() {
     }
   }
 
+  const manejarQrLeido = async (contenido: string) => {
+    const resultado = await buscarQr(contenido)
+    if (resultado === 'invalido') setQrInvalidoOpen(true)
+  }
+
   return (
     <PanelLayout topBarVariant="controlMinimal" locationLabel={examen && [examen.ambienteUbicacion, examen.ambienteNombre].filter(Boolean).join(' · ')} title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
       <div className="mx-auto w-full max-w-[76rem] px-5 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7 lg:pb-7">
@@ -139,7 +148,7 @@ export default function IdentificacionPage() {
               {tipo === 'qr' ? (
                 <EscanerQr
                   key={reinicios}
-                  onLeer={(codigo) => void buscar('codigo', codigo)}
+                  onLeer={(contenido) => void manejarQrLeido(contenido)}
                   onReescanear={cambiarEstudiante}
                 />
               ) : (
@@ -159,7 +168,7 @@ export default function IdentificacionPage() {
                 )}
                 {busqueda.status === 'loading' && <p>Buscando…</p>}
                 {estudiante && <ResultadoEstudianteCard estudiante={estudiante} />}
-                {(busqueda.status === 'no_encontrado' || busqueda.status === 'error') && (
+                {(busqueda.status === 'no_encontrado' || (busqueda.status === 'error' && tipo !== 'qr')) && (
                   <p className="text-[#B91C1C]">{busqueda.mensaje}</p>
                 )}
                 {estudiante && errorVerificacion?.para === estudiante && (
@@ -212,6 +221,7 @@ export default function IdentificacionPage() {
                   errorContinuar={errorContinuar}
                 />
               )}
+              {qrInvalidoOpen && <QrInvalidoModal onReintentar={cambiarEstudiante} />}
             </div>
           ) : (
             <p className="p-6 text-sm text-[#B91C1C]">El examen indicado no es válido.</p>
