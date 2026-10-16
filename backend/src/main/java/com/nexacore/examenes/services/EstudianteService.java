@@ -35,19 +35,25 @@ public class EstudianteService {
     private final CarreraRepository carreraRepository;
     private final UsuarioRepository usuarioRepository;  
     private final EstudianteFotoRepository estudianteFotoRepository;
+    private final QrEstudianteService qrEstudianteService;
+    private final EmailService emailService;
 
     public EstudianteService(
             EstudianteRepository estudianteRepository,
             EstudianteCarreraRepository estudianteCarreraRepository,
             CarreraRepository carreraRepository,
             UsuarioRepository usuarioRepository,
-            EstudianteFotoRepository estudianteFotoRepository
+            EstudianteFotoRepository estudianteFotoRepository,
+            QrEstudianteService qrEstudianteService,
+            EmailService emailService
     ) {
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
         this.carreraRepository = carreraRepository;
         this.usuarioRepository = usuarioRepository;  
         this.estudianteFotoRepository = estudianteFotoRepository;
+        this.qrEstudianteService = qrEstudianteService;
+        this.emailService = emailService;
     }
 
     /** Ruta de la foto en la API, o null si el estudiante no tiene. */
@@ -144,6 +150,8 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
+        // El estudiante ya está persistido. La falla de SMTP no revierte ni duplica el registro.
+        enviarQrSiCorresponde(estudiante);
 
         return new EstudianteListResponse(
                 estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
@@ -152,6 +160,20 @@ public class EstudianteService {
                 carrera.getFacultad().getNombre()
         )), estudiante.getCondicion(), null
         );
+    }
+
+    /** Reenvía el QR existente solo regenerándolo explícitamente (revoca el anterior). */
+    @Transactional
+    public void regenerarYEnviarQr(Integer id) {
+        Estudiante estudiante = estudianteRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con id: " + id));
+        var qr = qrEstudianteService.regenerar(estudiante);
+        emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+    }
+
+    private void enviarQrSiCorresponde(Estudiante estudiante) {
+        var qr = qrEstudianteService.crearSiNoExiste(estudiante);
+        if (qr != null) emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
     }
 
     public EstudianteListResponse obtenerPorId(Integer id) {

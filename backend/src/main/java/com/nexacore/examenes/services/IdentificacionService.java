@@ -40,10 +40,12 @@ public class IdentificacionService {
 
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
+    private final QrEstudianteService qrEstudianteService;
 
-    public IdentificacionService(EstudianteRepository estudianteRepository, ExamenRepository examenRepository) {
+    public IdentificacionService(EstudianteRepository estudianteRepository, ExamenRepository examenRepository, QrEstudianteService qrEstudianteService) {
         this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
+        this.qrEstudianteService = qrEstudianteService;
     }
 
     /**
@@ -68,6 +70,14 @@ public class IdentificacionService {
         return tipoBusqueda.equals("codigo")
                 ? responder(estudianteRepository.identificarPorCodigoSis(valor, idExamen), "código universitario", valor)
                 : responder(estudianteRepository.identificarPorCi(valor, idExamen), "CI", valor);
+    }
+
+    /** El QR se autentica antes de reutilizar la misma identificación por SIS. */
+    @Transactional(readOnly = true)
+    public IdentificacionResponse identificarQr(Integer idExamen, String contenidoQr) {
+        verificarExamen(idExamen);
+        String codigoSis = qrEstudianteService.validar(contenidoQr);
+        return responder(estudianteRepository.identificarPorCodigoSis(codigoSis, idExamen), "código QR", "");
     }
 
     /** Asignados al examen con el mismo PageResponse y límites de página que el listado de usuarios. */

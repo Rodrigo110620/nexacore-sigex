@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
-import { identificarEstudiante } from '../services/identificacionService'
+import { identificarEstudiante, identificarQr } from '../services/identificacionService'
 import { MENSAJE_SIN_CAMARA, MENSAJE_SIN_HTTPS, MENSAJE_SIN_PERMISO } from '../hooks/useEscanerQr'
 import { extraerCodigoSis } from '../utils/extraerCodigoSis'
 
@@ -65,27 +65,44 @@ describe('Identificación por QR', () => {
       fotoUrl: null,
       estado: 'HABILITADO',
     })
+    vi.mocked(identificarQr).mockResolvedValue({
+      idEstudiante: 23, nombre: 'María José', apellidos: 'González Flores', codigoSis: '202104010',
+      ci: '7489210', carrera: null, fotoUrl: null, estado: 'HABILITADO',
+    })
   })
 
-  it('con el QR habilitado, al leer un código detiene la cámara y busca con tipo "codigo"', async () => {
+  it('con el QR habilitado, al leerlo detiene la cámara y lo valida en el servidor', async () => {
     renderPage()
-    await screen.findByText('Apunta la cámara al código QR.')
+    await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
 
-    act(() => qr.leer({ data: ' {"codigoSis": "202104010"} ' }))
+    act(() => qr.leer({ data: 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890' }))
 
     expect(qr.stop).toHaveBeenCalled()
     expect(await screen.findByText('María José González Flores')).toBeInTheDocument()
-    expect(identificarEstudiante).toHaveBeenCalledWith(7, 'codigo', '202104010')
+    expect(identificarQr).toHaveBeenCalledWith(7, 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890')
   })
 
   it('apaga la cámara al cambiar de mecanismo', async () => {
     renderPage()
-    await screen.findByText('Apunta la cámara al código QR.')
+    await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
 
     fireEvent.click(screen.getByRole('button', { name: 'Cód. Univ' }))
 
     expect(qr.destroy).toHaveBeenCalled()
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toBeInTheDocument()
+  })
+
+  it('oculta la credencial y muestra un modal al escanear un QR inválido', async () => {
+    vi.mocked(identificarQr).mockRejectedValue({ isAxiosError: true, response: { status: 400, data: { mensaje: 'El código QR es inválido o fue alterado' } } })
+    renderPage()
+    await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
+
+    act(() => qr.leer({ data: 'SIGEX1.202104010.credencial-alterada' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Código QR no válido' })).toBeInTheDocument()
+    expect(screen.queryByText(/credencial-alterada/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Escanear otro código' }))
+    expect(screen.queryByRole('dialog', { name: 'Código QR no válido' })).not.toBeInTheDocument()
   })
 
   it.each([

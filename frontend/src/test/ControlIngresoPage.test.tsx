@@ -374,48 +374,10 @@ describe('ControlIngresoPage', () => {
     expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
   })
 
-  it('consulta y muestra el historial con los campos disponibles', async () => {
-    vi.mocked(service.obtenerHistorialControl).mockResolvedValue([{
-      idRegistro: 91,
-      idEstudiante: 10,
-      idExamen: 20,
-      resultado: 'DENEGADO',
-      causa: 'Matrícula observada',
-      observaciones: 'Se informó al estudiante',
-      verificacionesAdicionales: ['Identidad contrastada'],
-      usuarioControl: 'Carla Control',
-      fechaHora: '2026-09-26T18:00:00Z',
-      incidencias: [{ tipo: 'LLEGADA_TARDE', descripcion: 'Llegó 10 minutos tarde' }],
-    }])
+  it('muestra la etiqueta HABILITADO y no duplica el acceso al historial', async () => {
     renderPage()
-    await screen.findByText('Laura Paredes')
-    fireEvent.click(screen.getByRole('button', { name: /Historial del control/ }))
-
-    expect(await screen.findByText('Personal de control: Carla Control')).toBeInTheDocument()
-    expect(screen.getByText('Estudiante llegó tarde: Llegó 10 minutos tarde')).toBeInTheDocument()
-    expect(screen.getByText('Causa: Matrícula observada')).toBeInTheDocument()
-    expect(screen.getByText('Observaciones: Se informó al estudiante')).toBeInTheDocument()
-    expect(screen.getAllByText('Identidad contrastada')).toHaveLength(1)
-  })
-
-  it('mantiene el contexto y permite reintentar la consulta fallida del historial', async () => {
-    vi.mocked(service.obtenerHistorialControl)
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce([])
-    renderPage()
-    await screen.findByText('Laura Paredes')
-    fireEvent.click(screen.getByRole('button', { name: /Historial del control/ }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar el historial')
-    expect(screen.getByText('Laura Paredes')).toBeInTheDocument()
-    expect(service.obtenerHistorialControl).toHaveBeenCalledTimes(1)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
-
-    expect(await screen.findByText('No hay registros en el historial de este control.')).toBeInTheDocument()
-    expect(screen.getByRole('dialog', { name: 'Historial del control' })).toBeInTheDocument()
-    expect(screen.getByText('Laura Paredes')).toBeInTheDocument()
-    expect(service.obtenerHistorialControl).toHaveBeenNthCalledWith(2, 10, 20)
+    expect(await screen.findByText('HABILITADO')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Historial del control/ })).not.toBeInTheDocument()
   })
 
   it('muestra errores de carga sin presentar datos incompletos', async () => {

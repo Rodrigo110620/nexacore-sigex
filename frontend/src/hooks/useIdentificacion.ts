@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import axios from 'axios'
 import {
   identificarEstudiante,
+  identificarQr,
   type EstudianteIdentificado,
   type TipoIdentificacion,
 } from '../services/identificacionService'
@@ -17,6 +18,8 @@ const IDLE: BusquedaEstudiante = { status: 'idle' }
 
 export const SIN_CONEXION_IDENTIFICAR =
   'Sin conexión a Internet: no es posible identificar al estudiante. Verifica tu conexión y vuelve a presionar Buscar.'
+
+export type ResultadoBusquedaQr = 'encontrado' | 'no_vinculado' | 'invalido' | 'error'
 
 /** Sin conexión → error propio; 404 → no_encontrado; cualquier otro fallo → error, con el mensaje del backend si lo trae. */
 function busquedaFallida(error: unknown): BusquedaEstudiante {
@@ -59,10 +62,28 @@ export default function useIdentificacion(idExamen: number) {
     [idExamen],
   )
 
+  const buscarQr = useCallback(async (contenido: string): Promise<ResultadoBusquedaQr> => {
+    const id = ++ultimaBusqueda.current
+    if (isOffline()) { setBusqueda({ status: 'error', mensaje: SIN_CONEXION_IDENTIFICAR }); return 'error' }
+    setBusqueda({ status: 'loading' })
+    try {
+      const estudiante = await identificarQr(idExamen, contenido)
+      if (id !== ultimaBusqueda.current) return 'error'
+      const resultado = estudiante.estado === 'NO_VINCULADO' ? 'no_vinculado' : 'encontrado'
+      setBusqueda({ status: resultado, estudiante })
+      return resultado
+    } catch (error) {
+      if (id !== ultimaBusqueda.current) return 'error'
+      const respuesta = axios.isAxiosError(error) ? error.response : undefined
+      setBusqueda(busquedaFallida(error))
+      return respuesta?.status === 400 ? 'invalido' : 'error'
+    }
+  }, [idExamen])
+
   const reset = useCallback(() => {
     ultimaBusqueda.current += 1
     setBusqueda(IDLE)
   }, [])
 
-  return { busqueda, buscar, reset }
+  return { busqueda, buscar, buscarQr, reset }
 }
