@@ -10,6 +10,7 @@ import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.services.IdentificacionService;
+import com.nexacore.examenes.services.QrEstudianteService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,6 +49,9 @@ class IdentificacionServiceTests {
 
     @Mock
     private ExamenRepository examenRepository;
+
+    @Mock
+    private QrEstudianteService qrEstudianteService;
 
     @InjectMocks
     private IdentificacionService identificacionService;
