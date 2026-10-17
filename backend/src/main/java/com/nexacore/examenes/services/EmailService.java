@@ -135,6 +135,33 @@ public class EmailService {
         }
     }
 
+    /**
+     * Envía el código de 6 dígitos para activar la cuenta del estudiante.
+     * No registra el código en los logs.
+     */
+    public void enviarCodigoActivacion(String destinatario, String nombreCompleto, String codigo, int minutos) {
+        if (!enabled || !StringUtils.hasText(username)) {
+            log.warn("Correo de activación no enviado (MAIL_ENABLED=false o MAIL_USERNAME vacío) para {}", destinatario);
+            return;
+        }
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(destinatario);
+            helper.setSubject("SIGEX — Código para activar tu cuenta");
+            helper.setText("<html><body style=\"font-family:Arial,sans-serif;color:#011140\"><p>Hola "
+                    + escapar(nombreCompleto) + ",</p><p>Tu código para activar tu cuenta de SIGEX es:</p>"
+                    + "<p style=\"font-size:28px;font-weight:bold;letter-spacing:6px;color:#0439D9\">" + escapar(codigo)
+                    + "</p><p>Vence en " + minutos + " minutos. Si no fuiste tú, ignora este correo: nadie podrá"
+                    + " activar tu cuenta sin este código.</p></body></html>", true);
+            mailSender.send(mimeMessage);
+            log.info("Código de activación enviado a {}", destinatario);
+        } catch (MessagingException | MailException ex) {
+            log.error("No se pudo enviar el código de activación a {}: {}", destinatario, ex.getMessage());
+        }
+    }
+
     private static String construirHtmlBienvenida(String nombreCompleto, String email, String passwordTemporal) {
         String nombre = escapar(nombreCompleto);
         String correo = escapar(email);

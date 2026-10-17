@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.UUID;
@@ -26,7 +27,10 @@ import java.util.UUID;
 @Service
 public class QrEstudianteService {
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String PREFIJO_TEMPORAL = "SIGEX3";
     private static final int NONCE_BYTES = 12;
+    /** Vigencia del QR temporal del panel del estudiante; la app lo renueva antes de que venza. */
+    public static final int SEGUNDOS_QR_TEMPORAL = 60;
     private final EstudianteQrCredencialRepository repository;
     private final EstudianteRepository estudianteRepository;
     private final SecretKeySpec encryptionKey;
@@ -41,6 +45,8 @@ public class QrEstudianteService {
     }
 
     public record QrGenerado(String contenido, byte[] png) {}
+
+    public record QrTemporal(String contenido, byte[] png, Instant expiraEn) {}
 
     @Transactional
     public QrGenerado crearSiNoExiste(Estudiante estudiante) {
@@ -61,9 +67,33 @@ public class QrEstudianteService {
         return new QrGenerado(contenido, png(contenido));
     }
 
+    /**
+     * QR que el estudiante muestra desde su panel. No lleva la credencial (solo se guarda su hash),
+     * sino el código SIS, la versión de la credencial y el vencimiento, cifrados con AES-GCM:
+     * no se puede fabricar ni alterar, vence en SEGUNDOS_QR_TEMPORAL y deja de servir si la
+     * credencial se revoca o se regenera. Si el estudiante aún no tiene credencial, se crea.
+     */
+    @Transactional
+    public QrTemporal generarTemporal(Estudiante estudiante) {
+        EstudianteQrCredencial fila = repository.findById(estudiante.getId())
+                .filter(c -> !c.isRevocado())
+                .orElse(null);
+        if (fila == null) {
+            regenerar(estudiante);
+            fila = repository.findById(estudiante.getId()).orElseThrow();
+        }
+        Instant expiraEn = Instant.now().plusSeconds(SEGUNDOS_QR_TEMPORAL);
+        String contenido = cifrar(PREFIJO_TEMPORAL,
+                estudiante.getCodigoSis() + "." + fila.getVersion() + "." + expiraEn.getEpochSecond());
+        return new QrTemporal(contenido, png(contenido), expiraEn);
+    }
+
     @Transactional(readOnly = true)
     public String validar(String contenido) {
         if (contenido == null) throw new IllegalArgumentException("El código QR es inválido");
+        if (contenido.trim().startsWith(PREFIJO_TEMPORAL + ".")) {
+            return validarTemporal(contenido.trim());
+        }
         String[] datos = descifrarContenido(contenido.trim());
         EstudianteQrCredencial fila = repository.findByHashCredencialAndRevocadoFalse(hash(datos[1]))
                 .orElseThrow(() -> new IllegalArgumentException("El código QR es desconocido o fue revocado"));
@@ -75,19 +105,58 @@ public class QrEstudianteService {
         return sisRegistrado;
     }
 
+    private String validarTemporal(String contenido) {
+        String[] datos;
+        try {
+            datos = descifrar(PREFIJO_TEMPORAL, contenido).split("\\.");
+            if (datos.length != 3 || !datos[0].matches("\\d{9}")) throw new IllegalArgumentException();
+        } catch (Exception e) { throw new IllegalArgumentException("El código QR es inválido o fue alterado"); }
+        long expira;
+        UUID version;
+        try {
+            version = UUID.fromString(datos[1]);
+            expira = Long.parseLong(datos[2]);
+        } catch (Exception e) { throw new IllegalArgumentException("El código QR es inválido o fue alterado"); }
+        if (Instant.now().getEpochSecond() > expira) {
+            throw new IllegalArgumentException("El código QR venció. Pide al estudiante que lo actualice en su celular");
+        }
+        Estudiante estudiante = estudianteRepository.findByCodigoSis(datos[0])
+                .orElseThrow(() -> new IllegalArgumentException("El estudiante del QR ya no existe"));
+        repository.findById(estudiante.getId())
+                .filter(c -> !c.isRevocado() && version.equals(c.getVersion()))
+                .orElseThrow(() -> new IllegalArgumentException("El código QR es desconocido o fue revocado"));
+        return estudiante.getCodigoSis();
+    }
+
     /** El contenido escaneable es opaco para lectores ajenos; AES-GCM además detecta modificaciones. */
     private String cifrarContenido(String sis, String credencial) {
+        return cifrar("SIGEX2", sis + "." + credencial);
+    }
+
+    /** prefijo.base64(nonce + AES-GCM(texto)), con el prefijo como dato autenticado. */
+    private String cifrar(String prefijo, String texto) {
         try {
             byte[] nonce = new byte[NONCE_BYTES]; RANDOM.nextBytes(nonce);
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new GCMParameterSpec(128, nonce));
-            cipher.updateAAD("SIGEX2".getBytes(StandardCharsets.US_ASCII));
-            byte[] cifrado = cipher.doFinal((sis + "." + credencial).getBytes(StandardCharsets.UTF_8));
+            cipher.updateAAD(prefijo.getBytes(StandardCharsets.US_ASCII));
+            byte[] cifrado = cipher.doFinal(texto.getBytes(StandardCharsets.UTF_8));
             byte[] paquete = new byte[nonce.length + cifrado.length];
             System.arraycopy(nonce, 0, paquete, 0, nonce.length);
             System.arraycopy(cifrado, 0, paquete, nonce.length, cifrado.length);
-            return "SIGEX2." + Base64.getUrlEncoder().withoutPadding().encodeToString(paquete);
+            return prefijo + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(paquete);
         } catch (Exception e) { throw new IllegalStateException("No se pudo cifrar el QR", e); }
+    }
+
+    private String descifrar(String prefijo, String contenido) throws Exception {
+        String[] partes = contenido.split("\\.");
+        if (partes.length != 2 || !prefijo.equals(partes[0])) throw new IllegalArgumentException();
+        byte[] paquete = Base64.getUrlDecoder().decode(partes[1]);
+        if (paquete.length <= NONCE_BYTES + 16) throw new IllegalArgumentException();
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, encryptionKey, new GCMParameterSpec(128, paquete, 0, NONCE_BYTES));
+        cipher.updateAAD(prefijo.getBytes(StandardCharsets.US_ASCII));
+        return new String(cipher.doFinal(paquete, NONCE_BYTES, paquete.length - NONCE_BYTES), StandardCharsets.UTF_8);
     }
 
     private String[] descifrarContenido(String contenido) {

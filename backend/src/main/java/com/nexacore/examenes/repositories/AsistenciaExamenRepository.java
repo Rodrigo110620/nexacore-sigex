@@ -84,6 +84,19 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
             @Param("idParalelo") Integer idParalelo,
             @Param("idsEstudiante") Collection<Integer> idsEstudiante);
 
+    /** Exámenes de un estudiante, del más próximo al más lejano (panel del estudiante). */
+    @Query("""
+            SELECT a FROM AsistenciaExamen a
+            JOIN FETCH a.examen ex
+            JOIN FETCH ex.paralelo p
+            JOIN FETCH p.materia
+            LEFT JOIN FETCH ex.ambiente
+            LEFT JOIN FETCH a.ambienteIngreso
+            WHERE a.id.idEstudiante = :idEstudiante
+            ORDER BY ex.fecha, ex.horaInicio
+            """)
+    List<AsistenciaExamen> listarDelEstudiante(@Param("idEstudiante") Integer idEstudiante);
+
     @Query(value = "SELECT LOCALTIMESTAMP", nativeQuery = true)
     LocalDateTime obtenerFechaHoraServidor();
 }

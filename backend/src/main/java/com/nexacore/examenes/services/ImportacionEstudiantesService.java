@@ -34,6 +34,8 @@ public class ImportacionEstudiantesService {
     static final List<String> COLUMNAS = List.of(
         "codigoSis", "nombre", "apellidos", "ci", "email", "idFacultad", "idCarrera"
     );
+    /** Columnas opcionales (IMP-06): si no vienen, sin teléfono y MATRICULADO. */
+    static final List<String> COLUMNAS_OPCIONALES = List.of("telefono", "estadoMatricula");
     static final int MAX_FILAS = 2000;
 
     private final EstudianteService estudianteService;
@@ -113,7 +115,10 @@ public class ImportacionEstudiantesService {
             LecturaCsv.valor(fila, "email").toLowerCase(Locale.ROOT),
             LecturaCsv.valor(fila, "codigoSis"),
             idFacultad,
-            idCarrera
+            idCarrera,
+            null,
+            opcional(LecturaCsv.valor(fila, "telefono")),
+            opcional(LecturaCsv.valor(fila, "estadoMatricula"))
         );
 
         Set<ConstraintViolation<RegistrarEstudianteRequest>> violaciones = validator.validate(request);
@@ -151,5 +156,10 @@ public class ImportacionEstudiantesService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /** Columna opcional vacía o ausente → null (se usa el valor por defecto). */
+    private static String opcional(String valor) {
+        return valor.isEmpty() ? null : valor;
     }
 }

@@ -15,6 +15,7 @@ import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;  // 🆕
 import com.nexacore.examenes.models.CondicionEstudiante;
+import com.nexacore.examenes.models.EstadoMatricula;
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -138,6 +139,8 @@ public class EstudianteService {
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
         estudiante.setCondicion(CondicionEstudiante.normalizar(request.condicion(), CondicionEstudiante.REGULAR));
+        estudiante.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), null));
+        estudiante.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), EstadoMatricula.MATRICULADO));
         estudiante = estudianteRepository.saveAndFlush(estudiante);
 
         EstudianteCarreraId relacionId = new EstudianteCarreraId();
@@ -158,7 +161,7 @@ public class EstudianteService {
                 estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
                 carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
                 carrera.getFacultad().getNombre()
-        )), estudiante.getCondicion(), null
+        )), estudiante.getCondicion(), null, estudiante.getTelefono(), estudiante.getEstadoMatricula(), false
         );
     }
 
@@ -174,6 +177,10 @@ public class EstudianteService {
     private void enviarQrSiCorresponde(Estudiante estudiante) {
         var qr = qrEstudianteService.crearSiNoExiste(estudiante);
         if (qr != null) emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+    }
+
+    public java.util.Optional<Estudiante> obtenerEntidad(Integer id) {
+        return estudianteRepository.findById(id);
     }
 
     public EstudianteListResponse obtenerPorId(Integer id) {
@@ -231,7 +238,10 @@ public class EstudianteService {
         e.setCi(nuevoCi);
         e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
         e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
+        e.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), e.getTelefono()));
+        e.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), e.getEstadoMatricula()));
         estudianteRepository.saveAndFlush(e);
+        sincronizarCuenta(e);
 
         // Reemplazar la carrera (borrar y volver a insertar)
         estudianteCarreraRepository.deleteByEstudianteId(id);
@@ -248,6 +258,23 @@ public class EstudianteService {
         estudianteCarreraRepository.save(relacion);
 
         return toResponse(e);
+    }
+
+    /**
+     * Si el estudiante activó su cuenta, su usuario repite nombre, apellidos, CI y correo (el correo
+     * es con el que inicia sesión). estudiante es la fuente oficial: se copian al usuario.
+     */
+    private void sincronizarCuenta(Estudiante e) {
+        if (e.getIdUsuario() == null) {
+            return;
+        }
+        usuarioRepository.findById(e.getIdUsuario()).ifPresent(usuario -> {
+            usuario.setNombre(e.getNombre());
+            usuario.setApellidos(e.getApellidos());
+            usuario.setCi(e.getCi());
+            usuario.setEmail(e.getEmail());
+            usuarioRepository.save(usuario);
+        });
     }
 
     private String limpiar(String value) {
@@ -276,7 +303,10 @@ public class EstudianteService {
                 e.getEmail(),
                 carrerasInfo,
                 e.getCondicion(),
-                fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId()))
+                fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId())),
+                e.getTelefono(),
+                e.getEstadoMatricula(),
+                e.getIdUsuario() != null
         );
     }
 }

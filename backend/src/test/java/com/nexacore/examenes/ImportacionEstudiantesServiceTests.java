@@ -67,6 +67,19 @@ class ImportacionEstudiantesServiceTests {
     }
 
     @Test
+    void importaTelefonoYEstadoDeMatriculaOpcionales() {
+        var file = csv("codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera,telefono,estadoMatricula\n"
+            + "202404012,María,González Flores,7489210,maria@umss.edu,1,10,71234567,NO_MATRICULADO\n"
+            + "202404013,Luis,Rojas Paz,7489211,luis@umss.edu,1,10,41234567,\n");
+
+        var result = service.importar(file);
+
+        assertEquals(1, result.insertados());
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            "71234567".equals(r.telefono()) && "NO_MATRICULADO".equals(r.estadoMatricula())));
+    }
+
+    @Test
     void reportaFilasInvalidasSinGuardarlas() {
         var file = csv(ENCABEZADO
             + "12345,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
