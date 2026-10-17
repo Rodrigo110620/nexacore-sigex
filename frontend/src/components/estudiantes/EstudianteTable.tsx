@@ -27,13 +27,14 @@ export default function EstudianteTable({
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
-      <table className="w-full min-w-[860px] text-left">
+      <table className="w-full min-w-[960px] text-left">
         <caption className="sr-only">Lista de estudiantes registrados</caption>
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
             <th scope="col" className="px-5 py-3 font-bold">Estudiante / Código</th>
             <th scope="col" className="px-5 py-3 font-bold">Documento (DNI)</th>
             <th scope="col" className="px-5 py-3 font-bold">Carrera Profesional</th>
+            <th scope="col" className="px-5 py-3 font-bold text-center">Matrícula</th>
             <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
           </tr>
         </thead>
@@ -42,7 +43,7 @@ export default function EstudianteTable({
             <tr key={e.id}>
               <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
-                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${getAvatarColorById(e.id)}`}>
+                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}>
                     {getInitials(e.nombre, e.apellidos)}
                   </span>
                   <span>
@@ -56,9 +57,18 @@ export default function EstudianteTable({
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>
                 <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span>
               </td>
+              {/* 🆕 Columna de Matrícula */}
+              <td className="px-5 py-3 text-center">
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                  e.estadoMatricula === 'NO_MATRICULADO' 
+                    ? 'bg-red-50 text-red-600' 
+                    : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'Inactivo' : 'Activo'}
+                </span>
+              </td>
               <td className="px-5 py-3">
                 <div className="flex justify-center gap-2">
-                  {/* Ver Ficha — siempre habilitado */}
                   <button
                     type="button"
                     onClick={() => onViewClick?.(e)}
@@ -68,7 +78,6 @@ export default function EstudianteTable({
                     Ver Ficha
                   </button>
 
-                  {/* Editar — deshabilitado si puedeEditar es false */}
                   <button
                     type="button"
                     onClick={() => puedeEditar && onEditClick?.(e)}

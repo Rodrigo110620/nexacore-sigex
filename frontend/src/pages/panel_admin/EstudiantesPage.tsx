@@ -180,8 +180,7 @@ export default function EstudiantesPage() {
                   )}
                 </div>
               ) : estudiantes.length > 0 ? (
-                <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
-                  {/* Móvil */}
+                <div className="min-[960px]:rounded-none">                  {/* Móvil */}
                   <div className="min-[960px]:hidden">
                     <EstudianteCardList
                       estudiantes={estudiantes}

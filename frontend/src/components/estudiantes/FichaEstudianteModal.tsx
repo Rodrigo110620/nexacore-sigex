@@ -157,6 +157,19 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
               </div>
             </div>
 
+            <div className="mb-3 rounded-lg border border-[#E8EEF7] bg-white p-3">
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                Estado de Matrícula
+              </dt>
+              <dd className={`mt-1 text-[12px] font-bold sm:text-sm ${
+                estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'text-red-900' : 'text-emerald-800'
+              }`}>
+                {estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'NO MATRICULADO' : 'MATRICULADO'}
+              </dd>
+            </div>
+            
+            
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-[#E8EEF7] bg-white p-3">
                 <div className="flex items-center justify-between">

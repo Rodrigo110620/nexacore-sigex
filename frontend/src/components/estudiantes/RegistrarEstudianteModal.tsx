@@ -3,7 +3,6 @@ import { Check, ChevronDown, Mail, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
-import { OPCIONES_CONDICION } from '../../utils/condicionEstudiante'
 import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
@@ -13,7 +12,10 @@ interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: str
 
 type FormState = Omit<RegistrarEstudiantePayload, 'idFacultad' | 'idCarrera'> & { idFacultad: string; idCarrera: string }
 
-const initialForm: FormState = { nombre: '', apellidos: '', ci: '', telefono: '', email: '', codigoSis: '', idFacultad: '', idCarrera: '', condicion: 'REGULAR' }
+const initialForm: FormState = { 
+  nombre: '', apellidos: '', ci: '', telefono: '', email: '', codigoSis: '', 
+  idFacultad: '', idCarrera: '', condicion: 'REGULAR', estadoMatricula: 'MATRICULADO' 
+}
 
 const FIELD_LABELS: Record<string, string> = {
   nombre: 'el Nombre', apellidos: 'los Apellidos', ci: 'el CI', telefono: 'el Teléfono', email: 'el Correo',
@@ -79,7 +81,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const validateField = (field: keyof FormState): string => {
     const value = form[field]
     if (typeof value !== 'string') return ''
-    // El teléfono es opcional, por eso no se valida el vacío en esta función temprana.
     if (field === 'telefono') return validateTelefono(value)
     
     if (!value.trim()) return ''
@@ -121,6 +122,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
         email: form.email.trim(), codigoSis: form.codigoSis.trim(),
         idFacultad: Number(form.idFacultad), idCarrera: Number(form.idCarrera),
         condicion: form.condicion ?? 'REGULAR',
+        estadoMatricula: form.estadoMatricula ?? 'MATRICULADO',
       })
       setStep(1); setForm(initialForm)
       onRegistered(`${created.nombre} ${created.apellidos}`)
@@ -137,7 +139,8 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     } finally { setSaving(false) }
   }
 
-  const inputClass = 'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
+  // 🆕 Agregado font-normal
+  const inputClass = 'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] font-normal text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="register-student-title">
@@ -178,14 +181,9 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
                   placeholder="Ej: maria.gonzalez@umss.edu"
                   className={`${inputClass} pr-32`}
                 />
-                {/*Sugerencia de dominio cuando aún no escribió el @ */}
                 {form.email.length > 0 && !form.email.includes('@') && (
-                  <EmailDomainSuggest
-                    visible
-                    onAccept={() => update('email', `${form.email}@est.umss.edu`)}
-                  />
+                  <EmailDomainSuggest visible onAccept={() => update('email', `${form.email}@est.umss.edu`)} />
                 )}
-                {/* Ícono de sobre solo cuando ya escribió el @ */}
                 {form.email.includes('@') && (
                   <Mail className="absolute right-3 top-4 text-[#627A9B]" size={16} />
                 )}
@@ -195,7 +193,17 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
             <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('codigoSis')} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`} /><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
             <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div></label>
             <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
-            <label className="block text-xs font-semibold text-[#011140]">Condición del estudiante <b className="text-red-500">*</b><div className="relative"><select name="condicion" value={form.condicion ?? 'REGULAR'} onChange={(e) => update('condicion', e.target.value)} className={`${inputClass} appearance-none pr-10`}>{OPCIONES_CONDICION.map((o) => <option key={o.valor} value={o.valor}>{o.etiqueta}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div></label>
+            
+            <label className="block text-xs font-semibold text-[#011140]">
+              Estado de Matrícula <b className="text-red-500">*</b>
+              <div className="relative">
+                <select name="estadoMatricula" value={form.estadoMatricula ?? 'MATRICULADO'} onChange={(e) => update('estadoMatricula', e.target.value)} className={`${inputClass} appearance-none pr-10`}>
+                  <option value="MATRICULADO">Matriculado (Activo)</option>
+                  <option value="NO_MATRICULADO">No Matriculado (Inactivo)</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} />
+              </div>
+            </label>
           </>}
         </div>
 

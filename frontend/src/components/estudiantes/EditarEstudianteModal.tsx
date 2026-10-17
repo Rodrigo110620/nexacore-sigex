@@ -11,12 +11,12 @@ import {
 import type {
     CarreraOption,
     CondicionEstudiante,
+    EstadoMatricula,
     EstudianteListItem,
     FacultadOption,
 } from '../../types/estudiante'
 import FotoEstudiante from './FotoEstudiante'
 import { getInitials } from './avatarColors'
-import { OPCIONES_CONDICION } from '../../utils/condicionEstudiante'
 import { prepararFoto, validarArchivoFoto } from '../../utils/fotoEstudiante'
 import {
     FIELD_LIMITS,
@@ -46,6 +46,7 @@ interface FormState {
     idFacultad: string
     idCarrera: string
     condicion: string
+    estadoMatricula: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -58,6 +59,7 @@ const EMPTY_FORM: FormState = {
     idFacultad: '',
     idCarrera: '',
     condicion: 'REGULAR',
+    estadoMatricula: 'MATRICULADO',
 }
 
 const FIELD_NAMES: Record<keyof FormState, string> = {
@@ -70,6 +72,7 @@ const FIELD_NAMES: Record<keyof FormState, string> = {
     idFacultad: 'Facultad',
     idCarrera: 'Carrera',
     condicion: 'Condición',
+    estadoMatricula: 'Estado de Matrícula',
 }
 
 function FieldError({ children }: { children?: string }) {
@@ -125,6 +128,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     idFacultad: carrera ? String(carrera.idFacultad) : '',
                     idCarrera: carrera ? String(carrera.idCarrera) : '',
                     condicion: est.condicion ?? 'REGULAR',
+                    estadoMatricula: est.estadoMatricula ?? 'MATRICULADO',
                 }
                 setForm(loadedForm)
                 setOriginalForm(loadedForm)
@@ -245,6 +249,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 idFacultad: Number(form.idFacultad),
                 idCarrera: Number(form.idCarrera),
                 condicion: form.condicion as CondicionEstudiante,
+                estadoMatricula: form.estadoMatricula as EstadoMatricula,
             })
 
             const cambioFoto = Boolean(fotoNueva) || (quitarFoto && Boolean(estudiante?.fotoUrl))
@@ -276,8 +281,9 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         }
     }
 
+    // 🆕 Agregado font-normal
     const inputClass =
-        'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
+        'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] font-normal text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
 
     return (
         <div
@@ -459,16 +465,16 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                             </h3>
                             <div className="space-y-3">
                                 <label className="block text-xs font-semibold text-[#011140]">
-                                    Condición del estudiante <b className="text-red-500">*</b>
+                                    Estado de Matrícula <b className="text-red-500">*</b>
                                     <select
-                                        value={form.condicion}
-                                        onChange={(e) => update('condicion', e.target.value)}
+                                        value={form.estadoMatricula}
+                                        onChange={(e) => update('estadoMatricula', e.target.value)}
                                         className={inputClass}
                                     >
-                                        {OPCIONES_CONDICION.map((o) => (
-                                            <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
-                                        ))}
+                                        <option value="MATRICULADO">Matriculado (Activo)</option>
+                                        <option value="NO_MATRICULADO">No_Matriculado (Inactivo)</option>
                                     </select>
+                                    
                                 </label>
 
                                 <label className="block text-xs font-semibold text-[#011140]">
