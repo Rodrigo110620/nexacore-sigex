@@ -27,7 +27,7 @@ export default function EstudianteTable({
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
-      <table className="w-full min-w-[960px] text-left">
+      <table className="w-full text-left">
         <caption className="sr-only">Lista de estudiantes registrados</caption>
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
