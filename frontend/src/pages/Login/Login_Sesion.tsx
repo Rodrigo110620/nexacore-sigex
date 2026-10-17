@@ -83,7 +83,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
     };
 
     const formClass = isMobile
-        ? 'w-full bg-white'
+        ? 'w-full rounded-2xl border border-t-4 border-[#D8E3F5] border-t-[#0439D9] bg-white px-5 py-7 shadow-lg shadow-[#b9c9e6]'
         : 'h-full w-full rounded-md border border-t-4 border-t-[#0439D9] bg-white px-8 py-10 shadow-lg shadow-[#92aad2] xl:px-12 xl:py-12';
 
     return (
