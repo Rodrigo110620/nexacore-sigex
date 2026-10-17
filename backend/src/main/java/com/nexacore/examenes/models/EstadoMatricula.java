@@ -32,17 +32,13 @@ public final class EstadoMatricula {
     /**
      * Teléfono sin espacios. null → valorActual (no se envió); vacío → null (se quita el teléfono).
      */
-    public static String normalizarTelefono(String telefono, String valorActual) {
-        if (telefono == null) {
-            return valorActual;
+        public static String normalizarTelefono(String telefono, String telefonoActual) {
+        if (telefono == null) return telefonoActual;
+        String limpio = telefono.trim().replaceAll("\\s+", "");
+        if (limpio.isEmpty()) return null;
+        if (!limpio.matches("^[23467]\\d{6,7}$")) {
+            throw new IllegalArgumentException("El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7");
         }
-        String valor = telefono.replaceAll("\\s+", "");
-        if (valor.isEmpty()) {
-            return null;
-        }
-        if (!valor.matches("^[567]\\d{7}$")) {
-            throw new IllegalArgumentException("El teléfono debe tener 8 dígitos y empezar con 5, 6 o 7.");
-        }
-        return valor;
+        return limpio;
     }
 }

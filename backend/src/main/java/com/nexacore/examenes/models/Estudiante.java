@@ -41,6 +41,12 @@ public class Estudiante {
     @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
     private String ci;
 
+        /** Teléfono o celular opcional: 8 dígitos que empiezan con 5, 6 o 7. */
+    @Pattern(regexp = "^[567]\\d{7}$")
+    @Column(name = "telefono", length = 8)
+    private String telefono;
+
+
     @NotNull
     @Column(name = "email", nullable = false, length = Integer.MAX_VALUE)
     private String email;
@@ -50,11 +56,6 @@ public class Estudiante {
     @ColumnDefault("'REGULAR'")
     @Column(name = "condicion", nullable = false, length = 20)
     private String condicion = CondicionEstudiante.REGULAR;
-
-    /** Teléfono o celular opcional: 8 dígitos que empiezan con 5, 6 o 7. */
-    @Pattern(regexp = "^[567]\\d{7}$")
-    @Column(name = "telefono", length = 8)
-    private String telefono;
 
     /** Estado de matrícula: MATRICULADO o NO_MATRICULADO (ver EstadoMatricula). */
     @NotNull

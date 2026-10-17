@@ -112,12 +112,12 @@ public class ImportacionEstudiantesService {
             LecturaCsv.valor(fila, "nombre"),
             LecturaCsv.valor(fila, "apellidos"),
             LecturaCsv.valor(fila, "ci"),
+            opcional(LecturaCsv.valor(fila, "telefono")),
             LecturaCsv.valor(fila, "email").toLowerCase(Locale.ROOT),
             LecturaCsv.valor(fila, "codigoSis"),
             idFacultad,
             idCarrera,
             null,
-            opcional(LecturaCsv.valor(fila, "telefono")),
             opcional(LecturaCsv.valor(fila, "estadoMatricula"))
         );
 

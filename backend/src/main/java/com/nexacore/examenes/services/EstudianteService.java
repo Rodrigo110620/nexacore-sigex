@@ -13,7 +13,7 @@ import com.nexacore.examenes.models.EstudianteCarreraId;
 import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
-import com.nexacore.examenes.repositories.UsuarioRepository;  // 🆕
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.models.CondicionEstudiante;
 import com.nexacore.examenes.models.EstadoMatricula;
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
@@ -139,8 +139,11 @@ public class EstudianteService {
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
         estudiante.setCondicion(CondicionEstudiante.normalizar(request.condicion(), CondicionEstudiante.REGULAR));
+        
+        // Unificado con la lógica de tu compañero (EstadoMatricula)
         estudiante.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), null));
         estudiante.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), EstadoMatricula.MATRICULADO));
+        
         estudiante = estudianteRepository.saveAndFlush(estudiante);
 
         EstudianteCarreraId relacionId = new EstudianteCarreraId();
@@ -153,19 +156,18 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
-        // El estudiante ya está persistido. La falla de SMTP no revierte ni duplica el registro.
+        
         enviarQrSiCorresponde(estudiante);
 
         return new EstudianteListResponse(
                 estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
-                estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
+                estudiante.getCi(), estudiante.getTelefono(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
                 carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
                 carrera.getFacultad().getNombre()
-        )), estudiante.getCondicion(), null, estudiante.getTelefono(), estudiante.getEstadoMatricula(), false
+        )), estudiante.getCondicion(), null,  estudiante.getEstadoMatricula(), false
         );
     }
 
-    /** Reenvía el QR existente solo regenerándolo explícitamente (revoca el anterior). */
     @Transactional
     public void regenerarYEnviarQr(Integer id) {
         Estudiante estudiante = estudianteRepository.findById(id)
@@ -198,7 +200,7 @@ public class EstudianteService {
         String nuevoCi = limpiar(request.ci());
         String nuevoEmail = limpiar(request.email()).toLowerCase();
 
-        // Validar duplicados en ESTUDIANTES (solo si el valor cambió)
+        // Validar duplicados en ESTUDIANTES
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)
                 && estudianteRepository.existsByCodigoSisIgnoreCase(nuevoCodigo)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
@@ -238,8 +240,11 @@ public class EstudianteService {
         e.setCi(nuevoCi);
         e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
         e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
+        
+        // Unificado con la lógica de tu compañero (EstadoMatricula)
         e.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), e.getTelefono()));
         e.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), e.getEstadoMatricula()));
+        
         estudianteRepository.saveAndFlush(e);
         sincronizarCuenta(e);
 
@@ -261,13 +266,10 @@ public class EstudianteService {
     }
 
     /**
-     * Si el estudiante activó su cuenta, su usuario repite nombre, apellidos, CI y correo (el correo
-     * es con el que inicia sesión). estudiante es la fuente oficial: se copian al usuario.
+     * Si el estudiante activó su cuenta, su usuario repite nombre, apellidos, CI y correo.
      */
     private void sincronizarCuenta(Estudiante e) {
-        if (e.getIdUsuario() == null) {
-            return;
-        }
+        if (e.getIdUsuario() == null) return;
         usuarioRepository.findById(e.getIdUsuario()).ifPresent(usuario -> {
             usuario.setNombre(e.getNombre());
             usuario.setApellidos(e.getApellidos());
@@ -300,11 +302,11 @@ public class EstudianteService {
                 e.getNombre(),
                 e.getApellidos(),
                 e.getCi(),
+                e.getTelefono(),
                 e.getEmail(),
                 carrerasInfo,
                 e.getCondicion(),
                 fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId())),
-                e.getTelefono(),
                 e.getEstadoMatricula(),
                 e.getIdUsuario() != null
         );

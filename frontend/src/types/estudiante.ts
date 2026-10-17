@@ -14,6 +14,7 @@ export interface EstudianteListItem {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string | null 
   email?: string | null
   carreras: CarreraInfo[]
   condicion?: CondicionEstudiante
@@ -53,6 +54,7 @@ export interface RegistrarEstudiantePayload {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string
   email: string
   codigoSis: string
   idFacultad: number
@@ -63,6 +65,7 @@ export interface ActualizarEstudiantePayload {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string
   email: string
   codigoSis: string
   idFacultad: number

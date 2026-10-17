@@ -26,6 +26,7 @@ import {
     validateDocumento,
     validateEmail,
     validateNombre,
+    validateTelefono,
 } from '../../utils/validators'
 
 interface Props {
@@ -39,6 +40,7 @@ interface FormState {
     nombre: string
     apellidos: string
     ci: string
+    telefono: string
     codigoSis: string
     email: string
     idFacultad: string
@@ -50,6 +52,7 @@ const EMPTY_FORM: FormState = {
     nombre: '',
     apellidos: '',
     ci: '',
+    telefono: '',
     codigoSis: '',
     email: '',
     idFacultad: '',
@@ -61,6 +64,7 @@ const FIELD_NAMES: Record<keyof FormState, string> = {
     nombre: 'Nombres',
     apellidos: 'Apellidos',
     ci: 'Documento de Identidad',
+    telefono: 'Teléfono',
     codigoSis: 'Código SIS',
     email: 'Correo Electrónico',
     idFacultad: 'Facultad',
@@ -85,7 +89,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [apiError, setApiError] = useState('')
     const [savedNombre, setSavedNombre] = useState('')
-    // La foto se sube o se quita al guardar, junto con los demás cambios.
     const [fotoNueva, setFotoNueva] = useState<Blob | null>(null)
     const [fotoPreview, setFotoPreview] = useState<string | null>(null)
     const [quitarFoto, setQuitarFoto] = useState(false)
@@ -116,6 +119,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     nombre: est.nombre,
                     apellidos: est.apellidos,
                     ci: est.ci,
+                    telefono: est.telefono ?? '',
                     codigoSis: est.codigoSis,
                     email: est.email ?? '',
                     idFacultad: carrera ? String(carrera.idFacultad) : '',
@@ -210,12 +214,15 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         const nombreError = validateNombre(form.nombre)
         const apellidosError = validateApellidos(form.apellidos)
         const ciError = validateDocumento(form.ci)
+        const telefonoError = validateTelefono(form.telefono)
         const emailError = validateEmail(form.email)
 
         if (nombreError) next.nombre = nombreError
         if (apellidosError) next.apellidos = apellidosError
         if (ciError) next.ci = ciError
+        if (telefonoError) next.telefono = telefonoError
         if (emailError) next.email = emailError
+
         const sisErr = validateCodigoSis(form.codigoSis)
         if (sisErr) next.codigoSis = sisErr
 
@@ -232,6 +239,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 nombre: form.nombre.trim(),
                 apellidos: form.apellidos.trim(),
                 ci: form.ci.trim(),
+                telefono: form.telefono.trim() || undefined,
                 email: form.email.trim(),
                 codigoSis: form.codigoSis.trim(),
                 idFacultad: Number(form.idFacultad),
@@ -279,8 +287,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
             aria-labelledby="edit-student-title"
         >
             <div className="relative flex h-[90dvh] max-h-[680px] w-full flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:max-w-[640px] sm:rounded-2xl">
-
-                {/* Header */}
                 <header className="flex shrink-0 items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
                     <div className="flex gap-3">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]">
@@ -305,7 +311,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     </button>
                 </header>
 
-                {/* Contenido (scroll interno) */}
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">
                     {loading ? (
                         <div className="flex flex-col items-center py-10 text-center">
@@ -406,6 +411,22 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                     </label>
 
                                     <label className="block text-xs font-semibold text-[#011140]">
+                                        Teléfono/Celular
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            value={form.telefono}
+                                            maxLength={FIELD_LIMITS.telefono.max}
+                                            onChange={(e) => update('telefono', e.target.value.replace(/\D/g, ''))}
+                                            className={inputClass}
+                                            placeholder="Opcional"
+                                        />
+                                        <FieldError>{errors.telefono}</FieldError>
+                                    </label>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <label className="block text-xs font-semibold text-[#011140]">
                                         Código SIS <b className="text-red-500">*</b>
                                         <input
                                             type="text"
@@ -417,19 +438,19 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                         />
                                         <FieldError>{errors.codigoSis}</FieldError>
                                     </label>
+                                    
+                                    <label className="block text-xs font-semibold text-[#011140]">
+                                        Correo Electrónico
+                                        <input
+                                            type="email"
+                                            value={form.email}
+                                            maxLength={FIELD_LIMITS.email.max}
+                                            onChange={(e) => update('email', e.target.value)}
+                                            className={inputClass}
+                                        />
+                                        <FieldError>{errors.email}</FieldError>
+                                    </label>
                                 </div>
-
-                                <label className="block text-xs font-semibold text-[#011140]">
-                                    Correo Electrónico
-                                    <input
-                                        type="email"
-                                        value={form.email}
-                                        maxLength={FIELD_LIMITS.email.max}
-                                        onChange={(e) => update('email', e.target.value)}
-                                        className={inputClass}
-                                    />
-                                    <FieldError>{errors.email}</FieldError>
-                                </label>
                             </div>
 
                             <h3 className="mb-2 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
@@ -493,7 +514,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     )}
                 </div>
 
-                {/* Footer (shrink-0 → siempre visible) */}
                 <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#D8E3F5] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-5 sm:pb-3">
                     <button
                         type="button"

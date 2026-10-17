@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
 import { OPCIONES_CONDICION } from '../../utils/condicionEstudiante'
-import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre } from '../../utils/validators'
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 import EmailDomainSuggest from './EmailDomainSuggest'
@@ -13,10 +13,10 @@ interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: str
 
 type FormState = Omit<RegistrarEstudiantePayload, 'idFacultad' | 'idCarrera'> & { idFacultad: string; idCarrera: string }
 
-const initialForm: FormState = { nombre: '', apellidos: '', ci: '', email: '', codigoSis: '', idFacultad: '', idCarrera: '', condicion: 'REGULAR' }
+const initialForm: FormState = { nombre: '', apellidos: '', ci: '', telefono: '', email: '', codigoSis: '', idFacultad: '', idCarrera: '', condicion: 'REGULAR' }
 
 const FIELD_LABELS: Record<string, string> = {
-  nombre: 'el Nombre', apellidos: 'los Apellidos', ci: 'el CI', email: 'el Correo',
+  nombre: 'el Nombre', apellidos: 'los Apellidos', ci: 'el CI', telefono: 'el Teléfono', email: 'el Correo',
   codigoSis: 'el Código SIS', idFacultad: 'la Facultad', idCarrera: 'la Carrera',
 }
 
@@ -38,7 +38,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   useEffect(() => {
     if (!open || !form.idFacultad) return
-    // Cancela la petición anterior para que una respuesta vieja no pise la de la facultad actual.
     const controller = new AbortController()
     getCarreras(form.idFacultad, controller.signal)
       .then(setCarreras)
@@ -79,7 +78,11 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   const validateField = (field: keyof FormState): string => {
     const value = form[field]
-    if (typeof value !== 'string' || !value.trim()) return ''
+    if (typeof value !== 'string') return ''
+    // El teléfono es opcional, por eso no se valida el vacío en esta función temprana.
+    if (field === 'telefono') return validateTelefono(value)
+    
+    if (!value.trim()) return ''
     if (field === 'nombre') return validateNombre(value)
     if (field === 'apellidos') return validateApellidos(value)
     if (field === 'ci') return validateDocumento(value)
@@ -96,8 +99,8 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const validateStep1 = () => {
     const next: Record<string, string> = {}
     const n = validateNombre(form.nombre); const a = validateApellidos(form.apellidos)
-    const c = validateDocumento(form.ci); const e = validateStudentEmail(form.email)
-    if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (e) next.email = e
+    const c = validateDocumento(form.ci); const t = validateTelefono(form.telefono ?? ''); const e = validateStudentEmail(form.email)
+    if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (t) next.telefono = t; if (e) next.email = e
     if (Object.keys(next).length > 0) { showFirstError(next); return false }
     return true
   }
@@ -114,6 +117,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     try {
       const created = await registrarEstudiante({
         nombre: form.nombre.trim(), apellidos: form.apellidos.trim(), ci: form.ci.trim(),
+        telefono: form.telefono?.trim() || undefined,
         email: form.email.trim(), codigoSis: form.codigoSis.trim(),
         idFacultad: Number(form.idFacultad), idCarrera: Number(form.idCarrera),
         condicion: form.condicion ?? 'REGULAR',
@@ -155,7 +159,12 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
           {step === 1 ? <>
             <label className="block text-xs font-semibold text-[#011140]">Nombre completo <b className="text-red-500">*</b><input name="nombre" autoFocus value={form.nombre} maxLength={FIELD_LIMITS.nombre.max} onChange={(e) => update('nombre', sanitizeNombreInput(e.target.value))} onBlur={() => { update('nombre', sanitizeNombreInput(form.nombre, { trimEnds: true })); handleBlur('nombre') }} placeholder="Ej: María José" className={inputClass} /></label>
             <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass} /></label>
-            <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass} /></label>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass} /></label>
+              <label className="block text-xs font-semibold text-[#011140]">Teléfono/Celular <input name="telefono" type="tel" inputMode="numeric" value={form.telefono ?? ''} maxLength={FIELD_LIMITS.telefono.max} onChange={(e) => update('telefono', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('telefono')} placeholder="Opcional (Ej: 71234567)" className={inputClass} /></label>
+            </div>
+
             <label className="block text-xs font-semibold text-[#011140]">
               Correo electrónico <b className="text-red-500">*</b>
               <div className="relative">
