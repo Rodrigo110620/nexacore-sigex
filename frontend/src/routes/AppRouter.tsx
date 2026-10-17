@@ -48,8 +48,11 @@ export default function AppRouter() {
     <BrowserRouter>
       <NavigateRegistrar />
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginRoute />} />
+        {/* Una sola instancia para "/" y "/login": así la landing anima hacia el formulario sin remontarse. */}
+        <Route element={<LoginRoute />}>
+          <Route path="/" element={null} />
+          <Route path="/login" element={null} />
+        </Route>
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
