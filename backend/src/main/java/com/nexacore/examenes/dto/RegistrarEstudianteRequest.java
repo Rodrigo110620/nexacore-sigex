@@ -25,7 +25,7 @@ public record RegistrarEstudianteRequest(
         String ci,
 
         @Size(max = 8, message = "El teléfono no puede tener más de 8 caracteres")
-        @Pattern(regexp = "^[23467]\\d{6,7}$", message = "El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7")
+        @Pattern(regexp = "^$|^[23467]\\d{6,7}$", message = "El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7")
         String telefono,
 
         @NotBlank(message = "El correo electrónico es obligatorio")
