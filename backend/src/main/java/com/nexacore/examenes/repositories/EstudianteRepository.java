@@ -25,6 +25,13 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
 
     List<Estudiante> findByCiIn(Collection<String> cis);
 
+    Optional<Estudiante> findByCodigoSis(String codigoSis);
+
+    /** Estudiante dueño de una cuenta de usuario (rol ESTUDIANTE). */
+    Optional<Estudiante> findByIdUsuario(Integer idUsuario);
+
+    boolean existsByIdUsuario(Integer idUsuario);
+
     /**
      * Estudiante y su habilitación en un examen, en una sola consulta (HU ACCS-01).
      *

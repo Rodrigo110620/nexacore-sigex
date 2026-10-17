@@ -10,6 +10,9 @@ import lombok.Setter;
 @Entity
 @Table(name = "rol")
 public class Rol {
+    /** Rol de la cuenta de un estudiante. No es un rol de personal: no se asigna desde Usuarios. */
+    public static final String ESTUDIANTE = "ESTUDIANTE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_rol", nullable = false)
@@ -18,6 +21,5 @@ public class Rol {
     @NotNull
     @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
     private String nombre;
-
 
 }
