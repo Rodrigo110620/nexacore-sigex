@@ -89,9 +89,8 @@ export default function LoginPage() {
               <section
                 ref={formRef}
                 aria-hidden={!loginAbierto}
-                className={`[grid-area:1/1] mx-auto w-full max-w-md self-center lg:mx-0 ${TRANSICION} ${
-                  loginAbierto ? 'translate-x-0 opacity-100 delay-150' : 'invisible translate-x-10 opacity-0'
-                }`}
+                className={`[grid-area:1/1] mx-auto w-full max-w-lg self-center lg:mx-0 ${TRANSICION} ${loginAbierto ? 'translate-x-0 opacity-100 delay-150' : 'invisible translate-x-10 opacity-0'
+                  }`}
               >
                 <button
                   type="button"
