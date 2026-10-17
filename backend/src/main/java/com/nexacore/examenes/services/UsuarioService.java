@@ -17,6 +17,7 @@ import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.models.UsuarioRolId;
 import com.nexacore.examenes.repositories.DocenteRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.RolRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.UsuarioRolRepository;
@@ -62,6 +63,7 @@ public class UsuarioService {
     private final DocenteRepository docenteRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final EstudianteRepository estudianteRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -70,13 +72,15 @@ public class UsuarioService {
                           UsuarioRolRepository usuarioRolRepository,
                           DocenteRepository docenteRepository,
                           PasswordEncoder passwordEncoder,
-                          EmailService emailService) {
+                          EmailService emailService,
+                          EstudianteRepository estudianteRepository) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
         this.docenteRepository = docenteRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.estudianteRepository = estudianteRepository;
     }
     /**
      * Registra un nuevo usuario y le asigna el rol indicado.
@@ -89,8 +93,7 @@ public class UsuarioService {
         String rolNombre = request.rol().toUpperCase();
         // Valida contra la BD: si el rol no existe en la tabla rol → 400.
         // No hay lista fija: cualquier rol que se inserte en BD pasa a ser válido.
-        Rol rol = rolRepository.findByNombre(rolNombre)
-                .orElseThrow(() -> new RolInvalidoException(rolNombre));
+        Rol rol = buscarRolDePersonal(rolNombre);
         String email = normalizarEmail(request.email());
         String ci = request.ci().trim();
         if (usuarioRepository.findByEmail(email).isPresent()) {
@@ -140,8 +143,7 @@ public class UsuarioService {
     @Transactional
     public RegisterUserResponse actualizar(Integer id, RegisterUserRequest request) {
         // 1. Buscar el usuario existente (Ya recibe Integer correctamente)
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        Usuario usuario = buscarUsuarioDelPersonal(id);
         // 2. Validar si el correo o el CI cambiaron y ya pertenecen a otro usuario
         String email = normalizarEmail(request.email());
         String ci = request.ci().trim();
@@ -154,8 +156,7 @@ public class UsuarioService {
         }
         // 3. Validar el rol
         String rolNombre = request.rol().toUpperCase();
-        Rol rol = rolRepository.findByNombre(rolNombre)
-                .orElseThrow(() -> new RolInvalidoException(rolNombre));
+        Rol rol = buscarRolDePersonal(rolNombre);
         // 4. Actualizar campos personales y de estado (nombre/apellidos en formato Título)
         usuario.setNombre(normalizarNombre(request.nombre()));
         usuario.setApellidos(normalizarNombre(request.apellidos()));
@@ -196,8 +197,7 @@ public class UsuarioService {
      */
     @Transactional
     public UsuarioListResponse cambiarEstado(Integer id, boolean activo, String emailSolicitante) {
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        Usuario usuario = buscarUsuarioDelPersonal(id);
         if (!activo && usuario.getEmail().equalsIgnoreCase(emailSolicitante)) {
             throw new IllegalArgumentException("No puedes bloquear tu propia cuenta.");
         }
@@ -247,9 +247,37 @@ public class UsuarioService {
         return out.toByteArray();
     }
 
-    /** Devuelve todos los roles disponibles para el selector del formulario. */
+    /** Devuelve los roles de personal para el selector del formulario (sin el rol ESTUDIANTE). */
     public List<Rol> listarRoles() {
-        return rolRepository.findAll();
+        return rolRepository.findAll().stream()
+                .filter(rol -> !Rol.ESTUDIANTE.equals(rol.getNombre()))
+                .toList();
+    }
+
+    /**
+     * Usuario del personal. La cuenta de un estudiante se gestiona desde Estudiantes, por eso aquí
+     * responde como si no existiera.
+     */
+    private Usuario buscarUsuarioDelPersonal(Integer id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNoEncontradoException(id));
+        if (estudianteRepository.existsByIdUsuario(id)) {
+            throw new UsuarioNoEncontradoException(id);
+        }
+        return usuario;
+    }
+
+    /**
+     * Busca un rol que se pueda asignar al personal. El rol ESTUDIANTE es solo para la cuenta de
+     * un estudiante y no se asigna desde la gestión de usuarios.
+     */
+    private Rol buscarRolDePersonal(String rolNombre) {
+        if (Rol.ESTUDIANTE.equals(rolNombre)) {
+            throw new IllegalArgumentException(
+                    "El rol ESTUDIANTE es solo para la cuenta de un estudiante; no se asigna a usuarios del personal.");
+        }
+        return rolRepository.findByNombre(rolNombre)
+                .orElseThrow(() -> new RolInvalidoException(rolNombre));
     }
     /**
      * Crea un nuevo rol en el sistema.
@@ -355,12 +383,12 @@ public class UsuarioService {
      */
     @Transactional(readOnly = true)
     public UsuarioStatsResponse obtenerEstadisticas() {
-        long total = usuarioRepository.count();
+        long total = usuarioRepository.contarPersonal();
         long administradores = usuarioRepository.countByRolNombre("ADMIN");
         long docentes = usuarioRepository.countByRolNombre("DOCENTE");
         long personalControl = usuarioRepository.countByRolNombre("CONTROL");
-        long activos = usuarioRepository.countByEstado("activo");
-        long inactivos = usuarioRepository.countByEstado("inactivo");
+        long activos = usuarioRepository.contarPersonalPorEstado("activo");
+        long inactivos = usuarioRepository.contarPersonalPorEstado("inactivo");
         return new UsuarioStatsResponse(
                 total,
                 administradores,

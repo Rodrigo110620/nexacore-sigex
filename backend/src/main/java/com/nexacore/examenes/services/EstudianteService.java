@@ -15,6 +15,7 @@ import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.models.CondicionEstudiante;
+import com.nexacore.examenes.models.EstadoMatricula;
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -105,7 +106,6 @@ public class EstudianteService {
         String codigoSis = limpiar(request.codigoSis());
         String ci = limpiar(request.ci());
         String email = limpiar(request.email()).toLowerCase();
-        String telefono = limpiar(request.telefono()); 
 
         // BUG-A03: Validar duplicados en ESTUDIANTES
         if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
@@ -136,10 +136,14 @@ public class EstudianteService {
         estudiante.setNombre(limpiar(request.nombre()));
         estudiante.setApellidos(limpiar(request.apellidos()));
         estudiante.setCi(ci);
-        estudiante.setTelefono(telefono.isEmpty() ? null : telefono); //  Opcional: null si está vacío
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
         estudiante.setCondicion(CondicionEstudiante.normalizar(request.condicion(), CondicionEstudiante.REGULAR));
+        
+        // Unificado con la lógica de tu compañero (EstadoMatricula)
+        estudiante.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), null));
+        estudiante.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), EstadoMatricula.MATRICULADO));
+        
         estudiante = estudianteRepository.saveAndFlush(estudiante);
 
         EstudianteCarreraId relacionId = new EstudianteCarreraId();
@@ -152,27 +156,18 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
-        // El estudiante ya está persistido. La falla de SMTP no revierte ni duplica el registro.
+        
         enviarQrSiCorresponde(estudiante);
 
         return new EstudianteListResponse(
-                estudiante.getId(), 
-                estudiante.getCodigoSis(), 
-                estudiante.getNombre(), 
-                estudiante.getApellidos(),
-                estudiante.getCi(), 
-                estudiante.getTelefono(), 
-                estudiante.getEmail(), 
-                List.of(new EstudianteListResponse.CarreraInfo(
-                    carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
-                    carrera.getFacultad().getNombre()
-                )), 
-                estudiante.getCondicion(), 
-                null
+                estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
+                estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
+                carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
+                carrera.getFacultad().getNombre()
+        )), estudiante.getCondicion(), null, estudiante.getTelefono(), estudiante.getEstadoMatricula(), false
         );
     }
 
-    /** Reenvía el QR existente solo regenerándolo explícitamente (revoca el anterior). */
     @Transactional
     public void regenerarYEnviarQr(Integer id) {
         Estudiante estudiante = estudianteRepository.findById(id)
@@ -184,6 +179,10 @@ public class EstudianteService {
     private void enviarQrSiCorresponde(Estudiante estudiante) {
         var qr = qrEstudianteService.crearSiNoExiste(estudiante);
         if (qr != null) emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+    }
+
+    public java.util.Optional<Estudiante> obtenerEntidad(Integer id) {
+        return estudianteRepository.findById(id);
     }
 
     public EstudianteListResponse obtenerPorId(Integer id) {
@@ -200,9 +199,8 @@ public class EstudianteService {
         String nuevoCodigo = limpiar(request.codigoSis());
         String nuevoCi = limpiar(request.ci());
         String nuevoEmail = limpiar(request.email()).toLowerCase();
-        String nuevoTelefono = limpiar(request.telefono()); 
 
-        // Validar duplicados en ESTUDIANTES (solo si el valor cambió)
+        // Validar duplicados en ESTUDIANTES
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)
                 && estudianteRepository.existsByCodigoSisIgnoreCase(nuevoCodigo)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
@@ -240,10 +238,15 @@ public class EstudianteService {
         e.setApellidos(limpiar(request.apellidos()));
         e.setCodigoSis(nuevoCodigo);
         e.setCi(nuevoCi);
-        e.setTelefono(nuevoTelefono.isEmpty() ? null : nuevoTelefono); 
         e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
         e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
+        
+        // Unificado con la lógica de tu compañero (EstadoMatricula)
+        e.setTelefono(EstadoMatricula.normalizarTelefono(request.telefono(), e.getTelefono()));
+        e.setEstadoMatricula(EstadoMatricula.normalizar(request.estadoMatricula(), e.getEstadoMatricula()));
+        
         estudianteRepository.saveAndFlush(e);
+        sincronizarCuenta(e);
 
         // Reemplazar la carrera (borrar y volver a insertar)
         estudianteCarreraRepository.deleteByEstudianteId(id);
@@ -260,6 +263,20 @@ public class EstudianteService {
         estudianteCarreraRepository.save(relacion);
 
         return toResponse(e);
+    }
+
+    /**
+     * Si el estudiante activó su cuenta, su usuario repite nombre, apellidos, CI y correo.
+     */
+    private void sincronizarCuenta(Estudiante e) {
+        if (e.getIdUsuario() == null) return;
+        usuarioRepository.findById(e.getIdUsuario()).ifPresent(usuario -> {
+            usuario.setNombre(e.getNombre());
+            usuario.setApellidos(e.getApellidos());
+            usuario.setCi(e.getCi());
+            usuario.setEmail(e.getEmail());
+            usuarioRepository.save(usuario);
+        });
     }
 
     private String limpiar(String value) {
@@ -285,11 +302,13 @@ public class EstudianteService {
                 e.getNombre(),
                 e.getApellidos(),
                 e.getCi(),
-                e.getTelefono(), 
                 e.getEmail(),
                 carrerasInfo,
                 e.getCondicion(),
-                fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId()))
+                fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId())),
+                e.getTelefono(),
+                e.getEstadoMatricula(),
+                e.getIdUsuario() != null
         );
     }
 }

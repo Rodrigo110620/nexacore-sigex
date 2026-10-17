@@ -48,6 +48,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
                    OR EXISTS (SELECT ur FROM UsuarioRol ur JOIN ur.idRol r
                               WHERE ur.idUsuario = u AND r.nombre = :rol))
               AND (:estado = '' OR LOWER(CAST(u.estado AS String)) = :estado)
+              AND NOT EXISTS (SELECT e FROM Estudiante e WHERE e.idUsuario = u.id)
             """;
 
     /**
@@ -80,5 +81,14 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
             WHERE r.nombre = :rolNombre
             """)
     long countByRolNombre(@Param("rolNombre") String rolNombre);
-    long countByEstado(String estado);
+
+    /** Usuarios del personal: sin contar las cuentas de estudiantes. */
+    @Query("SELECT COUNT(u) FROM Usuario u WHERE NOT EXISTS (SELECT e FROM Estudiante e WHERE e.idUsuario = u.id)")
+    long contarPersonal();
+
+    @Query("""
+            SELECT COUNT(u) FROM Usuario u
+            WHERE u.estado = :estado AND NOT EXISTS (SELECT e FROM Estudiante e WHERE e.idUsuario = u.id)
+            """)
+    long contarPersonalPorEstado(@Param("estado") String estado);
 }
