@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,7 +75,11 @@ class ImportacionEstudiantesServiceTests {
 
         var result = service.importar(file);
 
-        assertEquals(1, result.insertados());
+        assertEquals(2, result.insertados());
+        assertEquals(0, result.ignorados());
+        
+        verify(estudianteService, times(2)).registrar(any());
+        
         verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
             "71234567".equals(r.telefono()) && "NO_MATRICULADO".equals(r.estadoMatricula())));
     }

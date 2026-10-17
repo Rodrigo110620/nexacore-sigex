@@ -17,14 +17,8 @@ class TelefonoMatriculaTests {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     private RegistrarEstudianteRequest request(String telefono, String estadoMatricula) {
-        // Orden: nombre, apellidos, ci, telefono, email, codigoSis, facultad, carrera, condicion, estado
-        return new RegistrarEstudianteRequest(
-            "María", "González", "7489210", 
-            telefono, 
-            "maria.gonzalez@est.umss.edu", "202104010", 
-            1, 10, 
-            null, estadoMatricula
-        );
+        return new RegistrarEstudianteRequest("María", "González", "7489210", telefono, "maria.gonzalez@est.umss.edu", 
+                "202104010", 1, 10, null, estadoMatricula);
     }
 
     @ParameterizedTest
@@ -55,6 +49,8 @@ class TelefonoMatriculaTests {
         assertThat(EstadoMatricula.normalizarTelefono(null, "71234567")).isEqualTo("71234567");
         assertThat(EstadoMatricula.normalizarTelefono("", "71234567")).isNull();
         assertThat(EstadoMatricula.normalizarTelefono(" 6123 4567 ", null)).isEqualTo("61234567");
+        
+        // Tu lógica rechaza el 5
         assertThatThrownBy(() -> EstadoMatricula.normalizarTelefono("51234567", null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
