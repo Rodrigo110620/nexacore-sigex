@@ -28,6 +28,9 @@ public class Estudiante {
     @Column(name = "codigo_sis", nullable = false, length = Integer.MAX_VALUE)
     private String codigoSis;
 
+    @Column(name = "telefono", length = 8)
+    private String telefono;
+
     @NotNull
     @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
     private String nombre;

@@ -12,6 +12,7 @@ public record EstudianteListResponse(
     String nombre,
     String apellidos,
     String ci,
+    String telefono,
     String email,
     List<CarreraInfo> carreras,
     /** REGULAR o POSTULANTE. */
@@ -21,7 +22,7 @@ public record EstudianteListResponse(
 ) {
     public EstudianteListResponse(Integer id, String codigoSis, String nombre, String apellidos, String ci,
                                   String email, List<CarreraInfo> carreras) {
-        this(id, codigoSis, nombre, apellidos, ci, email, carreras, "REGULAR", null);
+        this(id, codigoSis, nombre, apellidos, ci, null,  email, carreras, "REGULAR", null);
     }
 
     public record CarreraInfo(

@@ -13,7 +13,7 @@ import com.nexacore.examenes.models.EstudianteCarreraId;
 import com.nexacore.examenes.repositories.CarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
-import com.nexacore.examenes.repositories.UsuarioRepository;  // 🆕
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.models.CondicionEstudiante;
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import org.springframework.data.domain.Page;
@@ -105,6 +105,7 @@ public class EstudianteService {
         String codigoSis = limpiar(request.codigoSis());
         String ci = limpiar(request.ci());
         String email = limpiar(request.email()).toLowerCase();
+        String telefono = limpiar(request.telefono()); 
 
         // BUG-A03: Validar duplicados en ESTUDIANTES
         if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
@@ -135,6 +136,7 @@ public class EstudianteService {
         estudiante.setNombre(limpiar(request.nombre()));
         estudiante.setApellidos(limpiar(request.apellidos()));
         estudiante.setCi(ci);
+        estudiante.setTelefono(telefono.isEmpty() ? null : telefono); //  Opcional: null si está vacío
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
         estudiante.setCondicion(CondicionEstudiante.normalizar(request.condicion(), CondicionEstudiante.REGULAR));
@@ -154,11 +156,19 @@ public class EstudianteService {
         enviarQrSiCorresponde(estudiante);
 
         return new EstudianteListResponse(
-                estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
-                estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
-                carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
-                carrera.getFacultad().getNombre()
-        )), estudiante.getCondicion(), null
+                estudiante.getId(), 
+                estudiante.getCodigoSis(), 
+                estudiante.getNombre(), 
+                estudiante.getApellidos(),
+                estudiante.getCi(), 
+                estudiante.getTelefono(), 
+                estudiante.getEmail(), 
+                List.of(new EstudianteListResponse.CarreraInfo(
+                    carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
+                    carrera.getFacultad().getNombre()
+                )), 
+                estudiante.getCondicion(), 
+                null
         );
     }
 
@@ -190,6 +200,7 @@ public class EstudianteService {
         String nuevoCodigo = limpiar(request.codigoSis());
         String nuevoCi = limpiar(request.ci());
         String nuevoEmail = limpiar(request.email()).toLowerCase();
+        String nuevoTelefono = limpiar(request.telefono()); 
 
         // Validar duplicados en ESTUDIANTES (solo si el valor cambió)
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)
@@ -229,6 +240,7 @@ public class EstudianteService {
         e.setApellidos(limpiar(request.apellidos()));
         e.setCodigoSis(nuevoCodigo);
         e.setCi(nuevoCi);
+        e.setTelefono(nuevoTelefono.isEmpty() ? null : nuevoTelefono); 
         e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
         e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
         estudianteRepository.saveAndFlush(e);
@@ -273,6 +285,7 @@ public class EstudianteService {
                 e.getNombre(),
                 e.getApellidos(),
                 e.getCi(),
+                e.getTelefono(), 
                 e.getEmail(),
                 carrerasInfo,
                 e.getCondicion(),

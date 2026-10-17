@@ -26,6 +26,11 @@ public record RegistrarEstudianteRequest(
         @Size(min = 7, max = 8, message = "El CI debe tener 7 u 8 digitos")
         @Pattern(regexp = "^\\d{7,8}$", message = "El CI debe contener solo digitos")
         String ci,
+
+        @Size(max = 8, message = "El teléfono no puede tener más de 8 caracteres")
+        @Pattern(regexp = "^[23467]\\d{6,7}$", message = "El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7")
+        String telefono,
+
         @NotBlank(message = "El correo electrónico es obligatorio")
         @Email(message = "El formato del correo electronico no es valido")
         @Pattern(
@@ -48,6 +53,6 @@ public record RegistrarEstudianteRequest(
 ) {
     public RegistrarEstudianteRequest(String nombre, String apellidos, String ci, String email, String codigoSis,
                                       Integer idFacultad, Integer idCarrera) {
-        this(nombre, apellidos, ci, email, codigoSis, idFacultad, idCarrera, null);
+        this(nombre, apellidos, ci, null, email, codigoSis, idFacultad, idCarrera, null);
     }
 }

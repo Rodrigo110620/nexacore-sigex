@@ -7,6 +7,7 @@ export const FIELD_LIMITS = {
   email: { min: 5, max: 50 }, 
   documento: { min: 7, max: 8 },
   codigoSis: { min: 9, max: 9 },
+  telefono: { min: 7, max: 8 },
   rol: { min: 2, max: 30 },
 } as const
 
@@ -249,5 +250,47 @@ export const validateCodigoSis = (value: string): string => {
   if (!/^\d{9}$/.test(trimmed)) return 'El código SIS debe tener 9 dígitos'
   if (/^0+$/.test(trimmed)) return 'El código SIS no puede ser solo ceros'
   if (/^(\d)\1+$/.test(trimmed)) return 'El código SIS no puede ser un número repetido'
+  return ''
+}
+
+/**
+ * Reglas del teléfono/celular boliviano:
+ *  - Opcional (vacío = válido)
+ *  - Solo dígitos
+ *  - 7 u 8 dígitos:
+ *      · 7 dígitos → fijos (Cochabamba 4XXXXXX, La Paz 2XXXXXX)
+ *      · 8 dígitos → celulares (6XXXXXXX, 7XXXXXXX) o fijos SCZ (3XXXXXXX)
+ *  - Prefijo válido: 2, 3, 4 (fijos), 6, 7 (celulares)
+ *  - No puede ser todo ceros ni todos iguales
+ */
+export const validateTelefono = (value: string): string => {
+  const trimmed = value.trim()
+
+  // Es opcional: si está vacío, no hay error
+  if (!trimmed) return ''
+
+  // Solo números
+  if (!/^\d+$/.test(trimmed)) return 'Solo números'
+
+  // 7 u 8 dígitos
+  if (trimmed.length < FIELD_LIMITS.telefono.min || trimmed.length > FIELD_LIMITS.telefono.max) {
+    return 'Debe tener 7 u 8 dígitos'
+  }
+
+  // Prefijo válido en Bolivia (2, 3, 4 fijos / 6, 7 celulares)
+  if (!/^[23467]/.test(trimmed)) {
+    return 'El teléfono debe empezar con 2, 3, 4, 6 o 7'
+  }
+
+  // No todo ceros
+  if (/^0+$/.test(trimmed)) {
+    return 'El teléfono no puede ser solo ceros'
+  }
+
+  // No todos los dígitos iguales (ej. 77777777, 66666666)
+  if (/^(\d)\1+$/.test(trimmed)) {
+    return 'El teléfono no puede ser un número repetido'
+  }
+
   return ''
 }
