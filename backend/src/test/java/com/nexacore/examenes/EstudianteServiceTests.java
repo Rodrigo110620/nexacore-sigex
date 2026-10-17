@@ -48,8 +48,14 @@ class EstudianteServiceTests {
     }
 
     private RegistrarEstudianteRequest request() {
-        return new RegistrarEstudianteRequest("María", "González", "74892104",
-            "maria@umss.edu", "202404012", 1, 10);
+        // Orden correcto: nombre, apellidos, ci, telefono, email, codigoSis, facultad, carrera, condicion, estado
+        return new RegistrarEstudianteRequest(
+            "María", "González", "74892104", 
+            null, 
+            "maria@umss.edu", "202404012", 
+            1, 10, 
+            null, null
+        );
     }
 
     @Test
@@ -93,7 +99,7 @@ class EstudianteServiceTests {
         verify(estudianteRepository, never()).save(any());
     }
 
-        @Test
+    @Test
     void rechazaCiDuplicadoEnUsuarios() {
         when(usuarioRepository.existsByCiIgnoreCase("74892104")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
