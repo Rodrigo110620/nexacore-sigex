@@ -161,10 +161,10 @@ public class EstudianteService {
 
         return new EstudianteListResponse(
                 estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
-                estudiante.getCi(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
+                estudiante.getCi(), estudiante.getTelefono(), estudiante.getEmail(), List.of(new EstudianteListResponse.CarreraInfo(
                 carrera.getId().getIdCarrera(), carrera.getNombre(), carrera.getId().getIdFacultad(),
                 carrera.getFacultad().getNombre()
-        )), estudiante.getCondicion(), null, estudiante.getTelefono(), estudiante.getEstadoMatricula(), false
+        )), estudiante.getCondicion(), null,  estudiante.getEstadoMatricula(), false
         );
     }
 
@@ -302,11 +302,11 @@ public class EstudianteService {
                 e.getNombre(),
                 e.getApellidos(),
                 e.getCi(),
+                e.getTelefono(),
                 e.getEmail(),
                 carrerasInfo,
                 e.getCondicion(),
                 fotoUrl(e.getId(), estudianteFotoRepository.existsById(e.getId())),
-                e.getTelefono(),
                 e.getEstadoMatricula(),
                 e.getIdUsuario() != null
         );
