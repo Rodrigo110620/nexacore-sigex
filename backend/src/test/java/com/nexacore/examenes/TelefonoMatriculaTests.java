@@ -29,7 +29,7 @@ class TelefonoMatriculaTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"51234567", "12345678", "7123456", "712345678", "7123456a", "7123 4567"})
+    @ValueSource(strings = {"51234567", "12345678", "712345", "712345678", "7123456a", "7123 4567"})
     void rechazaTelefonosInvalidos(String telefono) {
         assertThat(validator.validate(request(telefono, null)))
                 .anyMatch(v -> v.getMessage().contains("7 u 8 dígitos"));
