@@ -19,21 +19,14 @@ public record EstudianteListResponse(
     String condicion,
     /** Ruta de la API para descargar la foto (con el token), o null si no tiene. */
     String fotoUrl,
-    /** Teléfono o celular, o null si no se registró. */
-    String telefono,
-    /** MATRICULADO o NO_MATRICULADO. */
     String estadoMatricula,
     /** true si el estudiante ya activó su cuenta de usuario. */
     boolean tieneCuenta
 ) {
-    public EstudianteListResponse(Integer id, String codigoSis, String nombre, String apellidos, String ci,
-                                  String email, List<CarreraInfo> carreras) {
-        this(id, codigoSis, nombre, apellidos, ci, null,  email, carreras, "REGULAR", null);
-    }
 
     public EstudianteListResponse(Integer id, String codigoSis, String nombre, String apellidos, String ci,
                                   String email, List<CarreraInfo> carreras, String condicion, String fotoUrl) {
-        this(id, codigoSis, nombre, apellidos, ci, email, carreras, condicion, fotoUrl, null, "MATRICULADO", false);
+        this(id, codigoSis, nombre, apellidos, ci, null,  email, carreras, condicion, fotoUrl, "MATRICULADO", false);
     }
 
     public record CarreraInfo(

@@ -51,20 +51,12 @@ public record RegistrarEstudianteRequest(
         /** Opcional: REGULAR (por defecto) o POSTULANTE. */
         @Pattern(regexp = CondicionEstudiante.PATRON, message = "La condición debe ser Regular o Postulante")
         String condicion,
-        /** Opcional: 8 dígitos que empiezan con 5, 6 o 7. */
-        @Pattern(regexp = EstadoMatricula.PATRON_TELEFONO, message = "El teléfono debe tener 8 dígitos y empezar con 5, 6 o 7")
-        String telefono,
         /** Opcional: MATRICULADO (por defecto) o NO_MATRICULADO. */
         @Pattern(regexp = EstadoMatricula.PATRON, message = "El estado de matrícula debe ser Matriculado o No matriculado")
         String estadoMatricula
 ) {
     public RegistrarEstudianteRequest(String nombre, String apellidos, String ci, String email, String codigoSis,
-                                      Integer idFacultad, Integer idCarrera) {
-        this(nombre, apellidos, ci, null, email, codigoSis, idFacultad, idCarrera, null);
-    }
-
-    public RegistrarEstudianteRequest(String nombre, String apellidos, String ci, String email, String codigoSis,
                                       Integer idFacultad, Integer idCarrera, String condicion) {
-        this(nombre, apellidos, ci, email, codigoSis, idFacultad, idCarrera, condicion, null, null);
+        this(nombre, apellidos, ci, null, email, codigoSis, idFacultad, idCarrera, condicion, null);
     }
 }
