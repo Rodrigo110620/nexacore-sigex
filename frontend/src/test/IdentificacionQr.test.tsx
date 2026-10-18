@@ -71,9 +71,11 @@ describe('Identificación por QR', () => {
     })
   })
 
-  it('con el QR habilitado, al leerlo detiene la cámara y lo valida en el servidor', async () => {
+  it('con el QR habilitado, muestra el marco de lectura y al leerlo detiene la cámara', async () => {
     renderPage()
     await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
+    expect(document.querySelector('.qr-scan-beam')).toBeInTheDocument()
+    expect(screen.getByText('Cámara activa')).toBeInTheDocument()
 
     act(() => qr.leer({ data: 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890' }))
 

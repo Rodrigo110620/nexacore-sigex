@@ -22,3 +22,29 @@
     transition-property: opacity;
   }
 }
+
+/* El haz refuerza visualmente que la cámara está buscando un QR, sin alterar la lectura real. */
+.qr-scan-beam {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  left: 1rem;
+  height: 2px;
+  border-radius: 999px;
+  background: #67dcff;
+  box-shadow: 0 0 7px #67dcff, 0 5px 18px rgba(103, 220, 255, 0.7);
+  animation: qr-scan 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+@keyframes qr-scan {
+  0%, 100% { top: 1rem; opacity: 0; }
+  9%, 88% { opacity: 1; }
+  52% { top: calc(100% - 1rem); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-scan-beam {
+    top: 50%;
+    animation: none;
+  }
+}
