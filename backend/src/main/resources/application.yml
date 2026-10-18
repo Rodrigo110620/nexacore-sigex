@@ -15,6 +15,9 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Tolera migraciones aplicadas cuyo archivo ya no existe (la V30 que estuvo en develop) y
+    # las más nuevas que la rama actual. Una migración EDITADA sí detiene el arranque.
+    ignore-migration-patterns: "*:missing,*:future"
 
   mail:
     host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
@@ -45,12 +48,21 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:true}
 
 app:
+  flyway:
+    # true solo para alinear checksums a propósito (p. ej. tras el cambio de aea230f en una base
+    # que no arrancó desde entonces). Si está siempre activo, oculta migraciones editadas.
+    reparar-al-iniciar: ${FLYWAY_REPARAR:false}
   security:
     jwt:
       # Sin default: si falta JWT_SECRET en .env, la app no arranca.
       secret: ${JWT_SECRET}
       # 8 horas, como pide la HU AUTH-02
       expiration-ms: ${JWT_EXPIRATION_MS:28800000}
+    qr:
+      # Clave para cifrar los QR de los estudiantes. Opcional: si falta, se usa JWT_SECRET.
+      # Definirla permite cambiar JWT_SECRET sin invalidar los QR ya enviados. Una vez
+      # definida, no se cambia: los QR existentes dejarían de servir.
+      secret: ${QR_SECRET:}
     # Bloqueo de la cuenta tras intentos fallidos seguidos (HU AUTH-02)
     login:
       max-intentos: ${LOGIN_MAX_INTENTOS:3}

@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +65,23 @@ class ImportacionEstudiantesServiceTests {
         verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
             r.codigoSis().equals("202404012") && r.email().equals("maria@umss.edu")
                 && r.idFacultad() == 1 && r.idCarrera() == 10));
+    }
+
+    @Test
+    void importaTelefonoYEstadoDeMatriculaOpcionales() {
+        var file = csv("codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera,telefono,estadoMatricula\n"
+            + "202404012,María,González Flores,7489210,maria@umss.edu,1,10,71234567,NO_MATRICULADO\n"
+            + "202404013,Luis,Rojas Paz,7489211,luis@umss.edu,1,10,41234567,\n");
+
+        var result = service.importar(file);
+
+        assertEquals(2, result.insertados());
+        assertEquals(0, result.ignorados());
+        
+        verify(estudianteService, times(2)).registrar(any());
+        
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            "71234567".equals(r.telefono()) && "NO_MATRICULADO".equals(r.estadoMatricula())));
     }
 
     @Test

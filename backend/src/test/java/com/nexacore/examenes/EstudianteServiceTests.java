@@ -8,6 +8,8 @@ import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.EstudianteService;
+import com.nexacore.examenes.services.QrEstudianteService;
+import com.nexacore.examenes.services.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,17 +37,25 @@ class EstudianteServiceTests {
     @Mock CarreraRepository carreraRepository;
     @Mock UsuarioRepository usuarioRepository; 
     @Mock com.nexacore.examenes.repositories.EstudianteFotoRepository estudianteFotoRepository;
+    @Mock QrEstudianteService qrEstudianteService;
+    @Mock EmailService emailService;
     private EstudianteService service;
 
     @BeforeEach
     void setUp() {
         service = new EstudianteService(estudianteRepository, estudianteCarreraRepository, carreraRepository, usuarioRepository,
-                estudianteFotoRepository);
+                estudianteFotoRepository, qrEstudianteService, emailService);
     }
 
     private RegistrarEstudianteRequest request() {
-        return new RegistrarEstudianteRequest("María", "González", "74892104",
-            "maria@umss.edu", "202404012", 1, 10);
+        // Orden correcto: nombre, apellidos, ci, telefono, email, codigoSis, facultad, carrera, condicion, estado
+        return new RegistrarEstudianteRequest(
+            "María", "González", "74892104", 
+            null, 
+            "maria@umss.edu", "202404012", 
+            1, 10, 
+            null, null
+        );
     }
 
     @Test
@@ -89,7 +99,7 @@ class EstudianteServiceTests {
         verify(estudianteRepository, never()).save(any());
     }
 
-        @Test
+    @Test
     void rechazaCiDuplicadoEnUsuarios() {
         when(usuarioRepository.existsByCiIgnoreCase("74892104")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));

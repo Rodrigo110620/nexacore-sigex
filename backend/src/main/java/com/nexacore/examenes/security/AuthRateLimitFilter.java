@@ -28,7 +28,9 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private static final Set<String> PROTECTED_PATHS = Set.of(
             "/auth/login",
             "/auth/forgot-password",
-            "/auth/reset-password"
+            "/auth/reset-password",
+            "/auth/estudiante/activacion/solicitar",
+            "/auth/estudiante/activacion/confirmar"
     );
 
     private final ObjectMapper objectMapper;

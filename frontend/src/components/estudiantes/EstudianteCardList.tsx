@@ -37,10 +37,20 @@ export default function EstudianteCardList({
               {getInitials(e.nombre, e.apellidos)}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-[#011140]">
-                {e.nombre} {e.apellidos}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">
+               <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-sm font-bold text-[#011140]">
+                  {e.nombre} {e.apellidos}
+                </p>
+                <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                  e.estadoMatricula === 'NO_MATRICULADO' 
+                    ? 'bg-red-100 text-red-800' 
+                    : 'bg-emerald-100 text-emerald-900 '
+                }`}>
+                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'Inactivo' : 'Activo'}
+                </span>
+              </div>
+              
+              <p className="mt-1 truncate text-[11px] text-[#627A9B]">
                 Cód: {e.codigoSis} · DNI: {e.ci}
               </p>
             </div>

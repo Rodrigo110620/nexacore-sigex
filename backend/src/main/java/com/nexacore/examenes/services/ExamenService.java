@@ -61,6 +61,7 @@ public class ExamenService {
     private final DocenteRepository docenteRepository;
     private final ParaleloRepository paraleloRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
     private final EstudianteRepository estudianteRepository;
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
@@ -82,7 +83,8 @@ public class ExamenService {
             EstudianteRepository estudianteRepository,
             AsistenciaExamenRepository asistenciaExamenRepository,
             ObjectMapper objectMapper,
-            ExamenAulaRepository examenAulaRepository) {
+            ExamenAulaRepository examenAulaRepository,
+            AuditoriaService auditoriaService) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.materiaRepository = materiaRepository;
@@ -92,6 +94,7 @@ public class ExamenService {
         this.estudianteRepository = estudianteRepository;
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.objectMapper = objectMapper;
+        this.auditoriaService = auditoriaService;
         this.examenAulaRepository = examenAulaRepository;
     }
 
@@ -168,7 +171,7 @@ public class ExamenService {
 
         Examen guardado = examenRepository.save(examen);
         guardarAulasAdicionales(idExamen, adicionales);
-        registrarAuditoria("EXAMEN_CREADO", Map.of(
+        auditoriaService.registrar("EXAMEN_CREADO", Map.of(
                 "idExamen", guardado.getId().getIdExamen(),
                 "idParalelo", guardado.getId().getIdParalelo(),
                 "examen", resumen(guardado)));
@@ -226,7 +229,7 @@ public class ExamenService {
 
         Examen guardado = examenRepository.save(examen);
         guardarAulasAdicionales(idExamen, adicionales);
-        registrarAuditoria("EXAMEN_MODIFICADO", Map.of(
+        auditoriaService.registrar("EXAMEN_MODIFICADO", Map.of(
                 "idExamen", idExamen,
                 "idParaleloAnterior", idParalelo,
                 "idParalelo", guardado.getId().getIdParalelo(),
@@ -291,7 +294,7 @@ public class ExamenService {
         String estadoAnterior = examen.getEstado();
         examen.setEstado("cancelado");
         examenRepository.save(examen);
-        registrarAuditoria("EXAMEN_CANCELADO", Map.of(
+        auditoriaService.registrar("EXAMEN_CANCELADO", Map.of(
                 "idExamen", idExamen,
                 "idParalelo", idParalelo,
                 "estadoAnterior", estadoAnterior == null ? "" : estadoAnterior));
@@ -660,7 +663,10 @@ public class ExamenService {
                 validarTextoNorma(norma.texto(), "particular");
                 validarEstudianteDeNorma(norma, examen);
             }
-            String clave = norma.estudiante().trim().toLowerCase() + "|" + norma.texto().trim().toLowerCase();
+            // Por id si lo tiene: dos estudiantes con el mismo nombre pueden tener la misma norma.
+            String quien = norma.idEstudiante() != null
+                    ? "id:" + norma.idEstudiante() : norma.estudiante().trim().toLowerCase();
+            String clave = quien + "|" + norma.texto().trim().toLowerCase();
             if (!vistasParticulares.add(clave)) {
                 throw new IllegalArgumentException(
                         "La norma particular \"" + norma.texto() + "\" está repetida para " + norma.estudiante() + ".");
@@ -739,29 +745,6 @@ public class ExamenService {
         datos.put("normas", examen.getNormas());
         datos.put("modoReparto", examen.getModoReparto());
         return datos;
-    }
-
-    private void registrarAuditoria(String accion, Map<String, Object> detalles) {
-        String email = SesionActual.email();
-        if (email == null) {
-            return;
-        }
-        Integer idUsuario = usuarioRepository.findByEmail(email).map(Usuario::getId).orElse(null);
-        if (idUsuario == null) {
-            return;
-        }
-        String json;
-        try {
-            json = objectMapper.writeValueAsString(detalles);
-        } catch (JsonProcessingException e) {
-            json = String.valueOf(detalles);
-        }
-        entityManager.createNativeQuery(
-                        "INSERT INTO public.auditoria_operacion (id_usuario, accion, detalles) VALUES (:u, :a, :d)")
-                .setParameter("u", idUsuario)
-                .setParameter("a", accion)
-                .setParameter("d", json)
-                .executeUpdate();
     }
 
     /** Materias, nombres de docente y de ambiente de un grupo de exámenes, leídos en una consulta por tabla. */

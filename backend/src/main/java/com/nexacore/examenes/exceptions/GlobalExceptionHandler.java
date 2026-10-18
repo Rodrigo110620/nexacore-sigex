@@ -2,11 +2,13 @@ package com.nexacore.examenes.exceptions;
 
 import com.nexacore.examenes.dto.ErrorResponse;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -44,6 +46,32 @@ public class GlobalExceptionHandler {
                 "Los datos enviados no son validos",
                 errores);
 
+        return ResponseEntity.badRequest().body(cuerpo);
+    }
+
+    /**
+     * Una regla de la entidad rechazó el dato al guardarlo (p. ej. un formato que el DTO dejó
+     * pasar). Es un dato inválido, no un fallo del servidor: 400 con el campo y su motivo.
+     * Al validar en el commit, Spring la envuelve en TransactionSystemException.
+     */
+    @ExceptionHandler({ConstraintViolationException.class, TransactionSystemException.class})
+    public ResponseEntity<ErrorResponse> manejarRestriccionDeEntidad(Exception ex) {
+        Throwable causa = ex;
+        while (causa != null && !(causa instanceof ConstraintViolationException)) {
+            causa = causa.getCause();
+        }
+        if (!(causa instanceof ConstraintViolationException violacion)) {
+            ErrorResponse cuerpo = new ErrorResponse(
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(), "No se pudo completar la operación");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cuerpo);
+        }
+        Map<String, String> errores = new HashMap<>();
+        violacion.getConstraintViolations().forEach(v ->
+                errores.put(String.valueOf(v.getPropertyPath()), v.getMessage()));
+        ErrorResponse cuerpo = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Los datos enviados no son validos",
+                errores);
         return ResponseEntity.badRequest().body(cuerpo);
     }
 

@@ -1,4 +1,4 @@
-import { Building2, GraduationCap, Mail, X } from 'lucide-react'
+import { Building2, GraduationCap, Mail, Phone, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 import FotoEstudiante from './FotoEstudiante'
@@ -23,8 +23,6 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
       aria-labelledby="ficha-estudiante-title"
     >
       <div className="flex h-[90dvh] max-h-[750px] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(92dvh,900px)] sm:rounded-2xl">
-
-        {/* ===== HEADER ===== */}
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#EDF1F7] px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-start gap-3">
             <div>
@@ -51,10 +49,7 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
           </button>
         </header>
 
-        {/* ===== CONTENIDO ===== */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
-
-          {/* Avatar */}
           <div className="mb-5 mx-auto flex items-center justify-center gap-3 p-3">
             <FotoEstudiante
               fotoUrl={estudiante.fotoUrl}
@@ -109,6 +104,18 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
               <div className="rounded-lg border border-[#E8EEF7] bg-white p-3">
                 <div className="flex items-center justify-between">
                   <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Teléfono / Celular
+                  </dt>
+                  <Phone size={14} className="text-[#687182]" />
+                </div>
+                <dd className="mt-1 truncate text-[12px] font-semibold text-[#011140] sm:text-sm">
+                  {estudiante.telefono || '—'}
+                </dd>
+              </div>
+
+              <div className="rounded-lg border border-[#E8EEF7] bg-white p-3 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                     Correo Electrónico Institucional
                   </dt>
                   <Mail size={14} className="text-[#687182]" />
@@ -150,6 +157,19 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
               </div>
             </div>
 
+            <div className="mb-3 rounded-lg border border-[#E8EEF7] bg-white p-3">
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                Estado de Matrícula
+              </dt>
+              <dd className={`mt-1 text-[12px] font-bold sm:text-sm ${
+                estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'text-red-900' : 'text-emerald-800'
+              }`}>
+                {estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'NO MATRICULADO' : 'MATRICULADO'}
+              </dd>
+            </div>
+            
+            
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-[#E8EEF7] bg-white p-3">
                 <div className="flex items-center justify-between">
@@ -178,7 +198,6 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
           </section>
         </div>
 
-        {/* ===== FOOTER ===== */}
         <footer className="shrink-0 border-t border-[#D8E3F5] bg-white px-4 py-3 sm:px-10 sm:py-3">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
             <button

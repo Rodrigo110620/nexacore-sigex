@@ -240,7 +240,7 @@ public class ControlIngresoService {
         var examen = asistencia.getExamen();
         var estudiante = asistencia.getEstudiante();
         String nombreCompleto = (estudiante.getNombre() + " " + estudiante.getApellidos()).trim();
-        NormasExamen normas = leerNormas(examen.getNormas(), nombreCompleto);
+        NormasExamen normas = leerNormas(examen.getNormas(), estudiante.getId(), nombreCompleto);
         var fila = estudianteRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen);
         return new ContextoControlIngresoResponse(
                 idEstudiante,
@@ -406,7 +406,13 @@ public class ControlIngresoService {
         }
     }
 
-    private NormasExamen leerNormas(String valor, String estudiante) {
+    /**
+     * Normas generales y las particulares de este estudiante. La norma particular se reconoce por
+     * idEstudiante; el nombre solo se usa en las normas guardadas antes de exigir el id, que no lo
+     * tienen. Así dos estudiantes con el mismo nombre no ven la norma del otro y una corrección del
+     * nombre no hace desaparecer la norma.
+     */
+    private NormasExamen leerNormas(String valor, Integer idEstudiante, String estudiante) {
         if (valor == null || valor.isBlank()) return new NormasExamen(List.of(), List.of());
         try {
             Map<String, Object> contenido = objectMapper.readValue(valor, new TypeReference<>() {});
@@ -415,7 +421,7 @@ public class ControlIngresoService {
             List<Map<String, Object>> particulares = objectMapper.convertValue(
                     contenido.getOrDefault("particulares", List.of()), new TypeReference<>() {});
             List<String> aplicables = particulares.stream()
-                    .filter(norma -> estudiante.equalsIgnoreCase(String.valueOf(norma.get("estudiante"))))
+                    .filter(norma -> esDelEstudiante(norma, idEstudiante, estudiante))
                     .map(norma -> String.valueOf(norma.get("texto")))
                     .filter(texto -> !texto.isBlank() && !"null".equals(texto))
                     .toList();
@@ -508,4 +514,12 @@ public class ControlIngresoService {
     }
 
     private record NormasExamen(List<String> generales, List<String> particulares) {}
+
+    private static boolean esDelEstudiante(Map<String, Object> norma, Integer idEstudiante, String nombre) {
+        Object id = norma.get("idEstudiante");
+        if (id != null) {
+            return String.valueOf(id).equals(String.valueOf(idEstudiante));
+        }
+        return nombre.equalsIgnoreCase(String.valueOf(norma.get("estudiante")));
+    }
 }

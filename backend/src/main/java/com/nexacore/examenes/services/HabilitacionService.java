@@ -69,6 +69,7 @@ public class HabilitacionService {
     private final InscripcionParaleloRepository inscripcionParaleloRepository;
     private final UsuarioRepository usuarioRepository;
     private final RepartoAulasService repartoAulasService;
+    private final AuditoriaService auditoriaService;
 
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
@@ -76,7 +77,8 @@ public class HabilitacionService {
                                ExamenRepository examenRepository,
                                InscripcionParaleloRepository inscripcionParaleloRepository,
                                UsuarioRepository usuarioRepository,
-                               RepartoAulasService repartoAulasService) {
+                               RepartoAulasService repartoAulasService,
+                               AuditoriaService auditoriaService) {
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -84,6 +86,7 @@ public class HabilitacionService {
         this.inscripcionParaleloRepository = inscripcionParaleloRepository;
         this.usuarioRepository = usuarioRepository;
         this.repartoAulasService = repartoAulasService;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional(readOnly = true)
@@ -214,12 +217,27 @@ public class HabilitacionService {
         if (asistencias.size() != ids.size()) {
             throw new IllegalArgumentException("Algunos estudiantes seleccionados no están asociados a este examen");
         }
+        if (estado != EstadoHabilitacion.HABILITADO) {
+            rechazarSiYaIngresaron(asistencias);
+        }
         Boolean habilitado = estado == EstadoHabilitacion.PENDIENTE ? null : estado == EstadoHabilitacion.HABILITADO;
+        List<Map<String, Object>> cambios = new ArrayList<>();
         for (AsistenciaExamen asistencia : asistencias) {
+            cambios.add(Map.of(
+                    "idEstudiante", asistencia.getId().getIdEstudiante(),
+                    "estadoAnterior", estadoDe(asistencia.getHabilitado()).name()));
             asistencia.setHabilitado(habilitado);
             asistencia.setMotivoInhabilitacion(motivo);
         }
         asistenciaExamenRepository.saveAllAndFlush(asistencias);
+        // Quién cambió la habilitación, cuándo, a qué estado, con qué razón y desde qué estado.
+        Map<String, Object> detalles = new java.util.HashMap<>();
+        detalles.put("idExamen", idExamen);
+        detalles.put("idParalelo", idParalelo);
+        detalles.put("estado", estado.name());
+        detalles.put("motivo", motivo);
+        detalles.put("estudiantes", cambios);
+        auditoriaService.registrar("HABILITACION_ACTUALIZADA", detalles);
         return listarSinVerificar(idExamen, idParalelo);
     }
 
@@ -302,6 +320,32 @@ public class HabilitacionService {
     }
 
     /** Un examen cancelado o finalizado ya no admite asociaciones ni cambios de habilitación (409). */
+    /**
+     * Quien ya ingresó al examen no puede quedar no habilitado ni pendiente: el registro diría que
+     * entró sin estar habilitado. Si hay un problema con su ingreso, se gestiona como incidencia.
+     */
+    private static void rechazarSiYaIngresaron(List<AsistenciaExamen> asistencias) {
+        List<String> ingresados = asistencias.stream()
+                .filter(a -> a.getFechaHoraIngreso() != null)
+                .map(a -> a.getEstudiante() != null
+                        ? a.getEstudiante().getNombre() + " " + a.getEstudiante().getApellidos()
+                        : "id " + a.getId().getIdEstudiante())
+                .sorted()
+                .toList();
+        if (!ingresados.isEmpty()) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "No se puede cambiar la habilitación de quien ya ingresó al examen: "
+                            + String.join(", ", ingresados) + ".");
+        }
+    }
+
+    private static EstadoHabilitacion estadoDe(Boolean habilitado) {
+        if (habilitado == null) {
+            return EstadoHabilitacion.PENDIENTE;
+        }
+        return habilitado ? EstadoHabilitacion.HABILITADO : EstadoHabilitacion.NO_HABILITADO;
+    }
+
     private Examen buscarExamenEditable(Integer idExamen, Integer idParalelo) {
         Examen examen = buscarExamen(idExamen, idParalelo);
         String estado = examen.getEstado() == null ? "programado" : examen.getEstado().toLowerCase();

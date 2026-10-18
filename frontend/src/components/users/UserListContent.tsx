@@ -180,7 +180,7 @@ export default function UserListContent({
                 ) : null}
               </div>
             ) : users.length > 0 ? (
-              <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
+              <div className="min-[960px]:rounded-none">
                 <div className="min-[960px]:hidden">
                   <UserCardList users={users} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />
                 </div>

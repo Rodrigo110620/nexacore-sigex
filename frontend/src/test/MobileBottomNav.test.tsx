@@ -95,11 +95,13 @@ describe('MobileBottomNav', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
-  it('en Control muestra las opciones de navegación del mockup móvil', () => {
+  it('en Control conserva las cinco opciones globales y no muestra Ajustes', () => {
     renderNav('/dashboard/control/7', ['ADMIN'], 'controlDetail')
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
-    expect(within(navigation).getAllByRole('listitem')).toHaveLength(3)
-    expect(within(navigation).getByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/dashboard/perfil')
-    expect(within(navigation).queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
+    expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
+    expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
+    expect(within(navigation).queryByRole('link', { name: 'Ajustes' })).not.toBeInTheDocument()
   })
 })

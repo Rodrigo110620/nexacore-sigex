@@ -16,16 +16,14 @@ class RegistrarEstudianteRequestTests {
     @ParameterizedTest
     @ValueSource(strings = {"ab@est.umss.edu", "111111@est.umss.edu", "___@est.umss.edu", "wwwwwww@erst.umss.edu"})
     void rechazaCorreosQueIncumplenQaA01(String email) {
-        var request = new RegistrarEstudianteRequest(
-                "Ana", "Pérez Flores", "74839201", email, "202600001", 1, 10);
+        var request = new RegistrarEstudianteRequest("Nombre", "Apellidos", "12345678", null, email, "202404012", 1, 10, null, null);
 
         assertTrue(validator.validate(request).stream().anyMatch(error -> error.getPropertyPath().toString().equals("email")));
     }
 
     @Test
     void aceptaCorreoInstitucionalConParteLocalValida() {
-        var request = new RegistrarEstudianteRequest(
-                "Ana", "Pérez Flores", "74839201", "ana.perez@est.umss.edu", "202600001", 1, 10);
+        var request = new RegistrarEstudianteRequest("Nombre", "Apellidos", "12345678", null, "correo@umss.edu", "202404012", 1, 10, null, null);
 
         assertFalse(validator.validate(request).stream().anyMatch(error -> error.getPropertyPath().toString().equals("email")));
     }

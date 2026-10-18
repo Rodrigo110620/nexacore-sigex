@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Eye, X } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { getUserInitials } from '../users/userAvatar.utils'
-import EstadoHabilitacionBadge from './EstadoHabilitacionBadge'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 
 interface FilaProps {
@@ -50,14 +49,13 @@ const colorCi = (habilitado: boolean) => (habilitado ? 'text-[#0439D9]' : 'text-
 function EstadoIngresoBadge({ ingresado }: { ingresado: boolean }) {
   return (
     <span
-      className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+      className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ${
         ingresado
-          ? 'border-[#BBF7D0] bg-[#F0FDF4] text-[#15803D]'
-          : 'border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]'
+          ? 'bg-[#DCFCE7] text-[#166534]'
+          : 'bg-[#FDECEC] text-[#B91C1C]'
       }`}
     >
-      {ingresado ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : <X size={11} strokeWidth={3} aria-hidden="true" />}
-      {ingresado ? 'Ingresó' : 'No ingresó'}
+      {ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
     </span>
   )
 }
@@ -66,13 +64,12 @@ function EstadoIngresoBadge({ ingresado }: { ingresado: boolean }) {
 export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idExamen: number; estudiantes: EstudianteAsignado[] }) {
   return (
     <>
-      <table className="hidden w-full text-left md:table md:max-w-[80%]">
+      <table className="hidden w-full text-left md:table">
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
             <th scope="col" className="px-4 py-3 font-semibold">Estudiante</th>
             <th scope="col" className="px-4 py-3 font-semibold">Carnet / CI</th>
             <th scope="col" className="px-4 py-3 font-semibold">Carrera</th>
-            <th scope="col" className="px-4 py-3 font-semibold">Estado habilitación</th>
             <th scope="col" className="px-4 py-3 font-semibold">Estado de ingreso</th>
             <th scope="col" className="px-4 py-3"><span className="sr-only">Acciones</span></th>
           </tr>
@@ -85,7 +82,6 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
                 <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado} /></td>
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
-                <td className="px-4 py-3"><EstadoHabilitacionBadge habilitado={habilitado} /></td>
                 <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} /></td>
                 <td className="px-4 py-3 text-right"><Ver idExamen={idExamen} estudiante={estudiante} /></td>
               </tr>
@@ -116,7 +112,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
                     <p className="min-w-0 text-xs font-semibold leading-tight text-[#011140]">
                       {estudiante.nombre} {estudiante.apellidos}
                     </p>
-                    <EstadoHabilitacionBadge habilitado={habilitado} />
+                    <EstadoIngresoBadge ingresado={estudiante.ingresado} />
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-[#EDF1F7] pt-2">
@@ -126,7 +122,6 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
                     </div>
                     <Ver idExamen={idExamen} estudiante={estudiante} />
                   </div>
-                  <div className="mt-2"><EstadoIngresoBadge ingresado={estudiante.ingresado} /></div>
                 </div>
               </div>
             </li>

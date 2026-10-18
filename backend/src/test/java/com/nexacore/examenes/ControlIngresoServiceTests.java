@@ -281,6 +281,24 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void laNormaParticularSeReconocePorIdNoPorNombre() {
+        // Dos estudiantes con el mismo nombre: cada uno ve solo su norma. Y la de Laura sigue
+        // apareciendo aunque se guardó con su nombre anterior.
+        asistencia.getEstudiante().setId(10);
+        asistencia.getExamen().setNormas("""
+                {"generales":["Presentar CI"],
+                 "particulares":[
+                   {"estudiante":"Laura Paredes","texto":"Norma de otra Laura Paredes","idEstudiante":99},
+                   {"estudiante":"Laura Paredez","texto":"Tiempo adicional de 30 minutos","idEstudiante":10}]}
+                """);
+        when(asistenciaRepository.buscarContexto(10, 20)).thenReturn(Optional.of(asistencia));
+
+        var contexto = service.consultarContexto(10, 20);
+
+        assertEquals(List.of("Tiempo adicional de 30 minutos"), contexto.normasParticulares());
+    }
+
+    @Test
     void registraIncidenciaConLosIdentificadoresDelControl() {
         CatalogoIncidencia tipo = new CatalogoIncidencia();
         tipo.setId(3);

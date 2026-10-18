@@ -51,7 +51,7 @@ class EstudianteControllerTests {
     @WithMockUser(roles = "ADMIN")
     void adminPuedeRegistrar() throws Exception {
         when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
-            1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
+            1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));    
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
     }
@@ -60,7 +60,7 @@ class EstudianteControllerTests {
     @WithMockUser(roles = "DOCENTE")
     void docentePuedeRegistrar() throws Exception {
         when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
-            1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
+            1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
     }
@@ -94,5 +94,19 @@ class EstudianteControllerTests {
             .andExpect(jsonPath("$.errores.ci").exists())
             .andExpect(jsonPath("$.errores.email").value("Use un correo institucional UMSS con al menos 3 caracteres antes de @; no se aceptan caracteres repetidos"))
             .andExpect(jsonPath("$.errores.codigoSis").exists());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void unaReglaDeLaEntidadRespondeBadRequestYNoError500() throws Exception {
+        var estudiante = new com.nexacore.examenes.models.Estudiante();
+        estudiante.setTelefono("51234567");
+        var violaciones = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator()
+            .validateProperty(estudiante, "telefono");
+        when(estudianteService.registrar(any())).thenThrow(new jakarta.validation.ConstraintViolationException(violaciones));
+
+        mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errores.telefono").exists());
     }
 }
