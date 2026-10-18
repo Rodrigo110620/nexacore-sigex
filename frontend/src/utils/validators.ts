@@ -137,6 +137,14 @@ export const validateDocumento = (value: string): string => {
     return 'El documento no puede ser una secuencia consecutiva'
   }
 
+  // Un bloque de 2 a 4 dígitos que se repite (ej: 12121212, 12312312, 12341234)
+  const esPatronRepetido = [2, 3, 4].some((largo) =>
+    [...value].every((d, i) => i < largo || d === value[i - largo])
+  )
+  if (esPatronRepetido) {
+    return 'El documento no puede ser un patrón repetido'
+  }
+
   return ''
 }
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'

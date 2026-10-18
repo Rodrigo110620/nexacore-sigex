@@ -191,6 +191,16 @@ export default function ControlIngresoPage() {
       {error&&!textErrorField&&<p role="alert" className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}<div className="control-denial-footer"><button onClick={()=>setDenialOpen(false)} className="control-change">Cancelar</button><button disabled={!reason.trim()||saving||!!detalleError||!!obsError} onClick={()=>void submit(true)} className="control-deny"><Ban size={14}/>{saving?'Registrando...':'Confirmar Denegación'}</button></div></section></div>}
     {result&&ctx&&<div className="control-overlay control-result-overlay fixed inset-0 z-[60] grid place-items-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Resultado del control"><section className="control-receipt"><button aria-label="Cerrar resultado" onClick={()=>{setResult(null); if(result.autorizado) setCtx({...ctx,ingresoRegistrado:true})}} className="absolute right-3 top-3 rounded-full bg-[#F4F5F7] p-1 text-[#7586A0]"><X size={16}/></button><div className={`control-receipt-icon mx-auto grid h-12 w-12 place-items-center rounded-full ${result.autorizado?'bg-green-100 text-green-600':'bg-red-100 text-red-700'}`}>{result.autorizado?<CheckCircle2 size={30}/>:<AlertTriangle/>}</div><h2 className={`mx-auto mt-3 w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?'Ingreso autorizado':'Ingreso denegado'}</h2><div className="mt-4"><StudentSummary ctx={ctx}/></div><dl className="control-receipt-meta my-4 space-y-2 text-xs"><div><dt className="text-[#45628D]">{result.autorizado ? 'Autorizado por' : 'Denegado por'}</dt><dd>{result.autorizadoPor}</dd></div><div><dt className="text-[#45628D]">Fecha y hora oficial</dt><dd>{new Date(result.fechaHoraIngreso).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}</dd></div></dl><p className={`rounded-lg p-3 text-xs ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?(result.ambiente?<>El estudiante debe ingresar al aula <b className="text-base">{result.ambiente}</b>.</>:'El estudiante puede ingresar al ambiente de evaluación.'):result.causa}</p><button onClick={()=>nav(`/dashboard/control/${idExamen}/identificar`)} className="mt-4 min-h-10 w-full rounded-lg bg-[#0439D9] text-sm font-semibold text-white shadow-md">→ Registrar siguiente estudiante</button></section></div>}
     <ResultadoModal resultado={aviso} onClose={()=>setAviso(null)}/>
-    <VerificarAmbienteModal isOpen={verificarAmbienteOpen} onClose={()=>setVerificarAmbienteOpen(false)} onReportado={()=>setAmbienteConfirmado(false)} ctx={ctx} usuarioNombre={nombre ?? ''}/>
+    <VerificarAmbienteModal 
+  isOpen={verificarAmbienteOpen} 
+  onClose={() => setVerificarAmbienteOpen(false)} 
+  onReportado={() => {
+    setVerificarAmbienteOpen(false);
+    setAmbienteConfirmado(false);
+  }}
+  ctx={ctx}
+  aulaActualExamen={ctx?.ambiente}
+  usuarioNombre={nombre ?? undefined}
+/>
   </PanelLayout>{(denialOpen || result || verificarAmbienteOpen) && <MobileBottomNav variant="controlHome" />}</div>
 }
