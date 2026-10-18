@@ -95,6 +95,22 @@ describe('Identificación por QR', () => {
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toBeInTheDocument()
   })
 
+  it('permite volver a escanear un segundo QR válido tras verificar el primero', async () => {
+    renderPage()
+    await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
+
+    act(() => qr.leer({ data: 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890' }))
+    await screen.findByRole('button', { name: 'Volver a escanear' }, { timeout: 2000 })
+    fireEvent.click(screen.getByRole('button', { name: 'Volver a escanear' }))
+    await screen.findByText('Apunta la cámara y alinea el código dentro del recuadro.')
+
+    act(() => qr.leer({ data: 'SIGEX1.202104010.credencialSeguraDeEjemplo_98765432109876543210' }))
+
+    expect(await screen.findByText('María José González Flores')).toBeInTheDocument()
+    expect(identificarQr).toHaveBeenLastCalledWith(7, 'SIGEX1.202104010.credencialSeguraDeEjemplo_98765432109876543210')
+    expect(identificarQr).toHaveBeenCalledTimes(2)
+  })
+
   it('oculta la credencial y muestra un modal al escanear un QR inválido', async () => {
     vi.mocked(identificarQr).mockRejectedValue({ isAxiosError: true, response: { status: 400, data: { mensaje: 'El código QR es inválido o fue alterado' } } })
     renderPage()
