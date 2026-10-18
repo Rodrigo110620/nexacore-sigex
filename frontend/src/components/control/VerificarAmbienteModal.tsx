@@ -32,7 +32,7 @@ export const VerificarAmbienteModal: React.FC<VerificarAmbienteModalProps> = ({ 
 type ContenidoProps = Omit<VerificarAmbienteModalProps, 'isOpen' | 'ctx'> & { ctx: ContextoControlIngreso };
 
 function ContenidoAmbienteModal({ onClose, onReportado, ctx, aulaActualExamen = "", usuarioNombre = "Personal TIS" }: ContenidoProps) {
-  const [aulaActual, setAulaActual] = useState(aulaActualExamen);
+  const [aulaActual, setAulaActual] = useState('');
   const [editandoAula, setEditandoAula] = useState(false);
   const [intentado, setIntentado] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -47,9 +47,7 @@ function ContenidoAmbienteModal({ onClose, onReportado, ctx, aulaActualExamen = 
   }, [registro]);
 
   useEffect(() => {
-    if (aulaActualExamen) {
-      setAulaActual(aulaActualExamen);
-    }
+    setAulaActual(aulaActualExamen ?? '');
   }, [aulaActualExamen]);
 
   const aulaEsperada = ctx.ambiente || '';
