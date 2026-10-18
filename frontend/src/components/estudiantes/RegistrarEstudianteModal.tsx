@@ -1,12 +1,11 @@
 import axios from 'axios'
-import { Check, ChevronDown, Mail, UserPlus, X } from 'lucide-react'
+import { Check, ChevronDown, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
 import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
-import EmailDomainSuggest from './EmailDomainSuggest'
 
 interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: string) => void }
 
@@ -168,7 +167,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
               <label className="block text-xs font-semibold text-[#011140]">Teléfono/Celular <input name="telefono" type="tel" inputMode="numeric" value={form.telefono ?? ''} maxLength={FIELD_LIMITS.telefono.max} onChange={(e) => update('telefono', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('telefono')} placeholder="Opcional (Ej: 71234567)" className={inputClass} /></label>
             </div>
 
-            <label className="block text-xs font-semibold text-[#011140]">
+                        <label className="block text-xs font-semibold text-[#011140]">
               Correo electrónico <b className="text-red-500">*</b>
               <div className="relative">
                 <input
@@ -181,11 +180,17 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
                   placeholder="Ej: maria.gonzalez@umss.edu"
                   className={`${inputClass} pr-32`}
                 />
-                {form.email.length > 0 && !form.email.includes('@') && (
-                  <EmailDomainSuggest visible onAccept={() => update('email', `${form.email}@est.umss.edu`)} />
-                )}
-                {form.email.includes('@') && (
-                  <Mail className="absolute right-3 top-4 text-[#627A9B]" size={16} />
+                {!form.email.includes('@') && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      update('email', `${form.email}@est.umss.edu`);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#E1ECFF] px-2 py-1 text-[10px] font-bold text-[#0439D9] hover:bg-[#D0E2FF]"
+                  >
+                    @est.umss.edu
+                  </button>
                 )}
               </div>
             </label>

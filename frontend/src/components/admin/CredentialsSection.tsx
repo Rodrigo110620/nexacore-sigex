@@ -40,23 +40,41 @@ export default function CredentialsSection({
         </h3>
       </div>
 
-      {/* Email */}
+             {/* Email */}
       <div className="flex flex-col gap-1">
         <label className="text-[#011140] font-medium text-xs">
           Correo Electrónico <span className="text-red-500">*</span>
         </label>
-        <input
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={(e) => onChange('email', e.target.value)}
-          onBlur={() => handleBlurWithError('email')}
-          onKeyDown={handleEnter}
-          placeholder="usuario@est.umss.edu"
-          maxLength={FIELD_LIMITS.email.max}
-          className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
-        />
-        <p className=" text-gray-600 text-xs">
+        
+        <div className="relative">
+          <input
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={(e) => onChange('email', e.target.value)}
+            onBlur={() => handleBlurWithError('email')}
+            onKeyDown={handleEnter}
+            placeholder="usuario@est.umss.edu"
+            maxLength={FIELD_LIMITS.email.max}
+            className="w-full text-xs border border-gray-300 rounded-md py-2.5 pl-3 pr-28 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+          />
+          
+          {/* Quitamos el 'form.email.length > 0' para que sea permanente */}
+          {!form.email.includes('@') && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault(); 
+                onChange('email', `${form.email}@est.umss.edu`);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#E1ECFF] px-2 py-1 text-[10px] font-bold text-[#0439D9] hover:bg-[#D0E2FF]"
+            >
+              @est.umss.edu
+            </button>
+          )}
+        </div>
+
+        <p className="hidden text-gray-600 text-xs sm:block">
           Dominio permitido: @est.umss.edu o @umss.edu.bo · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
       </div>

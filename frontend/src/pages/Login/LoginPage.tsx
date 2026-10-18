@@ -55,9 +55,8 @@ export default function LoginPage() {
             <div className="grid">
               <section
                 aria-hidden={loginAbierto}
-                className={`[grid-area:1/1] self-center ${TRANSICION} ${
-                  loginAbierto ? 'invisible -translate-x-10 opacity-0' : 'translate-x-0 opacity-100 delay-150'
-                }`}
+                className={`[grid-area:1/1] self-center ${TRANSICION} ${loginAbierto ? 'invisible -translate-x-10 opacity-0' : 'translate-x-0 opacity-100 delay-150'
+                  }`}
               >
                 {isMobile && (
                   <img
@@ -85,6 +84,7 @@ export default function LoginPage() {
                   <ArrowRight size={18} aria-hidden="true" />
                 </button>
               </section>
+
 
               <section
                 ref={formRef}
@@ -118,9 +118,8 @@ export default function LoginPage() {
           {/* grid-rows 1fr→0fr colapsa la altura de forma animable. */}
           <div
             aria-hidden={loginAbierto}
-            className={`grid transition-[grid-template-rows,opacity,visibility] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
-              loginAbierto ? 'invisible grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
-            }`}
+            className={`grid transition-[grid-template-rows,opacity,visibility] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${loginAbierto ? 'invisible grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+              }`}
           >
             <div className="-mx-3 min-h-0 overflow-hidden">
               {/* El relleno deja ver las sombras de las tarjetas pese al overflow-hidden. */}
