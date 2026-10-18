@@ -168,7 +168,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
 
         {/* PASO 2: CON FORM (envía al backend) */}
         {step === 2 && (
-          <form onSubmit={handleFinalSubmit} className="flex min-h-0 flex-1 flex-col">
+          <form noValidate onSubmit={handleFinalSubmit} className="flex min-h-0 flex-1 flex-col">
             {renderContent()}
             <RegisterUserFooter
               step={step}

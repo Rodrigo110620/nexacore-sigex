@@ -19,6 +19,7 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
           <button
             type="button"
             onClick={step === 1 ? onClose : onBack}
+            onMouseDown={(e) => e.preventDefault()}
             disabled={loading}
             className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-[#C9D7EC] px-4 py-2 text-sm font-semibold text-[#45628D] transition-colors hover:bg-gray-100 disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
           >
