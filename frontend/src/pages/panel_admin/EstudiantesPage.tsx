@@ -92,7 +92,7 @@ export default function EstudiantesPage() {
         className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
         style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
       >
-        <section aria-label="Gestión de estudiantes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
+        <section aria-label="Gestión de estudiantes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-4 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
             <div className="mb-4 border-b border-[#D8E3F5] pb-3 min-[960px]:hidden">
               <h1 className="text-sm font-bold text-[#011140]">GESTIÓN DE ESTUDIANTES</h1>

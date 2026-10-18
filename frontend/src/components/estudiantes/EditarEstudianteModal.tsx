@@ -310,6 +310,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     <button
                         type="button"
                         onClick={close}
+                        onMouseDown={(e) => e.preventDefault()}
                         aria-label="Cerrar"
                         className="rounded p-1 text-[#627A9B] hover:bg-gray-100"
                     >
@@ -524,6 +525,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     <button
                         type="button"
                         onClick={close}
+                        onMouseDown={(e) => e.preventDefault()}
                         disabled={saving}
                         className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D] hover:bg-gray-100 disabled:opacity-60"
                     >
