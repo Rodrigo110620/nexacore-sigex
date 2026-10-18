@@ -1,12 +1,11 @@
 import axios from 'axios'
-import { Check, ChevronDown, Mail, UserPlus, X } from 'lucide-react'
+import { Check, ChevronDown, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
 import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
-import EmailDomainSuggest from './EmailDomainSuggest'
 
 interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: string) => void }
 
