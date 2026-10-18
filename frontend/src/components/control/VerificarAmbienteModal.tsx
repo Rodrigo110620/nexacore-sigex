@@ -47,6 +47,7 @@ function ContenidoAmbienteModal({ onClose, onReportado, ctx, aulaActualExamen = 
   }, [registro]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAulaActual(aulaActualExamen ?? '');
   }, [aulaActualExamen]);
 
