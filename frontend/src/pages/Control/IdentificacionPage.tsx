@@ -148,7 +148,7 @@ export default function IdentificacionPage() {
               {tipo === 'qr' ? (
                 <EscanerQr
                   key={reinicios}
-                  onLeer={(contenido) => void manejarQrLeido(contenido)}
+                  onLeer={manejarQrLeido}
                   onReescanear={cambiarEstudiante}
                 />
               ) : (

@@ -12,7 +12,7 @@ export const MENSAJE_SIN_CAMARA = 'No se encontró ninguna cámara en este dispo
 export const MENSAJE_SIN_PERMISO =
   'No se pudo acceder a la cámara. Permite el acceso en el navegador o cierra otra aplicación que la esté usando.'
 const MENSAJE_QR_VACIO = 'El código QR está vacío o no es legible.'
-const DURACION_MINIMA_VERIFICACION_MS = 520
+const DURACION_MINIMA_VERIFICACION_MS = 1200
 
 const esperar = (milisegundos: number) => new Promise<void>((resolver) => setTimeout(resolver, milisegundos))
 
