@@ -70,6 +70,7 @@ public class HabilitacionService {
     private final UsuarioRepository usuarioRepository;
     private final RepartoAulasService repartoAulasService;
     private final AuditoriaService auditoriaService;
+    private final NormasExamenService normasExamenService;
 
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
@@ -78,7 +79,8 @@ public class HabilitacionService {
                                InscripcionParaleloRepository inscripcionParaleloRepository,
                                UsuarioRepository usuarioRepository,
                                RepartoAulasService repartoAulasService,
-                               AuditoriaService auditoriaService) {
+                               AuditoriaService auditoriaService,
+                               NormasExamenService normasExamenService) {
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -87,6 +89,7 @@ public class HabilitacionService {
         this.usuarioRepository = usuarioRepository;
         this.repartoAulasService = repartoAulasService;
         this.auditoriaService = auditoriaService;
+        this.normasExamenService = normasExamenService;
     }
 
     @Transactional(readOnly = true)
@@ -377,6 +380,7 @@ public class HabilitacionService {
         Set<Integer> ids = asistencias.stream()
                 .map(a -> a.getId().getIdEstudiante())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, String> cruces = crucesDeHorario(examen, ids);
         // Una sola consulta para las facultades de todos; sin duplicados y en orden alfabético.
         Map<Integer, String> facultades = estudianteCarreraRepository.findByEstudianteIds(ids).stream()
                 .collect(Collectors.groupingBy(
@@ -392,8 +396,71 @@ public class HabilitacionService {
             RepartoAulasService.Aula aula = reparto.aulaDe(e.getId());
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
-                    aula != null ? aula.nombre() : null);
+                    aula != null ? aula.nombre() : null, a.getFechaHoraIngreso() != null, cruces.get(e.getId()));
         }).toList();
+    }
+
+    /**
+     * MAST-04: otros exámenes del mismo día que se cruzan en horario con este, por estudiante. Solo
+     * avisa (no impide asociar): puede ser un error de programación o una excepción autorizada.
+     */
+    private Map<Integer, String> crucesDeHorario(Examen examen, Set<Integer> idsEstudiante) {
+        if (examen.getFecha() == null || examen.getHoraInicio() == null || examen.getDuracionMinutos() == null) {
+            return Map.of();
+        }
+        java.time.LocalTime inicio = examen.getHoraInicio();
+        java.time.LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
+        Map<Integer, List<String>> porEstudiante = new java.util.HashMap<>();
+        for (AsistenciaExamenRepository.OtroExamen otro : asistenciaExamenRepository.otrosExamenesDelDia(
+                idsEstudiante, examen.getFecha(), examen.getId().getIdExamen())) {
+            if ("cancelado".equalsIgnoreCase(otro.estado())) {
+                continue;
+            }
+            java.time.LocalTime otroFin = otro.horaInicio().plusMinutes(otro.duracionMinutos());
+            if (inicio.isBefore(otroFin) && otro.horaInicio().isBefore(fin)) {
+                porEstudiante.computeIfAbsent(otro.idEstudiante(), id -> new ArrayList<>())
+                        .add(otro.sigla() + " " + otro.materia() + " (" + otro.horaInicio() + "–" + otroFin + ")");
+            }
+        }
+        Map<Integer, String> avisos = new java.util.HashMap<>();
+        porEstudiante.forEach((id, examenes) ->
+                avisos.put(id, "Tiene otro examen a la misma hora: " + String.join("; ", examenes)));
+        return avisos;
+    }
+
+    /**
+     * MAST-04: quita del examen a un estudiante asociado por error. Solo si todavía no pasó por el
+     * control de ingreso; si ya tiene registros, se lo inhabilita con una razón (queda constancia).
+     * Sus normas particulares de este examen dejan de aplicar.
+     */
+    @Transactional
+    public List<EstudianteHabilitacionResponse> quitar(Integer idExamen, Integer idParalelo, Integer idEstudiante) {
+        buscarExamenEditable(idExamen, idParalelo);
+        List<AsistenciaExamen> asistencia = asistenciaExamenRepository.buscarDelExamen(
+                idExamen, idParalelo, Set.of(idEstudiante));
+        if (asistencia.isEmpty()) {
+            throw new IllegalArgumentException("El estudiante no está asociado a este examen.");
+        }
+        AsistenciaExamen fila = asistencia.get(0);
+        if (fila.getFechaHoraIngreso() != null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "No se puede quitar a quien ya ingresó al examen.");
+        }
+        if (asistenciaExamenRepository.contarRegistrosDeControl(idExamen, idEstudiante) > 0) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "El estudiante ya tiene registros del control de ingreso en este examen. "
+                            + "Para que no rinda, márcalo como no habilitado con una razón.");
+        }
+        Map<String, Object> detalles = new java.util.HashMap<>();
+        detalles.put("idExamen", idExamen);
+        detalles.put("idParalelo", idParalelo);
+        detalles.put("idEstudiante", idEstudiante);
+        detalles.put("estadoAnterior", estadoDe(fila.getHabilitado()).name());
+        asistenciaExamenRepository.delete(fila);
+        asistenciaExamenRepository.flush();
+        normasExamenService.desactivarDelEstudiante(idExamen, idEstudiante);
+        auditoriaService.registrar("ESTUDIANTE_QUITADO_DEL_EXAMEN", detalles);
+        return listarSinVerificar(idExamen, idParalelo);
     }
 
     private String nombreFacultad(EstudianteCarrera ec) {

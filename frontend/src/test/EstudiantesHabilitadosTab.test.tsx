@@ -252,4 +252,27 @@ describe('EstudiantesHabilitadosTab', () => {
     }))
     expect(await screen.findByRole('alertdialog')).toHaveTextContent('Se habilitó a los 2 estudiantes')
   })
+
+  it('avisa si el estudiante tiene otro examen a la misma hora, sin bloquear', async () => {
+    await renderTab([{ ...ana, conflictoHorario: 'Tiene otro examen a la misma hora: MAT-101 Cálculo (09:00–10:00)' }, luis])
+
+    expect(screen.getAllByText('Tiene otro examen a la misma hora: MAT-101 Cálculo (09:00–10:00)').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'Cambiar' }).length).toBeGreaterThan(0)
+  })
+
+  it('quita del examen al asociado por error, con confirmación; a quien ingresó no se lo puede quitar', async () => {
+    vi.mocked(habilitacionService.quitarEstudianteExamen).mockResolvedValue([{ ...luis, ingresado: true }])
+    await renderTab([ana, { ...luis, ingresado: true }])
+
+    // Luis ya ingresó: solo Ana tiene "Quitar" (una vez en tarjetas y otra en la tabla).
+    expect(screen.getAllByRole('button', { name: 'Quitar' })).toHaveLength(2)
+
+    fireEvent.click(primero(screen.getAllByRole('button', { name: 'Quitar' })))
+    const dialogo = await screen.findByRole('dialog', { name: '¿Quitar del examen?' })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Quitar' }))
+
+    await waitFor(() => expect(habilitacionService.quitarEstudianteExamen).toHaveBeenCalledWith(2, 2, 1))
+    expect(await screen.findByText('Se quitó a Ana Prueba de este examen.')).toBeInTheDocument()
+    expect(screen.queryAllByRole('button', { name: 'Quitar' })).toHaveLength(0)
+  })
 })

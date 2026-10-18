@@ -64,9 +64,7 @@ public class Examen {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_ambiente", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
     private Ambiente ambiente;
-
-    @Column(name = "normas")
-    private String normas;
+    // examen.normas quedó obsoleta en V34: las normas están en norma_examen (NormasExamenService).
 
     @ColumnDefault("'programado'")
     @Column(name = "estado")

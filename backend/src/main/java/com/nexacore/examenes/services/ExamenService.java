@@ -62,6 +62,7 @@ public class ExamenService {
     private final ParaleloRepository paraleloRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final NormasExamenService normasExamenService;
     private final EstudianteRepository estudianteRepository;
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
@@ -84,7 +85,8 @@ public class ExamenService {
             AsistenciaExamenRepository asistenciaExamenRepository,
             ObjectMapper objectMapper,
             ExamenAulaRepository examenAulaRepository,
-            AuditoriaService auditoriaService) {
+            AuditoriaService auditoriaService,
+            NormasExamenService normasExamenService) {
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.materiaRepository = materiaRepository;
@@ -95,6 +97,7 @@ public class ExamenService {
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.objectMapper = objectMapper;
         this.auditoriaService = auditoriaService;
+        this.normasExamenService = normasExamenService;
         this.examenAulaRepository = examenAulaRepository;
     }
 
@@ -164,12 +167,9 @@ public class ExamenService {
         examen.setIdAmbiente(ambiente.getId());
         examen.setEstado("programado");
         examen.setModoReparto(modoReparto(request.modoReparto(), Examen.MODO_ALFABETICO));
-        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), NormasGuardadas.VACIAS, null);
-        examen.setNormas(serializarNormas(new NormasGuardadas(
-                listaSegura(request.normasGenerales()), listaSegura(request.normasParticulares()),
-                List.of(), List.of())));
-
+        normasExamenService.validarParaRegistro(request.normasGenerales(), request.normasParticulares());
         Examen guardado = examenRepository.save(examen);
+        normasExamenService.registrar(idExamen, request.normasGenerales(), request.normasParticulares());
         guardarAulasAdicionales(idExamen, adicionales);
         auditoriaService.registrar("EXAMEN_CREADO", Map.of(
                 "idExamen", guardado.getId().getIdExamen(),
@@ -210,9 +210,7 @@ public class ExamenService {
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         Map<String, Object> antes = resumen(examen);
-        NormasGuardadas previas = leerNormas(examen.getNormas());
-        validarNormasNuevas(request.normasGenerales(), request.normasParticulares(), previas, examen);
-        String normas = serializarNormas(combinarEliminadas(previas, request));
+        normasExamenService.actualizar(examen, request.normasGenerales(), request.normasParticulares());
 
         boolean cambiaParalelo = !materia.getId().equals(examen.getIdMateria())
                 || !docente.getIdUsuario().equals(examen.getIdDocente());
@@ -224,7 +222,6 @@ public class ExamenService {
         examen.setHoraInicio(request.horaInicio());
         examen.setDuracionMinutos(request.duracionMinutos());
         examen.setIdAmbiente(ambiente.getId());
-        examen.setNormas(normas);
         examen.setModoReparto(modoReparto(request.modoReparto(), examen.getModoReparto()));
 
         Examen guardado = examenRepository.save(examen);
@@ -555,182 +552,8 @@ public class ExamenService {
                 });
     }
 
-    /** Normas activas más las eliminadas lógicamente, que se conservan como historial. */
-    private record NormasGuardadas(
-            List<String> generales,
-            List<NormaParticularRequest> particulares,
-            List<String> generalesEliminadas,
-            List<NormaParticularRequest> particularesEliminadas) {
-        static final NormasGuardadas VACIAS = new NormasGuardadas(List.of(), List.of(), List.of(), List.of());
-    }
-
-    private static final int NORMA_MIN = 10;
-    private static final int NORMA_MAX = 150;
-    private static final Pattern LETRA = Pattern.compile("\\p{L}");
-    /** Letras (con tildes y ñ), números, espacios y puntuación básica: "CI: original y vigente", "30 minutos". */
-    private static final Pattern NORMA_CARACTERES = Pattern.compile("[\\p{L}0-9 .,;:()¿?¡!\"'/%\\-]+");
-    /** Un mismo fragmento corto repetido sin sentido: "ababababab", "jajajajaja", "1212121212". */
-    private static final Pattern PATRON_REPETIDO = Pattern.compile("(?i)(.{1,3})\\1{3,}");
-
     private static <T> List<T> listaSegura(List<T> lista) {
         return lista == null ? List.of() : lista;
-    }
-
-    private NormasGuardadas leerNormas(String json) {
-        if (json == null || json.isBlank()) {
-            return NormasGuardadas.VACIAS;
-        }
-        try {
-            Map<String, Object> map = objectMapper.readValue(json, new TypeReference<>() {});
-            return new NormasGuardadas(
-                    textos(map.get("generales")),
-                    particulares(map.get("particulares")),
-                    textos(map.get("generalesEliminadas")),
-                    particulares(map.get("particularesEliminadas")));
-        } catch (JsonProcessingException e) {
-            return new NormasGuardadas(List.of(json), List.of(), List.of(), List.of());
-        }
-    }
-
-    private static List<String> textos(Object valor) {
-        return valor instanceof List<?> list ? list.stream().map(String::valueOf).toList() : List.of();
-    }
-
-    private List<NormaParticularRequest> particulares(Object valor) {
-        return valor == null ? List.of() : objectMapper.convertValue(valor, new TypeReference<>() {});
-    }
-
-    private String serializarNormas(NormasGuardadas normas) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("generales", normas.generales());
-        payload.put("particulares", normas.particulares());
-        payload.put("generalesEliminadas", normas.generalesEliminadas());
-        payload.put("particularesEliminadas", normas.particularesEliminadas());
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("No se pudieron guardar las normas");
-        }
-    }
-
-    /**
-     * Solo se registran como eliminadas las normas que estaban guardadas; las que se agregaron
-     * y quitaron en la misma edición nunca existieron en la base de datos.
-     */
-    private NormasGuardadas combinarEliminadas(NormasGuardadas previas, ActualizarExamenRequest request) {
-        List<String> generalesEliminadas = new ArrayList<>(previas.generalesEliminadas());
-        for (String texto : listaSegura(request.normasGeneralesEliminadas())) {
-            if (previas.generales().contains(texto)) {
-                generalesEliminadas.add(texto);
-            }
-        }
-        List<NormaParticularRequest> particularesEliminadas = new ArrayList<>(previas.particularesEliminadas());
-        for (NormaParticularRequest norma : listaSegura(request.normasParticularesEliminadas())) {
-            if (previas.particulares().contains(norma)) {
-                particularesEliminadas.add(norma);
-            }
-        }
-        return new NormasGuardadas(
-                listaSegura(request.normasGenerales()),
-                listaSegura(request.normasParticulares()),
-                generalesEliminadas,
-                particularesEliminadas);
-    }
-
-    /**
-     * Las normas ya guardadas no se revalidan, para no bloquear la edición de exámenes
-     * registrados antes de estas reglas.
-     */
-    /** examen es null al registrar; al editar sirve para exigir que el estudiante siga habilitado. */
-    private void validarNormasNuevas(
-            List<String> generales, List<NormaParticularRequest> particulares, NormasGuardadas previas,
-            Examen examen) {
-        Set<String> vistas = new HashSet<>();
-        for (String texto : listaSegura(generales)) {
-            if (!previas.generales().contains(texto)) {
-                validarTextoNorma(texto, "general");
-            }
-            if (texto != null && !vistas.add(texto.trim().toLowerCase())) {
-                throw new IllegalArgumentException("La norma general \"" + texto + "\" está repetida.");
-            }
-        }
-        Set<String> vistasParticulares = new HashSet<>();
-        for (NormaParticularRequest norma : listaSegura(particulares)) {
-            if (norma.estudiante() == null || norma.estudiante().isBlank()) {
-                throw new IllegalArgumentException("Cada norma particular debe indicar el estudiante.");
-            }
-            if (!previas.particulares().contains(norma)) {
-                validarTextoNorma(norma.texto(), "particular");
-                validarEstudianteDeNorma(norma, examen);
-            }
-            // Por id si lo tiene: dos estudiantes con el mismo nombre pueden tener la misma norma.
-            String quien = norma.idEstudiante() != null
-                    ? "id:" + norma.idEstudiante() : norma.estudiante().trim().toLowerCase();
-            String clave = quien + "|" + norma.texto().trim().toLowerCase();
-            if (!vistasParticulares.add(clave)) {
-                throw new IllegalArgumentException(
-                        "La norma particular \"" + norma.texto() + "\" está repetida para " + norma.estudiante() + ".");
-            }
-        }
-    }
-
-    private static void validarTextoNorma(String texto, String tipo) {
-        String prefijo = "Norma " + tipo + ": ";
-        if (texto == null || texto.isBlank()) {
-            throw new IllegalArgumentException(prefijo + "no puede estar vacía.");
-        }
-        if (!texto.equals(texto.strip())) {
-            throw new IllegalArgumentException(prefijo + "no se permiten espacios al inicio ni al final.");
-        }
-        if (texto.matches("(?s).*\\s{2,}.*")) {
-            throw new IllegalArgumentException(prefijo + "no se permiten espacios dobles.");
-        }
-        if (texto.length() < NORMA_MIN || texto.length() > NORMA_MAX) {
-            throw new IllegalArgumentException(
-                    prefijo + "debe tener entre " + NORMA_MIN + " y " + NORMA_MAX + " caracteres.");
-        }
-        if (texto.matches("[\\d\\s]+")) {
-            throw new IllegalArgumentException(prefijo + "no puede contener solo números.");
-        }
-        if (!LETRA.matcher(texto).find()) {
-            throw new IllegalArgumentException(prefijo + "debe contener texto descriptivo.");
-        }
-        if (!NORMA_CARACTERES.matcher(texto).matches()) {
-            throw new IllegalArgumentException(prefijo + "contiene caracteres no permitidos.");
-        }
-        String compacto = texto.replaceAll("\\s", "");
-        if (compacto.matches("(?i)(.)\\1+")) {
-            throw new IllegalArgumentException(prefijo + "no puede ser un mismo carácter repetido.");
-        }
-        if (PATRON_REPETIDO.matcher(compacto).matches()) {
-            throw new IllegalArgumentException(prefijo + "no puede ser un patrón repetitivo sin significado.");
-        }
-        String garabato = ValidacionPalabras.primerGarabato(texto);
-        if (garabato != null) {
-            throw new IllegalArgumentException(
-                    prefijo + "\"" + garabato + "\" no parece una palabra. Escribe la norma con palabras reales.");
-        }
-    }
-
-    /**
-     * La norma particular nueva debe apuntar a un estudiante del registro. Al editar, además,
-     * debe estar asociado al examen y no estar marcado como NO habilitado.
-     */
-    private void validarEstudianteDeNorma(NormaParticularRequest norma, Examen examen) {
-        Integer idEstudiante = norma.idEstudiante();
-        if (idEstudiante == null || !estudianteRepository.existsById(idEstudiante)) {
-            throw new IllegalArgumentException(
-                    "Norma particular: selecciona un estudiante registrado (" + norma.estudiante() + ").");
-        }
-        if (examen == null) {
-            return;
-        }
-        List<AsistenciaExamen> asistencia = asistenciaExamenRepository.buscarDelExamen(
-                examen.getId().getIdExamen(), examen.getId().getIdParalelo(), Set.of(idEstudiante));
-        if (asistencia.isEmpty() || Boolean.FALSE.equals(asistencia.get(0).getHabilitado())) {
-            throw new IllegalArgumentException(
-                    "Norma particular: " + norma.estudiante() + " no está habilitado para este examen.");
-        }
     }
 
     private Map<String, Object> resumen(Examen examen) {
@@ -742,7 +565,7 @@ public class ExamenService {
         datos.put("horaInicio", String.valueOf(examen.getHoraInicio()));
         datos.put("duracionMinutos", examen.getDuracionMinutos());
         datos.put("estado", examen.getEstado());
-        datos.put("normas", examen.getNormas());
+        datos.put("normas", normasExamenService.resumen(examen.getId().getIdExamen()));
         datos.put("modoReparto", examen.getModoReparto());
         return datos;
     }
@@ -752,7 +575,8 @@ public class ExamenService {
             Map<Integer, Materia> materias,
             Map<Integer, String> docentes,
             Map<Integer, Ambiente> ambientes,
-            Map<Integer, List<ExamenAula>> adicionales) {
+            Map<Integer, List<ExamenAula>> adicionales,
+            Map<Integer, NormasExamenService.Normas> normas) {
     }
 
     private Catalogos catalogosDe(Collection<Examen> examenes) {
@@ -781,7 +605,7 @@ public class ExamenService {
         Map<Integer, List<ExamenAula>> adicionales = idsExamen.isEmpty() ? Map.of()
                 : examenAulaRepository.adicionalesDe(idsExamen).stream()
                         .collect(Collectors.groupingBy(ea -> ea.getId().getIdExamen()));
-        return new Catalogos(materias, docentes, ambientes, adicionales);
+        return new Catalogos(materias, docentes, ambientes, adicionales, normasExamenService.leerDe(idsExamen));
     }
 
     private ExamenResponse toResponse(Examen examen) {
@@ -789,7 +613,8 @@ public class ExamenService {
     }
 
     private ExamenResponse toResponse(Examen examen, Catalogos catalogos) {
-        NormasGuardadas normas = leerNormas(examen.getNormas());
+        NormasExamenService.Normas normas = catalogos.normas()
+                .getOrDefault(examen.getId().getIdExamen(), NormasExamenService.Normas.VACIAS);
         List<String> generales = normas.generales();
         List<NormaParticularRequest> particulares = normas.particulares();
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, Plus, Search, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, Plus, Search, TriangleAlert, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -18,6 +18,7 @@ import {
   actualizarHabilitacion,
   listarEstudiantesExamen,
   obtenerRepartoAulas,
+  quitarEstudianteExamen,
   type EstadoHabilitacion,
   type EstudianteHabilitacionDto,
   type RepartoAulasDto,
@@ -124,6 +125,8 @@ export default function EstudiantesHabilitadosTab({
   const [motivoError, setMotivoError] = useState('')
   const [confirmarCierre, setConfirmarCierre] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
+  /** Estudiante que se va a quitar del examen (pide confirmación). */
+  const [aQuitar, setAQuitar] = useState<EstudianteHabilitacionDto | null>(null)
   const [reparto, setReparto] = useState<RepartoAulasDto | null>(null)
 
   const load = useCallback(async () => {
@@ -261,6 +264,28 @@ export default function EstudiantesHabilitadosTab({
     }
   }
 
+  const quitar = async (e: EstudianteHabilitacionDto) => {
+    if (isOffline()) {
+      setResultado({ tipo: 'offline', mensaje: SIN_CONEXION })
+      return
+    }
+    setSaving(true)
+    try {
+      const data = await quitarEstudianteExamen(idExamen, idParalelo, e.idEstudiante)
+      setEstudiantes(data)
+      onCountChange?.(data.length)
+      setSelected((prev) => prev.filter((id) => id !== e.idEstudiante))
+      setResultado({ tipo: 'exito', mensaje: `Se quitó a ${e.nombre} ${e.apellidos} de este examen.` })
+    } catch (err) {
+      setResultado(isNetworkError(err)
+        ? { tipo: 'offline', mensaje: SIN_CONEXION }
+        : { tipo: 'error', mensaje: mensajeDeError(err, 'No se pudo quitar al estudiante del examen.') })
+    } finally {
+      setSaving(false)
+      setAQuitar(null)
+    }
+  }
+
   return (
     <section className="flex flex-col gap-4">
       {mostrarAulas && reparto && <ResumenAulas reparto={reparto} />}
@@ -373,6 +398,7 @@ export default function EstudiantesHabilitadosTab({
                       <p className="truncate text-sm font-bold text-[#011140]">{e.nombre} {e.apellidos}</p>
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
                       <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
+                      <AvisoCruce estudiante={e} />
                     </div>
                     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${visual.badge}`}>
                       <EstadoIcono icon={visual.icon} />
@@ -388,13 +414,24 @@ export default function EstudiantesHabilitadosTab({
                       )}
                     </div>
                     {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => abrirCambioIndividual(e)}
-                        className="inline-flex h-9 shrink-0 items-center rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC]"
-                      >
-                        Cambiar
-                      </button>
+                      <div className="flex shrink-0 gap-2">
+                        {!e.ingresado && (
+                          <button
+                            type="button"
+                            onClick={() => setAQuitar(e)}
+                            className="inline-flex h-9 items-center rounded-md border border-[#FECACA] bg-white px-3 text-sm font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => abrirCambioIndividual(e)}
+                          className="inline-flex h-9 items-center rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC]"
+                        >
+                          Cambiar
+                        </button>
+                      </div>
                     )}
                   </div>
                 </li>
@@ -465,6 +502,7 @@ export default function EstudiantesHabilitadosTab({
                           <span>
                             <span className="block font-semibold text-[#011140]">{e.nombre} {e.apellidos}</span>
                             <span className="text-xs text-gray-500">Cód: {e.codigoSis}</span>
+                            <AvisoCruce estudiante={e} />
                           </span>
                         </div>
                       </td>
@@ -481,13 +519,24 @@ export default function EstudiantesHabilitadosTab({
                       {mostrarAulas && <td className="px-4 py-3"><AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></td>}
                       <td className="px-4 py-3 text-center">
                         {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={() => abrirCambioIndividual(e)}
-                            className="text-sm font-semibold text-[#3D70C9] hover:underline"
-                          >
-                            Cambiar
-                          </button>
+                          <span className="inline-flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => abrirCambioIndividual(e)}
+                              className="text-sm font-semibold text-[#3D70C9] hover:underline"
+                            >
+                              Cambiar
+                            </button>
+                            {!e.ingresado && (
+                              <button
+                                type="button"
+                                onClick={() => setAQuitar(e)}
+                                className="text-sm font-semibold text-[#B91C1C] hover:underline"
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </span>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
                         )}
@@ -739,6 +788,41 @@ export default function EstudiantesHabilitadosTab({
       )}
 
       <ResultadoModal resultado={resultado} onClose={() => setResultado(null)} />
+      {aQuitar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#011140]/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quitar-titulo"
+            className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-xl"
+          >
+            <h3 id="quitar-titulo" className="text-sm font-bold text-[#011140]">¿Quitar del examen?</h3>
+            <p className="mt-2 text-xs text-gray-600">
+              {aQuitar.nombre} {aQuitar.apellidos} dejará de estar asociado a este examen y sus normas
+              particulares dejarán de aplicar. Úsalo solo si se asoció por error; para que no rinda, márcalo
+              como no habilitado.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAQuitar(null)}
+                disabled={saving}
+                className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-[#011140] hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => quitar(aQuitar)}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                Quitar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -747,6 +831,17 @@ export default function EstudiantesHabilitadosTab({
  * Aula del estudiante; los NO habilitados no ocupan lugar. Por orden de llegada, quien no ingresó
  * todavía no tiene aula ("Al llegar"); por orden alfabético, quien no entra se marca en rojo.
  */
+/** MAST-04: el estudiante tiene otro examen que se cruza en horario. Solo avisa. */
+function AvisoCruce({ estudiante }: { estudiante: EstudianteHabilitacionDto }) {
+  if (!estudiante.conflictoHorario) return null
+  return (
+    <span className="mt-1 flex items-start gap-1 text-[11px] font-medium text-[#B45309]">
+      <TriangleAlert size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span>{estudiante.conflictoHorario}</span>
+    </span>
+  )
+}
+
 function AulaDe({ estudiante, porLlegada }: { estudiante: EstudianteHabilitacionDto; porLlegada: boolean }) {
   if (estudiante.aula) return <span className="font-semibold text-[#011140]">{estudiante.aula}</span>
   if (estudiante.estadoHabilitacion === 'NO_HABILITADO') return <span className="text-gray-400">—</span>

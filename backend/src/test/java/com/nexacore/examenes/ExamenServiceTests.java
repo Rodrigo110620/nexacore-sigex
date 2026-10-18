@@ -27,6 +27,9 @@ import com.nexacore.examenes.repositories.ParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.AuditoriaService;
 import com.nexacore.examenes.services.ExamenService;
+import com.nexacore.examenes.services.NormasExamenService;
+import com.nexacore.examenes.models.NormaExamen;
+import com.nexacore.examenes.repositories.NormaExamenRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,6 +78,9 @@ class ExamenServiceTests {
     @Mock AsistenciaExamenRepository asistenciaExamenRepository;
     @Mock EntityManager entityManager;
     @Mock ExamenAulaRepository examenAulaRepository;
+    @Mock NormaExamenRepository normaExamenRepository;
+    /** Normas "guardadas" por el repositorio simulado. */
+    final List<NormaExamen> normasGuardadas = new java.util.ArrayList<>();
 
     ExamenService service;
 
@@ -83,7 +89,19 @@ class ExamenServiceTests {
         service = new ExamenService(examenRepository, ambienteRepository, materiaRepository,
                 docenteRepository, paraleloRepository, usuarioRepository, estudianteRepository,
                 asistenciaExamenRepository, new ObjectMapper(), examenAulaRepository,
-                org.mockito.Mockito.mock(AuditoriaService.class));
+                org.mockito.Mockito.mock(AuditoriaService.class),
+                new NormasExamenService(normaExamenRepository, estudianteRepository, asistenciaExamenRepository));
+        org.mockito.Mockito.lenient().when(normaExamenRepository.saveAllAndFlush(any())).thenAnswer(inv -> {
+            Iterable<NormaExamen> normas = inv.getArgument(0);
+            normas.forEach(n -> { if (!normasGuardadas.contains(n)) normasGuardadas.add(n); });
+            return normas;
+        });
+        org.mockito.Mockito.lenient().when(normaExamenRepository.findByIdExamenInAndActivaTrueOrderByIdAsc(any()))
+                .thenAnswer(inv -> normasGuardadas.stream().filter(NormaExamen::isActiva)
+                        .filter(n -> ((java.util.Collection<?>) inv.getArgument(0)).contains(n.getIdExamen())).toList());
+        org.mockito.Mockito.lenient().when(normaExamenRepository.findByIdExamenAndActivaTrueOrderByIdAsc(any()))
+                .thenAnswer(inv -> normasGuardadas.stream().filter(NormaExamen::isActiva)
+                        .filter(n -> n.getIdExamen().equals(inv.getArgument(0))).toList());
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
     }
 
@@ -243,19 +261,17 @@ class ExamenServiceTests {
         prepararRespuesta();
         prepararRegistro();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
-        when(estudianteRepository.existsById(7)).thenReturn(true);
-
         ExamenResponse creado = service.crear(new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA,
                 LocalTime.of(9, 0), 90, AMBIENTE,
                 List.of("CI: original y vigente", "Tolerancia de 30 minutos"),
-                List.of(new NormaParticularRequest("Luis Paz", "Tiempo adicional de 15 min", 7)),
+                List.of(),
                 MATERIA, DOCENTE));
 
         assertThat(creado.normasGenerales()).containsExactly("CI: original y vigente", "Tolerancia de 30 minutos");
     }
 
     @Test
-    void crearRechazaNormaParticularSinEstudianteDelRegistro() {
+    void crearNoAceptaNormasParticularesPorqueAunNoHayEstudiantesAsociados() {
         prepararCatalogo();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
         prepararParalelo();
@@ -265,7 +281,7 @@ class ExamenServiceTests {
                 List.of(new NormaParticularRequest("Alguien Inventado", "Tiempo adicional de 15 min")),
                 MATERIA, DOCENTE)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("selecciona un estudiante registrado");
+                .hasMessageContaining("después de asociar a los estudiantes");
         verify(examenRepository, never()).save(any());
     }
 

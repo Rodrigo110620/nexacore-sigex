@@ -11,6 +11,7 @@ import com.nexacore.examenes.repositories.InscripcionParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.AuditoriaService;
 import com.nexacore.examenes.services.HabilitacionService;
+import com.nexacore.examenes.services.NormasExamenService;
 import com.nexacore.examenes.services.RepartoAulasService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +59,7 @@ class HabilitacionAccesoDocenteTests {
     void preparar() {
         service = new HabilitacionService(asistenciaRepository, estudianteRepository, estudianteCarreraRepository,
                 examenRepository, inscripcionParaleloRepository, usuarioRepository, repartoAulasService,
-                mock(AuditoriaService.class));
+                mock(AuditoriaService.class), mock(NormasExamenService.class));
         lenient().when(repartoAulasService.repartir(any(), any())).thenReturn(
                 new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
         ExamenId id = new ExamenId();
