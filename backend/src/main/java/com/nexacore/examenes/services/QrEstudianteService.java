@@ -8,6 +8,7 @@ import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteQrCredencial;
 import com.nexacore.examenes.repositories.EstudianteQrCredencialRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +36,26 @@ public class QrEstudianteService {
     private final EstudianteRepository estudianteRepository;
     private final SecretKeySpec encryptionKey;
 
+    @Autowired
     public QrEstudianteService(EstudianteQrCredencialRepository repository, EstudianteRepository estudianteRepository,
+                               @Value("${app.security.qr.secret:}") String qrSecret,
                                @Value("${app.security.jwt.secret}") String jwtSecret) {
         this.repository = repository;
         this.estudianteRepository = estudianteRepository;
-        // Clave separada por contexto: aunque proviene del secreto de aplicación, no sirve como clave JWT.
+        // QR_SECRET, o JWT_SECRET si no se definió (o quedó vacío). Se deriva con un prefijo propio:
+        // aunque sea el mismo secreto, la clave del QR no sirve como clave JWT.
+        String secreto = qrSecret == null || qrSecret.isBlank() ? jwtSecret : qrSecret;
+        if (secreto == null || secreto.length() < 32) {
+            throw new IllegalStateException("QR_SECRET debe tener al menos 32 caracteres.");
+        }
         this.encryptionKey = new SecretKeySpec(sha256(
-                ("sigex-qr-aes-gcm-v2:" + jwtSecret).getBytes(StandardCharsets.UTF_8)), "AES");
+                ("sigex-qr-aes-gcm-v2:" + secreto).getBytes(StandardCharsets.UTF_8)), "AES");
+    }
+
+    /** Con un solo secreto (el de JWT), como antes de existir QR_SECRET. */
+    public QrEstudianteService(EstudianteQrCredencialRepository repository, EstudianteRepository estudianteRepository,
+                               String jwtSecret) {
+        this(repository, estudianteRepository, null, jwtSecret);
     }
 
     public record QrGenerado(String contenido, byte[] png) {}

@@ -14,6 +14,7 @@
     <name>examenes</name>
     <description>Sistema de Control de Ingreso a Examenes Masivos</description>
     <properties>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <java.version>21</java.version>
     </properties>
     <dependencies>
@@ -91,6 +92,16 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -25,6 +25,7 @@ import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import com.nexacore.examenes.repositories.ParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
+import com.nexacore.examenes.services.AuditoriaService;
 import com.nexacore.examenes.services.ExamenService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -81,7 +82,8 @@ class ExamenServiceTests {
     void preparar() {
         service = new ExamenService(examenRepository, ambienteRepository, materiaRepository,
                 docenteRepository, paraleloRepository, usuarioRepository, estudianteRepository,
-                asistenciaExamenRepository, new ObjectMapper(), examenAulaRepository);
+                asistenciaExamenRepository, new ObjectMapper(), examenAulaRepository,
+                org.mockito.Mockito.mock(AuditoriaService.class));
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
     }
 

@@ -243,7 +243,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 nombre: form.nombre.trim(),
                 apellidos: form.apellidos.trim(),
                 ci: form.ci.trim(),
-                telefono: form.telefono.trim() || undefined,
+                telefono: form.telefono.trim(),
                 email: form.email.trim(),
                 codigoSis: form.codigoSis.trim(),
                 idFacultad: Number(form.idFacultad),

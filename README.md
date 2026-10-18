@@ -149,8 +149,18 @@ test: agregar test de integración para HealthController
 ### Migraciones de base de datos
 
 - Cada cambio de esquema va en un archivo nuevo: `V2__descripcion.sql`, `V3__descripcion.sql`...
-- **Nunca modificar** archivos `V_` ya commiteados.
+- **Nunca modificar, renombrar ni borrar** archivos `V_` ya commiteados. Borrar el archivo no deshace lo que
+  la migración hizo en las bases donde ya se aplicó. Para corregirla, agrega una migración nueva
+  (como la `V33`, que quita una restricción que dejó una `V30` que ya no existe).
+- Antes de crear una migración, revisa en `develop` cuál es el último número para no repetirlo con otra rama.
 - Los archivos van en `backend/src/main/resources/db/migration/`.
+- `PostgresIntegracionTests` aplica todas las migraciones en un PostgreSQL real (con Docker) y comprueba que
+  Hibernate valide el esquema. Si falla, la migración tiene un problema.
+- **Cuidado con `DB_TARGET=supabase` en tu `.env`:** al arrancar el backend, Flyway migra la base compartida
+  del equipo. Para probar migraciones nuevas usa `DB_TARGET=docker`.
+- Si una migración ya aplicada se edita, el backend **no arranca** ("Validate failed: checksum mismatch").
+  Es a propósito: revierte la edición y crea una migración nueva. `FLYWAY_REPARAR=true` alinea los
+  checksums, pero úsalo solo una vez y sabiendo por qué.
 
 ---
 

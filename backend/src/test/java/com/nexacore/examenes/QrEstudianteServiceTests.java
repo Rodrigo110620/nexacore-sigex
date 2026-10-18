@@ -30,7 +30,7 @@ class QrEstudianteServiceTests {
     void generaUnPngEscaneableYResuelveAlEstudianteCorrecto() throws Exception {
         EstudianteQrCredencialRepository credenciales = mock(EstudianteQrCredencialRepository.class);
         EstudianteRepository estudiantes = mock(EstudianteRepository.class);
-        QrEstudianteService service = new QrEstudianteService(credenciales, estudiantes, "secreto-de-prueba-seguro");
+        QrEstudianteService service = new QrEstudianteService(credenciales, estudiantes, "secreto-de-prueba-seguro-de-32-caracteres");
         Estudiante estudiante = new Estudiante();
         estudiante.setId(91);
         estudiante.setCodigoSis("202401234");
