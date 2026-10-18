@@ -3,7 +3,7 @@ import QrScanner from 'qr-scanner'
 
 export type EstadoEscaner =
   | { status: 'iniciando' | 'escaneando' }
-  | { status: 'leido'; codigo: string }
+  | { status: 'verificando' | 'procesado'; codigo: string }
   | { status: 'error'; mensaje: string }
 
 export const MENSAJE_SIN_HTTPS =
@@ -12,6 +12,9 @@ export const MENSAJE_SIN_CAMARA = 'No se encontró ninguna cámara en este dispo
 export const MENSAJE_SIN_PERMISO =
   'No se pudo acceder a la cámara. Permite el acceso en el navegador o cierra otra aplicación que la esté usando.'
 const MENSAJE_QR_VACIO = 'El código QR está vacío o no es legible.'
+const DURACION_MINIMA_VERIFICACION_MS = 520
+
+const esperar = (milisegundos: number) => new Promise<void>((resolver) => setTimeout(resolver, milisegundos))
 
 /**
  * Enciende la cámara (la trasera en celulares) sobre el <video> y lee un solo QR.
@@ -21,7 +24,7 @@ const MENSAJE_QR_VACIO = 'El código QR está vacío o no es legible.'
  */
 export default function useEscanerQr(
   video: RefObject<HTMLVideoElement>,
-  onLeer: (codigo: string) => void,
+  onLeer: (codigo: string) => void | Promise<void>,
 ): EstadoEscaner {
   const camaraPermitida = window.isSecureContext && Boolean(navigator.mediaDevices)
   const [estado, setEstado] = useState<EstadoEscaner>(
@@ -49,8 +52,15 @@ export default function useEscanerQr(
         setEstado({ status: 'error', mensaje: MENSAJE_QR_VACIO })
         return
       }
-      setEstado({ status: 'leido', codigo })
-      onLeerRef.current(codigo)
+      setEstado({ status: 'verificando', codigo })
+      // El mínimo evita que una respuesta muy rápida se perciba como un salto brusco de la cámara al resultado.
+      void Promise.all([Promise.resolve(onLeerRef.current(codigo)), esperar(DURACION_MINIMA_VERIFICACION_MS)])
+        .then(() => {
+          if (!cancelado) setEstado({ status: 'procesado', codigo })
+        })
+        .catch(() => {
+          if (!cancelado) setEstado({ status: 'error', mensaje: 'No se pudo verificar el código QR. Intenta escanearlo nuevamente.' })
+        })
     }
 
     const iniciar = async () => {

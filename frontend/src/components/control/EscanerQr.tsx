@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { ScanLine } from 'lucide-react'
+import { LoaderCircle, ScanLine } from 'lucide-react'
 import useEscanerQr from '../../hooks/useEscanerQr'
 
 interface EscanerQrProps {
@@ -54,13 +54,23 @@ export default function EscanerQr({ onLeer, onReescanear }: EscanerQrProps) {
         </div>
         {estado.status === 'iniciando' && <p className="text-xs text-[#627A9B]">Iniciando cámara…</p>}
         {estado.status === 'escaneando' && <p className="text-xs text-[#627A9B]">Apunta la cámara y alinea el código dentro del recuadro.</p>}
-        {estado.status === 'leido' && <p className="text-xs text-[#526684]">Código leído. Verificando identidad…</p>}
+        {estado.status === 'verificando' && (
+          <div className="w-full max-w-sm rounded-xl border border-[#BDEBFA] bg-[#F2FBFF] px-4 py-3 text-center text-[#087CA6] sm:max-w-md" role="status">
+            <LoaderCircle className="mx-auto mb-2 animate-spin" size={25} aria-hidden="true" />
+            <p className="text-sm font-bold">Código leído</p>
+            <p className="mt-0.5 text-xs text-[#39718A]">Verificando identidad y autorización…</p>
+            <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#CFEFFA]" aria-hidden="true">
+              <span className="block h-full w-2/5 rounded-full bg-[#16B8E8] animate-[pulse_0.9s_ease-in-out_infinite]" />
+            </span>
+          </div>
+        )}
+        {estado.status === 'procesado' && <p className="text-xs text-[#526684]">Verificación completada. Revisa el resultado.</p>}
         {estado.status === 'error' && (
           <p role="alert" className="text-xs text-[#B91C1C]">
             {estado.mensaje}
           </p>
         )}
-        {(estado.status === 'leido' || estado.status === 'error') && (
+        {(estado.status === 'procesado' || estado.status === 'error') && (
           <button
             type="button"
             onClick={onReescanear}

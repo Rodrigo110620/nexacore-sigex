@@ -80,6 +80,7 @@ describe('Identificación por QR', () => {
     act(() => qr.leer({ data: 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890' }))
 
     expect(qr.stop).toHaveBeenCalled()
+    expect(screen.getByRole('status')).toHaveTextContent('Verificando identidad y autorización…')
     expect(await screen.findByText('María José González Flores')).toBeInTheDocument()
     expect(identificarQr).toHaveBeenCalledWith(7, 'SIGEX1.202104010.credencialSeguraDeEjemplo_12345678901234567890')
   })
