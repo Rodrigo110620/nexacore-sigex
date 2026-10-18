@@ -11,8 +11,10 @@ public final class EstadoMatricula {
     public static final Set<String> VALORES = Set.of(MATRICULADO, NO_MATRICULADO);
     /** Para las anotaciones @Pattern de los requests. */
     public static final String PATRON = "^$|^(?i)(MATRICULADO|NO_MATRICULADO)$";
-    /** Teléfono o celular: 8 dígitos que empiezan con 5, 6 o 7. Vacío = sin teléfono. */
-    public static final String PATRON_TELEFONO = "^$|^[567]\\d{7}$";
+    /** Teléfono o celular: 7 u 8 dígitos que empiezan con 2, 3, 4, 6 o 7 (la misma regla que la V32). */
+    public static final String REGEX_TELEFONO = "^[23467]\\d{6,7}$";
+    /** Igual que REGEX_TELEFONO, pero vacío = sin teléfono. */
+    public static final String PATRON_TELEFONO = "^$|" + REGEX_TELEFONO;
 
     private EstadoMatricula() {
     }
@@ -32,12 +34,16 @@ public final class EstadoMatricula {
     /**
      * Teléfono sin espacios. null → valorActual (no se envió); vacío → null (se quita el teléfono).
      */
-        public static String normalizarTelefono(String telefono, String telefonoActual) {
-        if (telefono == null) return telefonoActual;
-        String limpio = telefono.trim().replaceAll("\\s+", "");
-        if (limpio.isEmpty()) return null;
-        if (!limpio.matches("^[23467]\\d{6,7}$")) {
-            throw new IllegalArgumentException("El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7");
+    public static String normalizarTelefono(String telefono, String telefonoActual) {
+        if (telefono == null) {
+            return telefonoActual;
+        }
+        String limpio = telefono.replaceAll("\\s+", "");
+        if (limpio.isEmpty()) {
+            return null;
+        }
+        if (!limpio.matches(REGEX_TELEFONO)) {
+            throw new IllegalArgumentException("El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7.");
         }
         return limpio;
     }

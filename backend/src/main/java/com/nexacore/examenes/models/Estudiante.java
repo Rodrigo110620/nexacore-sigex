@@ -1,10 +1,10 @@
 package com.nexacore.examenes.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nexacore.examenes.dto.ReglasEstudiante;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
@@ -24,8 +24,7 @@ public class Estudiante {
     private Integer id;
 
     @NotNull
-    @Size(min = 9, max = 9)
-    @Pattern(regexp = "^\\d{9}$")
+    @Pattern(regexp = ReglasEstudiante.CODIGO_SIS)
     @Column(name = "codigo_sis", nullable = false, length = Integer.MAX_VALUE)
     private String codigoSis;
 
@@ -41,8 +40,8 @@ public class Estudiante {
     @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
     private String ci;
 
-        /** Teléfono o celular opcional: 8 dígitos que empiezan con 5, 6 o 7. */
-    @Pattern(regexp = "^[567]\\d{7}$")
+    /** Teléfono o celular opcional: 7 u 8 dígitos que empiezan con 2, 3, 4, 6 o 7 (V32). */
+    @Pattern(regexp = EstadoMatricula.REGEX_TELEFONO)
     @Column(name = "telefono", length = 8)
     private String telefono;
 

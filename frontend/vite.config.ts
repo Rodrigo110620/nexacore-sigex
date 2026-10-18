@@ -30,6 +30,22 @@ export default defineConfig(({ command, mode, isPreview }) => {
   return {
     plugins: [react()],
     envDir,
+    build: {
+      rollupOptions: {
+        output: {
+          // Librerías en archivos aparte: el navegador las guarda en caché y no las vuelve a
+          // descargar cuando solo cambia el código de SIGEX.
+          manualChunks(id: string) {
+            // El worker del lector QR se sigue cargando solo al abrir la cámara.
+            if (!id.includes('node_modules') || id.includes('qr-scanner-worker')) return undefined
+            if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+              return 'react'
+            }
+            return 'librerias'
+          },
+        },
+      },
+    },
     server: {
       // Escucha en todas las interfaces → PC, otro navegador en LAN y móvil (misma WiFi)
       host: true,

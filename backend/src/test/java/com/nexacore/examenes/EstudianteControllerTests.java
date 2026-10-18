@@ -95,4 +95,18 @@ class EstudianteControllerTests {
             .andExpect(jsonPath("$.errores.email").value("Use un correo institucional UMSS con al menos 3 caracteres antes de @; no se aceptan caracteres repetidos"))
             .andExpect(jsonPath("$.errores.codigoSis").exists());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void unaReglaDeLaEntidadRespondeBadRequestYNoError500() throws Exception {
+        var estudiante = new com.nexacore.examenes.models.Estudiante();
+        estudiante.setTelefono("51234567");
+        var violaciones = jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator()
+            .validateProperty(estudiante, "telefono");
+        when(estudianteService.registrar(any())).thenThrow(new jakarta.validation.ConstraintViolationException(violaciones));
+
+        mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errores.telefono").exists());
+    }
 }

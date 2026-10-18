@@ -1,5 +1,7 @@
 package com.nexacore.examenes;
 
+import org.springframework.security.test.context.support.WithMockUser;
+
 import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteHabilitacionResponse;
@@ -294,6 +296,55 @@ class HabilitacionServiceTests {
         a.setNombre(nombre);
         a.setCapacidad(capacidad);
         return a;
+    }
+
+    @Test
+    void noSeInhabilitaNiDejaPendienteAQuienYaIngreso() {
+        Estudiante ana = estudiante("Ana");
+        Estudiante luis = estudiante("Luis");
+        habilitacionService.asociarLote(EXAMEN, PARALELO, List.of(ana.getCodigoSis(), luis.getCodigoSis()));
+        habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId(), luis.getId()), EstadoHabilitacion.HABILITADO, null));
+        jdbcTemplate.update("UPDATE asistencia_examen SET fecha_hora_ingreso = CURRENT_TIMESTAMP WHERE id_estudiante = ?",
+                ana.getId());
+
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId(), luis.getId()),
+                        EstadoHabilitacion.NO_HABILITADO, "No pagó la matrícula del semestre")))
+                .isInstanceOf(ControlIngresoException.class)
+                .hasMessageContaining("ya ingresó");
+        assertThatThrownBy(() -> habilitacionService.actualizar(EXAMEN, PARALELO,
+                new ActualizarHabilitacionRequest(List.of(ana.getId()), EstadoHabilitacion.PENDIENTE, null)))
+                .isInstanceOf(ControlIngresoException.class);
+        // Nada cambió, ni siquiera para Luis, que venía en la misma selección.
+        assertThat(jdbcTemplate.queryForList("SELECT habilitado FROM asistencia_examen", Boolean.class))
+                .containsOnly(true);
+    }
+
+    @Test
+    @WithMockUser(username = "admin.auditoria@umss.edu", roles = "ADMIN")
+    void elCambioDeHabilitacionQuedaEnLaAuditoria() {
+        jdbcTemplate.update("""
+                INSERT INTO usuario (nombre, apellidos, ci, email, password, estado)
+                SELECT 'Admin', 'Auditoria', '99112233', 'admin.auditoria@umss.edu', 'x', 'activo'
+                WHERE NOT EXISTS (SELECT 1 FROM usuario WHERE email = 'admin.auditoria@umss.edu')
+                """);
+        // En PostgreSQL la crea la columna serial de V1; el esquema de H2 sale de las entidades.
+        jdbcTemplate.execute("CREATE SEQUENCE IF NOT EXISTS auditoria_operacion_id_auditoria_seq");
+        jdbcTemplate.execute("DELETE FROM auditoria_operacion");
+        Estudiante ana = estudiante("Ana");
+        habilitacionService.asociar(EXAMEN, PARALELO, ana.getCodigoSis());
+
+        habilitacionService.actualizar(EXAMEN, PARALELO, new ActualizarHabilitacionRequest(
+                List.of(ana.getId()), EstadoHabilitacion.NO_HABILITADO, "No pagó la matrícula del semestre"));
+
+        var fila = jdbcTemplate.queryForMap("SELECT accion, detalles FROM auditoria_operacion");
+        assertThat(fila.get("accion")).isEqualTo("HABILITACION_ACTUALIZADA");
+        assertThat(String.valueOf(fila.get("detalles")))
+                .contains("\"estado\":\"NO_HABILITADO\"")
+                .contains("No pagó la matrícula del semestre")
+                .contains("\"estadoAnterior\":\"PENDIENTE\"")
+                .contains("\"idEstudiante\":" + ana.getId());
     }
 
     private Estudiante estudiante(String nombre) {
