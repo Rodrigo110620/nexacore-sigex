@@ -6,6 +6,7 @@ import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
 import MecanismoSelector, { type Mecanismo } from '../../components/control/MecanismoSelector'
 import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteForm'
 import EscanerQr from '../../components/control/EscanerQr'
+import { DURACION_MINIMA_VERIFICACION_MS } from '../../hooks/useEscanerQr'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import VerificacionHabilitacionModal from '../../components/control/VerificacionHabilitacionModal'
@@ -40,6 +41,8 @@ export default function IdentificacionPage() {
   const [errorVerificacion, setErrorVerificacion] = useState<{ para: EstudianteIdentificado; mensaje: string } | null>(null)
   const [errorContinuar, setErrorContinuar] = useState<string | null>(null)
   const [qrInvalidoOpen, setQrInvalidoOpen] = useState(false)
+  const lecturaQrActual = useRef(0)
+  useEffect(() => () => { lecturaQrActual.current += 1 }, [])
 
   // El ojo de "Control del examen" llega con ?codigo=: se busca una sola vez por código universitario.
   const [searchParams] = useSearchParams()
@@ -53,6 +56,7 @@ export default function IdentificacionPage() {
   }, [codigoUrl, idValido, buscar])
 
   const limpiarVerificacion = () => {
+    lecturaQrActual.current += 1
     setModalVerificacionOpen(false)
     setEstudianteVerificado(null)
     setErrorVerificacion(null)
@@ -119,7 +123,12 @@ export default function IdentificacionPage() {
   }
 
   const manejarQrLeido = async (contenido: string) => {
+    const lectura = ++lecturaQrActual.current
+    const inicioVerificacion = Date.now()
     const resultado = await buscarQr(contenido)
+    const restante = DURACION_MINIMA_VERIFICACION_MS - (Date.now() - inicioVerificacion)
+    if (restante > 0) await new Promise<void>((resolver) => setTimeout(resolver, restante))
+    if (lectura !== lecturaQrActual.current) return
     if (resultado === 'invalido') setQrInvalidoOpen(true)
   }
 
@@ -148,7 +157,7 @@ export default function IdentificacionPage() {
               {tipo === 'qr' ? (
                 <EscanerQr
                   key={reinicios}
-                  onLeer={(contenido) => void manejarQrLeido(contenido)}
+                  onLeer={manejarQrLeido}
                   onReescanear={cambiarEstudiante}
                 />
               ) : (
@@ -161,15 +170,15 @@ export default function IdentificacionPage() {
                 />
               )}
               <div aria-live="polite" className="flex flex-col gap-2 text-sm text-[#011140]">
-                {busqueda.status !== 'idle' && busqueda.status !== 'no_vinculado' && (
+                {busqueda.status !== 'idle' && busqueda.status !== 'no_vinculado' && busqueda.status !== 'qr_invalido' && (
                   <p className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] before:h-px before:flex-1 before:bg-[#E1E6EF] after:h-px after:flex-1 after:bg-[#E1E6EF] sm:text-[10px]">
                     Resultado
                   </p>
                 )}
                 {busqueda.status === 'loading' && <p>Buscando…</p>}
                 {estudiante && <ResultadoEstudianteCard estudiante={estudiante} />}
-                {(busqueda.status === 'no_encontrado' || (busqueda.status === 'error' && tipo !== 'qr')) && (
-                  <p className="text-[#B91C1C]">{busqueda.mensaje}</p>
+                {(busqueda.status === 'no_encontrado' || busqueda.status === 'error') && (
+                  <p role="alert" className="text-[#B91C1C]">{busqueda.mensaje}</p>
                 )}
                 {estudiante && errorVerificacion?.para === estudiante && (
                   <p role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{errorVerificacion.mensaje}</p>

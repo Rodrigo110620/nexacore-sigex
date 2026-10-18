@@ -84,6 +84,40 @@ pnpm dev
 
 **Móvil / otra PC (misma WiFi):** arranca el front con `pnpm dev` y abre `http://<IP-de-tu-PC>:3000`. El front usa `/api/v1` y Vite hace proxy al backend; no hace falta poner la IP en `VITE_API_BASE_URL`. Puerto del front: `FRONTEND_PORT` en `.env`.
 
+### Cámara QR desde el celular por HTTPS local
+
+HTTP por IP permite abrir la aplicación, pero la cámara requiere un contexto
+seguro. Para usar el lector existente en la misma WiFi:
+
+1. Obtén externamente un certificado PEM y su clave privada PEM para la IP o
+   nombre de la computadora (incluido en el SAN). El certificado y su cadena
+   deben ser confiables para el navegador del celular. No basta con omitir una
+   advertencia. Conserva la clave fuera del repositorio y no la copies al teléfono.
+2. Conserva `VITE_API_BASE_URL=/api/v1` en `.env`. En `.env.https.local` de la
+   raíz (ignorado por Git) configura las rutas absolutas o relativas a esa raíz:
+
+   ```dotenv
+   DEV_HTTPS_CERT_PATH=C:/certificados-sigex/lan-cert.pem
+   DEV_HTTPS_KEY_PATH=C:/certificados-sigex/lan-key.pem
+   ```
+
+3. Desde `frontend`, con Node 20.19.0, usa `pnpm dev --mode https`; en Windows
+   puedes evitar otro Node/pnpm del PATH ejecutando directamente:
+   `& 'C:\Program Files\nodejs\node.exe' node_modules/vite/bin/vite.js --mode https`.
+   Si ya hay un frontend en uso, añade `--port 3001 --strictPort` para no reemplazarlo.
+   Abre `https://<IP-de-tu-PC>:<puerto-que-indique-Vite>` desde el celular. La red
+   y el firewall deben permitir acceder a ese puerto. El backend conserva su
+   conexión HTTP local a través del proxy `/api`; no necesita exponerse al celular.
+4. Comprueba `window.isSecureContext === true`, permite la cámara y escanea un
+   QR válido SIGEX2 o SIGEX3. Repite en escritorio, reescanea y verifica que al
+   salir se apague la cámara. Registra dispositivo, navegador y resultado.
+
+Sin el perfil `https` ni rutas TLS en `.env`, se conserva HTTP. Si se configura
+solo una o un archivo no se puede leer, Vite falla al iniciar. HMR usa `wss` con
+HTTPS si defines `VITE_HMR_HOST`. Estas opciones no configuran TLS en el build ni en producción.
+La configuración no genera certificados ni instala confianza; la validación en
+un celular real sigue siendo necesaria para cerrar esta mejora.
+
 ---
 
 ## Convenciones del equipo

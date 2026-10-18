@@ -1,5 +1,6 @@
 package com.nexacore.examenes.config;
 
+import com.nexacore.examenes.models.Rol;
 import com.nexacore.examenes.security.AuthRateLimitFilter;
 import com.nexacore.examenes.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletResponse;
@@ -7,6 +8,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthenticatedAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,6 +20,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
@@ -31,6 +36,8 @@ public class SecurityConfig {
         "/auth/login",
         "/auth/forgot-password",
         "/auth/reset-password",
+        "/auth/estudiante/activacion/solicitar",
+        "/auth/estudiante/activacion/confirmar",
         "/health",
     };
 
@@ -87,8 +94,14 @@ public class SecurityConfig {
                 if (swaggerEnabled) {
                     auth.requestMatchers(SWAGGER_PATHS).permitAll();
                 }
+                // Sesión propia: cualquier usuario autenticado, también el estudiante.
+                auth.requestMatchers("/auth/me", "/auth/cambiar-password").authenticated();
+                // Panel del estudiante: solo su cuenta (rol ESTUDIANTE).
+                auth.requestMatchers("/mi/**").hasRole(Rol.ESTUDIANTE);
+                // El resto de la API es del personal. El rol ESTUDIANTE (cuenta del estudiante)
+                // recibe 403 aquí; sus propios endpoints se deben habilitar de forma explícita.
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .anyRequest().authenticated();
+                    .anyRequest().access(soloPersonal());
             })
             .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -98,5 +111,17 @@ public class SecurityConfig {
         }
 
         return http.build();
+    }
+
+    /** Sesión iniciada y sin el rol ESTUDIANTE. */
+    private static AuthorizationManager<RequestAuthorizationContext> soloPersonal() {
+        AuthorizationManager<RequestAuthorizationContext> autenticado =
+            AuthenticatedAuthorizationManager.authenticated();
+        return (authentication, contexto) -> {
+            AuthorizationDecision decision = autenticado.check(authentication, contexto);
+            boolean esEstudiante = authentication.get().getAuthorities().stream()
+                .anyMatch(autoridad -> ("ROLE_" + Rol.ESTUDIANTE).equals(autoridad.getAuthority()));
+            return new AuthorizationDecision(decision != null && decision.isGranted() && !esEstudiante);
+        };
     }
 }

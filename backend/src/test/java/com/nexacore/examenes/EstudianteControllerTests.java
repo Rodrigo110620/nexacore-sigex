@@ -51,7 +51,7 @@ class EstudianteControllerTests {
     @WithMockUser(roles = "ADMIN")
     void adminPuedeRegistrar() throws Exception {
         when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
-            1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
+            1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));    
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
     }
@@ -60,7 +60,7 @@ class EstudianteControllerTests {
     @WithMockUser(roles = "DOCENTE")
     void docentePuedeRegistrar() throws Exception {
         when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
-            1, "202404012", "María", "González", "74892104", "maria@umss.edu", List.of()));
+            1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
     }

@@ -1,7 +1,9 @@
 package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.models.EstudianteFoto;
+import com.nexacore.examenes.models.EstudianteFotoSolicitud;
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
+import com.nexacore.examenes.repositories.EstudianteFotoSolicitudRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /** Fotografía del estudiante que se muestra al identificarlo y en el control de ingreso (ACCS-01/02/03). */
@@ -23,10 +26,13 @@ public class EstudianteFotoService {
 
     private final EstudianteFotoRepository fotoRepository;
     private final EstudianteRepository estudianteRepository;
+    private final EstudianteFotoSolicitudRepository solicitudRepository;
 
-    public EstudianteFotoService(EstudianteFotoRepository fotoRepository, EstudianteRepository estudianteRepository) {
+    public EstudianteFotoService(EstudianteFotoRepository fotoRepository, EstudianteRepository estudianteRepository,
+                                 EstudianteFotoSolicitudRepository solicitudRepository) {
         this.fotoRepository = fotoRepository;
         this.estudianteRepository = estudianteRepository;
+        this.solicitudRepository = solicitudRepository;
     }
 
     /**
@@ -36,6 +42,21 @@ public class EstudianteFotoService {
     @Transactional
     public void guardar(Integer idEstudiante, MultipartFile archivo) {
         verificarEstudiante(idEstudiante);
+        byte[] contenido = leerImagen(archivo);
+        guardarAprobada(idEstudiante, contenido, tipoDeImagen(contenido).orElseThrow());
+    }
+
+    private void guardarAprobada(Integer idEstudiante, byte[] contenido, String tipo) {
+        EstudianteFoto foto = fotoRepository.findById(idEstudiante).orElseGet(EstudianteFoto::new);
+        foto.setIdEstudiante(idEstudiante);
+        foto.setContenido(contenido);
+        foto.setTipoContenido(tipo);
+        foto.setActualizadoEn(LocalDateTime.now());
+        fotoRepository.save(foto);
+    }
+
+    /** Lee el archivo y comprueba tamaño y tipo real de imagen. */
+    private static byte[] leerImagen(MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()) {
             throw new IllegalArgumentException("Selecciona una fotografía.");
         }
@@ -48,14 +69,64 @@ public class EstudianteFotoService {
         } catch (IOException e) {
             throw new IllegalArgumentException("No se pudo leer la fotografía.");
         }
-        String tipo = tipoDeImagen(contenido)
-                .orElseThrow(() -> new IllegalArgumentException("La fotografía debe ser una imagen JPG, PNG o WEBP."));
-        EstudianteFoto foto = fotoRepository.findById(idEstudiante).orElseGet(EstudianteFoto::new);
-        foto.setIdEstudiante(idEstudiante);
-        foto.setContenido(contenido);
-        foto.setTipoContenido(tipo);
-        foto.setActualizadoEn(LocalDateTime.now());
-        fotoRepository.save(foto);
+        if (tipoDeImagen(contenido).isEmpty()) {
+            throw new IllegalArgumentException("La fotografía debe ser una imagen JPG, PNG o WEBP.");
+        }
+        return contenido;
+    }
+
+    /**
+     * Foto enviada por el propio estudiante: queda PENDIENTE y no reemplaza a la que ve el
+     * personal de control hasta que la administración la apruebe. Una nueva reemplaza a la anterior.
+     */
+    @Transactional
+    public void solicitarCambio(Integer idEstudiante, MultipartFile archivo) {
+        verificarEstudiante(idEstudiante);
+        byte[] contenido = leerImagen(archivo);
+        EstudianteFotoSolicitud solicitud = solicitudRepository.findById(idEstudiante)
+                .orElseGet(EstudianteFotoSolicitud::new);
+        solicitud.setIdEstudiante(idEstudiante);
+        solicitud.setContenido(contenido);
+        solicitud.setTipoContenido(tipoDeImagen(contenido).orElseThrow());
+        solicitud.setEstado(EstudianteFotoSolicitud.PENDIENTE);
+        solicitud.setMotivoRechazo(null);
+        solicitud.setEnviadaEn(LocalDateTime.now());
+        solicitud.setRevisadaEn(null);
+        solicitudRepository.save(solicitud);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<EstudianteFotoSolicitud> obtenerSolicitud(Integer idEstudiante) {
+        return solicitudRepository.findById(idEstudiante);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstudianteFotoSolicitud> listarPendientes() {
+        return solicitudRepository.findByEstadoOrderByEnviadaEnAsc(EstudianteFotoSolicitud.PENDIENTE);
+    }
+
+    /** La foto pendiente pasa a ser la foto del estudiante. */
+    @Transactional
+    public void aprobarSolicitud(Integer idEstudiante) {
+        EstudianteFotoSolicitud solicitud = solicitudPendiente(idEstudiante);
+        guardarAprobada(idEstudiante, solicitud.getContenido(), solicitud.getTipoContenido());
+        solicitudRepository.delete(solicitud);
+    }
+
+    /** La foto actual no cambia; el estudiante ve el motivo y puede enviar otra. */
+    @Transactional
+    public void rechazarSolicitud(Integer idEstudiante, String motivo) {
+        EstudianteFotoSolicitud solicitud = solicitudPendiente(idEstudiante);
+        solicitud.setEstado(EstudianteFotoSolicitud.RECHAZADA);
+        solicitud.setMotivoRechazo(motivo.strip());
+        solicitud.setRevisadaEn(LocalDateTime.now());
+        solicitudRepository.save(solicitud);
+    }
+
+    private EstudianteFotoSolicitud solicitudPendiente(Integer idEstudiante) {
+        return solicitudRepository.findById(idEstudiante)
+                .filter(s -> EstudianteFotoSolicitud.PENDIENTE.equals(s.getEstado()))
+                .orElseThrow(() -> new IllegalArgumentException("El estudiante no tiene una foto pendiente de aprobación."));
     }
 
     @Transactional(readOnly = true)

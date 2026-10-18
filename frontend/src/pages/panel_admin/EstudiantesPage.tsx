@@ -94,8 +94,8 @@ export default function EstudiantesPage() {
       >
         <section aria-label="Gestión de estudiantes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
-              <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE ESTUDIANTES</h1>
+            <div className="mb-4 border-b border-[#D8E3F5] pb-3 min-[960px]:hidden">
+              <h1 className="text-sm font-bold text-[#011140]">GESTIÓN DE ESTUDIANTES</h1>
               <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
                 Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados para jornadas de evaluación.
               </p>
@@ -180,8 +180,7 @@ export default function EstudiantesPage() {
                   )}
                 </div>
               ) : estudiantes.length > 0 ? (
-                <div className="rounded-xl bg-[#E9F1FF] p-3 min-[960px]:rounded-none min-[960px]:bg-transparent min-[960px]:p-0">
-                  {/* Móvil */}
+                <div className="min-[960px]:rounded-none">                  {/* Móvil */}
                   <div className="min-[960px]:hidden">
                     <EstudianteCardList
                       estudiantes={estudiantes}

@@ -1,5 +1,6 @@
 package com.nexacore.examenes.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -9,8 +10,8 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 /**
- * Estudiante. No inicia sesión, por eso no es un usuario del sistema:
- * guarda sus propios datos personales.
+ * Estudiante. Guarda sus propios datos personales, que son la fuente oficial aunque tenga cuenta.
+ * Su cuenta de usuario (rol ESTUDIANTE) es opcional: idUsuario queda null hasta que la active.
  */
 @Getter
 @Setter
@@ -40,6 +41,12 @@ public class Estudiante {
     @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
     private String ci;
 
+        /** Teléfono o celular opcional: 8 dígitos que empiezan con 5, 6 o 7. */
+    @Pattern(regexp = "^[567]\\d{7}$")
+    @Column(name = "telefono", length = 8)
+    private String telefono;
+
+
     @NotNull
     @Column(name = "email", nullable = false, length = Integer.MAX_VALUE)
     private String email;
@@ -49,5 +56,16 @@ public class Estudiante {
     @ColumnDefault("'REGULAR'")
     @Column(name = "condicion", nullable = false, length = 20)
     private String condicion = CondicionEstudiante.REGULAR;
+
+    /** Estado de matrícula: MATRICULADO o NO_MATRICULADO (ver EstadoMatricula). */
+    @NotNull
+    @ColumnDefault("'MATRICULADO'")
+    @Column(name = "estado_matricula", nullable = false, length = 20)
+    private String estadoMatricula = EstadoMatricula.MATRICULADO;
+
+    /** Cuenta de usuario del estudiante (rol ESTUDIANTE), o null si todavía no la activó. */
+    @JsonIgnore
+    @Column(name = "id_usuario", unique = true)
+    private Integer idUsuario;
 
 }

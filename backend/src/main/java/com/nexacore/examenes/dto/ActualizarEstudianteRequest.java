@@ -24,6 +24,11 @@ public record ActualizarEstudianteRequest(
     @Size(min = 7, max = 8, message = "El documento debe tener 7 u 8 dígitos")
     String ci,
 
+    // --- TU TELÉFONO AQUÍ ---
+    @Size(max = 8, message = "El teléfono no puede tener más de 8 caracteres")
+    @Pattern(regexp = "^[23467]\\d{6,7}$", message = "El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7")
+    String telefono,
+
     @Email(message = "Formato de correo inválido")
     @Size(min = 5, max = 50, message = "El correo debe tener entre 5 y 50 caracteres")
     String email,
@@ -34,12 +39,13 @@ public record ActualizarEstudianteRequest(
     @NotNull(message = "La carrera es obligatoria")
     Integer idCarrera,
 
-    /** Opcional: si no se envía, se conserva la condición actual. */
     @Pattern(regexp = CondicionEstudiante.PATRON, message = "La condición debe ser Regular o Postulante")
-    String condicion
+    String condicion,
+
+    String estadoMatricula
 ) {
     public ActualizarEstudianteRequest(String nombre, String apellidos, String codigoSis, String ci, String email,
-                                       Integer idFacultad, Integer idCarrera) {
-        this(nombre, apellidos, codigoSis, ci, email, idFacultad, idCarrera, null);
+                                       Integer idFacultad, Integer idCarrera, String condicion) {
+        this(nombre, apellidos, codigoSis, ci, null, email, idFacultad, idCarrera, condicion, null);
     }
 }

@@ -7,6 +7,7 @@ export interface CarreraInfo {
 
 /** Condición o tipo de estudiante. */
 export type CondicionEstudiante = 'REGULAR' | 'POSTULANTE'
+export type EstadoMatricula = 'MATRICULADO' | 'NO_MATRICULADO'
 
 export interface EstudianteListItem {
   id: number
@@ -14,9 +15,11 @@ export interface EstudianteListItem {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string | null 
   email?: string | null
   carreras: CarreraInfo[]
   condicion?: CondicionEstudiante
+  estadoMatricula?: EstadoMatricula
   /** Ruta de la API para descargar la foto, o null si no tiene. */
   fotoUrl?: string | null
 }
@@ -53,20 +56,24 @@ export interface RegistrarEstudiantePayload {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string
   email: string
   codigoSis: string
   idFacultad: number
   idCarrera: number
   condicion?: CondicionEstudiante
+  estadoMatricula?: EstadoMatricula
 }
 export interface ActualizarEstudiantePayload {
   nombre: string
   apellidos: string
   ci: string
+  telefono?: string
   email: string
   codigoSis: string
   idFacultad: number
   idCarrera: number
   condicion?: CondicionEstudiante
+  estadoMatricula?: EstadoMatricula 
 }
 

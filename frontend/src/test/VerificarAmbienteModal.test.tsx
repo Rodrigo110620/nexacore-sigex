@@ -62,6 +62,9 @@ describe('VerificarAmbienteModal (ACCS-06)', () => {
     })
     const onReportado = renderModal()
 
+    // El aula actual solo es editable tras pulsar "Editar".
+    expect(screen.queryByLabelText('AULA ACTUAL')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
     fireEvent.change(screen.getByLabelText('AULA ACTUAL'), { target: { value: '691-b' } })
     fireEvent.click(screen.getByRole('button', { name: /Reportar incidencia/ }))
 
@@ -76,6 +79,7 @@ describe('VerificarAmbienteModal (ACCS-06)', () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     const onReportado = renderModal()
 
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
     fireEvent.change(screen.getByLabelText('AULA ACTUAL'), { target: { value: '691B' } })
     fireEvent.click(screen.getByRole('button', { name: /Reportar incidencia/ }))
 
@@ -83,5 +87,22 @@ describe('VerificarAmbienteModal (ACCS-06)', () => {
     expect(service.registrarAmbienteIncorrecto).not.toHaveBeenCalled()
     expect(onReportado).not.toHaveBeenCalled()
     expect(screen.getByLabelText('AULA ACTUAL')).toHaveValue('691B')
+  })
+
+  it('muestra el aula del examen como texto y solo habilita el input al pulsar Editar', () => {
+    render(<VerificarAmbienteModal isOpen onClose={vi.fn()} onReportado={vi.fn()} ctx={ctx} aulaActualExamen="692F" />)
+
+    // Texto normal con el aula del examen, sin input.
+    expect(screen.getByTitle('Haz clic para editar')).toHaveTextContent('692F')
+    expect(screen.queryByLabelText('AULA ACTUAL')).not.toBeInTheDocument()
+
+    // "Editar" habilita el campo con ese mismo valor.
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    expect(screen.getByLabelText('AULA ACTUAL')).toHaveValue('692F')
+
+    // "Listo" vuelve a dejarlo como texto.
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }))
+    expect(screen.queryByLabelText('AULA ACTUAL')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Haz clic para editar')).toHaveTextContent('692F')
   })
 })

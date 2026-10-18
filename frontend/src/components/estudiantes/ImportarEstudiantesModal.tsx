@@ -15,7 +15,7 @@ interface ImportarEstudiantesModalProps {
   onImported: (result: ImportarEstudiantesResponse) => void
 }
 
-const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'email', 'idFacultad', 'idCarrera']
+const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'telefono', 'email', 'idFacultad', 'idCarrera']
 const MAX_BYTES = 1024 * 1024
 
 export default function ImportarEstudiantesModal({ open, onClose, onImported }: ImportarEstudiantesModalProps) {

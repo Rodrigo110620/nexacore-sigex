@@ -11,6 +11,7 @@ import { isNetworkError, isOffline } from '../utils/examFormUtils'
 export type BusquedaEstudiante =
   | { status: 'idle' }
   | { status: 'loading' }
+  | { status: 'qr_invalido' }
   | { status: 'encontrado' | 'no_vinculado'; estudiante: EstudianteIdentificado }
   | { status: 'no_encontrado' | 'error'; mensaje: string }
 
@@ -22,10 +23,10 @@ export const SIN_CONEXION_IDENTIFICAR =
 export type ResultadoBusquedaQr = 'encontrado' | 'no_vinculado' | 'invalido' | 'error'
 
 /** Sin conexión → error propio; 404 → no_encontrado; cualquier otro fallo → error, con el mensaje del backend si lo trae. */
-function busquedaFallida(error: unknown): BusquedaEstudiante {
+function busquedaFallida(error: unknown, mostrarMensajeBackend = true): BusquedaEstudiante {
   if (isNetworkError(error)) return { status: 'error', mensaje: SIN_CONEXION_IDENTIFICAR }
   const respuesta = axios.isAxiosError(error) ? error.response : undefined
-  const mensaje = (respuesta?.data as { mensaje?: string } | undefined)?.mensaje
+  const mensaje = mostrarMensajeBackend ? (respuesta?.data as { mensaje?: string } | undefined)?.mensaje : undefined
   if (respuesta?.status === 404) {
     return { status: 'no_encontrado', mensaje: mensaje ?? 'No se encontró al estudiante.' }
   }
@@ -75,8 +76,13 @@ export default function useIdentificacion(idExamen: number) {
     } catch (error) {
       if (id !== ultimaBusqueda.current) return 'error'
       const respuesta = axios.isAxiosError(error) ? error.response : undefined
-      setBusqueda(busquedaFallida(error))
-      return respuesta?.status === 400 ? 'invalido' : 'error'
+      if (respuesta?.status === 400) {
+        setBusqueda({ status: 'qr_invalido' })
+        return 'invalido'
+      }
+      // Un error del servidor podría repetir la credencial recibida: no mostrarlo en el flujo QR.
+      setBusqueda(busquedaFallida(error, false))
+      return 'error'
     }
   }, [idExamen])
 
