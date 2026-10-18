@@ -118,7 +118,9 @@ describe('Identificación por QR', () => {
 
     act(() => qr.leer({ data: 'SIGEX1.202104010.credencial-alterada' }))
 
-    expect(await screen.findByRole('dialog', { name: 'Código QR no válido' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Verificando identidad y autorización…')
+    expect(screen.queryByRole('dialog', { name: 'Código QR no válido' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Código QR no válido' }, { timeout: 2000 })).toBeInTheDocument()
     expect(screen.queryByText(/credencial-alterada/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Escanear otro código' }))
     expect(screen.queryByRole('dialog', { name: 'Código QR no válido' })).not.toBeInTheDocument()

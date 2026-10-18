@@ -6,6 +6,7 @@ import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
 import MecanismoSelector, { type Mecanismo } from '../../components/control/MecanismoSelector'
 import BusquedaEstudianteForm from '../../components/control/BusquedaEstudianteForm'
 import EscanerQr from '../../components/control/EscanerQr'
+import { DURACION_MINIMA_VERIFICACION_MS } from '../../hooks/useEscanerQr'
 import ResultadoEstudianteCard from '../../components/control/ResultadoEstudianteCard'
 import EstudianteNoVinculadoModal from '../../components/control/EstudianteNoVinculadoModal'
 import VerificacionHabilitacionModal from '../../components/control/VerificacionHabilitacionModal'
@@ -119,7 +120,10 @@ export default function IdentificacionPage() {
   }
 
   const manejarQrLeido = async (contenido: string) => {
+    const inicioVerificacion = Date.now()
     const resultado = await buscarQr(contenido)
+    const restante = DURACION_MINIMA_VERIFICACION_MS - (Date.now() - inicioVerificacion)
+    if (restante > 0) await new Promise<void>((resolver) => setTimeout(resolver, restante))
     if (resultado === 'invalido') setQrInvalidoOpen(true)
   }
 
