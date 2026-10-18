@@ -57,6 +57,7 @@ public class ControlIngresoService {
     private final EstudianteRepository estudianteRepository;
     private final RegistroControlIngresoRepository registroRepository;
     private final ObjectMapper objectMapper;
+    private final NormasExamenService normasExamenService;
 
     private final RepartoAulasService repartoAulasService;
 
@@ -68,7 +69,8 @@ public class ControlIngresoService {
             EstudianteRepository estudianteRepository,
             RegistroControlIngresoRepository registroRepository,
             ObjectMapper objectMapper,
-            RepartoAulasService repartoAulasService) {
+            RepartoAulasService repartoAulasService,
+            NormasExamenService normasExamenService) {
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
         this.incidenciaRepository = incidenciaRepository;
@@ -76,6 +78,7 @@ public class ControlIngresoService {
         this.estudianteRepository = estudianteRepository;
         this.registroRepository = registroRepository;
         this.objectMapper = objectMapper;
+        this.normasExamenService = normasExamenService;
         this.repartoAulasService = repartoAulasService;
     }
 
@@ -240,7 +243,8 @@ public class ControlIngresoService {
         var examen = asistencia.getExamen();
         var estudiante = asistencia.getEstudiante();
         String nombreCompleto = (estudiante.getNombre() + " " + estudiante.getApellidos()).trim();
-        NormasExamen normas = leerNormas(examen.getNormas(), estudiante.getId(), nombreCompleto);
+        NormasExamenService.NormasDeEstudiante normas = normasExamenService.leerParaEstudiante(
+                idExamen, estudiante.getId(), nombreCompleto);
         var fila = estudianteRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen);
         return new ContextoControlIngresoResponse(
                 idEstudiante,
@@ -355,7 +359,7 @@ public class ControlIngresoService {
                 estudiante.getCodigoSis(),
                 examen.getParalelo().getMateria().getSigla() + " - " + examen.getParalelo().getMateria().getNombre(),
                 aula != null ? aula : examen.getAmbiente().getNombre(),
-                examen.getNormas(),
+                normasExamenService.resumen(request.idExamen()),
                 (control.getNombre() + " " + control.getApellidos()).trim(),
                 ahora,
                 asistencia.getObservacionesControl(),
@@ -403,31 +407,6 @@ public class ControlIngresoService {
             return objectMapper.readValue(valor, new TypeReference<>() {});
         } catch (JsonProcessingException e) {
             return List.of();
-        }
-    }
-
-    /**
-     * Normas generales y las particulares de este estudiante. La norma particular se reconoce por
-     * idEstudiante; el nombre solo se usa en las normas guardadas antes de exigir el id, que no lo
-     * tienen. Así dos estudiantes con el mismo nombre no ven la norma del otro y una corrección del
-     * nombre no hace desaparecer la norma.
-     */
-    private NormasExamen leerNormas(String valor, Integer idEstudiante, String estudiante) {
-        if (valor == null || valor.isBlank()) return new NormasExamen(List.of(), List.of());
-        try {
-            Map<String, Object> contenido = objectMapper.readValue(valor, new TypeReference<>() {});
-            List<String> generales = objectMapper.convertValue(
-                    contenido.getOrDefault("generales", List.of()), new TypeReference<>() {});
-            List<Map<String, Object>> particulares = objectMapper.convertValue(
-                    contenido.getOrDefault("particulares", List.of()), new TypeReference<>() {});
-            List<String> aplicables = particulares.stream()
-                    .filter(norma -> esDelEstudiante(norma, idEstudiante, estudiante))
-                    .map(norma -> String.valueOf(norma.get("texto")))
-                    .filter(texto -> !texto.isBlank() && !"null".equals(texto))
-                    .toList();
-            return new NormasExamen(generales, aplicables);
-        } catch (IllegalArgumentException | JsonProcessingException e) {
-            return new NormasExamen(List.of(valor), List.of());
         }
     }
 
@@ -513,13 +492,4 @@ public class ControlIngresoService {
         }
     }
 
-    private record NormasExamen(List<String> generales, List<String> particulares) {}
-
-    private static boolean esDelEstudiante(Map<String, Object> norma, Integer idEstudiante, String nombre) {
-        Object id = norma.get("idEstudiante");
-        if (id != null) {
-            return String.valueOf(id).equals(String.valueOf(idEstudiante));
-        }
-        return nombre.equalsIgnoreCase(String.valueOf(norma.get("estudiante")));
-    }
 }

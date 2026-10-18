@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +64,16 @@ class PostgresIntegracionTests {
     @Autowired EstudianteRepository estudianteRepository;
     @Autowired UsuarioRepository usuarioRepository;
     @Autowired AmbienteRepository ambienteRepository;
+    @Autowired com.nexacore.examenes.services.HabilitacionService habilitacionService;
+    @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
+    @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
+    @Autowired jakarta.persistence.EntityManager entityManager;
+
+    /** Tras escribir con JDBC en la misma transacción, Hibernate debe volver a leer. */
+    private void sincronizar() {
+        entityManager.flush();
+        entityManager.clear();
+    }
     @MockBean EmailService emailService;
 
     @Test
@@ -133,5 +144,125 @@ class PostgresIntegracionTests {
                 SELECT ?, id_rol FROM rol WHERE nombre = 'ADMIN'
                 """, idUsuario))
                 .hasMessageContaining("solo puede tener el rol ESTUDIANTE");
+    }
+
+    // ---------- MAST-03/04: normas en su tabla, quitar estudiante y cruces de horario ----------
+
+    private int idDocente;
+    private int idParalelo;
+    private int idAmbiente;
+
+    /** Docente, materia y paralelo; devuelve el id del paralelo. */
+    private void prepararCatalogo() {
+        jdbc.update("""
+                INSERT INTO usuario (nombre, apellidos, ci, email, password, estado)
+                VALUES ('Luis', 'Paz', '5555555', 'luis.paz@umss.edu', 'x', 'activo')
+                """);
+        idDocente = jdbc.queryForObject("SELECT id_usuario FROM usuario WHERE email = 'luis.paz@umss.edu'", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", idDocente);
+        idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
+    }
+
+    private int materiaYParalelo(String sigla) {
+        jdbc.update("INSERT INTO materia (sigla, nombre) VALUES (?, ?)", sigla, "Materia " + sigla);
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM materia WHERE sigla = ?", Integer.class, sigla);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, '1')", idMateria, idDocente);
+        return jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ?", Integer.class, idMateria);
+    }
+
+    /** Examen de mañana; devuelve id_examen. */
+    private int examen(int paralelo, String hora, int duracion) {
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        return jdbc.queryForObject("""
+                INSERT INTO examen (id_paralelo, fecha, hora_inicio, duracion_minutos, id_materia, id_docente, id_ambiente)
+                VALUES (?, CURRENT_DATE + 1, CAST(? AS time), ?, ?, ?, ?) RETURNING id_examen
+                """, Integer.class, paralelo, hora, duracion, idMateria, idDocente, idAmbiente);
+    }
+
+    private int estudiante(String sis, String nombre) {
+        jdbc.update("INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email) VALUES (?, ?, 'Prueba', ?, ?)",
+                sis, nombre, sis.substring(2), sis + "@est.umss.edu");
+        return jdbc.queryForObject("SELECT id_estudiante FROM estudiante WHERE codigo_sis = ?", Integer.class, sis);
+    }
+
+    @Test
+    void avisaSiElEstudianteTieneOtroExamenALaMismaHora() {
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-901");
+        int p2 = materiaYParalelo("TST-902");
+        int examenA = examen(p1, "08:00", 90);
+        int examenB = examen(p2, "09:00", 60);   // se cruza con A
+        estudiante("202104010", "Ana");
+        estudiante("202104011", "Luis");
+        habilitacionService.asociar(examenB, p2, "202104010");
+
+        var lista = habilitacionService.asociarLote(examenA, p1, List.of("202104010", "202104011")).estudiantes();
+
+        assertThat(lista).filteredOn(e -> e.codigoSis().equals("202104010")).singleElement()
+                .satisfies(e -> assertThat(e.conflictoHorario()).contains("TST-902").contains("09:00"));
+        assertThat(lista).filteredOn(e -> e.codigoSis().equals("202104011")).singleElement()
+                .satisfies(e -> assertThat(e.conflictoHorario()).isNull());
+    }
+
+    @Test
+    void lasNormasViveEnSuTablaYSoloSonParaEstudiantesDelExamen() {
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-901");
+        int idExamen = examen(p1, "08:00", 90);
+        int ana = estudiante("202104010", "Ana");
+        int luis = estudiante("202104011", "Luis");
+        habilitacionService.asociar(idExamen, p1, "202104010");
+        var examen = examenRepository.findAll().stream()
+                .filter(x -> x.getId().getIdExamen() == idExamen).findFirst().orElseThrow();
+
+        // Luis no está asociado: no se le puede poner una norma particular.
+        assertThatThrownBy(() -> normasExamenService.actualizar(examen, List.of(),
+                List.of(new com.nexacore.examenes.dto.NormaParticularRequest("Luis Prueba", "Tiempo adicional de 15 minutos", luis))))
+                .hasMessageContaining("no está asociado a este examen");
+
+        normasExamenService.actualizar(examen, List.of("Presentar CI vigente", "No usar celular"),
+                List.of(new com.nexacore.examenes.dto.NormaParticularRequest("Ana Prueba", "Tiempo adicional de 15 minutos", ana)));
+        assertThat(normasExamenService.leer(idExamen).generales()).containsExactly("Presentar CI vigente", "No usar celular");
+        assertThat(normasExamenService.leerParaEstudiante(idExamen, ana, "Ana Prueba").particulares())
+                .containsExactly("Tiempo adicional de 15 minutos");
+        assertThat(normasExamenService.leerParaEstudiante(idExamen, luis, "Ana Prueba").particulares()).isEmpty();
+
+        // Quitar una norma la deja inactiva como historial, no la borra.
+        normasExamenService.actualizar(examen, List.of("Presentar CI vigente"), normasExamenService.leer(idExamen).particulares());
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM norma_examen WHERE id_examen = ? AND NOT activa AND texto = 'No usar celular'",
+                Integer.class, idExamen)).isEqualTo(1);
+    }
+
+    @Test
+    void seQuitaAlEstudianteAsociadoPorErrorSoloSiNoPasoPorElControl() {
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-901");
+        int idExamen = examen(p1, "08:00", 90);
+        int ana = estudiante("202104010", "Ana");
+        int luis = estudiante("202104011", "Luis");
+        int rosa = estudiante("202104012", "Rosa");
+        habilitacionService.asociarLote(idExamen, p1, List.of("202104010", "202104011", "202104012"));
+        var examen = examenRepository.findAll().stream()
+                .filter(x -> x.getId().getIdExamen() == idExamen).findFirst().orElseThrow();
+        normasExamenService.actualizar(examen, List.of(),
+                List.of(new com.nexacore.examenes.dto.NormaParticularRequest("Ana Prueba", "Tiempo adicional de 15 minutos", ana)));
+
+        // Luis ya ingresó y Rosa tiene un intento registrado: no se los puede quitar.
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_ingreso = now() WHERE id_estudiante = ?", luis);
+        jdbc.update("""
+                INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, id_estudiante)
+                VALUES (?, ?, ?, '202104012', ?)
+                """, idExamen, p1, idDocente, rosa);
+        sincronizar();
+        assertThatThrownBy(() -> habilitacionService.quitar(idExamen, p1, luis)).hasMessageContaining("ya ingresó");
+        assertThatThrownBy(() -> habilitacionService.quitar(idExamen, p1, rosa)).hasMessageContaining("registros del control");
+
+        var lista = habilitacionService.quitar(idExamen, p1, ana);
+
+        assertThat(lista).extracting(r -> r.codigoSis()).containsExactlyInAnyOrder("202104011", "202104012");
+        assertThat(lista).filteredOn(r -> r.codigoSis().equals("202104011")).singleElement()
+                .satisfies(r -> assertThat(r.ingresado()).isTrue());
+        assertThat(normasExamenService.leerParaEstudiante(idExamen, ana, "Ana Prueba").particulares()).isEmpty();
     }
 }

@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -101,5 +102,16 @@ public class HabilitacionController {
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
             @Valid @RequestBody ActualizarHabilitacionRequest request) {
         return ResponseEntity.ok(habilitacionService.actualizar(idExamen, idParalelo, request));
+    }
+
+    @Operation(summary = "Quitar a un estudiante del examen",
+            description = "Para un estudiante asociado por error, mientras no haya pasado por el control de ingreso. ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{idEstudiante}")
+    public ResponseEntity<List<EstudianteHabilitacionResponse>> quitar(
+            @PathVariable Integer idExamen,
+            @PathVariable Integer idParalelo,
+            @PathVariable Integer idEstudiante) {
+        return ResponseEntity.ok(habilitacionService.quitar(idExamen, idParalelo, idEstudiante));
     }
 }

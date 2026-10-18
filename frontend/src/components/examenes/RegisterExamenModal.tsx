@@ -18,13 +18,11 @@ import {
 import {
   INITIAL_EXAMEN_FORM,
   type NormaGeneral,
-  type NormaParticular,
   type RegisterExamenFormErrors,
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
 import { crearExamen, type ModoReparto } from '../../services/examenService'
-import { getEstudiantes } from '../../services/estudianteService'
 import {
   detalleAmbiente,
   formatAmPm,
@@ -52,7 +50,6 @@ import {
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import AulasAdicionalesEditor from './AulasAdicionalesEditor'
-import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
@@ -64,15 +61,6 @@ interface RegisterExamenModalProps {
 }
 
 type Step = 1 | 2 | 3
-
-/** Al registrar, el estudiante de una norma particular se elige del registro de estudiantes. */
-const buscarEstudiantesRegistro = (criterio: string, signal: AbortSignal): Promise<OpcionEstudiante[]> =>
-  getEstudiantes({ page: 0, size: 8, search: criterio, idFacultad: '', idCarrera: '' }, signal).then((page) =>
-    page.contenido.map((e) => ({
-      id: e.id,
-      nombre: `${e.nombre} ${e.apellidos}`,
-      detalle: `CI ${e.ci} · Cód. ${e.codigoSis}`,
-    })))
 
 const STEPS: { id: Step; titulo: string; detalle: string; campos: (keyof RegisterExamenFormErrors)[] }[] = [
   { id: 1, titulo: 'Información Básica', detalle: 'Asignatura y docente', campos: ['asignatura', 'docente'] },
@@ -110,15 +98,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       texto: 'No se permite calculadora programable ni celulares.',
     },
   ])
-  const [normasParticulares, setNormasParticulares] = useState<NormaParticular[]>([])
   const [nuevaNormaGeneral, setNuevaNormaGeneral] = useState('')
   const [showAddGeneral, setShowAddGeneral] = useState(false)
-  const [nuevaParticularEst, setNuevaParticularEst] = useState('')
-  const [nuevaParticularIdEst, setNuevaParticularIdEst] = useState<number | null>(null)
-  const [nuevaParticularTexto, setNuevaParticularTexto] = useState('')
-  const [showAddParticular, setShowAddParticular] = useState(false)
   const [editingGeneralId, setEditingGeneralId] = useState<string | null>(null)
-  const [editingParticularId, setEditingParticularId] = useState<string | null>(null)
   /** Evita un segundo envío antes de que React vuelva a pintar el botón deshabilitado. */
   const submittingRef = useRef(false)
   const [ambienteFilter, setAmbienteFilter] = useState('')
@@ -134,7 +116,6 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [offlineOpen, setOfflineOpen] = useState(false)
   const [expandedNormas, setExpandedNormas] = useState<Record<string, boolean>>({})
   const [normaGeneralError, setNormaGeneralError] = useState('')
-  const [normaParticularError, setNormaParticularError] = useState('')
 
   useEffect(() => {
     return () => {
@@ -237,18 +218,13 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setSuccess(false)
     setSaving(false)
     setShowAddGeneral(false)
-    setShowAddParticular(false)
     setShowNuevoAmbiente(false)
     setNuevaNormaGeneral('')
-    setNuevaParticularEst('')
-    setNuevaParticularIdEst(null)
-    setNuevaParticularTexto('')
     setNuevoAmbienteNombre('')
     setAmbienteError('')
     setAulasAdicionales([])
     setModoReparto('ALFABETICO')
     setEditingGeneralId(null)
-    setEditingParticularId(null)
     submittingRef.current = false
     setAmbienteFilter('')
     setAmbienteListOpen(false)
@@ -258,7 +234,6 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         texto: 'No se permite calculadora programable ni celulares.',
       },
     ])
-    setNormasParticulares([])
     setAsignaturaOk(false)
     setDocenteOk(false)
     setIdMateria(null)
@@ -268,7 +243,6 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     setOfflineOpen(false)
     setExpandedNormas({})
     setNormaGeneralError('')
-    setNormaParticularError('')
   }
 
   const handleClose = () => {
@@ -371,11 +345,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         duracionMinutos: duracion,
         idAmbiente: Number(form.idAmbiente),
         normasGenerales: normasGenerales.filter((n) => n.activa !== false).map((n) => n.texto),
-        normasParticulares: normasParticulares.filter((n) => n.activa !== false).map((n) => ({
-          estudiante: n.estudiante,
-          texto: n.texto,
-          idEstudiante: n.idEstudiante ?? null,
-        })),
+        // Las particulares se agregan al editar, cuando el examen ya tiene estudiantes (MAST-03).
+        normasParticulares: [],
         idMateria,
         idDocente,
         idAmbientesAdicionales: adicionalesVigentes,
@@ -455,42 +426,6 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     }
     setNuevaNormaGeneral('')
     setShowAddGeneral(false)
-  }
-
-  const addNormaParticular = () => {
-    const estudiante = nuevaParticularEst.trim()
-    const texto = nuevaParticularTexto.trim()
-    const otras = normasParticulares
-      .filter((n) => n.activa !== false && n.id !== editingParticularId && n.idEstudiante === nuevaParticularIdEst)
-      .map((n) => n.texto)
-    const error = !estudiante
-      ? 'Indica el estudiante'
-      : nuevaParticularIdEst === null
-        ? 'Selecciona un estudiante de las sugerencias'
-        : validateNormaTexto(texto, otras)
-    setNormaParticularError(error ?? '')
-    if (error) return
-    setDirty(true)
-    if (editingParticularId) {
-      setNormasParticulares((prev) => prev.map((n) => (
-        n.id === editingParticularId ? { ...n, estudiante, idEstudiante: nuevaParticularIdEst, texto } : n
-      )))
-    } else {
-      setNormasParticulares((prev) => [
-        ...prev,
-        { id: `np-${Date.now()}`, estudiante, idEstudiante: nuevaParticularIdEst, texto },
-      ])
-    }
-    cerrarFormParticular()
-  }
-
-  const cerrarFormParticular = () => {
-    setNuevaParticularEst('')
-    setNuevaParticularIdEst(null)
-    setNuevaParticularTexto('')
-    setEditingParticularId(null)
-    setNormaParticularError('')
-    setShowAddParticular(false)
   }
 
   return (
@@ -1050,121 +985,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
             </section>
 
             <section className={sectionCardClass}>
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
-                    <UserRoundCheck size={14} className="shrink-0" aria-hidden="true" />
-                    <span className="leading-tight">NORMAS PARTICULARES POR ESTUDIANTE</span>
-                  </h3>
-                  <p className="hidden text-[10px] text-gray-500 min-[960px]:block">
-                    Excepciones y adaptaciones asignadas a postulantes específicos.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => (showAddParticular ? cerrarFormParticular() : setShowAddParticular(true))}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#0439D9] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#032db0] min-[960px]:rounded-lg min-[960px]:px-3 min-[960px]:text-xs"
-                >
-                  <Plus size={14} />
-                  <span className="min-[960px]:hidden">Agregar particular</span>
-                  <span className="hidden min-[960px]:inline">Agregar norma particular</span>
-                </button>
-              </div>
-              {showAddParticular && (
-                <div className="mb-2">
-                  <div className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
-                    <EstudianteNormaAutocomplete
-                      id="registrar-norma-estudiante"
-                      value={nuevaParticularEst}
-                      buscar={buscarEstudiantesRegistro}
-                      onChange={(v) => {
-                        setNuevaParticularEst(v)
-                        setNuevaParticularIdEst(null)
-                        if (normaParticularError) setNormaParticularError('')
-                      }}
-                      onSelect={(est) => {
-                        setNuevaParticularEst(est.nombre)
-                        setNuevaParticularIdEst(est.id)
-                        if (normaParticularError) setNormaParticularError('')
-                      }}
-                    />
-                    <input
-                      value={nuevaParticularTexto}
-                      onChange={(e) => {
-                        setNuevaParticularTexto(sanitizeNormaInput(e.target.value))
-                        if (normaParticularError) setNormaParticularError('')
-                      }}
-                      onBlur={() => setNuevaParticularTexto((v) => v.trim())}
-                      placeholder={`Norma o adaptación… (${NORMA_MIN}–${NORMA_MAX})`}
-                      maxLength={NORMA_MAX}
-                      aria-invalid={Boolean(normaParticularError)}
-                      className={fieldClass(normaParticularError)}
-                    />
-                    <button
-                      type="button"
-                      onClick={addNormaParticular}
-                      className="rounded-lg bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white"
-                    >
-                      {editingParticularId ? 'Guardar' : 'Añadir'}
-                    </button>
-                  </div>
-                  <div className="mt-1 flex justify-between gap-2 text-[10px]">
-                    <span className="text-red-600">{normaParticularError}</span>
-                    <span className="shrink-0 text-gray-400">{nuevaParticularTexto.length}/{NORMA_MAX}</span>
-                  </div>
-                </div>
-              )}
-              {normasParticulares.filter((n) => n.activa !== false).length === 0 ? (
-                <p className="rounded-lg border border-dashed border-[#B8CBEF] bg-white px-3 py-4 text-center text-[11px] text-gray-400">
-                  Sin normas particulares. Usa el botón para agregar adaptaciones.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {normasParticulares.filter((n) => n.activa !== false).map((n, idx) => (
-                    <li
-                      key={n.id}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-[#E8EEF7] bg-white px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold text-[#627A9B]">{idx + 1}. {n.estudiante}</p>
-                        <NormaTexto
-                          texto={n.texto}
-                          expanded={Boolean(expandedNormas[n.id])}
-                          onToggle={() => setExpandedNormas((prev) => ({ ...prev, [n.id]: !prev[n.id] }))}
-                        />
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          aria-label="Editar norma particular"
-                          onClick={() => {
-                            setNuevaParticularEst(n.estudiante)
-                            setNuevaParticularIdEst(n.idEstudiante ?? null)
-                            setNuevaParticularTexto(n.texto)
-                            setEditingParticularId(n.id)
-                            setNormaParticularError('')
-                            setShowAddParticular(true)
-                          }}
-                          className="rounded p-1 text-gray-400 hover:bg-gray-50 hover:text-[#0439D9]"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Eliminar norma particular"
-                          onClick={() => {
-                            setDirty(true)
-                            setNormasParticulares((prev) => prev.map((x) => (x.id === n.id ? { ...x, activa: false } : x)))
-                          }}
-                          className="rounded p-1 text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <h3 className="mb-1 flex items-center gap-1.5 text-xs font-bold tracking-wide text-[#011140]">
+                <UserRoundCheck size={14} className="shrink-0" aria-hidden="true" />
+                <span className="leading-tight">NORMAS PARTICULARES POR ESTUDIANTE</span>
+              </h3>
+              {/* MAST-03: la norma particular es para un estudiante del examen, y al registrarlo
+                  todavía no tiene estudiantes asociados. */}
+              <p className="rounded-lg border border-dashed border-[#B8CBEF] bg-white px-3 py-3 text-[11px] text-[#627A9B]">
+                Se agregan al editar el examen, después de asociar a los estudiantes.
+              </p>
             </section>
             </>
             )}
