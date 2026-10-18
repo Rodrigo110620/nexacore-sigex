@@ -15,6 +15,10 @@ export interface EstudianteHabilitacionDto {
   motivo: string | null
   /** Aula que le toca por orden alfabético y aforo; null si no entra o no rinde. */
   aula?: string | null
+  /** true si ya ingresó al examen: no se lo puede quitar ni inhabilitar. */
+  ingresado?: boolean
+  /** Aviso si tiene otro examen a la misma hora ese día (no bloquea). */
+  conflictoHorario?: string | null
 }
 
 export interface OcupacionAulaDto {
@@ -101,5 +105,15 @@ export async function actualizarHabilitacion(
   payload: ActualizarHabilitacionPayload,
 ): Promise<EstudianteHabilitacionDto[]> {
   const { data } = await api.put<EstudianteHabilitacionDto[]>(basePath(idExamen, idParalelo), payload)
+  return data
+}
+
+/** Quita del examen a un estudiante asociado por error (solo si no pasó por el control). Devuelve el listado. */
+export async function quitarEstudianteExamen(
+  idExamen: number,
+  idParalelo: number,
+  idEstudiante: number,
+): Promise<EstudianteHabilitacionDto[]> {
+  const { data } = await api.delete<EstudianteHabilitacionDto[]>(`${basePath(idExamen, idParalelo)}/${idEstudiante}`)
   return data
 }

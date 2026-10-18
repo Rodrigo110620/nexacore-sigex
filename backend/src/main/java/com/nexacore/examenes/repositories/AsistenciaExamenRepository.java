@@ -84,6 +84,34 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
             @Param("idParalelo") Integer idParalelo,
             @Param("idsEstudiante") Collection<Integer> idsEstudiante);
 
+    /** Examen del mismo día de un estudiante, con lo necesario para ver si se cruza en horario. */
+    record OtroExamen(Integer idEstudiante, java.time.LocalTime horaInicio, Integer duracionMinutos,
+                      String estado, String sigla, String materia) {}
+
+    /** Otros exámenes del mismo día de estos estudiantes, para avisar cruces de horario (MAST-04). */
+    @Query("""
+            SELECT new com.nexacore.examenes.repositories.AsistenciaExamenRepository$OtroExamen(
+                   a.id.idEstudiante, ex.horaInicio, ex.duracionMinutos, ex.estado, m.sigla, m.nombre)
+            FROM AsistenciaExamen a
+            JOIN a.examen ex
+            JOIN ex.paralelo p
+            JOIN p.materia m
+            WHERE a.id.idEstudiante IN :idsEstudiante
+              AND ex.fecha = :fecha
+              AND a.id.idExamen <> :idExamen
+            """)
+    List<OtroExamen> otrosExamenesDelDia(@Param("idsEstudiante") Collection<Integer> idsEstudiante,
+                                               @Param("fecha") java.time.LocalDate fecha,
+                                               @Param("idExamen") Integer idExamen);
+
+    /** Registros del control de ingreso del estudiante en el examen (autorizaciones, intentos, incidencias). */
+    @Query(value = """
+            SELECT (SELECT COUNT(*) FROM registro_control_ingreso WHERE id_examen = :idExamen AND id_estudiante = :idEstudiante)
+                 + (SELECT COUNT(*) FROM intento_ingreso WHERE id_examen = :idExamen AND id_estudiante = :idEstudiante)
+                 + (SELECT COUNT(*) FROM incidencia WHERE id_examen = :idExamen AND id_estudiante = :idEstudiante)
+            """, nativeQuery = true)
+    long contarRegistrosDeControl(@Param("idExamen") Integer idExamen, @Param("idEstudiante") Integer idEstudiante);
+
     /** Exámenes de un estudiante, del más próximo al más lejano (panel del estudiante). */
     @Query("""
             SELECT a FROM AsistenciaExamen a

@@ -11,6 +11,7 @@ import com.nexacore.examenes.repositories.IncidenciaRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
 import com.nexacore.examenes.services.ControlIngresoService;
+import com.nexacore.examenes.services.NormasExamenService;
 import com.nexacore.examenes.services.RepartoAulasService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ class ControlIngresoServiceTests {
     private CatalogoIncidenciaRepository catalogoRepository;
     private IncidenciaRepository incidenciaRepository;
     private AsistenciaExamen asistencia;
+    private NormasExamenService normasExamenService;
 
     @BeforeEach
     void preparar() {
@@ -43,6 +45,9 @@ class ControlIngresoServiceTests {
         registroRepository = mock(RegistroControlIngresoRepository.class);
         catalogoRepository = mock(CatalogoIncidenciaRepository.class);
         incidenciaRepository = mock(IncidenciaRepository.class);
+        normasExamenService = mock(NormasExamenService.class);
+        when(normasExamenService.leerParaEstudiante(any(), any(), any()))
+                .thenReturn(new NormasExamenService.NormasDeEstudiante(List.of(), List.of()));
         service = new ControlIngresoService(
                 asistenciaRepository,
                 catalogoRepository,
@@ -51,7 +56,8 @@ class ControlIngresoServiceTests {
                 mock(EstudianteRepository.class),
                 registroRepository,
                 new ObjectMapper(),
-                repartoSinAula());
+                repartoSinAula(),
+                normasExamenService);
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -265,12 +271,12 @@ class ControlIngresoServiceTests {
     }
 
     @Test
-    void obtieneNormasGeneralesYParticularesDesdeJsonDelExamen() {
+    void elContextoMuestraLasNormasGeneralesYLasParticularesDelEstudiante() {
         asistencia.getEstudiante().setCi("74839201");
-        asistencia.getExamen().setNormas("""
-                {"generales":["Presentar CI","No usar celular"],
-                 "particulares":[{"estudiante":"Laura Paredes","texto":"Tiempo adicional de 30 minutos"}]}
-                """);
+        asistencia.getEstudiante().setId(10);
+        when(normasExamenService.leerParaEstudiante(20, 10, "Laura Paredes")).thenReturn(
+                new NormasExamenService.NormasDeEstudiante(
+                        List.of("Presentar CI", "No usar celular"), List.of("Tiempo adicional de 30 minutos")));
         when(asistenciaRepository.buscarContexto(10, 20)).thenReturn(Optional.of(asistencia));
 
         var contexto = service.consultarContexto(10, 20);
@@ -278,24 +284,6 @@ class ControlIngresoServiceTests {
         assertEquals(List.of("Presentar CI", "No usar celular"), contexto.normasGenerales());
         assertEquals(List.of("Tiempo adicional de 30 minutos"), contexto.normasParticulares());
         assertEquals("74839201", contexto.documento());
-    }
-
-    @Test
-    void laNormaParticularSeReconocePorIdNoPorNombre() {
-        // Dos estudiantes con el mismo nombre: cada uno ve solo su norma. Y la de Laura sigue
-        // apareciendo aunque se guardó con su nombre anterior.
-        asistencia.getEstudiante().setId(10);
-        asistencia.getExamen().setNormas("""
-                {"generales":["Presentar CI"],
-                 "particulares":[
-                   {"estudiante":"Laura Paredes","texto":"Norma de otra Laura Paredes","idEstudiante":99},
-                   {"estudiante":"Laura Paredez","texto":"Tiempo adicional de 30 minutos","idEstudiante":10}]}
-                """);
-        when(asistenciaRepository.buscarContexto(10, 20)).thenReturn(Optional.of(asistencia));
-
-        var contexto = service.consultarContexto(10, 20);
-
-        assertEquals(List.of("Tiempo adicional de 30 minutos"), contexto.normasParticulares());
     }
 
     @Test
@@ -565,7 +553,6 @@ class ControlIngresoServiceTests {
         examen.setIdAmbiente(5);
         examen.setAmbiente(ambiente);
         examen.setParalelo(paralelo);
-        examen.setNormas("Presentar documento de identidad");
 
         AsistenciaExamenId id = new AsistenciaExamenId();
         id.setIdEstudiante(10);
