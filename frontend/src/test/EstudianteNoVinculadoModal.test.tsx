@@ -53,6 +53,22 @@ describe('EstudianteNoVinculadoModal (ACCS-05)', () => {
     expect(onCerrar).toHaveBeenCalledOnce()
   })
 
+  it('evita un segundo envío mientras el primer registro sigue en curso', async () => {
+    let resolverRegistro: (() => void) | undefined
+    vi.mocked(service.registrarIntentoIngreso).mockImplementation(() => new Promise<void>((resolve) => {
+      resolverRegistro = resolve
+    }))
+    render(<EstudianteNoVinculadoModal estudiante={estudiante} idExamen={7} onCerrar={vi.fn()} />)
+
+    const boton = screen.getByRole('button', { name: /registrar intento/i })
+    fireEvent.click(boton)
+    fireEvent.click(boton)
+
+    expect(service.registrarIntentoIngreso).toHaveBeenCalledOnce()
+    resolverRegistro?.()
+    expect(await screen.findByText('Intento registrado correctamente')).toBeInTheDocument()
+  })
+
   it('muestra el error del servicio y permite reintentar', async () => {
     vi.mocked(service.registrarIntentoIngreso)
       .mockRejectedValueOnce(new Error('offline'))
