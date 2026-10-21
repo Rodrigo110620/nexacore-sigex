@@ -7,6 +7,7 @@ import ForgotPasswordPage from '../pages/Login/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/Login/ResetPasswordPage'
 import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
+import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
@@ -67,6 +68,15 @@ export default function AppRouter() {
           element={
             <PortalEstudianteRoute>
               <InicioEstudiantePage />
+            </PortalEstudianteRoute>
+          }
+        />
+        {/* CTA-02: la foto es obligatoria antes de usar el portal. */}
+        <Route
+          path="/estudiante/foto"
+          element={
+            <PortalEstudianteRoute>
+              <RegistrarFotoPage />
             </PortalEstudianteRoute>
           }
         />
