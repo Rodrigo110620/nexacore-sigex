@@ -109,7 +109,8 @@ describe('ActivarCuentaPage (CTA-01)', () => {
     })
     expect(await screen.findByRole('heading', { name: 'Tu cuenta está activa' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /iniciar sesión/i }))
-    expect(screen.getByText('Pantalla Login')).toBeInTheDocument()
+    // navigate() se aplica un instante después: se espera la pantalla, no se busca al momento.
+    expect(await screen.findByText('Pantalla Login')).toBeInTheDocument()
   })
 
   it('si el código es incorrecto vuelve al paso del código con el error', async () => {
