@@ -5,6 +5,9 @@ import { setNavigate } from '../utils/navigate'
 import LoginPage from '../pages/Login/LoginPage'
 import ForgotPasswordPage from '../pages/Login/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/Login/ResetPasswordPage'
+import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
+import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
+import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
@@ -55,6 +58,18 @@ export default function AppRouter() {
         </Route>
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* CTA-01: el estudiante activa su cuenta antes de su primer inicio de sesión. */}
+        <Route path="/activar-cuenta" element={<ActivarCuentaPage />} />
+
+        {/* Portal del estudiante (rol ESTUDIANTE). */}
+        <Route
+          path="/estudiante"
+          element={
+            <PortalEstudianteRoute>
+              <InicioEstudiantePage />
+            </PortalEstudianteRoute>
+          }
+        />
 
         {/* Dashboard general (cualquier usuario logueado) */}
         <Route

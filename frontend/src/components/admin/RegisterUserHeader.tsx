@@ -35,6 +35,7 @@ export default function RegisterUserHeader({ step, onClose }: Props) {
         <button
           type="button"
           onClick={onClose}
+          onMouseDown={(e) => e.preventDefault()}
           aria-label="Cerrar"
           className="mt-4 shrink-0 rounded-full bg-[#F1F6FF] p-2 text-[#627A9B] transition-colors hover:bg-gray-100 hover:text-gray-600 sm:mt-0 sm:rounded-lg sm:bg-transparent"
         >
