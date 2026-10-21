@@ -1,8 +1,10 @@
-import { Camera, CircleCheck, LogOut, ScanFace, TriangleAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Camera, CircleCheck, LogOut, RefreshCw, ScanFace, TriangleAlert } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { EncabezadoAsistente, ProgresoAsistente } from '../../components/auth/Asistente'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
+import EscaneoRostro, { type FotoCapturada } from '../../components/estudiantes/EscaneoRostro'
 import { useAuth } from '../../context/AuthContext'
 import useMiPerfil from '../../hooks/useMiPerfil'
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
@@ -40,14 +42,26 @@ function ListaVerificada({ titulo, items }: { titulo: string; items: string[] })
 }
 
 /**
- * CTA-02: el estudiante registra su foto antes de usar el portal. Esta parte muestra las
- * indicaciones (o el motivo si se la rechazaron); el escaneo con la cámara llega en la siguiente.
+ * CTA-02: el estudiante registra su foto antes de usar el portal: indicaciones (o el motivo si se la
+ * rechazaron) → escaneo con la cámara → foto de frente tomada. Los giros y el envío llegan después.
  */
 export default function RegistrarFotoPage() {
   const isMobile = useIsMobileDevice()
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { perfil, cargando, error, recargar } = useMiPerfil()
+  const [fase, setFase] = useState<'indicaciones' | 'escaneo' | 'capturada'>('indicaciones')
+  const [foto, setFoto] = useState<FotoCapturada | null>(null)
+
+  // La vista previa usa una URL temporal del navegador: se libera al cambiarla o al salir.
+  useEffect(() => () => {
+    if (foto) URL.revokeObjectURL(foto.url)
+  }, [foto])
+
+  const repetir = () => {
+    setFoto(null)
+    setFase('escaneo')
+  }
 
   const cerrarSesion = () => {
     logout()
@@ -71,6 +85,39 @@ export default function RegistrarFotoPage() {
               <PortalCargando />
             ) : error ? (
               <PortalError mensaje={error} onReintentar={recargar} />
+            ) : fase === 'escaneo' ? (
+              <>
+                <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={2} />
+                <EscaneoRostro
+                  onCapturada={(capturada) => {
+                    setFoto(capturada)
+                    setFase('capturada')
+                  }}
+                  onCancelar={() => setFase('indicaciones')}
+                />
+              </>
+            ) : fase === 'capturada' && foto ? (
+              <>
+                <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={2} />
+                <EncabezadoAsistente icono={CircleCheck} tono="verde" titulo="Foto de frente tomada">
+                  Así se ve tu foto. Si no salió bien, repite el escaneo.
+                </EncabezadoAsistente>
+                <img
+                  src={foto.url}
+                  alt="Tu foto de frente"
+                  className="mx-auto mb-5 aspect-[3/4] w-48 rounded-xl border-2 border-[#10B981] object-cover"
+                />
+                <p className="mb-5 rounded-xl border border-[#BFD2F5] bg-[#F1F6FF] p-3 text-xs text-[#45628D]">
+                  Siguiente parte en desarrollo: los giros de cabeza y el envío de la foto.
+                </p>
+                <button
+                  type="button"
+                  onClick={repetir}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#D8E3F5] bg-white text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF]"
+                >
+                  <RefreshCw size={16} aria-hidden="true" /> Repetir escaneo
+                </button>
+              </>
             ) : rechazada ? (
               <>
                 <EncabezadoAsistente icono={TriangleAlert} tono="rojo" titulo="Tu foto fue rechazada">
@@ -102,12 +149,11 @@ export default function RegistrarFotoPage() {
               </>
             )}
 
-            {!cargando && !error && (
+            {!cargando && !error && fase === 'indicaciones' && (
               <>
                 <button
                   type="button"
-                  disabled
-                  title="El escaneo con la cámara se habilita en la siguiente parte"
+                  onClick={() => setFase('escaneo')}
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Camera size={16} aria-hidden="true" />

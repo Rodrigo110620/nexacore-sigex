@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
@@ -7,6 +8,16 @@ import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
 import { obtenerMiPerfil, requiereRegistrarFoto, type MiPerfilEstudiante } from '../services/panelEstudianteService'
 
 vi.mock('../hooks/useIsMobileDevice', () => ({ useIsMobileDevice: () => false }))
+// La cámara no existe en las pruebas: el escaneo devuelve una foto al pulsar un botón.
+vi.mock('../components/estudiantes/EscaneoRostro', () => ({
+  default: ({ onCapturada, onCancelar }: { onCapturada: (f: { archivo: Blob; url: string }) => void; onCancelar: () => void }) => (
+    <div>
+      <p>Cámara simulada</p>
+      <button onClick={() => onCapturada({ archivo: new Blob(['x']), url: 'blob:foto' })}>Simular foto</button>
+      <button onClick={onCancelar}>Cancelar escaneo</button>
+    </div>
+  ),
+}))
 vi.mock('../services/panelEstudianteService', async (original) => ({
   ...(await original<typeof import('../services/panelEstudianteService')>()),
   obtenerMiPerfil: vi.fn(),
@@ -91,5 +102,28 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     renderEn('/estudiante/foto')
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con el servidor')
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+  })
+
+  it('activa la cámara, toma la foto de frente y permite repetir', async () => {
+    URL.revokeObjectURL = vi.fn()
+    obtener.mockResolvedValue(PERFIL)
+    renderEn('/estudiante/foto')
+    await userEvent.click(await screen.findByRole('button', { name: /activar cámara/i }))
+    expect(screen.getByText('Cámara simulada')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Simular foto' }))
+    expect(screen.getByRole('heading', { name: 'Foto de frente tomada' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Tu foto de frente' })).toHaveAttribute('src', 'blob:foto')
+
+    await userEvent.click(screen.getByRole('button', { name: /repetir escaneo/i }))
+    expect(screen.getByText('Cámara simulada')).toBeInTheDocument()
+  })
+
+  it('cancelar el escaneo vuelve a las indicaciones', async () => {
+    obtener.mockResolvedValue(PERFIL)
+    renderEn('/estudiante/foto')
+    await userEvent.click(await screen.findByRole('button', { name: /activar cámara/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar escaneo' }))
+    expect(screen.getByRole('heading', { name: 'Registra tu foto' })).toBeInTheDocument()
   })
 })
