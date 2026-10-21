@@ -38,6 +38,8 @@ export default defineConfig(({ command, mode, isPreview }) => {
           manualChunks(id: string) {
             // El worker del lector QR se sigue cargando solo al abrir la cámara.
             if (!id.includes('node_modules') || id.includes('qr-scanner-worker')) return undefined
+            // El detector de rostro (CTA-02) solo se descarga al activar la cámara.
+            if (id.includes('@mediapipe')) return undefined
             if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
               return 'react'
             }

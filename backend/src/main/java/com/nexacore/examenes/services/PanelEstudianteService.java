@@ -89,15 +89,19 @@ public class PanelEstudianteService {
         return fotoService.obtener(estudianteDe(email).getId());
     }
 
-    /** Pide confirmar la contraseña antes de enviar la foto, por si alguien usa la sesión abierta. */
+    /**
+     * Pide confirmar la contraseña antes de enviar la foto, por si alguien usa la sesión abierta.
+     *
+     * @return true si la foto quedó aprobada (primera foto); false si queda pendiente (cambio).
+     */
     @Transactional
-    public void solicitarCambioFoto(String email, String password, MultipartFile archivo) {
+    public boolean enviarFoto(String email, String password, MultipartFile archivo) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new AccessDeniedException("Sesión no válida"));
         if (password == null || !passwordEncoder.matches(password, usuario.getPassword())) {
             throw new IllegalArgumentException("La contraseña no es correcta.");
         }
-        fotoService.solicitarCambio(estudianteDe(email).getId(), archivo);
+        return fotoService.enviarDelEstudiante(estudianteDe(email).getId(), archivo);
     }
 
     @Transactional(readOnly = true)

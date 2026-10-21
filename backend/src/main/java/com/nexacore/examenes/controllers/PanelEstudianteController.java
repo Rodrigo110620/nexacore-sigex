@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /** Panel del estudiante: solo sus propios datos, a partir de la sesión. Rol ESTUDIANTE. */
 @Tag(name = "Panel del estudiante", description = "Perfil, foto, exámenes y QR del estudiante con cuenta")
@@ -52,13 +53,18 @@ public class PanelEstudianteController {
     }
 
     @Operation(summary = "Enviar una foto nueva",
-            description = "JPG, PNG o WEBP de hasta 150 KB. Pide la contraseña. Queda pendiente hasta que la apruebe la administración.")
+            description = "JPG, PNG o WEBP de hasta 150 KB. Pide la contraseña. La primera foto queda aprobada "
+                    + "(200, APROBADA); un cambio queda pendiente hasta que lo apruebe la administración (202, PENDIENTE).")
     @PutMapping(value = "/foto", consumes = "multipart/form-data")
-    public ResponseEntity<Void> enviarFoto(Authentication authentication,
-                                           @RequestParam("file") MultipartFile file,
-                                           @RequestParam("password") String password) {
-        panelService.solicitarCambioFoto(authentication.getName(), password, file);
-        return ResponseEntity.accepted().build();
+    public ResponseEntity<Map<String, String>> enviarFoto(Authentication authentication,
+                                                          @RequestParam("file") MultipartFile file,
+                                                          @RequestParam("password") String password) {
+        if (panelService.enviarFoto(authentication.getName(), password, file)) {
+            return ResponseEntity.ok(Map.of("estado", "APROBADA",
+                    "mensaje", "Tu foto quedó registrada. Ya es la que usa el personal de control."));
+        }
+        return ResponseEntity.accepted().body(Map.of("estado", "PENDIENTE",
+                "mensaje", "Tu foto nueva quedó pendiente. La administración la revisará."));
     }
 
     @Operation(summary = "Mis exámenes", description = "Del más próximo al más lejano, con habilitación y resultado del ingreso.")
