@@ -29,7 +29,6 @@ function renderPagina() {
 async function completarIdentidad() {
   await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '202104010')
   await userEvent.type(screen.getByLabelText('C.I.'), '7654321')
-  await userEvent.type(screen.getByLabelText('CORREO INSTITUCIONAL'), 'ana.rojas@est.umss.edu')
   await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
 }
 
@@ -52,7 +51,6 @@ describe('ActivarCuentaPage (CTA-01)', () => {
 
     expect(screen.getByText('El código SIS debe tener 9 dígitos')).toBeInTheDocument()
     expect(screen.getByText('El C.I. debe tener 7 u 8 dígitos')).toBeInTheDocument()
-    expect(screen.getByText('El correo es obligatorio')).toBeInTheDocument()
     expect(solicitar).not.toHaveBeenCalled()
   })
 
@@ -62,11 +60,18 @@ describe('ActivarCuentaPage (CTA-01)', () => {
     expect(screen.getByLabelText('CÓDIGO SIS')).toHaveValue('202104010')
   })
 
+  it('no pide el correo: lo arma con el código SIS', async () => {
+    renderPagina()
+    expect(screen.queryByLabelText('CORREO INSTITUCIONAL')).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '202104010')
+    expect(screen.getByTestId('correo-activacion')).toHaveTextContent('202104010@est.umss.edu')
+  })
+
   it('envía los datos, muestra el aviso del servidor y pasa al código', async () => {
     renderPagina()
     await completarIdentidad()
 
-    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', ci: '7654321', email: 'ana.rojas@est.umss.edu' })
+    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', ci: '7654321', email: '202104010@est.umss.edu' })
     expect(await screen.findByRole('heading', { name: 'Verifica tu correo' })).toBeInTheDocument()
     expect(screen.getByText(AVISO)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reenviar código en \d+ s/i })).toBeDisabled()
