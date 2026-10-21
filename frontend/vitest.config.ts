@@ -7,5 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Los runners del CI son más lentos que una PC: las pruebas que escriben letra por letra
+    // (userEvent.type) superaban el límite por defecto de 5 s y fallaban solo en GitHub.
+    testTimeout: 20000,
   },
 })
