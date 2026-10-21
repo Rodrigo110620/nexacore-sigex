@@ -177,6 +177,16 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                         {!loading && <ArrowRight className="ml-3" size={16} />}
                     </button>
                 </div>
+
+                <div className="mt-2 flex flex-col items-center gap-1 border-t border-[#E4E9F2] pt-5 text-center text-xs">
+                    <span className="text-gray-500">¿Eres estudiante y es tu primer ingreso?</span>
+                    <Link
+                        to="/activar-cuenta"
+                        className="font-semibold text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
+                    >
+                        Activar mi cuenta
+                    </Link>
+                </div>
             </div>
         </form>
     );

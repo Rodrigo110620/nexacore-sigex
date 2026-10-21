@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { loginUser } from '../services/authService'
+import { confirmarActivacionEstudiante, loginUser, solicitarActivacionEstudiante } from '../services/authService'
 import api from '../services/api'
 
 // Mock del cliente axios
@@ -46,5 +46,48 @@ describe('authService — loginUser', () => {
     await expect(
       loginUser({ email: 'admin@nexacore.com', password: 'password123' })
     ).rejects.toThrow('No se pudo conectar con el servidor. Intenta más tarde.')
+  })
+})
+
+describe('authService — activación de la cuenta del estudiante', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('solicitar devuelve el mensaje del servidor', async () => {
+    mockedApi.post = vi.fn().mockResolvedValue({ data: { mensaje: 'Te enviamos un código.' } })
+    const datos = { codigoSis: '202104010', ci: '7654321', email: 'ana@est.umss.edu' }
+
+    await expect(solicitarActivacionEstudiante(datos)).resolves.toBe('Te enviamos un código.')
+    expect(mockedApi.post).toHaveBeenCalledWith('/auth/estudiante/activacion/solicitar', datos)
+  })
+
+  it('si el backend rechaza un campo (400), muestra el mensaje de ese campo', async () => {
+    mockedApi.post = vi.fn().mockRejectedValue({
+      response: {
+        status: 400,
+        data: { mensaje: 'Los datos enviados no son validos', errores: { codigoSis: 'El código SIS debe tener 9 dígitos' } },
+      },
+    })
+
+    await expect(
+      solicitarActivacionEstudiante({ codigoSis: '1', ci: '7654321', email: 'ana@est.umss.edu' })
+    ).rejects.toThrow('El código SIS debe tener 9 dígitos')
+  })
+
+  it('confirmar devuelve el error del código tal cual lo envía el servidor', async () => {
+    mockedApi.post = vi.fn().mockRejectedValue({
+      response: { status: 400, data: { mensaje: 'El código es incorrecto o venció. Pide uno nuevo.' } },
+    })
+
+    await expect(
+      confirmarActivacionEstudiante({
+        codigoSis: '202104010',
+        codigo: '000000',
+        passwordNueva: 'Segura#2026',
+        passwordConfirmacion: 'Segura#2026',
+      })
+    ).rejects.toThrow('El código es incorrecto o venció. Pide uno nuevo.')
+    expect(mockedApi.post).toHaveBeenCalledWith('/auth/estudiante/activacion/confirmar', expect.objectContaining({ codigo: '000000' }))
   })
 })
