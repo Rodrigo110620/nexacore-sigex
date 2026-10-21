@@ -76,13 +76,28 @@ public class EstudianteFotoService {
     }
 
     /**
-     * Foto enviada por el propio estudiante: queda PENDIENTE y no reemplaza a la que ve el
-     * personal de control hasta que la administración la apruebe. Una nueva reemplaza a la anterior.
+     * Foto enviada por el propio estudiante (CTA-02). Si todavía no tiene foto aprobada, esta pasa a
+     * ser su foto en el acto: la registra el dueño de una cuenta ya verificada. Si ya tenía una, el
+     * cambio queda PENDIENTE y no reemplaza a la que ve el personal de control hasta que la
+     * administración lo apruebe.
+     *
+     * @return true si la foto quedó aprobada; false si queda pendiente de revisión.
      */
     @Transactional
-    public void solicitarCambio(Integer idEstudiante, MultipartFile archivo) {
+    public boolean enviarDelEstudiante(Integer idEstudiante, MultipartFile archivo) {
         verificarEstudiante(idEstudiante);
         byte[] contenido = leerImagen(archivo);
+        if (fotoRepository.findById(idEstudiante).isEmpty()) {
+            guardarAprobada(idEstudiante, contenido, tipoDeImagen(contenido).orElseThrow());
+            solicitudRepository.findById(idEstudiante).ifPresent(solicitudRepository::delete);
+            return true;
+        }
+        solicitarCambio(idEstudiante, contenido);
+        return false;
+    }
+
+    /** Un cambio de foto queda PENDIENTE; uno nuevo reemplaza al anterior. */
+    private void solicitarCambio(Integer idEstudiante, byte[] contenido) {
         EstudianteFotoSolicitud solicitud = solicitudRepository.findById(idEstudiante)
                 .orElseGet(EstudianteFotoSolicitud::new);
         solicitud.setIdEstudiante(idEstudiante);
@@ -93,6 +108,13 @@ public class EstudianteFotoService {
         solicitud.setEnviadaEn(LocalDateTime.now());
         solicitud.setRevisadaEn(null);
         solicitudRepository.save(solicitud);
+    }
+
+    /** Cambio de foto de un estudiante que ya tiene una aprobada (lo usa también la administración en pruebas). */
+    @Transactional
+    public void solicitarCambio(Integer idEstudiante, MultipartFile archivo) {
+        verificarEstudiante(idEstudiante);
+        solicitarCambio(idEstudiante, leerImagen(archivo));
     }
 
     @Transactional(readOnly = true)

@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
-import { obtenerMiPerfil, requiereRegistrarFoto, type MiPerfilEstudiante } from '../services/panelEstudianteService'
+import { enviarMiFoto, obtenerMiPerfil, requiereRegistrarFoto, type MiPerfilEstudiante } from '../services/panelEstudianteService'
 
 vi.mock('../hooks/useIsMobileDevice', () => ({ useIsMobileDevice: () => false }))
 // La cámara no existe en las pruebas: el escaneo devuelve una foto al pulsar un botón.
@@ -21,9 +21,11 @@ vi.mock('../components/estudiantes/EscaneoRostro', () => ({
 vi.mock('../services/panelEstudianteService', async (original) => ({
   ...(await original<typeof import('../services/panelEstudianteService')>()),
   obtenerMiPerfil: vi.fn(),
+  enviarMiFoto: vi.fn(),
 }))
 
 const obtener = vi.mocked(obtenerMiPerfil)
+const enviar = vi.mocked(enviarMiFoto)
 
 const PERFIL: MiPerfilEstudiante = {
   id: 1,
@@ -112,7 +114,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     expect(screen.getByText('Cámara simulada')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Simular foto' }))
-    expect(screen.getByRole('heading', { name: 'Escaneo completo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Tu foto de frente' })).toHaveAttribute('src', 'blob:foto')
 
     await userEvent.click(screen.getByRole('button', { name: /repetir escaneo/i }))
@@ -125,5 +127,48 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     await userEvent.click(await screen.findByRole('button', { name: /activar cámara/i }))
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar escaneo' }))
     expect(screen.getByRole('heading', { name: 'Registra tu foto' })).toBeInTheDocument()
+  })
+
+  async function hastaRevisarFoto() {
+    URL.revokeObjectURL = vi.fn()
+    obtener.mockResolvedValue(PERFIL)
+    renderEn('/estudiante/foto')
+    await userEvent.click(await screen.findByRole('button', { name: /activar cámara/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Simular foto' }))
+  }
+
+  it('pide la contraseña antes de registrar la foto', async () => {
+    await hastaRevisarFoto()
+    await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
+    expect(screen.getByText('Escribe tu contraseña')).toBeInTheDocument()
+    expect(enviar).not.toHaveBeenCalled()
+  })
+
+  it('registra la primera foto y queda aprobada', async () => {
+    enviar.mockResolvedValue({ estado: 'APROBADA', mensaje: 'Tu foto quedó registrada.' })
+    await hastaRevisarFoto()
+    await userEvent.type(screen.getByLabelText('CONFIRMA TU CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
+
+    expect(enviar).toHaveBeenCalledWith(expect.any(Blob), 'Segura#2026')
+    expect(await screen.findByRole('heading', { name: '¡Foto registrada!' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ir a mi panel/i })).toBeInTheDocument()
+  })
+
+  it('un cambio de foto queda en revisión', async () => {
+    enviar.mockResolvedValue({ estado: 'PENDIENTE', mensaje: 'Tu foto nueva quedó pendiente.' })
+    await hastaRevisarFoto()
+    await userEvent.type(screen.getByLabelText('CONFIRMA TU CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
+    expect(await screen.findByRole('heading', { name: 'Tu foto está en revisión' })).toBeInTheDocument()
+  })
+
+  it('si la contraseña es incorrecta lo indica en el campo y no avanza', async () => {
+    enviar.mockRejectedValue(new Error('La contraseña no es correcta.'))
+    await hastaRevisarFoto()
+    await userEvent.type(screen.getByLabelText('CONFIRMA TU CONTRASEÑA'), 'Otra#2026')
+    await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
+    expect(await screen.findByText('La contraseña no es correcta.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
   })
 })

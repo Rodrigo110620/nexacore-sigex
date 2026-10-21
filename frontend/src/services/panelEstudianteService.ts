@@ -34,6 +34,29 @@ export async function obtenerMiPerfil(): Promise<MiPerfilEstudiante> {
   }
 }
 
+export interface ResultadoEnvioFoto {
+  /** APROBADA: era su primera foto y ya es la oficial. PENDIENTE: es un cambio y lo revisa la administración. */
+  estado: 'APROBADA' | 'PENDIENTE'
+  mensaje: string
+}
+
+/** Envía la foto de frente del escaneo (PUT /mi/foto). Pide la contraseña del estudiante. */
+export async function enviarMiFoto(foto: Blob, password: string): Promise<ResultadoEnvioFoto> {
+  const formData = new FormData()
+  formData.append('file', foto, 'foto.jpg')
+  formData.append('password', password)
+  try {
+    const { data } = await api.put<ResultadoEnvioFoto>('/mi/foto', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { mensaje?: string } } }
+    if (!err.response) throw new Error('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.')
+    throw new Error(err.response.data?.mensaje || 'No se pudo enviar tu foto. Intenta más tarde.')
+  }
+}
+
 /**
  * CTA-02: la foto es obligatoria. El estudiante debe registrarla si no tiene una foto aprobada y
  * no hay una pendiente de revisión (nunca envió una o se la rechazaron).
