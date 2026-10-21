@@ -43,6 +43,43 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return err.response.data?.mensaje || fallback
 }
 
+/** Como extractErrorMessage, pero si el backend rechazó un campo (400) devuelve ese mensaje. */
+function extractFieldErrorMessage(error: unknown, fallback: string): string {
+  const err = error as { response?: { data?: { errores?: Record<string, string> } } }
+  const errores = err.response?.data?.errores
+  const primero = errores ? Object.values(errores)[0] : undefined
+  return primero || extractErrorMessage(error, fallback)
+}
+
+/** Paso 1 de la activación de la cuenta del estudiante (CTA-01): verifica sus datos y envía el código. */
+export async function solicitarActivacionEstudiante(payload: {
+  codigoSis: string
+  ci: string
+  email: string
+}): Promise<string> {
+  try {
+    const { data } = await api.post<{ mensaje: string }>('/auth/estudiante/activacion/solicitar', payload)
+    return data.mensaje
+  } catch (error: unknown) {
+    throw new Error(extractFieldErrorMessage(error, 'No se pudo enviar el código. Intenta más tarde.'))
+  }
+}
+
+/** Paso final de la activación: confirma el código recibido por correo y crea la contraseña. */
+export async function confirmarActivacionEstudiante(payload: {
+  codigoSis: string
+  codigo: string
+  passwordNueva: string
+  passwordConfirmacion: string
+}): Promise<string> {
+  try {
+    const { data } = await api.post<{ mensaje: string }>('/auth/estudiante/activacion/confirmar', payload)
+    return data.mensaje
+  } catch (error: unknown) {
+    throw new Error(extractFieldErrorMessage(error, 'No se pudo activar la cuenta. Intenta más tarde.'))
+  }
+}
+
 export async function requestPasswordReset(email: string): Promise<string> {
   try {
     const { data } = await api.post<{ mensaje: string }>('/auth/forgot-password', { email })

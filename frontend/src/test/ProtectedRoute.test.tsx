@@ -4,18 +4,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import ProtectedRoute from '../routes/ProtectedRoute'
 
-function renderWithRouter(token: string | null) {
+function renderWithRouter(token: string | null, roles?: string[]) {
   if (token) {
     localStorage.setItem('token', token)
   } else {
     localStorage.removeItem('token')
   }
+  if (roles) localStorage.setItem('roles', JSON.stringify(roles))
 
   return render(
     <AuthProvider>
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/login" element={<div>Pantalla Login</div>} />
+          <Route path="/estudiante" element={<div>Portal Estudiante</div>} />
           <Route
             path="/dashboard"
             element={
@@ -38,6 +40,12 @@ describe('ProtectedRoute', () => {
   it('sin token redirige a /login', () => {
     renderWithRouter(null)
     expect(screen.getByText('Pantalla Login')).toBeInTheDocument()
+    expect(screen.queryByText('Pantalla Dashboard')).not.toBeInTheDocument()
+  })
+
+  it('el estudiante va a su portal y no ve las pantallas del personal', () => {
+    renderWithRouter('token-valido', ['ESTUDIANTE'])
+    expect(screen.getByText('Portal Estudiante')).toBeInTheDocument()
     expect(screen.queryByText('Pantalla Dashboard')).not.toBeInTheDocument()
   })
 
