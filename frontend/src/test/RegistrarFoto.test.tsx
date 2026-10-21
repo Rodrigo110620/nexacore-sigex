@@ -104,7 +104,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
   })
 
-  it('activa la cámara, toma la foto de frente y permite repetir', async () => {
+  it('activa la cámara, completa el escaneo y permite repetir', async () => {
     URL.revokeObjectURL = vi.fn()
     obtener.mockResolvedValue(PERFIL)
     renderEn('/estudiante/foto')
@@ -112,7 +112,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     expect(screen.getByText('Cámara simulada')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Simular foto' }))
-    expect(screen.getByRole('heading', { name: 'Foto de frente tomada' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Escaneo completo' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Tu foto de frente' })).toHaveAttribute('src', 'blob:foto')
 
     await userEvent.click(screen.getByRole('button', { name: /repetir escaneo/i }))

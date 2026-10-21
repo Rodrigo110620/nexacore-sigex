@@ -20,7 +20,34 @@ export const LIMITES = {
   desvioMaximo: 0.12,
   /** Cuánto se puede girar o inclinar la cabeza para contar como "de frente". */
   giroFrente: 0.1,
+  /** Cuánto hay que girar (izquierda/derecha) o inclinar (arriba/abajo) para contar la posición. */
+  giroLateral: 0.12,
+  inclinacionVertical: 0.08,
 } as const
+
+/** Posiciones del escaneo, en orden. La foto se toma en la primera (de frente). */
+export const POSICIONES = ['frente', 'izquierda', 'derecha', 'arriba', 'abajo'] as const
+export type Posicion = (typeof POSICIONES)[number]
+
+/**
+ * Indica si la cabeza está en la posición pedida. Los puntos de MediaPipe vienen de la imagen sin
+ * espejo: cuando el estudiante gira hacia SU izquierda, la nariz se mueve hacia la derecha de la
+ * imagen y el giro es positivo.
+ */
+export function posicionCumplida(posicion: Posicion, giro: number, inclinacion: number): boolean {
+  switch (posicion) {
+    case 'frente':
+      return Math.abs(giro) <= LIMITES.giroFrente && Math.abs(inclinacion) <= LIMITES.giroFrente
+    case 'izquierda':
+      return giro >= LIMITES.giroLateral
+    case 'derecha':
+      return giro <= -LIMITES.giroLateral
+    case 'arriba':
+      return inclinacion <= -LIMITES.inclinacionVertical
+    case 'abajo':
+      return inclinacion >= LIMITES.inclinacionVertical
+  }
+}
 
 /** Puntos de la malla de MediaPipe Face Landmarker que se usan para la orientación. */
 const NARIZ = 1
@@ -120,7 +147,7 @@ export function evaluar(m: Medicion): Evaluacion {
   const cerca = m.caja.alto > LIMITES.tamanoMaximo
   const descentrado = Math.abs(centroX - 0.5) > LIMITES.desvioMaximo || Math.abs(centroY - 0.5) > LIMITES.desvioMaximo
   const centrado: EstadoControl = !lejos && !cerca && !descentrado ? 'ok' : 'falta'
-  const deFrente = Math.abs(m.giro) <= LIMITES.giroFrente && Math.abs(m.inclinacion) <= LIMITES.giroFrente
+  const deFrente = posicionCumplida('frente', m.giro, m.inclinacion)
 
   let indicacion: string | null = null
   if (lejos) indicacion = 'Acércate un poco a la cámara'

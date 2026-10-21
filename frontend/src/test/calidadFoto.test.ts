@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { aGrises, cajaDelRostro, evaluar, luzPromedio, nitidez, orientacion, type Medicion, type Punto } from '../utils/calidadFoto'
+import { aGrises, cajaDelRostro, evaluar, luzPromedio, nitidez, orientacion, posicionCumplida, type Medicion, type Punto } from '../utils/calidadFoto'
 
 /** Medición de un rostro centrado, nítido, con buena luz y de frente. */
 const BUENA: Medicion = {
@@ -67,6 +67,19 @@ describe('calidadFoto (CTA-02)', () => {
     expect(evaluar({ ...BUENA, luz: 40 })).toMatchObject({ luz: 'falta', indicacion: 'Hay poca luz: busca un lugar más iluminado' })
     expect(evaluar({ ...BUENA, luz: 240 }).indicacion).toBe('Hay demasiada luz: evita la luz directa')
     expect(evaluar({ ...BUENA, nitidez: 5 })).toMatchObject({ nitidez: 'falta', indicacion: 'La imagen está borrosa: quédate quieto' })
+  })
+
+  it('reconoce cada posición del escaneo', () => {
+    expect(posicionCumplida('frente', 0.02, -0.03)).toBe(true)
+    expect(posicionCumplida('frente', 0.2, 0)).toBe(false)
+    expect(posicionCumplida('izquierda', 0.15, 0)).toBe(true)
+    expect(posicionCumplida('izquierda', -0.15, 0)).toBe(false)
+    expect(posicionCumplida('derecha', -0.15, 0)).toBe(true)
+    expect(posicionCumplida('derecha', 0.05, 0)).toBe(false)
+    expect(posicionCumplida('arriba', 0, -0.1)).toBe(true)
+    expect(posicionCumplida('arriba', 0, 0.1)).toBe(false)
+    expect(posicionCumplida('abajo', 0, 0.1)).toBe(true)
+    expect(posicionCumplida('abajo', 0, 0)).toBe(false)
   })
 
   it('pide mirar de frente si la cabeza está girada', () => {

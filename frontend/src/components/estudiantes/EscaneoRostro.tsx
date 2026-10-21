@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { CameraOff, CircleCheck, LoaderCircle, RefreshCw, TriangleAlert } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CameraOff, CircleCheck, LoaderCircle, RefreshCw, TriangleAlert } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { FaceLandmarker } from '@mediapipe/tasks-vision'
 import {
   aGrises,
@@ -8,8 +9,11 @@ import {
   luzPromedio,
   nitidez,
   orientacion,
+  posicionCumplida,
+  POSICIONES,
   type Evaluacion,
   type Medicion,
+  type Posicion,
 } from '../../utils/calidadFoto'
 
 /** Versión instalada de @mediapipe/tasks-vision: el WASM debe ser de la misma versión. */
@@ -21,6 +25,8 @@ const MODELO_URL =
 /** Tiempo que todo debe estar bien antes de tomar la foto (evita fotos movidas). */
 const MS_ESTABLE = 1200
 const MS_ENTRE_ANALISIS = 100
+/** Tiempo que hay que sostener cada giro para contarlo. */
+const MS_POSICION = 500
 /** La foto se guarda en 480×640 (3:4), como una foto carnet, y debe pesar como máximo 150 KB. */
 const ANCHO_FOTO = 480
 const ALTO_FOTO = 640
@@ -102,6 +108,52 @@ async function tomarFoto(video: HTMLVideoElement, caja: NonNullable<Medicion['ca
   return { archivo, url: URL.createObjectURL(archivo) }
 }
 
+const NOMBRES: Record<Posicion, string> = {
+  frente: 'Frente',
+  izquierda: 'Izquierda',
+  derecha: 'Derecha',
+  arriba: 'Arriba',
+  abajo: 'Abajo',
+}
+
+/** Indicación de cada giro y la flecha que la acompaña (la vista es un espejo: tu izquierda se ve a la izquierda). */
+const GIROS: Record<Exclude<Posicion, 'frente'>, { texto: string; flecha: LucideIcon; lugar: string }> = {
+  izquierda: { texto: 'Gira la cabeza a tu izquierda', flecha: ArrowLeft, lugar: 'left-3 top-1/2 -translate-y-1/2' },
+  derecha: { texto: 'Gira la cabeza a tu derecha', flecha: ArrowRight, lugar: 'right-3 top-1/2 -translate-y-1/2' },
+  arriba: { texto: 'Mira hacia arriba', flecha: ArrowUp, lugar: 'left-1/2 top-12 -translate-x-1/2' },
+  abajo: { texto: 'Mira hacia abajo', flecha: ArrowDown, lugar: 'bottom-14 left-1/2 -translate-x-1/2' },
+}
+
+function Posiciones({ actual }: { actual: number }) {
+  return (
+    <ol className="grid grid-cols-5 gap-1" aria-label="Posiciones del escaneo">
+      {POSICIONES.map((posicion, i) => {
+        const hecha = i < actual
+        const enCurso = i === actual
+        return (
+          <li key={posicion} aria-current={enCurso ? 'step' : undefined} className="flex flex-col items-center gap-1">
+            <span
+              className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                hecha
+                  ? 'bg-[#10B981] text-white'
+                  : enCurso
+                    ? 'border-2 border-[#0439D9] bg-[#E9F1FF] text-[#0439D9]'
+                    : 'border border-[#D8E3F5] bg-white text-[#A9B8CF]'
+              }`}
+            >
+              {hecha ? <Check size={14} aria-hidden="true" /> : i + 1}
+            </span>
+            <span className={`text-[11px] ${hecha ? 'text-[#047857]' : enCurso ? 'font-semibold text-[#0439D9]' : 'text-[#627A9B]'}`}>
+              {NOMBRES[posicion]}
+              <span className="sr-only">{hecha ? ' (lista)' : enCurso ? ' (en curso)' : ''}</span>
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 function Control({ texto, ok }: { texto: string; ok: boolean }) {
   return (
     <span
@@ -122,8 +174,9 @@ interface Props {
 }
 
 /**
- * Cámara frontal con óvalo guía (CTA-02). Revisa en vivo que haya un solo rostro, centrado, con buena
- * luz, nítido y de frente; cuando todo está bien un momento, toma la foto sola.
+ * Cámara frontal con óvalo guía (CTA-02). Primero revisa en vivo que haya un solo rostro, centrado,
+ * con buena luz, nítido y de frente, y toma la foto sola. Después pide girar a la izquierda, a la
+ * derecha, arriba y abajo para comprobar que es una persona en vivo; solo se entrega la foto de frente.
  */
 export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
   const camaraDisponible = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
@@ -135,6 +188,8 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
   const [evaluacion, setEvaluacion] = useState<Evaluacion | null>(null)
   const [progreso, setProgreso] = useState(0)
   const [medicion, setMedicion] = useState<Medicion | null>(null)
+  const [paso, setPaso] = useState(0)
+  const [aviso, setAviso] = useState('')
 
   useEffect(() => {
     onCapturadaRef.current = onCapturada
@@ -149,6 +204,9 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
     let ultimoAnalisis = 0
     let estableDesde: number | null = null
     let capturando = false
+    let paso = 0
+    let foto: FotoCapturada | null = null
+    let entregada = false
     const recorte = document.createElement('canvas')
     recorte.width = 128
     recorte.height = 128
@@ -175,24 +233,64 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
       setEvaluacion(ev)
       setMedicion(m)
 
-      if (ev.indicacion !== null || !m.caja) {
+      // Otra persona en cuadro durante los giros: se empieza de nuevo para no mezclar rostros.
+      if (paso > 0 && m.rostros > 1) {
+        if (foto) URL.revokeObjectURL(foto.url)
+        foto = null
+        paso = 0
+        estableDesde = null
+        setPaso(0)
+        setProgreso(0)
+        setAviso('Apareció otra persona: empezamos de nuevo.')
+        return
+      }
+
+      if (paso === 0) {
+        if (ev.indicacion !== null || !m.caja) {
+          estableDesde = null
+          setProgreso(0)
+          return
+        }
+        estableDesde ??= ahora
+        const avance = Math.min(1, (ahora - estableDesde) / MS_ESTABLE)
+        setProgreso(avance)
+        if (avance < 1) return
+        capturando = true
+        tomarFoto(video, m.caja)
+          .then((tomada) => {
+            if (cancelado) return URL.revokeObjectURL(tomada.url)
+            foto = tomada
+            paso = 1
+            setPaso(1)
+            setAviso('')
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            capturando = false
+            estableDesde = null
+            setProgreso(0)
+          })
+        return
+      }
+
+      // Giros: basta sostener la posición un momento con un solo rostro.
+      if (m.rostros !== 1 || !posicionCumplida(POSICIONES[paso], m.giro, m.inclinacion)) {
         estableDesde = null
         setProgreso(0)
         return
       }
       estableDesde ??= ahora
-      const avance = Math.min(1, (ahora - estableDesde) / MS_ESTABLE)
+      const avance = Math.min(1, (ahora - estableDesde) / MS_POSICION)
       setProgreso(avance)
-      if (avance === 1) {
+      if (avance < 1) return
+      paso += 1
+      estableDesde = null
+      setProgreso(0)
+      setPaso(paso)
+      if (paso === POSICIONES.length && foto) {
         capturando = true
-        tomarFoto(video, m.caja)
-          .then((foto) => {
-            if (!cancelado) onCapturadaRef.current(foto)
-          })
-          .catch(() => {
-            capturando = false
-            estableDesde = null
-          })
+        entregada = true
+        onCapturadaRef.current(foto)
       }
     }
 
@@ -227,6 +325,7 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
       cancelAnimationFrame(cuadro)
       stream?.getTracks().forEach((pista) => pista.stop())
       detector?.close()
+      if (foto && !entregada) URL.revokeObjectURL(foto.url)
     }
   }, [camaraDisponible, intento])
 
@@ -235,6 +334,8 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
     setPreparando(true)
     setEvaluacion(null)
     setProgreso(0)
+    setPaso(0)
+    setAviso('')
     setIntento((n) => n + 1)
   }
 
@@ -267,8 +368,20 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
     )
   }
 
-  const todoBien = evaluacion?.indicacion === null
-  const colorOvalo = todoBien ? '#22C55E' : evaluacion && medicion?.rostros === 1 ? '#F59E0B' : '#FFFFFF'
+  const enGiros = paso > 0
+  const giro = enGiros && paso < POSICIONES.length ? GIROS[POSICIONES[paso] as Exclude<Posicion, 'frente'>] : null
+  const todoBien = !enGiros && evaluacion?.indicacion === null
+  const colorOvalo = enGiros
+    ? progreso > 0 ? '#22C55E' : '#FFFFFF'
+    : todoBien ? '#22C55E' : evaluacion && medicion?.rostros === 1 ? '#F59E0B' : '#FFFFFF'
+  const titulo = preparando
+    ? 'Mira al frente'
+    : giro
+      ? giro.texto
+      : todoBien
+        ? 'No te muevas, tomando tu foto...'
+        : evaluacion?.indicacion || 'Mira al frente'
+  const Flecha = giro?.flecha
 
   return (
     <div className="flex flex-col gap-4">
@@ -283,7 +396,17 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
             </mask>
           </defs>
           <rect width="100" height="100" fill="#0B1220" opacity="0.45" mask="url(#mascara-ovalo)" />
-          <ellipse cx="50" cy="48" rx="27" ry="34" fill="none" stroke={colorOvalo} strokeWidth={4} vectorEffect="non-scaling-stroke" />
+          <ellipse
+            cx="50"
+            cy="48"
+            rx="27"
+            ry="34"
+            fill="none"
+            stroke={colorOvalo}
+            strokeWidth={4}
+            strokeDasharray={enGiros && progreso === 0 ? '10 8' : undefined}
+            vectorEffect="non-scaling-stroke"
+          />
         </svg>
         <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white">
           <span className="h-2 w-2 rounded-full bg-[#EF4444]" aria-hidden="true" /> En vivo
@@ -294,6 +417,7 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
             <p className="text-sm font-semibold">Preparando la cámara...</p>
           </div>
         ) : (
+          !enGiros &&
           evaluacion && (
             <div className="absolute inset-x-3 bottom-3 flex flex-wrap justify-center gap-1.5">
               <Control texto="Luz" ok={evaluacion.luz === 'ok'} />
@@ -302,7 +426,12 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
             </div>
           )
         )}
-        {todoBien && (
+        {giro && Flecha && (
+          <span className={`absolute inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#011140] shadow ${giro.lugar}`}>
+            <Flecha size={22} aria-hidden="true" />
+          </span>
+        )}
+        {(todoBien || (enGiros && progreso > 0)) && (
           <div className="absolute inset-x-0 top-0 h-1 bg-white/20">
             <div className="h-full bg-[#22C55E] transition-[width] duration-100" style={{ width: `${progreso * 100}%` }} />
           </div>
@@ -310,11 +439,16 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
       </div>
 
       <div aria-live="polite" className="text-center">
-        <p className={`text-lg font-bold ${todoBien ? 'text-[#047857]' : 'text-[#011140]'}`}>
-          {preparando ? 'Mira al frente' : todoBien ? 'No te muevas, tomando tu foto...' : evaluacion?.indicacion || 'Mira al frente'}
+        <p className={`text-lg font-bold ${todoBien ? 'text-[#047857]' : 'text-[#011140]'}`}>{titulo}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {enGiros
+            ? 'Despacio, sin salir del óvalo. Tu foto de frente ya se tomó.'
+            : 'Mantén el rostro dentro del óvalo. Tomaremos tu foto cuando todo esté en verde.'}
         </p>
-        <p className="mt-1 text-sm text-gray-500">Mantén el rostro dentro del óvalo. Tomaremos tu foto cuando todo esté en verde.</p>
+        {aviso && <p className="mt-2 text-sm font-semibold text-[#B45309]">{aviso}</p>}
       </div>
+
+      <Posiciones actual={paso} />
 
       {import.meta.env.DEV && medicion && (
         <p className="rounded bg-gray-100 p-2 font-mono text-[10px] text-gray-600">

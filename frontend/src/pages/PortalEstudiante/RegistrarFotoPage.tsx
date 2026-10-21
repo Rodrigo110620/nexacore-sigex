@@ -43,7 +43,7 @@ function ListaVerificada({ titulo, items }: { titulo: string; items: string[] })
 
 /**
  * CTA-02: el estudiante registra su foto antes de usar el portal: indicaciones (o el motivo si se la
- * rechazaron) → escaneo con la cámara → foto de frente tomada. Los giros y el envío llegan después.
+ * rechazaron) → escaneo con la cámara (foto de frente + 4 giros) → escaneo completo. El envío llega después.
  */
 export default function RegistrarFotoPage() {
   const isMobile = useIsMobileDevice()
@@ -99,8 +99,8 @@ export default function RegistrarFotoPage() {
             ) : fase === 'capturada' && foto ? (
               <>
                 <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={2} />
-                <EncabezadoAsistente icono={CircleCheck} tono="verde" titulo="Foto de frente tomada">
-                  Así se ve tu foto. Si no salió bien, repite el escaneo.
+                <EncabezadoAsistente icono={CircleCheck} tono="verde" titulo="Escaneo completo">
+                  Comprobamos que eres tú en las 5 posiciones. Así se verá tu foto; si no salió bien, repite el escaneo.
                 </EncabezadoAsistente>
                 <img
                   src={foto.url}
@@ -108,7 +108,7 @@ export default function RegistrarFotoPage() {
                   className="mx-auto mb-5 aspect-[3/4] w-48 rounded-xl border-2 border-[#10B981] object-cover"
                 />
                 <p className="mb-5 rounded-xl border border-[#BFD2F5] bg-[#F1F6FF] p-3 text-xs text-[#45628D]">
-                  Siguiente parte en desarrollo: los giros de cabeza y el envío de la foto.
+                  Siguiente parte en desarrollo: confirmar con tu contraseña y enviar la foto.
                 </p>
                 <button
                   type="button"
