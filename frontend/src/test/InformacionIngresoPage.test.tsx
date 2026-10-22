@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import * as intentos from '../services/intentoIngresoService'
 import * as controles from '../services/controlIngresoService'
+import * as reportes from '../services/reporteQrDuplicadoConsultaService'
 
 vi.mock('../components/layout/PanelLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -12,10 +13,14 @@ vi.mock('../components/layout/PanelLayout', () => ({
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: ['CONTROL'] }) }))
 vi.mock('../services/intentoIngresoService')
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn() }))
+vi.mock('../services/reporteQrDuplicadoConsultaService', () => ({ listarReportesQrDuplicado: vi.fn() }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
 
 describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(reportes.listarReportesQrDuplicado).mockResolvedValue([])
+  })
 
   function renderPage() {
     return render(
@@ -61,7 +66,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue([])
     renderPage()
 
-    expect(await screen.findByText('No hay intentos registrados para este examen.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay incidencias registradas para este examen.')).toBeInTheDocument()
     expect(screen.getByText('0 intentos observados')).toBeInTheDocument()
     expect(screen.getByText('0 ingresos autorizados')).toBeInTheDocument()
   })
@@ -73,7 +78,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la información de ingreso')
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
-    expect(await screen.findByText('No hay intentos registrados para este examen.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay incidencias registradas para este examen.')).toBeInTheDocument()
     expect(intentos.listarIntentosIngreso).toHaveBeenCalledTimes(2)
   })
 })

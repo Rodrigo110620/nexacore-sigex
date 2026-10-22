@@ -246,6 +246,7 @@ describe('ControlIngresoPage', () => {
       identidadVerificada: true,
       verificacionesAdicionales: ['Identidad biométrica cotejada / Carnet físico verificado'],
       incidencias: [{ idTipoIncidencia: 3, descripcion: 'Documento deteriorado' }],
+      fechaHoraDispositivo: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/),
     }))
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
     expect(screen.getByText('Autorizado por')).toBeInTheDocument()

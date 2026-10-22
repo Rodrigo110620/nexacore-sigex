@@ -86,6 +86,23 @@ class ControlIngresoServiceTests {
         verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
     }
 
+    @Test
+    void autorizarGuardaLaHoraLocalYElOffsetDelDispositivoNoLaHoraUtc() {
+        when(asistenciaRepository.autorizarConHoraDispositivo(10, 20, 5, 7, "Sin novedades",
+                LocalDateTime.parse("2026-09-25T09:00:00"))).thenReturn(1);
+        when(asistenciaRepository.obtenerFechaHoraIngreso(10, 20)).thenReturn(LocalDateTime.parse("2026-09-25T09:00:00"));
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of(), null,
+                "2026-09-25T09:00:00-04:00");
+
+        service.autorizar(request, "control@umss.edu.bo");
+
+        verify(asistenciaRepository).autorizarConHoraDispositivo(10, 20, 5, 7, "Sin novedades",
+                LocalDateTime.parse("2026-09-25T09:00:00"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(10, 20, 5, 7, "Sin novedades");
+        verify(registroRepository).registrarConFecha(20, 40, 10, 7, "AUTORIZADO", null, "[]",
+                "Sin novedades", LocalDateTime.parse("2026-09-25T09:00:00"));
+    }
+
     /** BUG-D02: se guarda en el orden de antes: razón — detalle — observaciones. */
     @Test
     void deniegaConDetalleAdicionalEntreLaRazonYLasObservaciones() {
