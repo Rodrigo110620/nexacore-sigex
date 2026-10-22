@@ -18,9 +18,10 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
+import { EncabezadoAsistente, ProgresoAsistente } from '../../components/auth/Asistente'
 import { confirmarActivacionEstudiante, solicitarActivacionEstudiante } from '../../services/authService'
 import { validateNewPassword } from '../../utils/passwordPolicy'
-import { FIELD_LIMITS, validateStudentEmail } from '../../utils/validators'
+import { ALLOWED_EMAIL_DOMAIN, FIELD_LIMITS } from '../../utils/validators'
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
 
 type Paso = 1 | 2 | 3 | 'exito'
@@ -30,6 +31,9 @@ const PASOS = ['Identidad', 'Correo', 'Contraseña']
 const SEGUNDOS_ENTRE_ENVIOS = 60
 
 const soloDigitos = (valor: string, max: number) => valor.replace(/\D/g, '').slice(0, max)
+
+/** En la UMSS el correo del estudiante es su código SIS en el dominio institucional. */
+const correoDelSis = (codigoSis: string) => `${codigoSis}@${ALLOWED_EMAIL_DOMAIN}`
 
 /** Requisitos de la contraseña, en el mismo orden que la política del backend. */
 function reglasPassword(password: string, codigoSis: string, ci: string) {
@@ -106,39 +110,6 @@ function BotonPrincipal({ cargando, textoCargando, children }: { cargando: boole
   )
 }
 
-function Progreso({ paso }: { paso: number }) {
-  return (
-    <div className="mb-6">
-      <div className="mb-2 flex items-center justify-between text-xs font-semibold">
-        <span className="text-[#011140]">Activar mi cuenta</span>
-        <span className="text-[#0439D9]">{paso}/{PASOS.length}</span>
-      </div>
-      <ol className="grid grid-cols-3 gap-2">
-        {PASOS.map((nombre, i) => (
-          <li key={nombre} aria-current={i + 1 === paso ? 'step' : undefined} className="flex flex-col gap-1.5">
-            <span className={`h-1 rounded-full ${i < paso ? 'bg-[#0439D9]' : 'bg-[#E4E9F2]'}`} />
-            <span className={`text-[11px] ${i + 1 === paso ? 'font-semibold text-[#0439D9]' : i < paso ? 'text-[#0439D9]' : 'text-[#627A9B]'}`}>
-              {nombre}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
-}
-
-function Encabezado({ icono: Icono, titulo, children }: { icono: LucideIcon; titulo: string; children: ReactNode }) {
-  return (
-    <div className="mb-6">
-      <span className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#F1F6FF] text-[#0439D9]">
-        <Icono size={22} aria-hidden="true" />
-      </span>
-      <h1 className="text-2xl font-extrabold text-[#092068]">{titulo}</h1>
-      <p className="mt-2 text-sm text-gray-500">{children}</p>
-    </div>
-  )
-}
-
 /** Activación de la cuenta del estudiante (CTA-01): identidad → código del correo → contraseña. */
 export default function ActivarCuentaPage() {
   const isMobile = useIsMobileDevice()
@@ -147,7 +118,6 @@ export default function ActivarCuentaPage() {
 
   const [codigoSis, setCodigoSis] = useState('')
   const [ci, setCi] = useState('')
-  const [email, setEmail] = useState('')
   const [codigo, setCodigo] = useState('')
   const [password, setPassword] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
@@ -176,7 +146,7 @@ export default function ActivarCuentaPage() {
     setCargando(true)
     setErrorGeneral('')
     try {
-      const mensaje = await solicitarActivacionEstudiante({ codigoSis, ci, email: email.trim() })
+      const mensaje = await solicitarActivacionEstudiante({ codigoSis, ci, email: correoDelSis(codigoSis) })
       setAvisoEnvio(mensaje)
       setReenviarEn(SEGUNDOS_ENTRE_ENVIOS)
       return true
@@ -193,8 +163,6 @@ export default function ActivarCuentaPage() {
     const nuevos: Record<string, string> = {}
     if (!/^\d{9}$/.test(codigoSis)) nuevos.codigoSis = 'El código SIS debe tener 9 dígitos'
     if (!/^\d{7,8}$/.test(ci)) nuevos.ci = 'El C.I. debe tener 7 u 8 dígitos'
-    const errorEmail = validateStudentEmail(email)
-    if (errorEmail) nuevos.email = errorEmail
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
     if (await enviarCodigo()) setPaso(2)
@@ -296,11 +264,11 @@ export default function ActivarCuentaPage() {
             <div className={cardClass}>
               {paso === 1 && (
                 <>
-                  <Progreso paso={1} />
-                  <Encabezado icono={UserRoundCheck} titulo="Verifica tu identidad">
-                    Ingresa tus datos registrados en la UMSS. Si coinciden, te enviaremos un código a tu correo
-                    institucional.
-                  </Encabezado>
+                  <ProgresoAsistente titulo="Activar mi cuenta" pasos={PASOS} paso={1} />
+                  <EncabezadoAsistente icono={UserRoundCheck} titulo="Verifica tu identidad">
+                    Ingresa tu código SIS y tu C.I. registrados en la UMSS. Si coinciden, te enviaremos un código a tu
+                    correo institucional.
+                  </EncabezadoAsistente>
                   <form onSubmit={verificarIdentidad} noValidate className="flex flex-col gap-4">
                     <Campo
                       id="activacion-sis"
@@ -330,21 +298,15 @@ export default function ActivarCuentaPage() {
                         limpiar('ci')
                       }}
                     />
-                    <Campo
-                      id="activacion-email"
-                      label="CORREO INSTITUCIONAL"
-                      icono={Mail}
-                      type="email"
-                      autoComplete="email"
-                      placeholder="usuario@est.umss.edu"
-                      maxLength={FIELD_LIMITS.email.max}
-                      value={email}
-                      error={errores.email}
-                      onChange={(e) => {
-                        setEmail(e.target.value)
-                        limpiar('email')
-                      }}
-                    />
+                    <div className="flex items-start gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] p-3 text-xs">
+                      <Mail size={16} className="mt-0.5 shrink-0 text-[#64748B]" aria-hidden="true" />
+                      <p className="text-gray-500">
+                        Te enviaremos el código a tu correo institucional:{' '}
+                        <strong data-testid="correo-activacion" className="text-[#011140]">
+                          {codigoSis.length === FIELD_LIMITS.codigoSis.max ? correoDelSis(codigoSis) : `código SIS@${ALLOWED_EMAIL_DOMAIN}`}
+                        </strong>
+                      </p>
+                    </div>
                     <p className="text-[11px] text-gray-500">
                       Usamos estos datos solo para verificar tu identidad. No se muestran ni se comparten.
                     </p>
@@ -358,11 +320,11 @@ export default function ActivarCuentaPage() {
 
               {paso === 2 && (
                 <>
-                  <Progreso paso={2} />
-                  <Encabezado icono={MailCheck} titulo="Verifica tu correo">
-                    Escribe el código de 6 dígitos que enviamos a <strong className="text-[#011140]">{email.trim()}</strong>.
+                  <ProgresoAsistente titulo="Activar mi cuenta" pasos={PASOS} paso={2} />
+                  <EncabezadoAsistente icono={MailCheck} titulo="Verifica tu correo">
+                    Escribe el código de 6 dígitos que enviamos a <strong className="text-[#011140]">{correoDelSis(codigoSis)}</strong>.
                     Vence en 10 minutos.
-                  </Encabezado>
+                  </EncabezadoAsistente>
                   {avisoEnvio && (
                     <div className="mb-4 flex items-start gap-2 rounded-xl border border-[#BFD2F5] bg-[#F1F6FF] p-3 text-xs text-[#45628D]">
                       <Mail size={16} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
@@ -416,10 +378,10 @@ export default function ActivarCuentaPage() {
 
               {paso === 3 && (
                 <>
-                  <Progreso paso={3} />
-                  <Encabezado icono={LockKeyhole} titulo="Crea tu contraseña">
+                  <ProgresoAsistente titulo="Activar mi cuenta" pasos={PASOS} paso={3} />
+                  <EncabezadoAsistente icono={LockKeyhole} titulo="Crea tu contraseña">
                     Protege tu cuenta institucional con una contraseña única y segura.
-                  </Encabezado>
+                  </EncabezadoAsistente>
                   <form onSubmit={activarCuenta} noValidate className="flex flex-col gap-4">
                     <Campo
                       id="activacion-password"

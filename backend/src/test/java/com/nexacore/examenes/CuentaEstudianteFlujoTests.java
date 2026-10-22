@@ -191,7 +191,7 @@ class CuentaEstudianteFlujoTests {
 
     @Test
     @WithMockUser(username = EMAIL, roles = "ESTUDIANTE")
-    void laFotoEnviadaQuedaPendienteYPideLaContrasena() throws Exception {
+    void laPrimeraFotoQuedaAprobadaYPideLaContrasena() throws Exception {
         activar();
         MockMultipartFile foto = new MockMultipartFile("file", "foto.jpg", "image/jpeg", JPEG);
 
@@ -200,11 +200,30 @@ class CuentaEstudianteFlujoTests {
             .andExpect(status().isBadRequest());
         mockMvc.perform(multipart("/mi/foto").file(foto).param("password", PASSWORD)
                 .with(r -> { r.setMethod("PUT"); return r; }))
-            .andExpect(status().isAccepted());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.estado").value("APROBADA"));
 
         mockMvc.perform(get("/mi/perfil"))
-            .andExpect(jsonPath("$.solicitudFoto.estado").value("PENDIENTE"))
-            .andExpect(jsonPath("$.fotoUrl").doesNotExist());
+            .andExpect(jsonPath("$.fotoUrl").exists())
+            .andExpect(jsonPath("$.solicitudFoto").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = EMAIL, roles = "ESTUDIANTE")
+    void elCambioDeFotoQuedaPendiente() throws Exception {
+        activar();
+        Integer id = estudianteRepository.findByCodigoSis(SIS).orElseThrow().getId();
+        fotoService.guardar(id, new MockMultipartFile("file", "actual.jpg", "image/jpeg", JPEG));
+        MockMultipartFile nueva = new MockMultipartFile("file", "nueva.jpg", "image/jpeg", JPEG);
+
+        mockMvc.perform(multipart("/mi/foto").file(nueva).param("password", PASSWORD)
+                .with(r -> { r.setMethod("PUT"); return r; }))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.estado").value("PENDIENTE"));
+
+        mockMvc.perform(get("/mi/perfil"))
+            .andExpect(jsonPath("$.fotoUrl").exists())
+            .andExpect(jsonPath("$.solicitudFoto.estado").value("PENDIENTE"));
     }
 
     @Test
@@ -214,6 +233,7 @@ class CuentaEstudianteFlujoTests {
         mockMvc.perform(post("/estudiantes/" + id + "/foto-solicitud/aprobar"))
             .andExpect(status().isBadRequest());
 
+        fotoService.guardar(id, new MockMultipartFile("file", "actual.jpg", "image/jpeg", JPEG));
         fotoService.solicitarCambio(id, new MockMultipartFile("file", "foto.jpg", "image/jpeg", JPEG));
         mockMvc.perform(get("/estudiantes/fotos-pendientes"))
             .andExpect(status().isOk())

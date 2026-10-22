@@ -12,6 +12,8 @@ RUN mvn -B -q -DskipTests package && cp target/*.jar app.jar
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+# Hora de Bolivia también en los logs. La aplicación la fija igual (APP_TIMEZONE, ver ZonaHoraria).
+ENV TZ=America/La_Paz
 RUN useradd --system --uid 1001 sigex
 COPY --from=build /app/app.jar app.jar
 USER sigex
