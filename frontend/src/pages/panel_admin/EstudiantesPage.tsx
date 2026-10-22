@@ -123,10 +123,12 @@ export default function EstudiantesPage() {
                   {esAdmin && (
                     <Link
                       to="/dashboard/estudiantes/fotos"
-                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none min-[960px]:px-4"
+                      aria-label="Revisión de fotos"
+                      title="Revisión de fotos"
+                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none 2xl:px-4"
                     >
                       <ImageUp size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
-                      Revisión de fotos
+                      <span className="min-[960px]:hidden 2xl:inline">Revisión de fotos</span>
                       {fotosPorRevisar > 0 && (
                         <span aria-label={`${fotosPorRevisar} por revisar`} className="rounded-full bg-[#B45309] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                           {fotosPorRevisar}

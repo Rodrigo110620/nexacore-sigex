@@ -12,3 +12,13 @@ export function validateNewPassword(value: string): string {
   if (!/[\p{P}\p{S}]/u.test(value)) return 'Incluye al menos un símbolo'
   return ''
 }
+
+/**
+ * Cuenta de estudiante: igual que en el backend, la contraseña no puede contener su código SIS ni
+ * su nombre (el CI también lo controla el backend; en el portal solo se conoce enmascarado).
+ */
+export function usaDatosDelEstudiante(password: string, codigoSis: string, nombre: string): boolean {
+  const clave = password.toLowerCase()
+  if (codigoSis && clave.includes(codigoSis)) return true
+  return nombre.toLowerCase().split(/\s+/).some((palabra) => palabra.length >= 3 && clave.includes(palabra))
+}

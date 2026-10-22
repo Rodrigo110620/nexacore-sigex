@@ -18,6 +18,7 @@ export interface MiPerfilEstudiante {
   telefono: string | null
   estadoMatricula: string
   condicion: string
+  carreras?: { idCarrera: number; nombreCarrera: string; idFacultad: number; nombreFacultad: string }[]
   /** Ruta de la foto aprobada (la que ve el personal de control), o null si no tiene. */
   fotoUrl: string | null
   solicitudFoto: SolicitudFoto | null

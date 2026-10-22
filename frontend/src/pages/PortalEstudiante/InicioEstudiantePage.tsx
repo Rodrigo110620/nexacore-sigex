@@ -1,4 +1,4 @@
-import { Camera, CircleCheck, Clock, GraduationCap, LogOut, TriangleAlert } from 'lucide-react'
+import { Camera, CircleCheck, Clock, GraduationCap, LogOut, TriangleAlert, UserRound } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
@@ -78,6 +78,12 @@ export default function InicioEstudiantePage() {
                   </div>
                 </div>
               )}
+              <Link
+                to="/estudiante/perfil"
+                className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0439D9] px-5 text-sm font-semibold text-white hover:bg-[#0027a2]"
+              >
+                <UserRound size={16} aria-hidden="true" /> Mi perfil
+              </Link>
               <p className="mt-4 text-sm text-gray-500">Muy pronto podrás ver aquí tus exámenes y tu QR de ingreso.</p>
             </>
           )}
