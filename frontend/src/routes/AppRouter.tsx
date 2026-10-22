@@ -9,6 +9,7 @@ import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
 import MiPerfilPage from '../pages/PortalEstudiante/MiPerfilPage'
+import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
@@ -94,7 +95,7 @@ export default function AppRouter() {
           path="/estudiante/foto/cambiar"
           element={
             <PortalEstudianteRoute>
-              <RegistrarFotoPage cambio />
+              <CambiarFotoPage />
             </PortalEstudianteRoute>
           }
         />

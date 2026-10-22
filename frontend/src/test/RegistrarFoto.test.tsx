@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
+import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import { enviarMiFoto, obtenerMiPerfil, requiereRegistrarFoto, type MiPerfilEstudiante } from '../services/panelEstudianteService'
 
 vi.mock('../hooks/useIsMobileDevice', () => ({ useIsMobileDevice: () => false }))
@@ -48,7 +49,8 @@ function renderEn(ruta: string) {
         <Routes>
           <Route path="/estudiante" element={<InicioEstudiantePage />} />
           <Route path="/estudiante/foto" element={<RegistrarFotoPage />} />
-          <Route path="/estudiante/foto/cambiar" element={<RegistrarFotoPage cambio />} />
+          <Route path="/estudiante/foto/cambiar" element={<CambiarFotoPage />} />
+          <Route path="/estudiante/perfil" element={<p>Mi perfil</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>
@@ -181,14 +183,51 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     expect(screen.getByRole('button', { name: /volver a escanear/i })).toBeInTheDocument()
   })
 
-  it('con foto aprobada puede cambiarla desde el inicio sin perderla', async () => {
+  it('cambiar foto: pide la contraseña, escanea y queda en revisión con la foto vigente', async () => {
     obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
+    enviar.mockResolvedValue({ estado: 'PENDIENTE', mensaje: 'Tu foto nueva quedó pendiente.' })
     renderEn('/estudiante')
     await userEvent.click(await screen.findByRole('link', { name: /cambiar foto/i }))
-    expect(await screen.findByRole('heading', { name: 'Cambia tu foto' })).toBeInTheDocument()
-    expect(screen.getByText(/Tu foto actual seguirá vigente/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /cancelar y volver/i }))
-    expect(await screen.findByText('Tu cuenta de estudiante está activa.')).toBeInTheDocument()
+
+    expect(await screen.findByRole('heading', { name: 'Confirma tu contraseña' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(screen.getByText('Escribe tu contraseña')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Simular foto' }))
+    expect(screen.getByText('Tu foto actual seguirá vigente hasta que la administración apruebe la nueva.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Usar esta foto' }))
+
+    expect(await screen.findByRole('heading', { name: 'Foto enviada a revisión' })).toBeInTheDocument()
+    expect(enviar).toHaveBeenCalledWith(expect.any(Blob), 'Segura#2026')
+    expect(screen.getByText('En uso')).toBeInTheDocument()
+    expect(screen.getByText('En revisión')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    expect(await screen.findByText('Mi perfil')).toBeInTheDocument()
+  })
+
+  it('cambiar foto: si la contraseña es incorrecta vuelve a pedirla sin perder el escaneo', async () => {
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
+    enviar.mockRejectedValueOnce(new Error('La contraseña no es correcta.'))
+    renderEn('/estudiante/foto/cambiar')
+    await userEvent.type(await screen.findByLabelText('CONTRASEÑA'), 'Otra#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Simular foto' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Usar esta foto' }))
+
+    expect(await screen.findByText('La contraseña no es correcta.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirma tu contraseña' })).toBeInTheDocument()
+    enviar.mockResolvedValueOnce({ estado: 'PENDIENTE', mensaje: 'ok' })
+    await userEvent.type(screen.getByLabelText('CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
+  })
+
+  it('cambiar foto no aplica si la foto es obligatoria: va al registro', async () => {
+    obtener.mockResolvedValue(PERFIL)
+    renderEn('/estudiante/foto/cambiar')
+    expect(await screen.findByRole('heading', { name: 'Registra tu foto' })).toBeInTheDocument()
   })
 
   it('si le rechazaron un cambio, su foto sigue vigente y puede subir otra', async () => {
