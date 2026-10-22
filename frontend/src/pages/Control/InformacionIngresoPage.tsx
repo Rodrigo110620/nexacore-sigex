@@ -86,10 +86,7 @@ export default function InformacionIngresoPage() {
   }, [idExamen, idValido, reintentosCarga]);
 
   useEffect(() => {
-    if (!reporteAbierto) {
-      setFotoReporte(null);
-      return;
-    }
+    if (!reporteAbierto) return;
     let vigente = true,
       url: string | null = null;
     obtenerFotoReporteQr(idExamen, reporteAbierto.idReporte).then((valor) => {
@@ -288,7 +285,10 @@ export default function InformacionIngresoPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setReporteAbierto(reporte)}
+                          onClick={() => {
+                            setFotoReporte(null);
+                            setReporteAbierto(reporte);
+                          }}
                           className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#0439D9] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0439D9]"
                         >
                           <Eye size={14} />

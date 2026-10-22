@@ -125,7 +125,7 @@ export default function ReporteQrDuplicadoModal({
       return;
     }
     if (
-      !/^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '\-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/.test(
+      !/^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/.test(
         nombres.trim(),
       )
     ) {
