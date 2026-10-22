@@ -2,7 +2,7 @@ import api from './api'
 
 export interface ReporteQrDuplicado {
   idReporte: number; estudianteQr: string; codigoSisQr: string | null
-  nombresPresentado: string; ciPresentado: string; codigoSisPresentado: string | null
+  nombresPresentado: string; ciPresentado: string | null; presentoCarnet: boolean; codigoSisPresentado: string | null
   detalle: string; personalControl: string; estado: 'PENDIENTE' | 'PRUEBA'; fechaHora: string
 }
 export async function listarReportesQrDuplicado(idExamen: number) {

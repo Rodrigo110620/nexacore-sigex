@@ -1,7 +1,7 @@
 import api from './api'
 
 export async function registrarReporteQrDuplicado(datos: {
-  idExamen: number; idEstudianteQr: number; nombresPresentado: string; ciPresentado: string
+  idExamen: number; idEstudianteQr: number; nombresPresentado: string; ciPresentado: string; presentoCarnet: boolean
   codigoSisPresentado: string; detalle: string; fechaHoraDispositivo: string; foto: Blob
 }): Promise<number> {
   const form = new FormData()
@@ -9,6 +9,7 @@ export async function registrarReporteQrDuplicado(datos: {
   form.append('idEstudianteQr', String(datos.idEstudianteQr))
   form.append('nombresPresentado', datos.nombresPresentado)
   form.append('ciPresentado', datos.ciPresentado)
+  form.append('presentoCarnet', String(datos.presentoCarnet))
   form.append('codigoSisPresentado', datos.codigoSisPresentado)
   form.append('detalle', datos.detalle)
   form.append('fechaHoraDispositivo', datos.fechaHoraDispositivo)
