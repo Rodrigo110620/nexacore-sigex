@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react'
-import { ArrowLeft, Camera, CircleAlert, CircleCheck, Clock, Eye, EyeOff, Info, LockKeyhole, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { Camera, CircleAlert, CircleCheck, Clock, Eye, EyeOff, Info, LockKeyhole, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
-import AuthLayout from '../../components/layout/AuthLayout'
+import PortalEstudianteLayout from '../../components/estudiantes/PortalEstudianteLayout'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
 import useMiPerfil from '../../hooks/useMiPerfil'
@@ -110,12 +110,9 @@ export default function MiPerfilPage() {
   const carrera = perfil?.carreras?.[0]
 
   return (
-    <AuthLayout>
+    <PortalEstudianteLayout fotoUrl={perfil?.fotoUrl}>
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
-        <Link to="/estudiante" className="inline-flex items-center gap-1 text-sm font-semibold text-[#0439D9] hover:underline">
-          <ArrowLeft size={16} aria-hidden="true" /> Volver al inicio
-        </Link>
-        <h1 className="mt-3 text-2xl font-extrabold text-[#092068]">Mi perfil</h1>
+        <h1 className="text-2xl font-extrabold text-[#092068]">Mi perfil</h1>
         <p className="text-sm text-gray-500">Consulta tus datos registrados y administra la seguridad de tu cuenta.</p>
 
         {cargando ? (
@@ -216,6 +213,6 @@ export default function MiPerfilPage() {
           </div>
         )}
       </div>
-    </AuthLayout>
+    </PortalEstudianteLayout>
   )
 }

@@ -9,6 +9,7 @@ import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
 import MiPerfilPage from '../pages/PortalEstudiante/MiPerfilPage'
+import MiQrPage from '../pages/PortalEstudiante/MiQrPage'
 import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
@@ -80,6 +81,14 @@ export default function AppRouter() {
           element={
             <PortalEstudianteRoute>
               <RegistrarFotoPage />
+            </PortalEstudianteRoute>
+          }
+        />
+        <Route
+          path="/estudiante/qr"
+          element={
+            <PortalEstudianteRoute>
+              <MiQrPage />
             </PortalEstudianteRoute>
           }
         />

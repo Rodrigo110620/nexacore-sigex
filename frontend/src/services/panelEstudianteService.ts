@@ -70,3 +70,61 @@ export function requiereRegistrarFoto(perfil: MiPerfilEstudiante): boolean {
   if (perfil.fotoUrl) return false
   return perfil.solicitudFoto?.estado !== 'PENDIENTE'
 }
+
+/** Examen del estudiante en su panel (GET /mi/examenes). */
+export interface MiExamen {
+  idExamen: number
+  materia: string
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  /** Aula donde debe presentarse, o null si se asigna al llegar. */
+  aula: string | null
+  /** true habilitado, false no habilitado, null pendiente de revisión. */
+  habilitado: boolean | null
+  motivoInhabilitacion: string | null
+  /** AUTORIZADO, DENEGADO o null si todavía no pasó por el control. */
+  resultadoIngreso: 'AUTORIZADO' | 'DENEGADO' | null
+  motivoDenegacion: string | null
+  fechaHoraIngreso: string | null
+}
+
+/** QR temporal del estudiante (GET /mi/qr). */
+export interface MiQr {
+  contenido: string
+  pngBase64: string
+  expiraEn: string
+  segundosValidez: number
+}
+
+function errorDePanel(error: unknown, fallback: string): Error {
+  const err = error as { response?: { data?: { mensaje?: string } } }
+  if (!err.response) return new SinConexionError()
+  return new Error(err.response.data?.mensaje || fallback)
+}
+
+/** Falla de red: el portal muestra el estado "sin conexión" en vez de un error genérico. */
+export class SinConexionError extends Error {
+  constructor() {
+    super('No hay conexión a Internet. Revisa tu conexión e intenta de nuevo.')
+    this.name = 'SinConexionError'
+  }
+}
+
+export async function obtenerMisExamenes(): Promise<MiExamen[]> {
+  try {
+    const { data } = await api.get<MiExamen[]>('/mi/examenes')
+    return data
+  } catch (error: unknown) {
+    throw errorDePanel(error, 'No se pudieron cargar tus exámenes. Intenta más tarde.')
+  }
+}
+
+export async function obtenerMiQr(): Promise<MiQr> {
+  try {
+    const { data } = await api.get<MiQr>('/mi/qr')
+    return data
+  } catch (error: unknown) {
+    throw errorDePanel(error, 'No se pudo generar tu QR. Intenta más tarde.')
+  }
+}

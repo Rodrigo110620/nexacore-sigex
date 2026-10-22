@@ -23,6 +23,7 @@ vi.mock('../services/panelEstudianteService', async (original) => ({
   ...(await original<typeof import('../services/panelEstudianteService')>()),
   obtenerMiPerfil: vi.fn(),
   enviarMiFoto: vi.fn(),
+  obtenerMisExamenes: vi.fn().mockResolvedValue([]),
 }))
 
 const obtener = vi.mocked(obtenerMiPerfil)
@@ -89,7 +90,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
   it('con foto aprobada se queda en el inicio', async () => {
     obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
     renderEn('/estudiante')
-    expect(await screen.findByText('Tu cuenta de estudiante está activa.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Hola, Ana Rojas Mendoza' })).toBeInTheDocument()
   })
 
   it('si se la rechazaron, muestra el motivo de la administración', async () => {
@@ -186,8 +187,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
   it('cambiar foto: pide la contraseña, escanea y queda en revisión con la foto vigente', async () => {
     obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
     enviar.mockResolvedValue({ estado: 'PENDIENTE', mensaje: 'Tu foto nueva quedó pendiente.' })
-    renderEn('/estudiante')
-    await userEvent.click(await screen.findByRole('link', { name: /cambiar foto/i }))
+    renderEn('/estudiante/foto/cambiar')
 
     expect(await screen.findByRole('heading', { name: 'Confirma tu contraseña' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
@@ -237,8 +237,6 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
       solicitudFoto: { estado: 'RECHAZADA', motivoRechazo: 'Lentes oscuros', enviadaEn: '2026-10-20T10:00:00' },
     })
     renderEn('/estudiante')
-    expect(await screen.findByText('Cambio rechazado')).toBeInTheDocument()
-    expect(screen.getByText(/Motivo: Lentes oscuros/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /subir otra foto/i })).toHaveAttribute('href', '/estudiante/foto/cambiar')
+    expect(await screen.findByRole('link', { name: /tu foto nueva fue rechazada/i })).toHaveAttribute('href', '/estudiante/perfil')
   })
 })
