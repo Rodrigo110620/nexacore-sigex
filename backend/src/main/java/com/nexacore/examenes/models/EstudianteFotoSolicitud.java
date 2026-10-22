@@ -20,6 +20,10 @@ import java.time.LocalDateTime;
 public class EstudianteFotoSolicitud {
     public static final String PENDIENTE = "PENDIENTE";
     public static final String RECHAZADA = "RECHAZADA";
+    /** El estudiante cambió su foto por iniciativa propia. */
+    public static final String CAMBIO = "CAMBIO";
+    /** El estudiante volvió a escanear su rostro porque el personal de control reportó su foto. */
+    public static final String REPORTE = "REPORTE";
 
     @Id
     @Column(name = "id_estudiante", nullable = false)
@@ -33,6 +37,9 @@ public class EstudianteFotoSolicitud {
 
     @Column(name = "estado", nullable = false, length = 20)
     private String estado = PENDIENTE;
+
+    @Column(name = "origen", nullable = false, length = 10)
+    private String origen = CAMBIO;
 
     @Column(name = "motivo_rechazo", length = 200)
     private String motivoRechazo;

@@ -1,7 +1,8 @@
-import { Clock, GraduationCap, LogOut } from 'lucide-react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Camera, CircleCheck, Clock, GraduationCap, LogOut, TriangleAlert } from 'lucide-react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
+import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import { useAuth } from '../../context/AuthContext'
 import useMiPerfil from '../../hooks/useMiPerfil'
 import { requiereRegistrarFoto } from '../../services/panelEstudianteService'
@@ -37,11 +38,45 @@ export default function InicioEstudiantePage() {
               </span>
               <h1 className="text-2xl font-extrabold text-[#092068]">Hola{nombre ? `, ${nombre}` : ''}</h1>
               <p className="mt-2 text-sm text-gray-500">Tu cuenta de estudiante está activa.</p>
-              {perfil?.solicitudFoto?.estado === 'PENDIENTE' && (
-                <p className="mx-auto mt-4 flex max-w-sm items-start gap-2 rounded-xl border border-[#FDE68A] bg-[#FFF7E6] p-3 text-left text-xs text-[#92400E]">
-                  <Clock size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  Tu foto nueva está en revisión. Mientras tanto, el personal de control usa tu foto actual.
-                </p>
+              {perfil && (
+                <div className="mx-auto mt-5 flex max-w-sm items-center gap-4 rounded-xl border border-[#D8E3F5] bg-[#F8FBFF] p-3 text-left">
+                  <FotoEstudiante
+                    fotoUrl={perfil.fotoUrl}
+                    nombre={`${perfil.nombre} ${perfil.apellidos}`}
+                    iniciales={`${perfil.nombre.charAt(0)}${perfil.apellidos.charAt(0)}`.toUpperCase()}
+                    className="flex h-20 w-16 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-sm font-bold text-[#7C93B8]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[#011140]">Mi foto</p>
+                    {perfil.solicitudFoto?.estado === 'PENDIENTE' ? (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#FFF7E6] px-2 py-0.5 text-[11px] font-semibold text-[#92400E]">
+                        <Clock size={12} aria-hidden="true" /> Foto nueva en revisión
+                      </p>
+                    ) : perfil.solicitudFoto?.estado === 'RECHAZADA' ? (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
+                        <TriangleAlert size={12} aria-hidden="true" /> Cambio rechazado
+                      </p>
+                    ) : (
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#047857]">
+                        <CircleCheck size={12} aria-hidden="true" /> Foto aprobada
+                      </p>
+                    )}
+                    <p className="mt-1 text-[11px] leading-snug text-gray-500">
+                      {perfil.solicitudFoto?.estado === 'PENDIENTE'
+                        ? 'Mientras tanto, el personal de control usa tu foto actual.'
+                        : perfil.solicitudFoto?.estado === 'RECHAZADA'
+                          ? `Motivo: ${perfil.solicitudFoto.motivoRechazo || 'no indicado'}. Tu foto anterior sigue vigente.`
+                          : 'Es la que usa el personal de control para identificarte.'}
+                    </p>
+                    <Link
+                      to="/estudiante/foto/cambiar"
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0439D9] hover:underline"
+                    >
+                      <Camera size={14} aria-hidden="true" />
+                      {perfil.solicitudFoto?.estado === 'RECHAZADA' ? 'Subir otra foto' : 'Cambiar foto'}
+                    </Link>
+                  </div>
+                </div>
               )}
               <p className="mt-4 text-sm text-gray-500">Muy pronto podrás ver aquí tus exámenes y tu QR de ingreso.</p>
             </>

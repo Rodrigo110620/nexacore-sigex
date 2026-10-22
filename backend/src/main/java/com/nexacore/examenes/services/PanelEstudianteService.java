@@ -7,6 +7,7 @@ import com.nexacore.examenes.dto.MiQrResponse;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteFoto;
+import com.nexacore.examenes.models.EstudianteFotoSolicitud;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.RegistroControlIngreso;
 import com.nexacore.examenes.models.Usuario;
@@ -81,7 +82,9 @@ public class PanelEstudianteService {
         return new MiPerfilResponse(
                 e.getId(), e.getCodigoSis(), e.getNombre(), e.getApellidos(), enmascarar(e.getCi()), e.getEmail(),
                 e.getTelefono(), e.getEstadoMatricula(), e.getCondicion(), carreras,
-                fotoService.obtener(e.getId()).isPresent() ? RUTA_FOTO : null, solicitud);
+                fotoService.obtener(e.getId()).isPresent() ? RUTA_FOTO : null, solicitud,
+                fotoService.reporteAbierto(e.getId()).isPresent()
+                        && (solicitud == null || !EstudianteFotoSolicitud.PENDIENTE.equals(solicitud.estado())));
     }
 
     @Transactional(readOnly = true)

@@ -23,6 +23,7 @@ import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
+import RevisionFotosPage from '../pages/panel_admin/RevisionFotosPage'
 import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
 import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
@@ -80,6 +81,14 @@ export default function AppRouter() {
             </PortalEstudianteRoute>
           }
         />
+        <Route
+          path="/estudiante/foto/cambiar"
+          element={
+            <PortalEstudianteRoute>
+              <RegistrarFotoPage cambio />
+            </PortalEstudianteRoute>
+          }
+        />
 
         {/* Dashboard general (cualquier usuario logueado) */}
         <Route
@@ -117,6 +126,15 @@ export default function AppRouter() {
             <EstudianteRoute>
               <EstudiantesPage />
             </EstudianteRoute>
+          }
+        />
+        {/* Revisión de fotos: cambios y reportes (SOLO ADMIN) */}
+        <Route
+          path="/dashboard/estudiantes/fotos"
+          element={
+            <AdminRoute>
+              <RevisionFotosPage />
+            </AdminRoute>
           }
         />
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}

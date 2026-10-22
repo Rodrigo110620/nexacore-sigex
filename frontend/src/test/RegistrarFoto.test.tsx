@@ -48,6 +48,7 @@ function renderEn(ruta: string) {
         <Routes>
           <Route path="/estudiante" element={<InicioEstudiantePage />} />
           <Route path="/estudiante/foto" element={<RegistrarFotoPage />} />
+          <Route path="/estudiante/foto/cambiar" element={<RegistrarFotoPage cambio />} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>
@@ -170,5 +171,35 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
     expect(await screen.findByText('La contraseña no es correcta.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
+  })
+
+  it('si el personal de control reportó su foto, debe volver a escanear su rostro', async () => {
+    expect(requiereRegistrarFoto({ ...PERFIL, fotoUrl: '/mi/foto', fotoReportada: true })).toBe(true)
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto', fotoReportada: true })
+    renderEn('/estudiante')
+    expect(await screen.findByRole('heading', { name: 'Vuelve a escanear tu rostro' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /volver a escanear/i })).toBeInTheDocument()
+  })
+
+  it('con foto aprobada puede cambiarla desde el inicio sin perderla', async () => {
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
+    renderEn('/estudiante')
+    await userEvent.click(await screen.findByRole('link', { name: /cambiar foto/i }))
+    expect(await screen.findByRole('heading', { name: 'Cambia tu foto' })).toBeInTheDocument()
+    expect(screen.getByText(/Tu foto actual seguirá vigente/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /cancelar y volver/i }))
+    expect(await screen.findByText('Tu cuenta de estudiante está activa.')).toBeInTheDocument()
+  })
+
+  it('si le rechazaron un cambio, su foto sigue vigente y puede subir otra', async () => {
+    obtener.mockResolvedValue({
+      ...PERFIL,
+      fotoUrl: '/mi/foto',
+      solicitudFoto: { estado: 'RECHAZADA', motivoRechazo: 'Lentes oscuros', enviadaEn: '2026-10-20T10:00:00' },
+    })
+    renderEn('/estudiante')
+    expect(await screen.findByText('Cambio rechazado')).toBeInTheDocument()
+    expect(screen.getByText(/Motivo: Lentes oscuros/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /subir otra foto/i })).toHaveAttribute('href', '/estudiante/foto/cambiar')
   })
 })

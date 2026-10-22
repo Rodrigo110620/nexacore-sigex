@@ -21,6 +21,8 @@ export interface MiPerfilEstudiante {
   /** Ruta de la foto aprobada (la que ve el personal de control), o null si no tiene. */
   fotoUrl: string | null
   solicitudFoto: SolicitudFoto | null
+  /** El personal de control reportó que su foto no coincide y aún no envió otra. */
+  fotoReportada?: boolean
 }
 
 export async function obtenerMiPerfil(): Promise<MiPerfilEstudiante> {
@@ -59,9 +61,11 @@ export async function enviarMiFoto(foto: Blob, password: string): Promise<Result
 
 /**
  * CTA-02: la foto es obligatoria. El estudiante debe registrarla si no tiene una foto aprobada y
- * no hay una pendiente de revisión (nunca envió una o se la rechazaron).
+ * no hay una pendiente de revisión (nunca envió una o se la rechazaron), o si el personal de
+ * control reportó que su foto no coincide y todavía no envió otra.
  */
 export function requiereRegistrarFoto(perfil: MiPerfilEstudiante): boolean {
+  if (perfil.fotoReportada) return true
   if (perfil.fotoUrl) return false
   return perfil.solicitudFoto?.estado !== 'PENDIENTE'
 }
