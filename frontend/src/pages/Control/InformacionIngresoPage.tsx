@@ -12,6 +12,8 @@ import {
   TriangleAlert,
   UserRound,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import PanelLayout from "../../components/layout/PanelLayout";
 import MobileBottomNav from "../../components/navigation/MobileBottomNav";
@@ -63,6 +65,9 @@ export default function InformacionIngresoPage() {
   const [reintentosCarga, setReintentosCarga] = useState(0);
   const [pestaña, setPestaña] = useState<PestañaIngreso>("intentos");
 
+  // Estado para saber qué fila está expandida
+  const [expandido, setExpandido] = useState<number | null>(null);
+
   useEffect(() => {
     if (!idValido) return;
     let vigente = true;
@@ -86,7 +91,6 @@ export default function InformacionIngresoPage() {
     };
   }, [idExamen, idValido, reintentosCarga]);
 
-  // En vivo: ingresos y reportes de este examen (intento, aula incorrecta, QR duplicado) recargan las listas.
   useEnVivo(
     (c) => c.idExamen === idExamen,
     () => setReintentosCarga((v) => v + 1),
@@ -205,11 +209,11 @@ export default function InformacionIngresoPage() {
               role="tab"
               aria-selected={pestaña === "intentos"}
               onClick={() => setPestaña("intentos")}
-              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
+              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
             >
-              <TriangleAlert className="mr-1 inline" size={14} />
+              <TriangleAlert className="mr-1 inline" size={16} />
               Historial de Intentos{" "}
-              <span className="ml-1 rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] text-red-700">
+              <span className="ml-1 rounded-full bg-red-50 px-1.5 py-0.5 text-xs text-red-700">
                 {totalIntentos ?? "…"}
               </span>
             </button>
@@ -218,17 +222,17 @@ export default function InformacionIngresoPage() {
               role="tab"
               aria-selected={pestaña === "autorizados"}
               onClick={() => setPestaña("autorizados")}
-              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-xs font-semibold ${pestaña === "autorizados" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
+              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "autorizados" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
             >
               Ingresos Autorizados en Tiempo Real{" "}
-              <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-[#0439D9]">
+              <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-xs text-[#0439D9]">
                 {totalAutorizados ?? "…"}
               </span>
             </button>
           </div>
 
           <div role="tabpanel" className="pt-3">
-            <h2 className="border-b border-[#E6EAF0] pb-2 text-sm font-bold text-[#20242A]">
+            <h2 className="border-b border-[#E6EAF0] pb-2 text-base font-bold text-[#20242A]">
               {pestaña === "intentos"
                 ? "Ingresos no autorizados"
                 : "Ingresos autorizados"}
@@ -270,7 +274,7 @@ export default function InformacionIngresoPage() {
                   {reportes?.map((reporte) => (
                     <article
                       key={reporte.idReporte}
-                      className="rounded-xl border border-[#F1C4C9] bg-[#FFF8F8] p-3 text-sm"
+                      className="rounded-xl border border-[#F1C4C9] bg-[#FFF8F8] p-4 text-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -280,7 +284,7 @@ export default function InformacionIngresoPage() {
                           <p className="mt-0.5 text-xs text-red-700">
                             Presentado por {reporte.nombresPresentado}
                           </p>
-                          <p className="mt-1 text-[11px] text-[#627A9B]">
+                          <p className="mt-1 text-xs text-[#627A9B]">
                             {fechaHora(reporte.fechaHora)} ·{" "}
                             {reporte.personalControl} ·{" "}
                             <span className="font-semibold">
@@ -296,7 +300,7 @@ export default function InformacionIngresoPage() {
                             setFotoReporte(null);
                             setReporteAbierto(reporte);
                           }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#0439D9] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0439D9]"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md border-2 border-[#0439D9] bg-white px-3 py-1.5 text-xs font-semibold text-[#0439D9]"
                         >
                           <Eye size={14} />
                           Ver detalles
@@ -307,52 +311,90 @@ export default function InformacionIngresoPage() {
                 </div>
                 <ul
                   aria-label="Intentos no autorizados"
-                  className="mt-3 space-y-2 md:mt-2"
+                  className="mt-3 space-y-3"
                 >
-                  {(lista as IntentoIngreso[]).map((intento) => (
-                    <li
-                      key={intento.idIntento}
-                      className="rounded-xl border border-[#E1E7F0] bg-white px-3 py-3 text-sm shadow-[0_2px_8px_rgba(1,17,64,.05)] md:rounded-lg md:border-0 md:bg-[#F3F3F3] md:px-3 md:py-2.5 md:text-xs md:shadow-none"
-                    >
-                      <p className="font-semibold text-[#011140] md:text-[#20242A]">
-                        {intento.estudiante || intento.identificador}
-                      </p>
-                      <p className="mt-0.5 break-words leading-5 text-red-700 md:mt-0 md:text-[11px]">
-                        {intento.motivo}
-                      </p>
-                      <p className="mt-1 break-words text-[11px] leading-5 text-[#627A9B] md:hidden">
-                        {intento.identificador} · {intento.personalControl} ·{" "}
-                        {fechaHora(intento.fechaHora)}
-                      </p>
-                      <p className="hidden text-[10px] text-[#627A9B] md:mt-0.5 md:block">
-                        {intento.codigoSis || intento.identificador}{" "}
-                        <span aria-hidden="true">·</span>{" "}
-                        {fechaHora(intento.fechaHora)}
-                      </p>
-                      <p className="hidden text-[10px] text-[#627A9B] md:mt-0.5 md:block">
-                        Personal de control: {intento.personalControl}
-                      </p>
-                    </li>
-                  ))}
+                  {(lista as IntentoIngreso[]).map((intento) => {
+                    const [textoPrincipal, textoDetalles] = (intento.motivo || "").split(" ### ");
+                    const tieneDetalles = !!textoDetalles;
+                    const estaExpandido = expandido === intento.idIntento;
+
+                    return (
+                      <li
+                        key={intento.idIntento}
+                        className="rounded-xl border border-[#E1E7F0] bg-slate-50 p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-[#011140] text-sm md:text-base">
+                              {intento.estudiante || intento.identificador}
+                            </p>
+                            <p className="mt-1 break-words leading-5 text-red-700 text-xs md:text-sm font-semibold">
+                              {textoPrincipal}
+                            </p>
+                            <p className="mt-1 text-[11px] md:text-xs font-medium text-[#627A9B]">
+                              {intento.codigoSis || intento.identificador} · {fechaHora(intento.fechaHora)} · Personal: {intento.personalControl}
+                            </p>
+                          </div>
+                          
+                          {tieneDetalles && (
+                            <button
+                              onClick={() => setExpandido(estaExpandido ? null : intento.idIntento)}
+                              className="shrink-0 self-start sm:self-center inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-[#0439D9] border border-[#D8E3F5] shadow-sm hover:bg-[#F4F7FB] transition-colors"
+                            >
+                              {estaExpandido ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              {estaExpandido ? "Ocultar" : "Ver detalles"}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Panel de detalles optimizado */}
+                        {estaExpandido && textoDetalles && (
+                          <div className="mt-4 rounded-r-xl rounded-bl-xl border border-[#E2E8F0] border-l-4 border-l-[#1d40a9] bg-[#F8FAFC] p-3.5 shadow-sm sm:p-4">
+                            <div className="flex flex-col gap-2.5">
+                              {textoDetalles.split(" | ").map((detalle, idx) => {
+                                const [label, ...rest] = detalle.split(": ");
+                                const value = rest.join(": ");
+                                
+                                if (!value) {
+                                  return <p key={idx} className="text-xs md:text-sm font-medium text-[#475569]">{detalle}</p>;
+                                }
+                                
+                                return (
+                                  <div key={idx} className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2 border-b border-[#E2E8F0]/60 pb-2 last:border-0 last:pb-0">
+                                    <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[#4c678e] shrink-0">
+                                      {label}:
+                                    </span>
+                                    <span className="text-xs md:text-xs font-medium text-[#0F172A] leading-snug">
+                                      {value}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             ) : (
               <ul
                 aria-label="Ingresos autorizados"
-                className="mt-3 space-y-2 md:mt-2"
+                className="mt-3 space-y-3"
               >
                 {(lista as RegistroControlIngresoExamen[]).map((registro) => (
                   <li
                     key={registro.idRegistro}
-                    className="rounded-xl border border-[#E1E7F0] bg-white px-3 py-3 text-sm shadow-[0_2px_8px_rgba(1,17,64,.05)] md:rounded-lg md:border-0 md:bg-[#F3F3F3] md:px-3 md:py-2.5 md:text-xs md:shadow-none"
+                    className="rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]"
                   >
-                    <p className="font-semibold text-[#20242A]">
+                    <p className="font-bold text-[#011140] text-sm md:text-base">
                       {registro.estudiante}
                     </p>
-                    <p className="mt-0.5 text-xs leading-5 text-[#0439D9]">
+                    <p className="mt-1 text-xs md:text-sm leading-5 text-[#0439D9]">
                       Ingreso al examen autorizado.
                     </p>
-                    <p className="mt-1 break-words text-[11px] leading-5 text-[#627A9B] md:text-[10px]">
+                    <p className="mt-1 break-words text-[11px] md:text-xs leading-5 text-[#627A9B]">
                       {registro.codigoSis ??
                         `Estudiante ${registro.idEstudiante}`}{" "}
                       · {fechaHora(registro.fechaHora)}

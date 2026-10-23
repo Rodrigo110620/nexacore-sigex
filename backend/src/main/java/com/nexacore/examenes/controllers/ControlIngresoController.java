@@ -6,29 +6,28 @@ import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
+import com.nexacore.examenes.dto.RegistrarExceptionRequest; 
 import com.nexacore.examenes.services.ControlIngresoService;
+import com.nexacore.examenes.services.ExcepcionService; 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Tag(name = "Control de ingreso", description = "Registro y autorización del ingreso a exámenes")
 @RestController
 @RequestMapping("/control-ingresos")
 public class ControlIngresoController {
+    
     private final ControlIngresoService service;
-
-    public ControlIngresoController(ControlIngresoService service) {
+    private final ExcepcionService excepcionService; 
+    public ControlIngresoController(ControlIngresoService service, ExcepcionService excepcionService) {
         this.service = service;
+        this.excepcionService = excepcionService; 
     }
 
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
@@ -84,5 +83,17 @@ public class ControlIngresoController {
     @GetMapping("/tipos-incidencia")
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());
+    }
+
+    // NUEVO ENDPOINT PARA LA HU#4
+    @Operation(summary = "Registrar excepción de no habilitado", 
+               description = "Registra en la tabla de excepciones y en el historial de intentos automáticamente.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
+    @PostMapping("/excepcion-no-habilitado")
+    public ResponseEntity<Void> registrarExcepcion(
+            @Valid @RequestBody RegistrarExceptionRequest request,
+            Authentication authentication) {
+        excepcionService.registrarExcepcion(request, authentication.getName());
+        return ResponseEntity.ok().build();
     }
 }

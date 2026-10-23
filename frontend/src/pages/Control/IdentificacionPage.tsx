@@ -215,9 +215,14 @@ export default function IdentificacionPage() {
                   onCerrar={cambiarEstudiante}
                 />
               )}
+              
+              {/* 🆕 AQUÍ ESTÁ LA MAGIA: LE PASAMOS LOS 3 IDs AL MODAL */}
               {modalVerificacionOpen && estudianteVerificado && (
                 <VerificacionHabilitacionModal
                   estudiante={estudianteVerificado}
+                  idEstudiante={estudianteVerificado.idEstudiante} // 🆕 AGREGADO
+                  idExamen={idExamen} // 🆕 AGREGADO
+                  idAmbiente={(examen as any)?.idAmbiente || 0} // 🆕 AGREGADO (usamos el del examen)
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
                   fecha={examen?.fecha}
