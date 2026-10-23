@@ -1,6 +1,7 @@
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
+import FotoEstudiante from './FotoEstudiante'
 
 interface EstudianteCardListProps {
   estudiantes: EstudianteListItem[]
@@ -33,9 +34,12 @@ export default function EstudianteCardList({
           className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm"
         >
           <div className="flex items-start gap-3">
-            <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}>
-              {getInitials(e.nombre, e.apellidos)}
-            </span>
+            <FotoEstudiante
+              fotoUrl={e.fotoUrl}
+              nombre={`${e.nombre} ${e.apellidos}`}
+              iniciales={getInitials(e.nombre, e.apellidos)}
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}
+            />
             <div className="min-w-0 flex-1">
                <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate text-sm font-bold text-[#011140]">

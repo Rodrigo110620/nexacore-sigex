@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CameraOff, CircleCheck, LoaderCircle, RefreshCw, TriangleAlert } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CameraOff, CircleCheck, LoaderCircle, RefreshCw, Smartphone, TriangleAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { FaceLandmarker } from '@mediapipe/tasks-vision'
+import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
+import QrContinuarCelular from './QrContinuarCelular'
 import {
   aGrises,
   cajaDelRostro,
@@ -46,7 +48,7 @@ const MENSAJES_ERROR: Record<ErrorCamara, { titulo: string; texto: string }> = {
   },
   permiso: {
     titulo: 'Permite el acceso a la cámara',
-    texto: 'SIGEX necesita tu cámara para registrar tu foto. Actívala en los permisos del navegador y vuelve a intentarlo.',
+    texto: 'SIGEX necesita tu cámara para registrar tu foto. El navegador la tiene bloqueada.',
   },
   'sin-camara': {
     titulo: 'No encontramos una cámara',
@@ -57,6 +59,13 @@ const MENSAJES_ERROR: Record<ErrorCamara, { titulo: string; texto: string }> = {
     texto: 'Revisa tu conexión a internet y vuelve a intentarlo.',
   },
 }
+
+/** Cómo volver a dar permiso a la cámara después de bloquearla. */
+const PASOS_PERMISO = [
+  'Toca el candado junto a la dirección de la página',
+  'Abre Permisos y activa Cámara',
+  'Vuelve aquí y toca Intentar de nuevo',
+]
 
 function clasificarError(error: unknown): ErrorCamara {
   const nombre = error instanceof DOMException ? error.name : ''
@@ -179,6 +188,7 @@ interface Props {
  * derecha, arriba y abajo para comprobar que es una persona en vivo; solo se entrega la foto de frente.
  */
 export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
+  const esCelular = useIsMobileDevice()
   const camaraDisponible = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
   const videoRef = useRef<HTMLVideoElement>(null)
   const onCapturadaRef = useRef(onCapturada)
@@ -339,6 +349,36 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
     setIntento((n) => n + 1)
   }
 
+  if (error === 'sin-camara' && !esCelular) {
+    return (
+      <div role="alert" className="flex flex-col items-center gap-3 rounded-xl border border-[#D8E3F5] bg-[#F8FBFF] p-6 text-center">
+        <Smartphone size={30} className="text-[#0439D9]" aria-hidden="true" />
+        <p className="text-base font-bold text-[#011140]">Escanea con tu celular</p>
+        <p className="text-sm text-[#45628D]">
+          No encontramos una cámara en esta computadora. Escanea el código con tu celular: se abrirá SIGEX en su
+          navegador; inicia sesión y registra tu foto desde ahí.
+        </p>
+        <QrContinuarCelular />
+        <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={reintentar}
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#D8E3F5] bg-white text-sm font-semibold text-[#0439D9]"
+          >
+            <RefreshCw size={16} aria-hidden="true" /> Ya conecté una cámara
+          </button>
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#D8E3F5] bg-white text-sm font-semibold text-[#0439D9]"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     const { titulo, texto } = MENSAJES_ERROR[error]
     return (
@@ -346,6 +386,21 @@ export default function EscaneoRostro({ onCapturada, onCancelar }: Props) {
         <CameraOff size={30} className="text-[#B45309]" aria-hidden="true" />
         <p className="text-base font-bold text-[#92400E]">{titulo}</p>
         <p className="text-sm text-[#92400E]">{texto}</p>
+        {error === 'permiso' && (
+          <div className="w-full rounded-lg bg-white p-3 text-left">
+            <p className="mb-2 text-xs font-semibold text-[#011140]">Cómo activarla:</p>
+            <ol className="flex flex-col gap-2">
+              {PASOS_PERMISO.map((texto, i) => (
+                <li key={texto} className="flex items-start gap-2 text-sm text-[#011140]">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E9F1FF] text-[11px] font-bold text-[#0439D9]">
+                    {i + 1}
+                  </span>
+                  {texto}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row">
           {error !== 'sin-https' && (
             <button

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, CircleAlert, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import EstudianteTable from '../../components/estudiantes/EstudianteTable'
@@ -16,6 +17,7 @@ import EstudianteCardList from '../../components/estudiantes/EstudianteCardList'
 import FichaEstudianteModal from '../../components/estudiantes/FichaEstudianteModal'
 import EditarEstudianteModal from '../../components/estudiantes/EditarEstudianteModal'
 import { useAuth } from '../../context/AuthContext'
+import { listarRevisionFotos } from '../../services/fotoRevisionService'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
@@ -23,6 +25,8 @@ export default function EstudiantesPage() {
   const { roles } = useAuth()
   // 🆕 ADMIN y DOCENTE pueden editar/registrar/importar. CONTROL solo consulta.
   const puedeEditar = roles.includes('ADMIN') || roles.includes('DOCENTE')
+  const esAdmin = roles.includes('ADMIN')
+  const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
   const motivoBloqueo = 'No tienes permiso para realizar esta acción.'
 
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
@@ -59,6 +63,15 @@ export default function EstudiantesPage() {
       idCarrera: draftFilters.idCarrera,
     })
   }, [debouncedSearch, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
+
+  useEffect(() => {
+    if (!esAdmin) return
+    let cancelado = false
+    listarRevisionFotos()
+      .then((lista) => { if (!cancelado) setFotosPorRevisar(lista.length) })
+      .catch(() => { /* el acceso sigue disponible aunque no se sepa cuántas hay */ })
+    return () => { cancelado = true }
+  }, [esAdmin])
 
   const handleFiltersChange = (next: EstudianteFilterParams) => setDraftFilters(next)
 
@@ -107,6 +120,22 @@ export default function EstudiantesPage() {
                   <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                 </div>
                 <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
+                  {esAdmin && (
+                    <Link
+                      to="/dashboard/estudiantes/fotos"
+                      aria-label="Revisión de fotos"
+                      title="Revisión de fotos"
+                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none 2xl:px-4"
+                    >
+                      <ImageUp size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                      <span className="min-[960px]:hidden 2xl:inline">Revisión de fotos</span>
+                      {fotosPorRevisar > 0 && (
+                        <span aria-label={`${fotosPorRevisar} por revisar`} className="rounded-full bg-[#B45309] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                          {fotosPorRevisar}
+                        </span>
+                      )}
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={() => puedeEditar && setImportOpen(true)}
@@ -149,6 +178,7 @@ export default function EstudiantesPage() {
             <FichaEstudianteModal
               open={Boolean(fichaEstudiante)}
               estudiante={fichaEstudiante}
+              puedeRegenerarQr={puedeEditar}
               onClose={() => setFichaEstudiante(null)}
             />
 

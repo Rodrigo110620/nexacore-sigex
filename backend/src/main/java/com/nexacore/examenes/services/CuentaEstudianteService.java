@@ -136,7 +136,7 @@ public class CuentaEstudianteService {
             throw new CodigoActivacionInvalidoException();
         }
 
-        validarQueNoUseSusDatos(password, estudiante);
+        PasswordPolicy.validarSinDatosDelEstudiante(password, estudiante.getCodigoSis(), estudiante.getCi(), estudiante.getNombre());
         // El correo del usuario se guarda en minúsculas (V25).
         if (usuarioRepository.findByEmail(estudiante.getEmail().toLowerCase(Locale.ROOT)).isPresent()
                 || usuarioRepository.existsByCi(estudiante.getCi())) {
@@ -170,18 +170,6 @@ public class CuentaEstudianteService {
         usuarioRolRepository.save(usuarioRol);
 
         activacionRepository.delete(activacion);
-    }
-
-    /** La contraseña no puede contener el código SIS, el CI ni el nombre del estudiante. */
-    private static void validarQueNoUseSusDatos(String password, Estudiante estudiante) {
-        String clave = password.toLowerCase(Locale.ROOT);
-        boolean usaDatos = clave.contains(estudiante.getCodigoSis()) || clave.contains(estudiante.getCi());
-        for (String palabra : estudiante.getNombre().toLowerCase(Locale.ROOT).split("\\s+")) {
-            usaDatos |= palabra.length() >= 3 && clave.contains(palabra);
-        }
-        if (usaDatos) {
-            throw new IllegalArgumentException("La contraseña no puede contener tu nombre, tu código SIS ni tu CI.");
-        }
     }
 
     private static String hash(Integer idEstudiante, String codigo) {

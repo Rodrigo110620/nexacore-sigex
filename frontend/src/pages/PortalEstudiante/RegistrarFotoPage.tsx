@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { ArrowRight, Camera, CircleAlert, CircleCheck, Clock, Eye, EyeOff, LockKeyhole, LogOut, RefreshCw, ScanFace, Send, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Camera, CircleAlert, CircleCheck, Clock, Eye, EyeOff, Flag, LockKeyhole, LogOut, RefreshCw, ScanFace, Send, TriangleAlert } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { EncabezadoAsistente, ProgresoAsistente } from '../../components/auth/Asistente'
@@ -45,8 +45,9 @@ function ListaVerificada({ titulo, items }: { titulo: string; items: string[] })
 
 /**
  * CTA-02: el estudiante registra su foto antes de usar el portal: indicaciones (o el motivo si se la
- * rechazaron) → escaneo con la cámara (foto de frente + 4 giros) → revisa la foto y la confirma con su
- * contraseña → foto registrada (o en revisión si era un cambio).
+ * rechazaron o la reportó el personal de control) → escaneo con la cámara (foto de frente + 4 giros) →
+ * revisa la foto y la confirma con su contraseña → foto registrada (o en revisión si era un cambio).
+ * El cambio voluntario de una foto ya aprobada está en CambiarFotoPage.
  */
 export default function RegistrarFotoPage() {
   const isMobile = useIsMobileDevice()
@@ -103,6 +104,8 @@ export default function RegistrarFotoPage() {
   if (perfil && !requiereRegistrarFoto(perfil)) return <Navigate to="/estudiante" replace />
 
   const rechazada = perfil?.solicitudFoto?.estado === 'RECHAZADA'
+  const reportada = Boolean(perfil?.fotoReportada)
+  const titulo = 'Registrar mi foto'
 
   const cardClass = isMobile
     ? 'w-full bg-white'
@@ -119,7 +122,7 @@ export default function RegistrarFotoPage() {
               <PortalError mensaje={error} onReintentar={recargar} />
             ) : fase === 'escaneo' ? (
               <>
-                <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={2} />
+                <ProgresoAsistente titulo={titulo} pasos={PASOS} paso={2} />
                 <EscaneoRostro
                   onCapturada={(capturada) => {
                     setFoto(capturada)
@@ -130,10 +133,16 @@ export default function RegistrarFotoPage() {
               </>
             ) : fase === 'revision' && foto ? (
               <form onSubmit={registrar} noValidate>
-                <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={3} />
+                <ProgresoAsistente titulo={titulo} pasos={PASOS} paso={3} />
                 <EncabezadoAsistente icono={CircleCheck} tono="verde" titulo="Revisa tu foto">
                   Así te verá el personal de control. Si no te gusta cómo salió, repite el escaneo.
                 </EncabezadoAsistente>
+                {reportada && (
+                  <p className="mb-4 flex items-start gap-2 rounded-xl border border-[#FDE68A] bg-[#FFF7E6] p-3 text-left text-xs text-[#92400E]">
+                    <Clock size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    La administración revisará tu foto nueva antes de usarla para identificarte.
+                  </p>
+                )}
                 <img
                   src={foto.url}
                   alt="Tu foto de frente"
@@ -225,6 +234,14 @@ export default function RegistrarFotoPage() {
                   IR A MI PANEL <ArrowRight size={16} aria-hidden="true" />
                 </button>
               </div>
+            ) : reportada && !rechazada ? (
+              <>
+                <EncabezadoAsistente icono={Flag} tono="ambar" titulo="Vuelve a escanear tu rostro">
+                  El personal de control reportó que tu foto no coincide contigo. Escanea tu rostro de nuevo; la
+                  administración revisará la foto nueva.
+                </EncabezadoAsistente>
+                <ListaVerificada titulo="Para que tu foto sea aceptada:" items={REQUISITOS} />
+              </>
             ) : rechazada ? (
               <>
                 <EncabezadoAsistente icono={TriangleAlert} tono="rojo" titulo="Tu foto fue rechazada">
@@ -240,7 +257,7 @@ export default function RegistrarFotoPage() {
               </>
             ) : (
               <>
-                <ProgresoAsistente titulo="Registrar mi foto" pasos={PASOS} paso={1} />
+                <ProgresoAsistente titulo={titulo} pasos={PASOS} paso={1} />
                 <EncabezadoAsistente icono={Camera} titulo="Registra tu foto">
                   Es obligatoria para usar SIGEX. El personal de control la usará para identificarte al ingresar a
                   tus exámenes.
@@ -264,7 +281,7 @@ export default function RegistrarFotoPage() {
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Camera size={16} aria-hidden="true" />
-                  {rechazada ? 'VOLVER A ESCANEAR' : 'ACTIVAR CÁMARA'}
+                  {rechazada || reportada ? 'VOLVER A ESCANEAR' : 'ACTIVAR CÁMARA'}
                 </button>
                 <div className="mt-6 border-t border-[#E4E9F2] pt-5 text-center">
                   <button

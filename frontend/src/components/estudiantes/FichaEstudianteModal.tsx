@@ -1,16 +1,21 @@
-import { Building2, GraduationCap, Mail, Phone, X } from 'lucide-react'
+import { useState } from 'react'
+import { Building2, GraduationCap, Mail, Phone, QrCode, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 import FotoEstudiante from './FotoEstudiante'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
+import RegenerarQrModal from './RegenerarQrModal'
 
 interface Props {
   open: boolean
   estudiante: EstudianteListItem | null
   onClose: () => void
+  /** ADMIN y DOCENTE pueden regenerar y reenviar el QR desde la ficha. */
+  puedeRegenerarQr?: boolean
 }
 
-export default function FichaEstudianteModal({ open, estudiante, onClose }: Props) {
+export default function FichaEstudianteModal({ open, estudiante, onClose, puedeRegenerarQr = false }: Props) {
+  const [regenerarAbierto, setRegenerarAbierto] = useState(false)
   if (!open || !estudiante) return null
 
   const carreraPrincipal = estudiante.carreras?.[0]
@@ -200,6 +205,20 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
 
         <footer className="shrink-0 border-t border-[#D8E3F5] bg-white px-4 py-3 sm:px-10 sm:py-3">
           <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-end">
+            {puedeRegenerarQr && (
+              <>
+                <p className="flex items-center gap-1.5 text-[11px] text-[#627A9B] sm:mr-auto">
+                  <QrCode size={14} aria-hidden="true" /> QR de ingreso enviado al correo institucional
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setRegenerarAbierto(true)}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#D8E3F5] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:text-sm"
+                >
+                  <QrCode size={16} aria-hidden="true" /> Regenerar QR
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -210,6 +229,14 @@ export default function FichaEstudianteModal({ open, estudiante, onClose }: Prop
           </div>
         </footer>
       </div>
+      {regenerarAbierto && (
+        <RegenerarQrModal
+          idEstudiante={estudiante.id}
+          nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+          email={estudiante.email}
+          onClose={() => setRegenerarAbierto(false)}
+        />
+      )}
     </div>
   )
 }

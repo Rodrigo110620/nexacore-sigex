@@ -8,6 +8,9 @@ import ResetPasswordPage from '../pages/Login/ResetPasswordPage'
 import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
+import MiPerfilPage from '../pages/PortalEstudiante/MiPerfilPage'
+import MiQrPage from '../pages/PortalEstudiante/MiQrPage'
+import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
@@ -23,6 +26,7 @@ import ControlRoute from './ControlRoute'
 import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
+import RevisionFotosPage from '../pages/panel_admin/RevisionFotosPage'
 import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
 import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
@@ -80,6 +84,30 @@ export default function AppRouter() {
             </PortalEstudianteRoute>
           }
         />
+        <Route
+          path="/estudiante/qr"
+          element={
+            <PortalEstudianteRoute>
+              <MiQrPage />
+            </PortalEstudianteRoute>
+          }
+        />
+        <Route
+          path="/estudiante/perfil"
+          element={
+            <PortalEstudianteRoute>
+              <MiPerfilPage />
+            </PortalEstudianteRoute>
+          }
+        />
+        <Route
+          path="/estudiante/foto/cambiar"
+          element={
+            <PortalEstudianteRoute>
+              <CambiarFotoPage />
+            </PortalEstudianteRoute>
+          }
+        />
 
         {/* Dashboard general (cualquier usuario logueado) */}
         <Route
@@ -117,6 +145,15 @@ export default function AppRouter() {
             <EstudianteRoute>
               <EstudiantesPage />
             </EstudianteRoute>
+          }
+        />
+        {/* Revisión de fotos: cambios y reportes (SOLO ADMIN) */}
+        <Route
+          path="/dashboard/estudiantes/fotos"
+          element={
+            <AdminRoute>
+              <RevisionFotosPage />
+            </AdminRoute>
           }
         />
         {/* Exámenes: ADMIN y DOCENTE pueden ver; solo ADMIN puede registrar/editar */}

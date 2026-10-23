@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import InicioEstudiantePage from '../pages/PortalEstudiante/InicioEstudiantePage'
 import RegistrarFotoPage from '../pages/PortalEstudiante/RegistrarFotoPage'
+import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import { enviarMiFoto, obtenerMiPerfil, requiereRegistrarFoto, type MiPerfilEstudiante } from '../services/panelEstudianteService'
 
 vi.mock('../hooks/useIsMobileDevice', () => ({ useIsMobileDevice: () => false }))
@@ -22,6 +23,7 @@ vi.mock('../services/panelEstudianteService', async (original) => ({
   ...(await original<typeof import('../services/panelEstudianteService')>()),
   obtenerMiPerfil: vi.fn(),
   enviarMiFoto: vi.fn(),
+  obtenerMisExamenes: vi.fn().mockResolvedValue([]),
 }))
 
 const obtener = vi.mocked(obtenerMiPerfil)
@@ -48,6 +50,8 @@ function renderEn(ruta: string) {
         <Routes>
           <Route path="/estudiante" element={<InicioEstudiantePage />} />
           <Route path="/estudiante/foto" element={<RegistrarFotoPage />} />
+          <Route path="/estudiante/foto/cambiar" element={<CambiarFotoPage />} />
+          <Route path="/estudiante/perfil" element={<p>Mi perfil</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>
@@ -86,7 +90,7 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
   it('con foto aprobada se queda en el inicio', async () => {
     obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
     renderEn('/estudiante')
-    expect(await screen.findByText('Tu cuenta de estudiante está activa.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Hola, Ana Rojas Mendoza' })).toBeInTheDocument()
   })
 
   it('si se la rechazaron, muestra el motivo de la administración', async () => {
@@ -170,5 +174,69 @@ describe('Foto obligatoria del estudiante (CTA-02)', () => {
     await userEvent.click(screen.getByRole('button', { name: /registrar foto/i }))
     expect(await screen.findByText('La contraseña no es correcta.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
+  })
+
+  it('si el personal de control reportó su foto, debe volver a escanear su rostro', async () => {
+    expect(requiereRegistrarFoto({ ...PERFIL, fotoUrl: '/mi/foto', fotoReportada: true })).toBe(true)
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto', fotoReportada: true })
+    renderEn('/estudiante')
+    expect(await screen.findByRole('heading', { name: 'Vuelve a escanear tu rostro' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /volver a escanear/i })).toBeInTheDocument()
+  })
+
+  it('cambiar foto: pide la contraseña, escanea y queda en revisión con la foto vigente', async () => {
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
+    enviar.mockResolvedValue({ estado: 'PENDIENTE', mensaje: 'Tu foto nueva quedó pendiente.' })
+    renderEn('/estudiante/foto/cambiar')
+
+    expect(await screen.findByRole('heading', { name: 'Confirma tu contraseña' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(screen.getByText('Escribe tu contraseña')).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Simular foto' }))
+    expect(screen.getByText('Tu foto actual seguirá vigente hasta que la administración apruebe la nueva.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Usar esta foto' }))
+
+    expect(await screen.findByRole('heading', { name: 'Foto enviada a revisión' })).toBeInTheDocument()
+    expect(enviar).toHaveBeenCalledWith(expect.any(Blob), 'Segura#2026')
+    expect(screen.getByText('En uso')).toBeInTheDocument()
+    expect(screen.getByText('En revisión')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Entendido' }))
+    expect(await screen.findByText('Mi perfil')).toBeInTheDocument()
+  })
+
+  it('cambiar foto: si la contraseña es incorrecta vuelve a pedirla sin perder el escaneo', async () => {
+    obtener.mockResolvedValue({ ...PERFIL, fotoUrl: '/mi/foto' })
+    enviar.mockRejectedValueOnce(new Error('La contraseña no es correcta.'))
+    renderEn('/estudiante/foto/cambiar')
+    await userEvent.type(await screen.findByLabelText('CONTRASEÑA'), 'Otra#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Simular foto' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Usar esta foto' }))
+
+    expect(await screen.findByText('La contraseña no es correcta.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirma tu contraseña' })).toBeInTheDocument()
+    enviar.mockResolvedValueOnce({ estado: 'PENDIENTE', mensaje: 'ok' })
+    await userEvent.type(screen.getByLabelText('CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByRole('heading', { name: 'Revisa tu foto' })).toBeInTheDocument()
+  })
+
+  it('cambiar foto no aplica si la foto es obligatoria: va al registro', async () => {
+    obtener.mockResolvedValue(PERFIL)
+    renderEn('/estudiante/foto/cambiar')
+    expect(await screen.findByRole('heading', { name: 'Registra tu foto' })).toBeInTheDocument()
+  })
+
+  it('si le rechazaron un cambio, su foto sigue vigente y puede subir otra', async () => {
+    obtener.mockResolvedValue({
+      ...PERFIL,
+      fotoUrl: '/mi/foto',
+      solicitudFoto: { estado: 'RECHAZADA', motivoRechazo: 'Lentes oscuros', enviadaEn: '2026-10-20T10:00:00' },
+    })
+    renderEn('/estudiante')
+    expect(await screen.findByRole('link', { name: /tu foto nueva fue rechazada/i })).toHaveAttribute('href', '/estudiante/perfil')
   })
 })
