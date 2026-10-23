@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
 
 function getInitials(nombre: string | null): string {
   if (!nombre?.trim()) return 'U'
@@ -114,14 +115,9 @@ export default function PanelTopBar({
         </div>
 
         <div className="relative flex shrink-0 items-center gap-2" ref={menuRef}>
-          <button
-            type="button"
-            disabled
-            aria-label="Notificaciones, no disponible"
-            className={`inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg text-[#A9B8CF] ${minimalControlHeader ? 'sm:h-8 sm:w-8' : 'sm:h-10 sm:w-10'}`}
-          >
-            <Bell size={17} aria-hidden="true" />
-          </button>
+          {roles.some((r) => r === 'ADMIN' || r === 'DOCENTE' || r === 'CONTROL') && (
+            <CampanaNotificaciones roles={roles} compacta={minimalControlHeader} />
+          )}
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}

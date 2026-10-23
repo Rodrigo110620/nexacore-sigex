@@ -55,6 +55,8 @@ import java.util.regex.Pattern;
 @Service
 public class ExamenService {
 
+    private final NotificacionService notificacionService;
+
     private final ExamenRepository examenRepository;
     private final AmbienteRepository ambienteRepository;
     private final MateriaRepository materiaRepository;
@@ -86,7 +88,9 @@ public class ExamenService {
             ObjectMapper objectMapper,
             ExamenAulaRepository examenAulaRepository,
             AuditoriaService auditoriaService,
-            NormasExamenService normasExamenService) {
+            NormasExamenService normasExamenService,
+            NotificacionService notificacionService) {
+        this.notificacionService = notificacionService;
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
         this.materiaRepository = materiaRepository;
@@ -133,6 +137,7 @@ public class ExamenService {
     }
     @Transactional
     public ExamenResponse crear(CrearExamenRequest request) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_EXAMEN, null, null);
         // Bloqueo del ambiente hasta el commit: dos registros simultáneos no pueden pasar a la vez
         // la validación de horario. Un mismo docente sí puede tener exámenes a la misma hora en
         // aulas distintas (varias materias o paralelos); lo que no se repite es el aula.
@@ -180,6 +185,7 @@ public class ExamenService {
 
     @Transactional
     public ExamenResponse actualizar(Integer idExamen, Integer idParalelo, ActualizarExamenRequest request) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_EXAMEN, idExamen, null);
         ExamenId examenId = new ExamenId();
         examenId.setIdExamen(idExamen);
         examenId.setIdParalelo(idParalelo);
@@ -282,6 +288,7 @@ public class ExamenService {
 
     @Transactional
     public void cancelar(Integer idExamen, Integer idParalelo) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_EXAMEN, idExamen, null);
         ExamenId examenId = new ExamenId();
         examenId.setIdExamen(idExamen);
         examenId.setIdParalelo(idParalelo);

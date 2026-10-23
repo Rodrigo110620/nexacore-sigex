@@ -29,6 +29,7 @@ import {
   type SolicitudRevisionFoto,
 } from '../../services/fotoRevisionService'
 import { fechaCorta } from '../../utils/fechaCorta'
+import useEnVivo from '../../hooks/useEnVivo'
 
 const MOTIVO_MIN = 5
 const MOTIVO_MAX = 200
@@ -237,8 +238,8 @@ export default function RevisionFotosPage() {
   const [exito, setExito] = useState('')
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  const cargar = useCallback(async () => {
-    setLoading(true)
+  const cargar = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setErrorCarga('')
     try {
       const lista = await listarRevisionFotos()
@@ -255,6 +256,9 @@ export default function RevisionFotosPage() {
     const handle = window.setTimeout(() => { void cargar() }, 0)
     return () => window.clearTimeout(handle)
   }, [cargar])
+
+  // En vivo: fotos nuevas de los estudiantes y reportes del control.
+  useEnVivo((c) => c.tipo === 'FOTO' || c.tipo === 'FOTO_REPORTADA', () => void cargar({ silencioso: true }))
 
   const actual = solicitudes.find((s) => s.idEstudiante === seleccionado) ?? null
 

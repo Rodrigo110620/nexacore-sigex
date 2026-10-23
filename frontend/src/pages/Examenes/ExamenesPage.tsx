@@ -9,6 +9,7 @@ import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { addMinutes, estadoLabel, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+import useEnVivo from '../../hooks/useEnVivo'
 
 const PAGE_SIZE = 5
 
@@ -59,8 +60,8 @@ export default function ExamenesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
       setExamenes(await listarExamenes())
@@ -77,6 +78,8 @@ export default function ExamenesPage() {
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  useEnVivo((c) => c.tipo === 'EXAMEN' || c.tipo === 'HABILITACION' || c.tipo === 'INGRESO', () => void load({ silencioso: true }))
 
   const ambientes = useMemo(
     () => [...new Set(examenes.map((e) => e.ambienteNombre).filter(Boolean))].sort(),

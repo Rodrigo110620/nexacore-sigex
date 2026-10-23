@@ -36,6 +36,20 @@ export function mensajeDeError(error: unknown, fallback: string): string {
   return err.response.data?.mensaje || fallback
 }
 
+/** Reporte abierto de la foto de un estudiante (GET /estudiantes/{id}/foto/reporte). */
+export interface ReporteFotoAbierto {
+  motivo: string
+  detalle: string | null
+  reportadoPor: string | null
+  reportadoEn: string
+}
+
+/** null si la foto no tiene un reporte abierto (el backend responde 204). */
+export async function obtenerReporteFoto(idEstudiante: number): Promise<ReporteFotoAbierto | null> {
+  const { data } = await api.get<ReporteFotoAbierto | ''>(`/estudiantes/${idEstudiante}/foto/reporte`)
+  return data || null
+}
+
 export async function reportarFoto(
   idEstudiante: number,
   payload: { motivo: MotivoReporteFoto; detalle?: string; idExamen?: number },

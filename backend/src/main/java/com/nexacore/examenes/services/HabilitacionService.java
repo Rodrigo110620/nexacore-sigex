@@ -56,6 +56,8 @@ import java.util.stream.Collectors;
 @Service
 public class HabilitacionService {
 
+    private final NotificacionService notificacionService;
+
     private static final String SIN_FACULTAD = "—";
     static final int RAZON_MIN = 10;
     static final int RAZON_MAX = 40;
@@ -80,7 +82,9 @@ public class HabilitacionService {
                                UsuarioRepository usuarioRepository,
                                RepartoAulasService repartoAulasService,
                                AuditoriaService auditoriaService,
-                               NormasExamenService normasExamenService) {
+                               NormasExamenService normasExamenService,
+                               NotificacionService notificacionService) {
+        this.notificacionService = notificacionService;
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -131,6 +135,7 @@ public class HabilitacionService {
      */
     @Transactional
     public List<EstudianteHabilitacionResponse> asociar(Integer idExamen, Integer idParalelo, String identificador) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
         String buscado = identificador == null ? "" : identificador.trim();
         if (buscado.isEmpty()) {
             throw new IllegalArgumentException("Ingrese el código universitario o el CI del estudiante");
@@ -153,6 +158,7 @@ public class HabilitacionService {
      */
     @Transactional
     public AsociacionLoteResponse asociarLote(Integer idExamen, Integer idParalelo, List<String> identificadores) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
         Set<String> buscados = identificadores.stream()
                 .filter(i -> i != null && !i.isBlank())
                 .map(String::trim)
@@ -189,6 +195,7 @@ public class HabilitacionService {
     /** Asocia a todos los inscritos en el paralelo del examen que aún no estén asociados. */
     @Transactional
     public AsociacionLoteResponse asociarInscritos(Integer idExamen, Integer idParalelo) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
         Examen examen = buscarExamenEditable(idExamen, idParalelo);
         Set<Integer> nuevos = new LinkedHashSet<>(inscripcionParaleloRepository.idsInscritos(
                 idParalelo, examen.getIdMateria(), examen.getIdDocente()));
@@ -207,6 +214,7 @@ public class HabilitacionService {
     @Transactional
     public List<EstudianteHabilitacionResponse> actualizar(Integer idExamen, Integer idParalelo,
                                                            ActualizarHabilitacionRequest request) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
         EstadoHabilitacion estado = request.estadoHabilitacion();
         // Solo NO_HABILITADO guarda razón: habilitar o dejar pendiente la limpia.
         String motivo = null;
@@ -435,6 +443,7 @@ public class HabilitacionService {
      */
     @Transactional
     public List<EstudianteHabilitacionResponse> quitar(Integer idExamen, Integer idParalelo, Integer idEstudiante) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, idEstudiante);
         buscarExamenEditable(idExamen, idParalelo);
         List<AsistenciaExamen> asistencia = asistenciaExamenRepository.buscarDelExamen(
                 idExamen, idParalelo, Set.of(idEstudiante));

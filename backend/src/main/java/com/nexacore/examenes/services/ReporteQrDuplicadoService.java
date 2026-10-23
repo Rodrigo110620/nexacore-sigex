@@ -1,5 +1,7 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.models.Notificacion;
+
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.ReporteQrDuplicado;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
@@ -23,9 +25,12 @@ public class ReporteQrDuplicadoService {
     private final AsistenciaExamenRepository asistenciaRepository;
     private final UsuarioRepository usuarioRepository;
     private final EstudianteRepository estudianteRepository;
+    private final NotificacionService notificacionService;
     public ReporteQrDuplicadoService(ReporteQrDuplicadoRepository repository, AsistenciaExamenRepository asistenciaRepository,
-                                     UsuarioRepository usuarioRepository, EstudianteRepository estudianteRepository) {
+                                     UsuarioRepository usuarioRepository, EstudianteRepository estudianteRepository,
+                                     NotificacionService notificacionService) {
         this.repository = repository; this.asistenciaRepository = asistenciaRepository; this.usuarioRepository = usuarioRepository; this.estudianteRepository = estudianteRepository;
+        this.notificacionService = notificacionService;
     }
     @Transactional(readOnly = true)
     public java.util.List<ReporteQrDuplicadoResponse> listar(Integer idExamen) {
@@ -75,7 +80,15 @@ public class ReporteQrDuplicadoService {
         reporte.setCodigoSisPresentado(codigoSis == null || codigoSis.isBlank() ? null : codigoSis.strip());
         reporte.setDetalle(detalle.strip()); reporte.setFotoContenido(imagen); reporte.setFotoTipoContenido(foto.getContentType());
         reporte.setFechaHoraDispositivo(hora); reporte.setFechaHoraServidor(asistenciaRepository.obtenerFechaHoraServidor());
-        return repository.save(reporte).getId();
+        Integer id = repository.save(reporte).getId();
+        var estudiante = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.QR_DUPLICADO,
+                "QR duplicado: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
+                notificacionService.materia(idExamen) + " · Se presentó " + nombres.strip()
+                        + (presentoCarnet ? " con CI " + ci.strip() : " sin carnet")
+                        + " · Reportado por " + control.getNombre() + " " + control.getApellidos(),
+                idExamen, idEstudianteQr, "/dashboard/control/" + idExamen + "/informacion", emailControl);
+        return id;
     }
     private static byte[] leerImagenObligatoria(MultipartFile foto) {
         if (foto == null || foto.isEmpty()) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La fotografía es obligatoria.");

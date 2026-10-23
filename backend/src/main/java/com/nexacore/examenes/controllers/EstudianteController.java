@@ -103,6 +103,17 @@ public class EstudianteController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @Operation(summary = "Reporte abierto de la foto",
+            description = "Si la foto del estudiante fue reportada y espera la revisión del ADMIN: motivo, detalle, "
+                    + "quién la reportó y cuándo. 204 si no tiene reporte abierto. ADMIN, DOCENTE y CONTROL.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @GetMapping("/{id}/foto/reporte")
+    public ResponseEntity<FotoPendienteResponse.Reporte> reporteFoto(@PathVariable Integer id) {
+        return estudianteFotoService.reporteVigente(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @Operation(summary = "Descartar el reporte de una foto",
             description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")

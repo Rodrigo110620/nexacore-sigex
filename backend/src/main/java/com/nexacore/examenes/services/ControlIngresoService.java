@@ -42,6 +42,8 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
+
+    private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
     public static final int DETALLE_DENEGACION_MAX = 500;
     /** Observaciones opcionales del control (ACCS-02 CA-53/54): de 10 a 100 caracteres. */
@@ -72,7 +74,9 @@ public class ControlIngresoService {
             RegistroControlIngresoRepository registroRepository,
             ObjectMapper objectMapper,
             RepartoAulasService repartoAulasService,
-            NormasExamenService normasExamenService) {
+            NormasExamenService normasExamenService,
+            NotificacionService notificacionService) {
+        this.notificacionService = notificacionService;
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
         this.incidenciaRepository = incidenciaRepository;
@@ -86,6 +90,7 @@ public class ControlIngresoService {
 
     @Transactional
     public AutorizarIngresoResponse autorizar(AutorizarIngresoRequest request, String emailControl) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
         validarTextoLibre(request.observaciones());
         validarObservaciones(request.observaciones());
         Usuario control = usuarioRepository.findByEmail(emailControl)
@@ -213,6 +218,7 @@ public class ControlIngresoService {
 
     @Transactional
     public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
         validarTextoLibre(request.observaciones());
         String razon = limpiar(request.observaciones());
         if (razon == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");

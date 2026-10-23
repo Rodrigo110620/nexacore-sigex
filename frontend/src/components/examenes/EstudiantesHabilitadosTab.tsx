@@ -23,6 +23,7 @@ import {
   type EstudianteHabilitacionDto,
   type RepartoAulasDto,
 } from '../../services/habilitacionService'
+import useEnVivo from '../../hooks/useEnVivo'
 
 const PAGE_SIZE = 5
 /** Sin tildes y en minúsculas, para que "Pérez" y "perez" coincidan. */
@@ -129,8 +130,8 @@ export default function EstudiantesHabilitadosTab({
   const [aQuitar, setAQuitar] = useState<EstudianteHabilitacionDto | null>(null)
   const [reparto, setReparto] = useState<RepartoAulasDto | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
       const data = await listarEstudiantesExamen(idExamen, idParalelo)
@@ -149,6 +150,9 @@ export default function EstudiantesHabilitadosTab({
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  // En vivo: ingresos, habilitación o reportes de este examen hechos por otro usuario.
+  useEnVivo((c) => c.idExamen === idExamen || c.tipo === 'FOTO', () => void load({ silencioso: true }))
 
   // Asociar o cambiar la habilitación mueve el reparto alfabético: se vuelve a pedir con cada cambio.
   useEffect(() => {

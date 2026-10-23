@@ -13,6 +13,7 @@ import {
 } from '../../services/panelEstudianteService'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import { estadoExamen, fechaLarga, horario, separarExamenes, type EstadoExamen } from '../../utils/misExamenes'
+import useEnVivo from '../../hooks/useEnVivo'
 
 const ESTADOS: Record<EstadoExamen, { texto: string; clase: string }> = {
   HABILITADO: { texto: 'Habilitado', clase: 'bg-[#ECFDF5] text-[#047857]' },
@@ -132,6 +133,8 @@ export default function InicioEstudiantePage() {
   const [errorExamenes, setErrorExamenes] = useState<Error | null>(null)
   const [intento, setIntento] = useState(0)
   const [pestana, setPestana] = useState<'proximos' | 'pasados'>('proximos')
+  // En vivo: p. ej. el personal registra su ingreso y el examen pasa a "Ingresaste".
+  useEnVivo(() => true, () => setIntento((n) => n + 1))
 
   useEffect(() => {
     let vigente = true

@@ -4,6 +4,7 @@ import { ChevronDown, GraduationCap, House, LogOut, QrCode, UserRound, X } from 
 import { useAuth } from '../../context/AuthContext'
 import Footer from '../layout/Footer'
 import FotoEstudiante from './FotoEstudiante'
+import EnVivoEstudiante from './EnVivoEstudiante'
 
 const NAV = [
   { label: 'Inicio', to: '/estudiante', icon: House, end: true },
@@ -48,6 +49,7 @@ export default function PortalEstudianteLayout({ children, fotoUrl }: Props) {
 
   return (
     <div className="flex h-dvh overflow-hidden">
+      <EnVivoEstudiante />
       <aside
         className="hidden h-full w-56 shrink-0 flex-col min-[960px]:flex"
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
