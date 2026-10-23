@@ -68,6 +68,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
+    @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
 
     /** Tras escribir con JDBC en la misma transacción, Hibernate debe volver a leer. */
     private void sincronizar() {
@@ -264,5 +265,39 @@ class PostgresIntegracionTests {
         assertThat(lista).filteredOn(r -> r.codigoSis().equals("202104011")).singleElement()
                 .satisfies(r -> assertThat(r.ingresado()).isTrue());
         assertThat(normasExamenService.leerParaEstudiante(idExamen, ana, "Ana Prueba").particulares()).isEmpty();
+    }
+
+    // ---------- INCI-04: tabla de excepciones de no habilitados (V39) ----------
+
+    @Test
+    void laExcepcionDeNoHabilitadoGuardaLaHoraDelServidorYExigeSusDatos() {
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-903");
+        int idExamen = examen(p1, "08:00", 90);
+        int ana = estudiante("202104020", "Ana");
+
+        var excepcion = new com.nexacore.examenes.models.ExcepcionNoHabilitado();
+        excepcion.setIdEstudiante(ana);
+        excepcion.setIdExamen(idExamen);
+        excepcion.setIdAmbiente(idAmbiente);
+        excepcion.setIdUsuarioControl(idDocente);
+        excepcion.setMotivoInhabilitacion("No pagó la matrícula");
+        excepcion.setAccionTomada("Se le informó que no está habilitado");
+        excepcionRepository.saveAndFlush(excepcion);
+        sincronizar();
+
+        var guardadas = excepcionRepository.findByIdExamenOrderByFechaHoraDesc(idExamen);
+        assertThat(guardadas).singleElement().satisfies(e -> {
+            assertThat(e.getFechaHora()).isNotNull();
+            assertThat(e.getObservaciones()).isNull();
+            assertThat(e.getIdAmbiente()).isEqualTo(idAmbiente);
+        });
+        // La acción tomada es obligatoria y no puede quedar vacía.
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO excepcion_no_habilitado
+                    (id_estudiante, id_examen, id_ambiente, id_usuario_control, motivo_inhabilitacion, accion_tomada)
+                VALUES (?, ?, ?, ?, 'No pagó la matrícula', '   ')
+                """, ana, idExamen, idAmbiente, idDocente))
+                .hasMessageContaining("ck_excepcion_accion");
     }
 }
