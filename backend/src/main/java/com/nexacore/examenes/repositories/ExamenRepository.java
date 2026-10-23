@@ -54,4 +54,5 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
             @Param("idAmbiente") Integer idAmbiente,
             @Param("fecha") LocalDate fecha);
 
+    java.util.Optional<Examen> findFirstByIdIdExamen(Integer idExamen);
 }

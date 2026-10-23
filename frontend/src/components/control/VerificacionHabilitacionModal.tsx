@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ArrowRight,
   ArrowLeft,
@@ -15,20 +15,26 @@ import { formatFechaDisplay } from '../../utils/examFormUtils'
 import RazonesInhabilitacion from './RazonesInhabilitacion'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
+import RegistrarNoHabilitadoModal from './RegistrarNoHabilitadoModal'
 
 interface Props {
   estudiante: EstudianteIdentificado
+  idEstudiante: number // 🆕 AGREGADO AQUÍ
+  idExamen: number 
+  idAmbiente: number 
   materia?: string
   aula?: string
   fecha?: string
   hora?: string
   onVolver: () => void
   onContinuar: () => void
-  /** Motivo por el que no se pudo continuar (p. ej. sin conexión); se conserva lo que está en pantalla. */
+  onRegistrarExcepcion?: () => void
   errorContinuar?: string | null
 }
 
 export default function VerificacionHabilitacionModal(p: Props) {
+  const [isExcepcionOpen, setIsExcepcionOpen] = useState(false)
+
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.key === 'Escape') p.onVolver()
@@ -51,170 +57,186 @@ export default function VerificacionHabilitacionModal(p: Props) {
   const fTxt = [f, h].filter(Boolean).join(' - ')
   const mTxt = [p.materia, p.aula ? `Aula ${p.aula}` : ''].filter(Boolean).join(' - ')
 
-  // Las razones se muestran tal como vienen del backend; sin razón no se inventa ninguna.
   const ambienteIncorrecto = habBase && !esAmbienteCorrecto
     ? `Ambiente incorrecto: El estudiante pertenece al Aula ${aulaEstudiante}, pero este examen se rinde en el Aula ${p.aula}.`
     : null
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="verif-title"
-    >
-      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#D8E3F5] bg-white p-5 sm:p-7 shadow-2xl transition-all">
-        {/* Barra tirador para móvil */}
-        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-300 sm:hidden" />
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4 backdrop-blur-[2px]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verif-title"
+      >
+        <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#D8E3F5] bg-white p-5 sm:p-7 shadow-2xl transition-all">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-300 sm:hidden" />
 
-        {/* Encabezado */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
-                hab ? 'bg-[#EBF3FF] text-[#0439D9]' : 'bg-[#FEE2E2] text-[#DC2626]'
-              }`}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
+                  hab ? 'bg-[#EBF3FF] text-[#0439D9]' : 'bg-[#FEE2E2] text-[#DC2626]'
+                }`}
+              >
+                {hab ? <BadgeCheck size={20} /> : <ShieldAlert size={20} />}
+              </span>
+              <h2 id="verif-title" className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-[#011140]">
+                Verificación de Habilitación
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={p.onVolver}
+              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 sm:hidden"
+              aria-label="Cerrar modal"
             >
-              {hab ? <BadgeCheck size={20} /> : <ShieldAlert size={20} />}
-            </span>
-            <h2 id="verif-title" className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-[#011140]">
-              Verificación de Habilitación
-            </h2>
+              <X size={18} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={p.onVolver}
-            className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 sm:hidden"
-            aria-label="Cerrar modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
 
-        {/* Tarjeta del estudiante */}
-        <div className="mb-3.5 flex items-center gap-3.5 rounded-2xl bg-[#F8FAFC] p-3.5 sm:p-4 border border-[#E2E8F0]">
-          <FotoEstudiante
-            fotoUrl={p.estudiante.fotoUrl}
-            nombre={nombre || 'Estudiante'}
-            iniciales={iniciales}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0439D9] text-sm font-bold text-white shadow-sm"
-          />
-          <div className="min-w-0">
-            <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
-              {etiquetaCondicion(p.estudiante.condicion)}
-            </span>
-            <p className="truncate text-sm sm:text-base font-bold text-[#0F172A]">{nombre || 'Estudiante'}</p>
-            <p className="truncate text-xs font-medium text-[#64748B]">
-              {p.estudiante.carrera || 'Carrera no registrada'}
-            </p>
-          </div>
-        </div>
-
-        {/* Códigos y materia */}
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 sm:p-3">
-            <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
-              Código Universitario
-            </span>
-            <span className="mt-0.5 block truncate text-xs font-bold text-[#0F172A]">
-              {p.estudiante.codigoSis || '—'}
-            </span>
-          </div>
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 sm:p-3">
-            <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
-              Documento CI
-            </span>
-            <span className="mt-0.5 block truncate text-xs font-bold text-[#0439D9]">
-              {p.estudiante.ci || '—'}
-            </span>
-          </div>
-          {(mTxt || fTxt) && (
-            <div className="col-span-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[10.5px] font-medium text-[#475569]">
-              {mTxt && <span>📖 {mTxt}</span>}
-              {fTxt && <span>📅 {fTxt}</span>}
+          <div className="mb-3.5 flex items-center gap-3.5 rounded-2xl bg-[#F8FAFC] p-3.5 sm:p-4 border border-[#E2E8F0]">
+            <FotoEstudiante
+              fotoUrl={p.estudiante.fotoUrl}
+              nombre={nombre || 'Estudiante'}
+              iniciales={iniciales}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0439D9] text-sm font-bold text-white shadow-sm"
+            />
+            <div className="min-w-0">
+              <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
+                {etiquetaCondicion(p.estudiante.condicion)}
+              </span>
+              <p className="truncate text-sm sm:text-base font-bold text-[#0F172A]">{nombre || 'Estudiante'}</p>
+              <p className="truncate text-xs font-medium text-[#64748B]">
+                {p.estudiante.carrera || 'Carrera no registrada'}
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Estado Habilitado / No Habilitado */}
-        {hab ? (
-          <div className="mb-5 rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-4 sm:p-5 text-center shadow-sm">
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#DCFCE7] text-[#16A34A]">
-              <CheckCircle2 size={26} />
-            </div>
-            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#166534]">
-              Estudiante Habilitado
-            </h3>
-            <p className="mt-1 text-[11.5px] sm:text-xs text-[#15803D]">
-              Está habilitado para rendir este examen. Puede continuar con el proceso de ingreso.
-            </p>
           </div>
-        ) : (
-          <div className="mb-5 rounded-2xl border border-[#FECDD3] bg-gradient-to-b from-[#FFF1F2] to-[#FFE4E6]/50 p-4 sm:p-5 text-center shadow-sm">
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#FFE4E6] text-[#E11D48]">
-              <XCircle size={26} />
-            </div>
-            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#9F1239]">
-              Estudiante No Habilitado
-            </h3>
 
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <div className="inline-flex items-start gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-[#FECDD3] shadow-sm max-w-full">
-                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-[#E11D48]" />
-                {ambienteIncorrecto ? (
-                  <span className="text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] break-words">{ambienteIncorrecto}</span>
-                ) : (
-                  <RazonesInhabilitacion
-                    motivo={p.estudiante.motivoInhabilitacion}
-                    className="min-w-0 text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239]"
-                  />
-                )}
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 sm:p-3">
+              <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
+                Código Universitario
+              </span>
+              <span className="mt-0.5 block truncate text-xs font-bold text-[#0F172A]">
+                {p.estudiante.codigoSis || '—'}
+              </span>
+            </div>
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 sm:p-3">
+              <span className="block text-[9.5px] font-bold uppercase tracking-wider text-[#64748B]">
+                Documento CI
+              </span>
+              <span className="mt-0.5 block truncate text-xs font-bold text-[#0439D9]">
+                {p.estudiante.ci || '—'}
+              </span>
+            </div>
+            {(mTxt || fTxt) && (
+              <div className="col-span-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[10.5px] font-medium text-[#475569]">
+                {mTxt && <span>📖 {mTxt}</span>}
+                {fTxt && <span>📅 {fTxt}</span>}
+              </div>
+            )}
+          </div>
+
+          {hab ? (
+            <div className="mb-5 rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-4 sm:p-5 text-center shadow-sm">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#DCFCE7] text-[#16A34A]">
+                <CheckCircle2 size={26} />
+              </div>
+              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#166534]">
+                Estudiante Habilitado
+              </h3>
+              <p className="mt-1 text-[11.5px] sm:text-xs text-[#15803D]">
+                Está habilitado para rendir este examen. Puede continuar con el proceso de ingreso.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-5 rounded-2xl border border-[#FECDD3] bg-gradient-to-b from-[#FFF1F2] to-[#FFE4E6]/50 p-4 sm:p-5 text-center shadow-sm">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#FFE4E6] text-[#E11D48]">
+                <XCircle size={26} />
+              </div>
+              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-[#9F1239]">
+                Estudiante No Habilitado
+              </h3>
+
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <div className="inline-flex items-start gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-[#FECDD3] shadow-sm max-w-full">
+                  <AlertTriangle size={13} className="mt-0.5 shrink-0 text-[#E11D48]" />
+                  {ambienteIncorrecto ? (
+                    <span className="text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239] break-words">{ambienteIncorrecto}</span>
+                  ) : (
+                    <RazonesInhabilitacion
+                      motivo={p.estudiante.motivoInhabilitacion}
+                      className="min-w-0 text-left text-[11px] sm:text-[11.5px] font-semibold text-[#9F1239]"
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {p.errorContinuar && (
-          <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
-            <WifiOff size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <span>{p.errorContinuar}</span>
-          </div>
-        )}
-
-        {/* Botones de acción adaptables a móvil */}
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1">
-          {hab ? (
-            <>
-              <button
-                type="button"
-                onClick={p.onVolver}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-[#F1F5F9]/70 sm:bg-white px-4 py-2.5 text-xs font-bold text-[#475569] hover:bg-[#F1F5F9]"
-              >
-                <ArrowLeft size={15} /> Volver
-              </button>
-              <button
-                type="button"
-                autoFocus
-                onClick={p.onContinuar}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0439D9] px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#032db0]"
-              >
-                Continuar <ArrowRight size={15} />
-              </button>
-            </>
-          ) : (
-            <div className="flex w-full">
-              <button
-                type="button"
-                autoFocus
-                onClick={p.onVolver}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#081225] px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#1E293B]"
-              >
-                CERRAR <ArrowLeft size={15} />
-              </button>
+          {p.errorContinuar && (
+            <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
+              <WifiOff size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>{p.errorContinuar}</span>
             </div>
           )}
+
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1">
+            {hab ? (
+              <>
+                <button
+                  type="button"
+                  onClick={p.onVolver}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-[#F1F5F9]/70 sm:bg-white px-4 py-2.5 text-xs font-bold text-[#475569] hover:bg-[#F1F5F9]"
+                >
+                  <ArrowLeft size={15} /> Volver
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={p.onContinuar}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0439D9] px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#032db0]"
+                >
+                  Continuar <ArrowRight size={15} />
+                </button>
+              </>
+            ) : (
+              <div className="flex w-full flex-col-reverse sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsExcepcionOpen(true)}
+                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#BA1A1A] px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#B91C1C] transition-colors"
+                >
+                  <ShieldAlert size={15} /> Registrar Excepción
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={p.onVolver}
+                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#081225] px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#1E293B] transition-colors"
+                >
+                  Cerrar <ArrowLeft size={16} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 🆕 Le pasamos el idEstudiante al modal de excepción */}
+      <RegistrarNoHabilitadoModal
+        isOpen={isExcepcionOpen}
+        onClose={() => setIsExcepcionOpen(false)}
+        estudiante={p.estudiante}
+        idEstudiante={p.idEstudiante} // 🆕 AGREGADO AQUÍ
+        idExamen={p.idExamen}
+        idAmbiente={p.idAmbiente}
+        onGuardadoExitoso={() => {
+          setIsExcepcionOpen(false)
+          p.onVolver() 
+        }}
+      />
+    </>
   )
 }
