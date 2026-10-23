@@ -31,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -124,9 +126,16 @@ public class ControlIngresoService {
 
         RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);
         Integer idAula = aula.idAmbiente();
-        int actualizados = asistenciaRepository.autorizarConFechaServidor(
-                request.idEstudiante(), request.idExamen(), idAula,
-                control.getId(), limpiar(request.observaciones()));
+        int actualizados;
+        if (request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
+            // Compatibilidad para clientes abiertos antes de esta mejora.
+            actualizados = asistenciaRepository.autorizarConFechaServidor(request.idEstudiante(), request.idExamen(), idAula,
+                    control.getId(), limpiar(request.observaciones()));
+        } else {
+            LocalDateTime horaDispositivo = horaDispositivo(request.fechaHoraDispositivo());
+            actualizados = asistenciaRepository.autorizarConHoraDispositivo(request.idEstudiante(), request.idExamen(), idAula,
+                    control.getId(), limpiar(request.observaciones()), horaDispositivo);
+        }
         if (actualizados != 1) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String causa = "El ingreso de este estudiante al examen ya fue autorizado";
@@ -143,10 +152,34 @@ public class ControlIngresoService {
 
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
 
-        guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
+        if (request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
+            guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
+        } else {
+            guardarRegistro(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
+        }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
                 aula.nombre());
+    }
+
+    /**
+     * La hora que se presenta al personal es la del dispositivo que escanea. Se conserva el offset
+     * en la petición para no reinterpretar una hora UTC como si fuera local. Si un cliente antiguo
+     * no la envía, se mantiene el comportamiento anterior para no romper controles en curso.
+     */
+    private LocalDateTime horaDispositivo(String valor) {
+        if (valor == null || valor.isBlank()) return asistenciaRepository.obtenerFechaHoraServidor();
+        try {
+            LocalDateTime hora = OffsetDateTime.parse(valor).toLocalDateTime();
+            LocalDateTime servidor = asistenciaRepository.obtenerFechaHoraServidor();
+            if (hora.isBefore(servidor.minusHours(24)) || hora.isAfter(servidor.plusHours(24))) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
+                        "La hora del dispositivo difiere demasiado de la hora actual. Corrige la fecha y hora del dispositivo.");
+            }
+            return hora;
+        } catch (DateTimeParseException e) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La hora del dispositivo no es válida.");
+        }
     }
 
     /**
@@ -389,6 +422,21 @@ public class ControlIngresoService {
                 asistencia.getId().getIdEstudiante(), control.getId(),
                 resultado, causa, serializarVerificaciones(request.verificacionesAdicionales()),
                 observaciones);
+    }
+
+    private void guardarRegistro(
+            AsistenciaExamen asistencia,
+            Usuario control,
+            AutorizarIngresoRequest request,
+            String resultado,
+            String causa,
+            String observaciones,
+            LocalDateTime fechaHora) {
+        registroRepository.registrarConFecha(
+                asistencia.getId().getIdExamen(), asistencia.getIdParalelo(),
+                asistencia.getId().getIdEstudiante(), control.getId(),
+                resultado, causa, serializarVerificaciones(request.verificacionesAdicionales()),
+                observaciones, fechaHora);
     }
 
     private String serializarVerificaciones(List<String> valores) {

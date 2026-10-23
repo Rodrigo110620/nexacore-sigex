@@ -306,7 +306,7 @@ public class EstudianteFotoService {
     }
 
     /** JPEG (FF D8 FF), PNG (89 50 4E 47) o WEBP (RIFF....WEBP), según los primeros bytes. */
-    static Optional<String> tipoDeImagen(byte[] b) {
+    public static Optional<String> tipoDeImagen(byte[] b) {
         if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
             return Optional.of("image/jpeg");
         }

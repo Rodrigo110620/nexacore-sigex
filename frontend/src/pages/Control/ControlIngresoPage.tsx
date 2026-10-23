@@ -17,6 +17,7 @@ import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoMod
 import { isNetworkError, isOffline } from '../../utils/examFormUtils'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import ReportarFotoModal from '../../components/control/ReportarFotoModal'
+import ReporteQrDuplicadoModal from '../../components/control/ReporteQrDuplicadoModal'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 
 const VERIFICACION = 'Identidad biométrica cotejada / Carnet físico verificado'
@@ -30,6 +31,16 @@ const ETIQUETA_INCIDENCIA: Record<string, string> = {
 }
 const SIN_CONEXION_AUTORIZAR = 'No se pudo autorizar ni registrar el ingreso porque no hay conexión a Internet. La información ingresada se conserva: vuelve a presionar "Autorizar Ingreso" cuando recuperes la conexión.'
 const SIN_CONEXION_DENEGAR = 'No se pudo registrar la denegación porque no hay conexión a Internet. La información ingresada se conserva: vuelve a presionar "Confirmar Denegación" cuando recuperes la conexión.'
+
+/** ISO local con offset: no usar toISOString(), que convierte la hora visible del dispositivo a UTC. */
+function horaLocalDelDispositivo() {
+  const ahora = new Date()
+  const minutos = -ahora.getTimezoneOffset()
+  const signo = minutos >= 0 ? '+' : '-'
+  const absoluto = Math.abs(minutos)
+  const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60_000).toISOString().slice(0, 19)
+  return `${local}${signo}${String(Math.floor(absoluto / 60)).padStart(2, '0')}:${String(absoluto % 60).padStart(2, '0')}`
+}
 
 /** Mensaje del backend (p. ej. una validación 400), o null si no trae uno. */
 function mensajeDelServidor(err: unknown): string | null {
@@ -69,6 +80,7 @@ export default function ControlIngresoPage() {
   const [normasAbiertas, setNormasAbiertas] = useState<Set<string>>(new Set())
   const obsError = validarTextoLibre(obs, OBSERVACIONES_CONTROL)
   const [loadError, setLoadError] = useState('')
+  const [reporteQrOpen, setReporteQrOpen] = useState(false)
 
   const pedirContexto = useCallback(() => Promise.all([obtenerContextoControl(idEstudiante, idExamen), obtenerTiposIncidencia()])
     .then(([c, t]) => { setCtx(c); setTypes(t) })
@@ -138,6 +150,7 @@ export default function ControlIngresoPage() {
           idTipoIncidencia: id,
           descripcion: incident.trim() || types.find(t => t.id === id)?.nombre || 'Incidencia detectada',
         })),
+        fechaHoraDispositivo: horaLocalDelDispositivo(),
       }
       const response = await (denegar ? denegarIngreso(payload) : autorizarIngreso(payload))
       setResult(response)
@@ -173,7 +186,7 @@ export default function ControlIngresoPage() {
           </article>
           <article className="control-rules"><Title icon={<ListChecks size={14}/>} text="Normas del examen"/><div className="control-rules-box"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales:</b>{ctx.normasGenerales.length ? <ul className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ul> : <p>No registradas.</p>}</div></div><div className="mt-2 flex items-start gap-2"><ClipboardList size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas particulares:</b>{ctx.normasParticulares.length ? <ul className="control-rules-list">{ctx.normasParticulares.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`p-${i}`)} onToggle={()=>alternarNorma(`p-${i}`)}/></li>)}</ul> : <p>No se registraron normas particulares para este estudiante.</p>}</div></div></div></article>
         </section>
-        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF2F4] p-4 text-[#C7193F]"><div className="flex gap-2"><AlertTriangle size={20}/><div><b>No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div></section>}
+        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button>}</div></section>}
         {!ctx.ingresoRegistrado && <section className="control-register">
           <Title icon={<ListChecks size={14}/>} text="Registro de control"/>
           <div className="control-fields">
@@ -205,5 +218,6 @@ export default function ControlIngresoPage() {
   aulaActualExamen={ctx?.ambiente}
   usuarioNombre={nombre ?? undefined}
 />
+    {reporteQrOpen && ctx && <ReporteQrDuplicadoModal idExamen={idExamen} idEstudianteQr={idEstudiante} onClose={()=>{ setReporteQrOpen(false); nav(`/dashboard/control/${idExamen}/identificar`) }}/>}
   </PanelLayout>{(denialOpen || result || verificarAmbienteOpen) && <MobileBottomNav variant="controlHome" />}</div>
 }
