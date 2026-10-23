@@ -57,7 +57,8 @@ class ControlIngresoServiceTests {
                 registroRepository,
                 new ObjectMapper(),
                 repartoSinAula(),
-                normasExamenService);
+                normasExamenService,
+                mock(com.nexacore.examenes.services.NotificacionService.class));
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();

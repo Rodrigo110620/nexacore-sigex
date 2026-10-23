@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExamen, AsistenciaExamenId> {
+
+    /** El estudiante está asociado al examen (para enviarle en vivo los cambios de ese examen). */
+    boolean existsByIdIdEstudianteAndIdIdExamen(Integer idEstudiante, Integer idExamen);
     String CONSULTA_CONTEXTO = """
             SELECT a FROM AsistenciaExamen a
             JOIN FETCH a.estudiante e

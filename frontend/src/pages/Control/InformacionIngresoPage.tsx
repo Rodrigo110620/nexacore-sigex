@@ -29,6 +29,7 @@ import {
   obtenerFotoReporteQr,
   type ReporteQrDuplicado,
 } from "../../services/reporteQrDuplicadoConsultaService";
+import useEnVivo from "../../hooks/useEnVivo";
 
 type PestañaIngreso = "intentos" | "autorizados";
 
@@ -84,6 +85,12 @@ export default function InformacionIngresoPage() {
       vigente = false;
     };
   }, [idExamen, idValido, reintentosCarga]);
+
+  // En vivo: ingresos y reportes de este examen (intento, aula incorrecta, QR duplicado) recargan las listas.
+  useEnVivo(
+    (c) => c.idExamen === idExamen,
+    () => setReintentosCarga((v) => v + 1),
+  );
 
   useEffect(() => {
     if (!reporteAbierto) return;

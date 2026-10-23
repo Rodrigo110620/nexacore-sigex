@@ -1,5 +1,7 @@
 package com.nexacore.examenes;
 
+import com.nexacore.examenes.services.NotificacionService;
+
 import com.nexacore.examenes.dto.RegistrarIntentoIngresoRequest;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.Usuario;
@@ -28,6 +30,7 @@ class IntentoIngresoServiceTests {
     @Mock ExamenRepository examenRepository;
     @Mock AsistenciaExamenRepository asistenciaRepository;
     @Mock UsuarioRepository usuarioRepository;
+    @Mock NotificacionService notificacionService;
     @InjectMocks IntentoIngresoService service;
 
     private final RegistrarIntentoIngresoRequest request =

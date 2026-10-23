@@ -1,6 +1,7 @@
 package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.dto.FotoPendienteResponse;
+import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.dto.ReportarFotoRequest;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.Estudiante;
@@ -48,17 +49,20 @@ public class EstudianteFotoService {
     private final ReporteFotoRepository reporteRepository;
     private final UsuarioRepository usuarioRepository;
     private final EstudianteCarreraRepository estudianteCarreraRepository;
+    private final NotificacionService notificacionService;
 
     public EstudianteFotoService(EstudianteFotoRepository fotoRepository, EstudianteRepository estudianteRepository,
                                  EstudianteFotoSolicitudRepository solicitudRepository,
                                  ReporteFotoRepository reporteRepository, UsuarioRepository usuarioRepository,
-                                 EstudianteCarreraRepository estudianteCarreraRepository) {
+                                 EstudianteCarreraRepository estudianteCarreraRepository,
+                                 NotificacionService notificacionService) {
         this.fotoRepository = fotoRepository;
         this.estudianteRepository = estudianteRepository;
         this.solicitudRepository = solicitudRepository;
         this.reporteRepository = reporteRepository;
         this.usuarioRepository = usuarioRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
+        this.notificacionService = notificacionService;
     }
 
     /**
@@ -67,6 +71,7 @@ public class EstudianteFotoService {
      */
     @Transactional
     public void guardar(Integer idEstudiante, MultipartFile archivo) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         verificarEstudiante(idEstudiante);
         byte[] contenido = leerImagen(archivo);
         guardarAprobada(idEstudiante, contenido, tipoDeImagen(contenido).orElseThrow());
@@ -111,6 +116,7 @@ public class EstudianteFotoService {
      */
     @Transactional
     public boolean enviarDelEstudiante(Integer idEstudiante, MultipartFile archivo) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         verificarEstudiante(idEstudiante);
         byte[] contenido = leerImagen(archivo);
         boolean reportada = reporteAbierto(idEstudiante).isPresent();
@@ -159,6 +165,7 @@ public class EstudianteFotoService {
     /** La foto pendiente pasa a ser la foto del estudiante y cierra el reporte que la motivó, si lo hay. */
     @Transactional
     public void aprobarSolicitud(Integer idEstudiante) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         EstudianteFotoSolicitud solicitud = solicitudPendiente(idEstudiante);
         guardarAprobada(idEstudiante, solicitud.getContenido(), solicitud.getTipoContenido());
         solicitudRepository.delete(solicitud);
@@ -190,11 +197,33 @@ public class EstudianteFotoService {
         reporte.setDetalle(request.detalle() == null || request.detalle().isBlank() ? null : request.detalle().strip());
         reporte.setCreadoEn(LocalDateTime.now());
         reporteRepository.save(reporte);
+        String materia = notificacionService.materia(request.idExamen());
+        notificacionService.publicar(Notificacion.FOTO_REPORTADA,
+                "Foto reportada: " + nombreDe(idEstudiante),
+                textoMotivo(reporte.getMotivo()) + (reporte.getDetalle() != null ? ": " + reporte.getDetalle() : "")
+                        + (materia.isEmpty() ? "" : " · " + materia)
+                        + " · Reportada por " + personal.getNombre() + " " + personal.getApellidos(),
+                request.idExamen(), idEstudiante, "/dashboard/estudiantes/fotos", emailPersonal);
+    }
+
+    private String nombreDe(Integer idEstudiante) {
+        return estudianteRepository.findById(idEstudiante)
+                .map(e -> e.getNombre() + " " + e.getApellidos() + " (" + e.getCodigoSis() + ")")
+                .orElse("estudiante " + idEstudiante);
+    }
+
+    private static String textoMotivo(String motivo) {
+        return switch (motivo) {
+            case "NO_SE_PARECE" -> "La persona no se parece a la foto";
+            case "NO_CLARA" -> "La foto no es clara o está desactualizada";
+            default -> "Otro motivo";
+        };
     }
 
     /** La administración comprueba que la foto vigente sí es correcta: el estudiante ya no debe reemplazarla. */
     @Transactional
     public void descartarReporte(Integer idEstudiante) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         ReporteFoto reporte = reporteAbierto(idEstudiante)
                 .orElseThrow(() -> new IllegalArgumentException("La foto de este estudiante no tiene un reporte abierto."));
         cerrar(reporte, ReporteFoto.DESCARTADO);
@@ -205,6 +234,20 @@ public class EstudianteFotoService {
                     s.setOrigen(EstudianteFotoSolicitud.CAMBIO);
                     solicitudRepository.save(s);
                 });
+    }
+
+    /**
+     * Reporte abierto de la foto del estudiante, para avisar al personal de control y al docente
+     * mientras el ADMIN no lo revisa. Vacío si no tiene ninguno.
+     */
+    @Transactional(readOnly = true)
+    public Optional<FotoPendienteResponse.Reporte> reporteVigente(Integer idEstudiante) {
+        verificarEstudiante(idEstudiante);
+        return reporteAbierto(idEstudiante).map(r -> new FotoPendienteResponse.Reporte(
+                r.getMotivo(), r.getDetalle(),
+                usuarioRepository.findById(r.getIdUsuario())
+                        .map(u -> (u.getNombre() + " " + u.getApellidos()).trim()).orElse(null),
+                r.getCreadoEn()));
     }
 
     @Transactional(readOnly = true)
@@ -273,6 +316,7 @@ public class EstudianteFotoService {
     /** La foto actual no cambia; el estudiante ve el motivo y puede enviar otra. */
     @Transactional
     public void rechazarSolicitud(Integer idEstudiante, String motivo) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         EstudianteFotoSolicitud solicitud = solicitudPendiente(idEstudiante);
         solicitud.setEstado(EstudianteFotoSolicitud.RECHAZADA);
         solicitud.setMotivoRechazo(motivo.strip());
@@ -293,6 +337,7 @@ public class EstudianteFotoService {
 
     @Transactional
     public void eliminar(Integer idEstudiante) {
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         verificarEstudiante(idEstudiante);
         if (fotoRepository.existsById(idEstudiante)) {
             fotoRepository.deleteById(idEstudiante);

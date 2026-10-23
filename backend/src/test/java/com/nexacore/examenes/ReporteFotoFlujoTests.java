@@ -52,6 +52,7 @@ class ReporteFotoFlujoTests {
     private static final String EMAIL = "202003215@est.umss.edu";
     private static final String PASSWORD = "Clave#Segura9";
     private static final String CONTROL = "control.reporte@umss.edu";
+    private static final String ADMIN = "admin.reporte@umss.edu";
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10};
     private static final String REPORTE = """
             {"motivo":"NO_SE_PARECE","detalle":"La persona que se presentó no se parece a la foto registrada."}
@@ -92,6 +93,15 @@ class ReporteFotoFlujoTests {
         control.setEstado("activo");
         usuarioRepository.saveAndFlush(control);
 
+        Usuario admin = new Usuario();
+        admin.setNombre("Ana");
+        admin.setApellidos("Rojas");
+        admin.setCi("4455668");
+        admin.setEmail(ADMIN);
+        admin.setPassword("x");
+        admin.setEstado("activo");
+        usuarioRepository.saveAndFlush(admin);
+
         cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS, CI, EMAIL));
         ArgumentCaptor<String> codigo = ArgumentCaptor.forClass(String.class);
         verify(emailService).enviarCodigoActivacion(eq(EMAIL), anyString(), codigo.capture(), anyInt());
@@ -109,7 +119,7 @@ class ReporteFotoFlujoTests {
     }
 
     private static RequestPostProcessor admin() {
-        return user("admin@umss.edu").roles("ADMIN");
+        return user(ADMIN).roles("ADMIN");
     }
 
     private void fotoAprobada() {
@@ -218,6 +228,51 @@ class ReporteFotoFlujoTests {
         mockMvc.perform(get("/estudiantes/fotos-pendientes").with(control()))
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto/reportes/descartar").with(control()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void elPersonalVeElReporteAbiertoDeLaFotoYSinReporteNoHayAviso() throws Exception {
+        fotoAprobada();
+        mockMvc.perform(get("/estudiantes/" + idEstudiante + "/foto/reporte").with(control()))
+                .andExpect(status().isNoContent());
+
+        reportar();
+
+        mockMvc.perform(get("/estudiantes/" + idEstudiante + "/foto/reporte").with(control()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.motivo").exists())
+                .andExpect(jsonPath("$.reportadoEn").exists());
+        mockMvc.perform(get("/estudiantes/" + idEstudiante + "/foto/reporte").with(estudiante()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void elReporteDeFotoNotificaAlPersonalYCadaUnoLaMarcaComoLeida() throws Exception {
+        fotoAprobada();
+        reportar();
+
+        mockMvc.perform(get("/notificaciones").with(admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].tipo").value("FOTO_REPORTADA"))
+                .andExpect(jsonPath("$[0].titulo").value("Foto reportada: Luis Fernández Quiroga (" + SIS + ")"))
+                .andExpect(jsonPath("$[0].idEstudiante").value(idEstudiante))
+                .andExpect(jsonPath("$[0].leida").value(false));
+        // Quien reportó no tiene su propio aviso pendiente.
+        mockMvc.perform(get("/notificaciones").with(control()))
+                .andExpect(jsonPath("$[0].leida").value(true));
+
+        String id = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(get("/notificaciones").with(admin()))
+                .andReturn().getResponse().getContentAsString(), "$[0].id").toString();
+        mockMvc.perform(post("/notificaciones/" + id + "/leida").with(admin()))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/notificaciones").with(admin()))
+                .andExpect(jsonPath("$[0].leida").value(true));
+
+        // Sin examen, el reporte no llega a los docentes; y el estudiante no tiene notificaciones.
+        mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("DOCENTE")))
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/notificaciones").with(estudiante()))
                 .andExpect(status().isForbidden());
     }
 }

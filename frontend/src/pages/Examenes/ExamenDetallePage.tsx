@@ -32,6 +32,7 @@ import {
   initialsOfName,
   semanaDelAnio,
 } from '../../utils/examenFormat'
+import useEnVivo from '../../hooks/useEnVivo'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -105,8 +106,8 @@ export default function ExamenDetallePage() {
   /** Código y CI de los estudiantes con norma particular, por idEstudiante. */
   const [datosNormas, setDatosNormas] = useState<Map<number, { codigoSis: string; ci: string }>>(new Map())
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
       const lista = await listarExamenes()
@@ -126,6 +127,9 @@ export default function ExamenDetallePage() {
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  // En vivo: otro usuario editó o canceló este examen.
+  useEnVivo((c) => c.tipo === 'EXAMEN' && c.idExamen === idExamen, () => void load({ silencioso: true }))
 
   useEffect(() => {
     const ids = [...new Set(

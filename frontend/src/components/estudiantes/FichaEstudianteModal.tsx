@@ -3,6 +3,7 @@ import { Building2, GraduationCap, Mail, Phone, QrCode, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 import FotoEstudiante from './FotoEstudiante'
+import { AvisoFotoReportadaDe } from './AvisoFotoReportada'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import RegenerarQrModal from './RegenerarQrModal'
 
@@ -62,6 +63,9 @@ export default function FichaEstudianteModal({ open, estudiante, onClose, puedeR
               iniciales={getInitials(estudiante.nombre, estudiante.apellidos)}
               className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg text-lg font-bold sm:h-20 sm:w-24 sm:text-xl ${getAvatarColorById(estudiante.id)}`}
             />
+          </div>
+          <div className="-mt-3 mb-4">
+            <AvisoFotoReportadaDe idEstudiante={estudiante.id} />
           </div>
 
           {/* 1. INFORMACIÓN PERSONAL */}
