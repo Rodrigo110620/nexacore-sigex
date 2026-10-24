@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 /** Evidencia privada para revisar un posible uso indebido; no declara culpabilidad. */
 @Service
 public class ReporteQrDuplicadoService {
+    private final SesionExamenService sesionExamenService;
     private final ReporteQrDuplicadoRepository repository;
     private final AsistenciaExamenRepository asistenciaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -28,13 +29,17 @@ public class ReporteQrDuplicadoService {
     private final NotificacionService notificacionService;
     public ReporteQrDuplicadoService(ReporteQrDuplicadoRepository repository, AsistenciaExamenRepository asistenciaRepository,
                                      UsuarioRepository usuarioRepository, EstudianteRepository estudianteRepository,
-                                     NotificacionService notificacionService) {
+                                     NotificacionService notificacionService, SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.repository = repository; this.asistenciaRepository = asistenciaRepository; this.usuarioRepository = usuarioRepository; this.estudianteRepository = estudianteRepository;
         this.notificacionService = notificacionService;
     }
     @Transactional(readOnly = true)
     public java.util.List<ReporteQrDuplicadoResponse> listar(Integer idExamen) {
-        return repository.findByIdExamenOrderByFechaHoraServidorDesc(idExamen).stream().map(this::respuesta).toList();
+        java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        return repository.findByIdExamenOrderByFechaHoraServidorDesc(idExamen).stream()
+                .filter(r -> cierre == null || r.getFechaHoraServidor() == null || r.getFechaHoraServidor().isAfter(cierre))
+                .map(this::respuesta).toList();
     }
     @Transactional(readOnly = true)
     public ReporteQrDuplicado obtener(Integer idExamen, Integer idReporte) {

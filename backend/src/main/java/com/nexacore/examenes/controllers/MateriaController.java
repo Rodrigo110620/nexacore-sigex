@@ -1,5 +1,6 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.utils.TextoBusqueda;
 import com.nexacore.examenes.dto.MateriaResponse;
 import com.nexacore.examenes.repositories.MateriaRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,7 +37,7 @@ public class MateriaController {
         if (q.length() < 3) {
             return ResponseEntity.ok(List.of());
         }
-        List<MateriaResponse> resultado = materiaRepository.buscar(q).stream()
+        List<MateriaResponse> resultado = materiaRepository.buscar(TextoBusqueda.sinTildes(q)).stream()
                 .limit(8)
                 .map(m -> new MateriaResponse(m.getId(), m.getSigla(), m.getNombre()))
                 .toList();

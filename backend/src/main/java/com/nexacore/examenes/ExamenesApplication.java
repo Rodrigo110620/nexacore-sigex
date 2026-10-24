@@ -4,8 +4,11 @@ import com.nexacore.examenes.utils.DotEnvLoader;
 import com.nexacore.examenes.utils.ZonaHoraria;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 
-@SpringBootApplication
+// Sin el usuario "user" con contraseña aleatoria que Spring Boot crea por defecto: SIGEX se
+// autentica solo con JWT (JwtAuthFilter), así que ese usuario no se usaba.
+@SpringBootApplication(exclude = UserDetailsServiceAutoConfiguration.class)
 public class ExamenesApplication {
     public static void main(String[] args) {
         DotEnvLoader.load();

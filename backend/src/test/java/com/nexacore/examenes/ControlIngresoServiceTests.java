@@ -58,7 +58,8 @@ class ControlIngresoServiceTests {
                 new ObjectMapper(),
                 repartoSinAula(),
                 normasExamenService,
-                mock(com.nexacore.examenes.services.NotificacionService.class));
+                mock(com.nexacore.examenes.services.NotificacionService.class),
+                mock(com.nexacore.examenes.services.SesionExamenService.class));
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -584,6 +585,54 @@ class ControlIngresoServiceTests {
         registro.setHabilitado(true);
         return registro;
     }
+    /** Hora del servidor en las pruebas: 2026-09-25 16:00. */
+    private void horario(String hora, int duracionMinutos) {
+        asistencia.getExamen().setFecha(java.time.LocalDate.parse("2026-09-25"));
+        asistencia.getExamen().setHoraInicio(java.time.LocalTime.parse(hora));
+        asistencia.getExamen().setDuracionMinutos(duracionMinutos);
+    }
+
+    @Test
+    void noSeAutorizaNiDeniegaElIngresoCuandoElExamenYaTermino() {
+        horario("13:00", 120); // terminó a las 15:00
+        var autorizar = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        var denegar = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(autorizar, "control@umss.edu.bo"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+        assertTrue(error.getMessage().contains("ya terminó"));
+        assertThrows(ControlIngresoException.class, () -> service.denegar(denegar, "control@umss.edu.bo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void noSeRegistranIngresosEnUnExamenCancelado() {
+        horario("15:30", 120);
+        asistencia.getExamen().setEstado("cancelado");
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo"));
+        assertTrue(error.getMessage().contains("cancelado"));
+    }
+
+    @Test
+    void seAutorizaElIngresoMientrasElExamenEstaEnCurso() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("15:30", 120); // en curso hasta las 17:30
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void seAutorizaElIngresoAntesDeQueEmpieceElExamen() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("18:00", 90); // todavía no empieza
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
     @Test
     void autorizaCorrectamenteCuandoElAmbienteEsValido() {
         // El ambiente del examen (id: 5) coincide con el ambiente verificado

@@ -1,5 +1,9 @@
 package com.nexacore.examenes.controllers;
 
+import org.springframework.security.core.Authentication;
+import com.nexacore.examenes.services.SesionExamenService;
+import com.nexacore.examenes.dto.SesionExamenResponse;
+import com.nexacore.examenes.dto.ReprogramarExamenRequest;
 import com.nexacore.examenes.dto.ActualizarExamenRequest;
 import com.nexacore.examenes.dto.CrearExamenRequest;
 import com.nexacore.examenes.dto.ExamenResponse;
@@ -27,9 +31,11 @@ import java.util.List;
 public class ExamenController {
 
     private final ExamenService examenService;
+    private final SesionExamenService sesionExamenService;
 
-    public ExamenController(ExamenService examenService) {
+    public ExamenController(ExamenService examenService, SesionExamenService sesionExamenService) {
         this.examenService = examenService;
+        this.sesionExamenService = sesionExamenService;
     }
 
     @Operation(summary = "Listar exámenes", description = "ADMIN y CONTROL ven todos. DOCENTE solo los que tiene asignados.")
@@ -54,6 +60,26 @@ public class ExamenController {
             @PathVariable Integer idParalelo,
             @Valid @RequestBody ActualizarExamenRequest request) {
         return ResponseEntity.ok(examenService.actualizar(idExamen, idParalelo, request));
+    }
+
+    @Operation(summary = "Reprogramar un examen finalizado",
+            description = "Para repetirlo en otra fecha: la sesión que terminó queda en el historial con el resultado "
+                    + "de cada estudiante y todos vuelven a \"no ingresado\". ADMIN, o el DOCENTE del examen.")
+    @PreAuthorize("@examenAccesoService.puedeReprogramar(#idExamen, authentication)")
+    @PostMapping("/{idExamen}/{idParalelo}/reprogramar")
+    public ResponseEntity<ExamenResponse> reprogramar(@PathVariable Integer idExamen, @PathVariable Integer idParalelo,
+                                                      @Valid @RequestBody ReprogramarExamenRequest request,
+                                                      Authentication authentication) {
+        return ResponseEntity.ok(examenService.reprogramar(idExamen, idParalelo, request, authentication.getName()));
+    }
+
+    @Operation(summary = "Historial de sesiones del examen",
+            description = "Sesiones anteriores de un examen reprogramado, con el resultado de cada estudiante.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @GetMapping("/{idExamen}/{idParalelo}/sesiones")
+    public ResponseEntity<List<SesionExamenResponse>> sesiones(@PathVariable Integer idExamen,
+                                                              @PathVariable Integer idParalelo) {
+        return ResponseEntity.ok(sesionExamenService.listar(idExamen));
     }
 
     @Operation(summary = "Cancelar examen", description = "Marca el examen como cancelado. Solo ADMIN.")

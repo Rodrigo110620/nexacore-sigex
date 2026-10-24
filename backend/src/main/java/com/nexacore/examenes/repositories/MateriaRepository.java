@@ -14,9 +14,11 @@ public interface MateriaRepository extends JpaRepository<Materia, Integer> {
 
     @Query("""
             SELECT m FROM Materia m
-            WHERE LOWER(m.nombre) LIKE LOWER(CONCAT('%', :q, '%'))
-               OR LOWER(m.sigla) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE CAST(FUNCTION('translate', LOWER(m.nombre), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String)
+                    LIKE CONCAT('%', :q, '%')
+               OR LOWER(m.sigla) LIKE CONCAT('%', :q, '%')
             ORDER BY m.nombre
             """)
+    /** q sin tildes y en minúsculas (TextoBusqueda.sinTildes): "fisic" encuentra "Física". */
     List<Materia> buscar(@Param("q") String q);
 }

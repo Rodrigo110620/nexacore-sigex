@@ -100,6 +100,11 @@ interface EstudiantesHabilitadosTabProps {
   idExamen: number
   idParalelo: number
   isAdmin: boolean
+  /**
+   * Motivo por el que la lista no se puede modificar (examen finalizado o cancelado): se ocultan
+   * asociar, cambiar y quitar. El backend también lo impide.
+   */
+  soloLectura?: string
   /** Asignatura, fecha y ambiente del examen, para el modal "Cambiar". */
   examenResumen?: string
   onCountChange?: (count: number) => void
@@ -109,9 +114,11 @@ export default function EstudiantesHabilitadosTab({
   idExamen,
   idParalelo,
   isAdmin,
+  soloLectura,
   examenResumen,
   onCountChange,
 }: EstudiantesHabilitadosTabProps) {
+  const puedeEditar = isAdmin && !soloLectura
   const [estudiantes, setEstudiantes] = useState<EstudianteHabilitacionDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -298,6 +305,11 @@ export default function EstudiantesHabilitadosTab({
 
   return (
     <section className="flex flex-col gap-4">
+      {soloLectura && (
+        <p role="status" className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-sm text-[#344158]">
+          {soloLectura}
+        </p>
+      )}
       {mostrarAulas && reparto && <ResumenAulas reparto={reparto} />}
       <div className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -346,7 +358,7 @@ export default function EstudiantesHabilitadosTab({
                 <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
               </div>
             </div>
-            {isAdmin && (
+            {puedeEditar && (
               <button
                 type="button"
                 onClick={() => setAsociarOpen(true)}
@@ -432,7 +444,7 @@ export default function EstudiantesHabilitadosTab({
                       )}
                     </div>
 
-                    {isAdmin && !esInactivo && (
+                    {puedeEditar && !esInactivo && (
                       <div className="flex shrink-0 gap-2">
                         {!e.ingresado && (
                           <button
@@ -546,7 +558,7 @@ export default function EstudiantesHabilitadosTab({
                       {mostrarAulas && <td className="px-4 py-3">{esInactivo ? '—' : <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} />}</td>}
                       <td className="px-4 py-3 text-center">
                     
-                        {isAdmin && !esInactivo ? (
+                        {puedeEditar && !esInactivo ? (
                           <span className="inline-flex items-center gap-3">
                             <button
                               type="button"
@@ -596,7 +608,7 @@ export default function EstudiantesHabilitadosTab({
               </span>
               <span className="hidden text-[#627A9B] min-[960px]:inline">Acciones por bloque</span>
             </div>
-            {isAdmin && (
+            {puedeEditar && (
               <div className="grid grid-cols-2 gap-2 min-[960px]:flex">
                 <button
                   type="button"

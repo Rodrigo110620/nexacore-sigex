@@ -14,6 +14,9 @@ import {
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import { estadoExamen, fechaLarga, horario, separarExamenes, type EstadoExamen } from '../../utils/misExamenes'
 import useEnVivo from '../../hooks/useEnVivo'
+import CronometroExamen from '../../components/examenes/CronometroExamen'
+import { ahoraServidorMs } from '../../services/tiempoService'
+import AvisoIngresoExamen from '../../components/estudiantes/AvisoIngresoExamen'
 
 const ESTADOS: Record<EstadoExamen, { texto: string; clase: string }> = {
   HABILITADO: { texto: 'Habilitado', clase: 'bg-[#ECFDF5] text-[#047857]' },
@@ -90,9 +93,12 @@ function ProximoExamen({ examen }: { examen: MiExamen }) {
           <MapPin size={18} className="text-[#0439D9]" aria-hidden="true" /> {examen.aula ? `Aula ${examen.aula}` : 'El aula se asigna al llegar'}
         </p>
       </div>
+      {/* Todo lo del mismo examen junto: cuánto falta o queda, el aviso de ingreso y su QR. */}
+      <CronometroExamen examen={examen} className="mt-4" />
+      <AvisoIngresoExamen examen={examen} conBotonQr={false} className="mt-3" />
       <Link
         to="/estudiante/qr"
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white hover:bg-[#0027a2]"
+        className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white hover:bg-[#0027a2]"
       >
         <QrCode size={20} aria-hidden="true" /> Mostrar mi QR
       </Link>
@@ -146,7 +152,7 @@ export default function InicioEstudiantePage() {
 
   if (perfil && requiereRegistrarFoto(perfil)) return <Navigate to="/estudiante/foto" replace />
 
-  const { proximos, pasados, proximo } = separarExamenes(examenes ?? [])
+  const { proximos, pasados, proximo } = separarExamenes(examenes ?? [], new Date(ahoraServidorMs()))
   const lista = pestana === 'proximos' ? proximos : pasados
   const carrera = perfil?.carreras?.[0]
   const hoy = new Date().toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })

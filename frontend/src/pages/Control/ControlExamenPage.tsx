@@ -7,6 +7,7 @@ import ResumenExamenCards from '../../components/control/ResumenExamenCards'
 import EstudiantesExamenSeccion from '../../components/control/EstudiantesExamenSeccion'
 import useExamen from '../../hooks/useExamen'
 import useEstudiantesExamen from '../../hooks/useEstudiantesExamen'
+import CronometroExamen from '../../components/examenes/CronometroExamen'
 
 /** "Control del examen": estudiantes asignados, su habilitación y el acceso a la identificación. */
 export default function ControlExamenPage() {
@@ -38,6 +39,7 @@ export default function ControlExamenPage() {
             duracionMinutos={examen?.duracionMinutos}
           />
         </section>
+        {examen && <CronometroExamen examen={examen} />}
         {idValido ? (
           <>
             <section

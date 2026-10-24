@@ -24,6 +24,10 @@ public final class ReglasEstudiante {
     public static final String CODIGO_SIS = "^\\d{9}$";
     public static final String MSG_CODIGO_SIS = "El código SIS debe tener 9 dígitos";
 
+    /** Para asociar a un examen: código SIS (9 dígitos) o CI (7 u 8), solo números. */
+    public static final String IDENTIFICADOR = "^\\d{7,9}$";
+    public static final String MSG_IDENTIFICADOR = "Usa solo números: código SIS de 9 dígitos o CI de 7 u 8";
+
     /** Correo institucional UMSS: al menos 3 caracteres antes de @ y no un mismo carácter repetido. */
     public static final String EMAIL = "(?i)^(?!([A-Za-z0-9_])\\1+@)[A-Za-z0-9._%+-]{3,}@(est\\.)?umss\\.edu(\\.bo)?$";
     public static final int EMAIL_MAX = 100;

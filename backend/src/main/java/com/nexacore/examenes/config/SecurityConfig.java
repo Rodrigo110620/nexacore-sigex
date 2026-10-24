@@ -99,7 +99,7 @@ public class SecurityConfig {
                     auth.requestMatchers(SWAGGER_PATHS).permitAll();
                 }
                 // Sesión propia: cualquier usuario autenticado, también el estudiante.
-                auth.requestMatchers("/auth/me", "/auth/cambiar-password").authenticated();
+                auth.requestMatchers("/auth/me", "/auth/cambiar-password", "/tiempo").authenticated();
                 // Panel del estudiante: solo su cuenta (rol ESTUDIANTE).
                 auth.requestMatchers("/mi/**").hasRole(Rol.ESTUDIANTE);
                 // El resto de la API es del personal. El rol ESTUDIANTE (cuenta del estudiante)

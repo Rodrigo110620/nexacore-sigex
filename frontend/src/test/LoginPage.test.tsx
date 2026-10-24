@@ -39,7 +39,8 @@ describe('LoginPage (landing + login)', () => {
     renderEn('/')
     await userEvent.click(screen.getAllByRole('button', { name: /iniciar sesión/i })[0])
     await waitFor(() => expect(formulario()).toHaveAttribute('aria-hidden', 'false'))
-    expect(screen.getByLabelText('CORREO ELECTRÓNICO')).toHaveFocus()
+    // El foco se pone en un efecto, justo después de mostrarse el formulario.
+    await waitFor(() => expect(screen.getByLabelText('CORREO ELECTRÓNICO')).toHaveFocus())
   })
 
   it('"/login" abre directo el formulario y "Volver" regresa a la landing', async () => {
