@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, Plus, Search, TriangleAlert, X } from 'lucide-react'
+// 🆕 Agregamos el ícono MinusCircle
+import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -35,7 +36,17 @@ const AVATARS = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
 ] as const
 
-function estadoVisual(estado: EstadoHabilitacion) {
+// 🆕 Ahora recibe también el estadoMatricula para pintar el badge de inactivo
+function estadoVisual(estado: EstadoHabilitacion, estadoMatricula?: string) {
+  if (estadoMatricula === 'NO_MATRICULADO') {
+    return {
+      label: 'Inactivo',
+      className: 'text-gray-500',
+      iconWrap: 'bg-gray-300 text-white',
+      badge: 'border-gray-300 bg-gray-50 text-gray-600',
+      icon: 'inactive' as const,
+    }
+  }
   if (estado === 'HABILITADO') {
     return {
       label: 'Habilitado',
@@ -66,6 +77,8 @@ function estadoVisual(estado: EstadoHabilitacion) {
 function EstadoIcono({ icon }: { icon: ReturnType<typeof estadoVisual>['icon'] }) {
   if (icon === 'check') return <Check size={12} strokeWidth={3} aria-hidden="true" />
   if (icon === 'pending') return <Hourglass size={11} strokeWidth={2.5} aria-hidden="true" />
+  // 🆕 Ícono para inactivos
+  if (icon === 'inactive') return <MinusCircle size={11} strokeWidth={2.5} aria-hidden="true" />
   return <X size={12} strokeWidth={3} aria-hidden="true" />
 }
 
@@ -113,7 +126,6 @@ export default function EstudiantesHabilitadosTab({
   const [selected, setSelected] = useState<number[]>([])
   const [asociarOpen, setAsociarOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  /** Estudiantes a los que se les cambia el estado desde el modal (uno con "Cambiar" o varios al deshabilitar). */
   const [cambio, setCambio] = useState<{
     ids: number[]
     titulo: string
@@ -126,7 +138,6 @@ export default function EstudiantesHabilitadosTab({
   const [motivoError, setMotivoError] = useState('')
   const [confirmarCierre, setConfirmarCierre] = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
-  /** Estudiante que se va a quitar del examen (pide confirmación). */
   const [aQuitar, setAQuitar] = useState<EstudianteHabilitacionDto | null>(null)
   const [reparto, setReparto] = useState<RepartoAulasDto | null>(null)
 
@@ -151,10 +162,8 @@ export default function EstudiantesHabilitadosTab({
     return () => window.clearTimeout(handle)
   }, [load])
 
-  // En vivo: ingresos, habilitación o reportes de este examen hechos por otro usuario.
   useEnVivo((c) => c.idExamen === idExamen || c.tipo === 'FOTO', () => void load({ silencioso: true }))
 
-  // Asociar o cambiar la habilitación mueve el reparto alfabético: se vuelve a pedir con cada cambio.
   useEffect(() => {
     let cancelado = false
     Promise.resolve(obtenerRepartoAulas(idExamen, idParalelo))
@@ -163,7 +172,6 @@ export default function EstudiantesHabilitadosTab({
     return () => { cancelado = true }
   }, [estudiantes, idExamen, idParalelo])
 
-  // Con una sola aula y todos ubicados, la columna y el resumen no aportan nada.
   const mostrarAulas = Boolean(reparto && (reparto.aulas.length > 1 || reparto.sinAula > 0))
 
   const asociadosIds = useMemo(() => new Set(estudiantes.map((e) => e.idEstudiante)), [estudiantes])
@@ -188,10 +196,14 @@ export default function EstudiantesHabilitadosTab({
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
-  const allPageSelected = paged.length > 0 && paged.every((e) => selected.includes(e.idEstudiante))
-  /** Solo cuentan los seleccionados que siguen visibles con los filtros actuales. */
+  
+  // 🆕 Filtramos solo los seleccionables para no contar inactivos en el "Seleccionar todos"
+  const seleccionablesEnPagina = paged.filter((e) => e.estadoMatricula !== 'NO_MATRICULADO')
+  const allPageSelected = seleccionablesEnPagina.length > 0 && seleccionablesEnPagina.every((e) => selected.includes(e.idEstudiante))
+  
+  // 🆕 Excluimos inactivos de la selección masiva global
   const seleccionEfectiva = useMemo(() => {
-    const visibles = new Set(filtered.map((e) => e.idEstudiante))
+    const visibles = new Set(filtered.filter(e => e.estadoMatricula !== 'NO_MATRICULADO').map((e) => e.idEstudiante))
     return selected.filter((id) => visibles.has(id))
   }, [filtered, selected])
 
@@ -259,7 +271,6 @@ export default function EstudiantesHabilitadosTab({
           : `Se registró como no habilitado ${quienes} para este examen.`,
       })
     } catch (err) {
-      // El listado no cambia: cada estudiante conserva su estado anterior.
       setResultado(isNetworkError(err)
         ? { tipo: 'offline', mensaje: SIN_CONEXION }
         : { tipo: 'error', mensaje: mensajeDeError(err, 'No se pudo actualizar la habilitación.') })
@@ -374,17 +385,22 @@ export default function EstudiantesHabilitadosTab({
                   : 'No hay estudiantes asociados a este examen.'}
               </li>
             ) : paged.map((e, index) => {
+              // 🆕 Evaluamos si está inactivo
+              const esInactivo = e.estadoMatricula === 'NO_MATRICULADO'
               const noHabilitado = e.estadoHabilitacion === 'NO_HABILITADO'
-              const visual = estadoVisual(e.estadoHabilitacion)
+              const visual = estadoVisual(e.estadoHabilitacion, e.estadoMatricula)
+              
               return (
                 <li
                   key={e.idEstudiante}
-                  className={`rounded-xl border bg-white shadow-sm ${noHabilitado ? 'border-[#FBCFD4]' : 'border-[#D8E3F5]'}`}
+                  // 🆕 Fondo gris tenue si está inactivo
+                  className={`rounded-xl border bg-white shadow-sm ${noHabilitado && !esInactivo ? 'border-[#FBCFD4]' : 'border-[#D8E3F5]'} ${esInactivo ? 'bg-gray-50/50 opacity-80' : ''}`}
                 >
                   <div className="flex items-start gap-3 p-3">
                     <input
                       type="checkbox"
                       checked={selected.includes(e.idEstudiante)}
+                      disabled={esInactivo} // 🆕 Deshabilitamos checkbox
                       onChange={(ev) => {
                         setSelected((prev) => (
                           ev.target.checked
@@ -393,13 +409,14 @@ export default function EstudiantesHabilitadosTab({
                         ))
                       }}
                       aria-label={`Seleccionar a ${e.nombre} ${e.apellidos}`}
-                      className="mt-1 h-4 w-4 shrink-0"
+                      className="mt-1 h-4 w-4 shrink-0 disabled:opacity-30"
                     />
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
                       {initialsOfName(`${e.nombre} ${e.apellidos}`)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-[#011140]">{e.nombre} {e.apellidos}</p>
+                      {/* 🆕 Texto gris si está inactivo */}
+                      <p className={`truncate text-sm font-bold ${esInactivo ? 'text-gray-400' : 'text-[#011140]'}`}>{e.nombre} {e.apellidos}</p>
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
                       <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
                       <AvisoCruce estudiante={e} />
@@ -412,12 +429,16 @@ export default function EstudiantesHabilitadosTab({
                   <div className="flex items-end justify-between gap-3 border-t border-[#EDF1F7] px-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Motivo / Razón</p>
-                      <p className={`text-sm ${noHabilitado ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>{e.motivo || '—'}</p>
-                      {mostrarAulas && (
+                      {/* 🆕 Mostramos texto si está inactivo */}
+                      <p className={`text-sm ${noHabilitado && !esInactivo ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>
+                        {esInactivo ? 'Estudiante no matriculado' : e.motivo || '—'}
+                      </p>
+                      {mostrarAulas && !esInactivo && (
                         <p className="mt-1.5 text-[11px] text-[#627A9B]">Aula: <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></p>
                       )}
                     </div>
-                    {isAdmin && (
+                    {/* 🆕 Ocultamos botones si está inactivo */}
+                    {isAdmin && !esInactivo && (
                       <div className="flex shrink-0 gap-2">
                         {!e.ingresado && (
                           <button
@@ -453,7 +474,7 @@ export default function EstudiantesHabilitadosTab({
                       type="checkbox"
                       checked={allPageSelected}
                       onChange={(e) => {
-                        const ids = paged.map((s) => s.idEstudiante)
+                        const ids = seleccionablesEnPagina.map((s) => s.idEstudiante) // 🆕 Solo los activos
                         setSelected((prev) => (
                           e.target.checked
                             ? [...new Set([...prev, ...ids])]
@@ -481,13 +502,18 @@ export default function EstudiantesHabilitadosTab({
                     </td>
                   </tr>
                 ) : paged.map((e, index) => {
-                  const visual = estadoVisual(e.estadoHabilitacion)
+                  // 🆕 Evaluamos si está inactivo
+                  const esInactivo = e.estadoMatricula === 'NO_MATRICULADO'
+                  const visual = estadoVisual(e.estadoHabilitacion, e.estadoMatricula)
+                  
                   return (
-                    <tr key={e.idEstudiante}>
+                    // 🆕 Fila gris si está inactivo
+                    <tr key={e.idEstudiante} className={esInactivo ? 'bg-gray-50/50 opacity-75' : ''}>
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selected.includes(e.idEstudiante)}
+                          disabled={esInactivo} // 🆕 Deshabilitamos checkbox
                           onChange={(ev) => {
                             setSelected((prev) => (
                               ev.target.checked
@@ -519,10 +545,14 @@ export default function EstudiantesHabilitadosTab({
                           {visual.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{e.motivo ?? '—'}</td>
-                      {mostrarAulas && <td className="px-4 py-3"><AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></td>}
+                      <td className="px-4 py-3 text-gray-600">
+                        {/* 🆕 Mostramos texto si está inactivo */}
+                        {esInactivo ? <span className="italic">No aplica (inactivo)</span> : (e.motivo ?? '—')}
+                      </td>
+                      {mostrarAulas && <td className="px-4 py-3">{esInactivo ? '—' : <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} />}</td>}
                       <td className="px-4 py-3 text-center">
-                        {isAdmin ? (
+                        {/* 🆕 Ocultamos botones si está inactivo */}
+                        {isAdmin && !esInactivo ? (
                           <span className="inline-flex items-center gap-3">
                             <button
                               type="button"
@@ -559,7 +589,9 @@ export default function EstudiantesHabilitadosTab({
                   type="checkbox"
                   checked={filtered.length > 0 && filtered.every((e) => selected.includes(e.idEstudiante))}
                   onChange={(e) => {
-                    setSelected(e.target.checked ? filtered.map((s) => s.idEstudiante) : [])
+                    // 🆕 Al hacer "Seleccionar todos", solo agarra a los activos
+                    const activos = filtered.filter((s) => s.estadoMatricula !== 'NO_MATRICULADO').map((s) => s.idEstudiante)
+                    setSelected(e.target.checked ? activos : [])
                   }}
                   className="h-4 w-4"
                 />
@@ -638,7 +670,6 @@ export default function EstudiantesHabilitadosTab({
             onSubmit={(event) => {
               event.preventDefault()
               if (cambiarEstado === 'NO_HABILITADO') {
-                // El espacio final que queda al terminar de escribir se recorta antes de validar.
                 const razon = cambiarMotivo.trim()
                 setCambiarMotivo(razon)
                 const errorRazon = validateRazonInhabilitacion(razon)
