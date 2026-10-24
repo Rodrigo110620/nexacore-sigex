@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import java.time.LocalDateTime;
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.MiExamenResponse;
 import com.nexacore.examenes.dto.MiPerfilResponse;
@@ -44,6 +45,7 @@ public class PanelEstudianteService {
     private final EstudianteFotoService fotoService;
     private final QrEstudianteService qrService;
     private final PasswordEncoder passwordEncoder;
+    private final SesionExamenService sesionExamenService;
 
     public PanelEstudianteService(UsuarioRepository usuarioRepository,
                                   EstudianteRepository estudianteRepository,
@@ -53,7 +55,9 @@ public class PanelEstudianteService {
                                   RepartoAulasService repartoAulasService,
                                   EstudianteFotoService fotoService,
                                   QrEstudianteService qrService,
-                                  PasswordEncoder passwordEncoder) {
+                                  PasswordEncoder passwordEncoder,
+                                  SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.usuarioRepository = usuarioRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -125,9 +129,13 @@ public class PanelEstudianteService {
     private MiExamenResponse aExamen(Integer idEstudiante, AsistenciaExamen a) {
         Examen ex = a.getExamen();
         Integer idExamen = a.getId().getIdExamen();
+        // Solo el resultado de la sesión actual: si el examen se reprogramó, lo anterior es historial.
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
         Optional<RegistroControlIngreso> registro = registroRepository
                 .findByIdIdEstudianteAndIdIdExamenOrderByFechaHoraDesc(idEstudiante, idExamen)
-                .stream().findFirst();
+                .stream()
+                .filter(r -> cierre == null || r.getFechaHora() == null || r.getFechaHora().isAfter(cierre))
+                .findFirst();
         return new MiExamenResponse(
                 idExamen,
                 ex.getParalelo().getMateria().getNombre(),

@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.repositories.ExamenSesionRepository;
 import com.nexacore.examenes.dto.SesionExamenResponse;
 import com.nexacore.examenes.models.Examen;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,9 +26,27 @@ public class SesionExamenService {
     static final String PREFIJO_DENEGACION = "Ingreso denegado por CONTROL:";
 
     private final JdbcTemplate jdbc;
+    private final ExamenSesionRepository sesionRepository;
 
-    public SesionExamenService(JdbcTemplate jdbc) {
+    public SesionExamenService(JdbcTemplate jdbc, ExamenSesionRepository sesionRepository) {
         this.jdbc = jdbc;
+        this.sesionRepository = sesionRepository;
+    }
+
+    /**
+     * Si un registro (del control, intento o reporte) es de la sesión actual del examen: posterior
+     * al cierre de la última sesión archivada. Lo anterior se consulta en el historial de sesiones.
+     */
+    @Transactional(readOnly = true)
+    public boolean esDeSesionActual(Integer idExamen, LocalDateTime fechaHora) {
+        LocalDateTime cierre = sesionRepository.ultimoCierre(idExamen);
+        return cierre == null || fechaHora == null || fechaHora.isAfter(cierre);
+    }
+
+    /** Cierre de la última sesión archivada; null si el examen nunca se reprogramó. */
+    @Transactional(readOnly = true)
+    public LocalDateTime ultimoCierre(Integer idExamen) {
+        return sesionRepository.ultimoCierre(idExamen);
     }
 
     /**

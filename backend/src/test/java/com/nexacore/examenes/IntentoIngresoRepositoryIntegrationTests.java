@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase
 @ActiveProfiles("test")
-@Import({IntentoIngresoService.class, NotificacionService.class})
+@Import({IntentoIngresoService.class, NotificacionService.class, com.nexacore.examenes.services.SesionExamenService.class})
 class IntentoIngresoRepositoryIntegrationTests {
 
     private static final int EXAMEN = 980201;

@@ -62,6 +62,7 @@ class PostgresIntegracionTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
+    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
     @Autowired com.nexacore.examenes.repositories.MateriaRepository materiaRepository;
     @Autowired EstudianteService estudianteService;
     @Autowired EstudianteRepository estudianteRepository;
@@ -188,6 +189,11 @@ class PostgresIntegracionTests {
         jdbc.update(asociar, denegado, idExamen, paralelo, false, "Ingreso denegado por CONTROL: Documento inválido", null);
         jdbc.update(asociar, conDeuda, idExamen, paralelo, false,
                 "Deuda pendiente\nIngreso denegado por CONTROL: Llegó tarde", null);
+        jdbc.update("""
+                INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_control, id_usuario_control,
+                                                      resultado_autorizacion, fecha_hora)
+                VALUES (?, ?, ?, 1, ?, 'AUTORIZADO', TIMESTAMP '2026-10-20 07:55:00')
+                """, idExamen, paralelo, ingreso, idDocente);
         // El examen fue ayer: ya finalizó.
         jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", idExamen);
         sincronizar();
@@ -220,6 +226,11 @@ class PostgresIntegracionTests {
                 .containsEntry("habilitado", null).containsEntry("motivo_inhabilitacion", null);
         assertThat(jdbc.queryForMap("SELECT habilitado, motivo_inhabilitacion FROM asistencia_examen WHERE id_estudiante = ?", conDeuda))
                 .containsEntry("habilitado", false).containsEntry("motivo_inhabilitacion", "Deuda pendiente");
+
+        // El autorizado de la sesión anterior ya no aparece como ingreso de la sesión actual.
+        assertThat(controlIngresoService.consultarRegistrosExamen(idExamen)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM registro_control_ingreso WHERE id_examen = ?",
+                Integer.class, idExamen)).isEqualTo(1);
 
         // Ya no está finalizado: no se puede volver a reprogramar hasta que termine.
         assertThatThrownBy(() -> examenService.reprogramar(idExamen, paralelo,

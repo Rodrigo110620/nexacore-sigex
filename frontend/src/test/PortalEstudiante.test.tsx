@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
@@ -98,6 +98,21 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Pasados (1)' }))
     expect(screen.getByText('Ingreso denegado')).toBeInTheDocument()
     expect(screen.getByText('Suplantación')).toBeInTheDocument()
+  })
+
+  it('con el examen en curso y sin ingreso, avisa dentro de su tarjeta, con el cronómetro y un solo "Mostrar mi QR"', async () => {
+    // Empezó hace 10 minutos (hora de Bolivia, UTC-4, sin importar la zona de la máquina).
+    const inicio = new Date(Date.now() - 10 * 60_000 - 4 * 3_600_000)
+    const dos = (n: number) => String(n).padStart(2, '0')
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I',
+      `${inicio.getUTCFullYear()}-${dos(inicio.getUTCMonth() + 1)}-${dos(inicio.getUTCDate())}`,
+      { horaInicio: `${dos(inicio.getUTCHours())}:${dos(inicio.getUTCMinutes())}:00` })])
+    renderEn('/estudiante')
+
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByRole('status')).toHaveTextContent('ya empezó y aún no registraste tu ingreso')
+    expect(within(tarjeta).getByRole('timer')).toHaveTextContent('Tiempo restante')
+    expect(screen.getAllByRole('link', { name: /mostrar mi qr/i })).toHaveLength(1)
   })
 
   it('como el personal, Mi perfil está en el menú de cuenta y no en la navegación', async () => {

@@ -31,6 +31,7 @@ class IntentoIngresoServiceTests {
     @Mock AsistenciaExamenRepository asistenciaRepository;
     @Mock UsuarioRepository usuarioRepository;
     @Mock NotificacionService notificacionService;
+    @Mock com.nexacore.examenes.services.SesionExamenService sesionExamenService;
     @InjectMocks IntentoIngresoService service;
 
     private final RegistrarIntentoIngresoRequest request =

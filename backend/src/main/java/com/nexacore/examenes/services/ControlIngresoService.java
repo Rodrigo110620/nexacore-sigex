@@ -43,6 +43,7 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
+    private final SesionExamenService sesionExamenService;
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
@@ -76,7 +77,8 @@ public class ControlIngresoService {
             ObjectMapper objectMapper,
             RepartoAulasService repartoAulasService,
             NormasExamenService normasExamenService,
-            NotificacionService notificacionService) {
+            NotificacionService notificacionService, SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.asistenciaRepository = asistenciaRepository;
         this.catalogoRepository = catalogoRepository;
@@ -356,7 +358,10 @@ public class ControlIngresoService {
 
     @Transactional(readOnly = true)
     public List<RegistroControlIngresoExamenResponse> consultarRegistrosExamen(Integer idExamen) {
+        // Solo la sesión actual: si el examen se reprogramó, lo anterior está en el historial de sesiones.
+        java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
         return registroRepository.listarPorExamen(idExamen).stream()
+                .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
                     var estudiante = registro.getEstudiante();
                     var control = registro.getUsuarioControl();

@@ -1,8 +1,13 @@
 import type { MiExamen } from '../services/panelEstudianteService'
+import { offsetServidorMinutos } from '../services/tiempoService'
+import { instanteServidor } from './tiempoExamen'
 
-/** Inicio y fin del examen en hora local (la fecha y hora vienen sin zona, en la hora de Bolivia). */
+/**
+ * Inicio y fin del examen. La fecha y la hora vienen sin zona, en la hora del servidor (Bolivia): se
+ * interpretan en esa zona y no en la del dispositivo, igual que el cronómetro.
+ */
 export function rangoExamen(e: Pick<MiExamen, 'fecha' | 'horaInicio' | 'duracionMinutos'>) {
-  const inicio = new Date(`${e.fecha}T${e.horaInicio.length === 5 ? `${e.horaInicio}:00` : e.horaInicio}`)
+  const inicio = new Date(instanteServidor(e.fecha, e.horaInicio, offsetServidorMinutos()))
   const fin = new Date(inicio.getTime() + e.duracionMinutos * 60_000)
   return { inicio, fin }
 }
@@ -18,7 +23,8 @@ export function separarExamenes(examenes: MiExamen[], ahora = new Date()) {
   return { proximos, pasados, proximo: proximos[0] ?? null }
 }
 
-const hora = (d: Date) => d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false })
+const hora = (d: Date) =>
+  d.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' })
 
 /** "Martes 20 de octubre de 2026". */
 export function fechaLarga(fecha: string): string {
