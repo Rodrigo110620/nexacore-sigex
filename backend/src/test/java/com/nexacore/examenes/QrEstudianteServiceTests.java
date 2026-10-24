@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
+import java.util.Base64;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,6 +57,9 @@ class QrEstudianteServiceTests {
         assertTrue(leidoDelPng.startsWith("SIGEX2."));
         assertTrue(!leidoDelPng.contains("202401234"));
         assertEquals("202401234", service.validar(leidoDelPng));
-        assertThrows(IllegalArgumentException.class, () -> service.validar(leidoDelPng.substring(0, leidoDelPng.length() - 1) + "x"));
+        byte[] alterado = Base64.getUrlDecoder().decode(leidoDelPng.substring("SIGEX2.".length()));
+        alterado[alterado.length - 1] ^= 1;
+        String qrAlterado = "SIGEX2." + Base64.getUrlEncoder().withoutPadding().encodeToString(alterado);
+        assertThrows(IllegalArgumentException.class, () -> service.validar(qrAlterado));
     }
 }

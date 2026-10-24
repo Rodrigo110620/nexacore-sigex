@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,11 +52,12 @@ class ControlIngresoPorLlegadaTests {
         jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", DOCENTE);
         jdbc.update("INSERT INTO paralelo (id_paralelo, id_materia, id_docente, nombre_grupo) VALUES (?, ?, ?, 'G1')",
                 PARALELO, MATERIA, DOCENTE);
+        LocalDateTime inicio = LocalDateTime.now().minusMinutes(5);
         jdbc.update("""
                 INSERT INTO examen (id_examen, id_paralelo, id_materia, id_docente, fecha, hora_inicio,
                                     duracion_minutos, id_ambiente, estado, modo_reparto)
-                VALUES (?, ?, ?, ?, ?, '09:00:00', 90, ?, 'programado', 'LLEGADA')
-                """, EXAMEN, PARALELO, MATERIA, DOCENTE, LocalDate.now(), AULA_PRINCIPAL);
+                VALUES (?, ?, ?, ?, ?, ?, 90, ?, 'programado', 'LLEGADA')
+                """, EXAMEN, PARALELO, MATERIA, DOCENTE, inicio.toLocalDate(), inicio.toLocalTime(), AULA_PRINCIPAL);
         jdbc.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, ?, 1)", EXAMEN, AULA_EXTRA);
         for (int i = 1; i <= 3; i++) {
             int id = 9710 + i;

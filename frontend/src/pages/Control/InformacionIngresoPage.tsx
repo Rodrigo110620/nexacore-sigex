@@ -33,7 +33,7 @@ import {
 } from "../../services/reporteQrDuplicadoConsultaService";
 import useEnVivo from "../../hooks/useEnVivo";
 
-type PestañaIngreso = "intentos" | "autorizados";
+type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
 const fechaHora = (valor: string) =>
   new Date(valor).toLocaleString("es-BO", {
@@ -63,7 +63,8 @@ export default function InformacionIngresoPage() {
     estado: "error" | "listo";
   }>();
   const [reintentosCarga, setReintentosCarga] = useState(0);
-  const [pestaña, setPestaña] = useState<PestañaIngreso>("intentos");
+  const [pestaña, setPestaña] = useState<PestañaIngreso>("autorizados");
+  const [registroExpandido, setRegistroExpandido] = useState<number | null>(null);
 
   // Estado para saber qué fila está expandida
   const [expandido, setExpandido] = useState<number | null>(null);
@@ -130,7 +131,8 @@ export default function InformacionIngresoPage() {
     registros?.filter((registro) => registro.resultado === "AUTORIZADO") ?? [];
   const totalAutorizados =
     registros === null ? null : ingresosAutorizados.length;
-  const lista = pestaña === "intentos" ? intentos : ingresosAutorizados;
+  const ingresosManuales = ingresosAutorizados.filter((registro) => registro.tipoIngreso === 'MANUAL');
+  const lista = pestaña === "intentos" ? intentos : pestaña === "excepciones" ? ingresosManuales : ingresosAutorizados;
   const detalleReporte = reporteAbierto?.detalle ?? "";
   const extraerDetalle = (etiqueta: string) =>
     detalleReporte
@@ -207,19 +209,6 @@ export default function InformacionIngresoPage() {
             <button
               type="button"
               role="tab"
-              aria-selected={pestaña === "intentos"}
-              onClick={() => setPestaña("intentos")}
-              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
-            >
-              <TriangleAlert className="mr-1 inline" size={16} />
-              Historial de Intentos{" "}
-              <span className="ml-1 rounded-full bg-red-50 px-1.5 py-0.5 text-xs text-red-700">
-                {totalIntentos ?? "…"}
-              </span>
-            </button>
-            <button
-              type="button"
-              role="tab"
               aria-selected={pestaña === "autorizados"}
               onClick={() => setPestaña("autorizados")}
               className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "autorizados" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
@@ -229,14 +218,25 @@ export default function InformacionIngresoPage() {
                 {totalAutorizados ?? "…"}
               </span>
             </button>
+            <button type="button" role="tab" aria-selected={pestaña === "excepciones"} onClick={() => setPestaña("excepciones")}
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9]/40 ${pestaña === "excepciones" ? "border-[#0439D9] bg-[#F1F6FF] text-[#0439D9]" : "border-transparent text-[#627A9B] hover:bg-slate-50"}`}>
+              <FileText size={16} aria-hidden="true" /> Ingresos manuales
+              <span className="rounded-full bg-[#E6ECFF] px-2 py-0.5 text-xs text-[#0439D9]">{ingresosManuales.length}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={pestaña === "intentos"} onClick={() => setPestaña("intentos")}
+              className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}>
+              <TriangleAlert className="mr-1 inline" size={16} aria-hidden="true" />
+              Ingresos no autorizados <span className="ml-1 rounded-full bg-red-50 px-1.5 py-0.5 text-xs text-red-700">{totalIntentos ?? "…"}</span>
+            </button>
           </div>
 
           <div role="tabpanel" className="pt-3">
             <h2 className="border-b border-[#E6EAF0] pb-2 text-base font-bold text-[#20242A]">
               {pestaña === "intentos"
                 ? "Ingresos no autorizados"
-                : "Ingresos autorizados"}
+                : pestaña === "excepciones" ? "Ingresos manuales autorizados" : "Ingresos autorizados"}
             </h2>
+            {pestaña === "excepciones" && <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>}
             {error ? (
               <div
                 className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
@@ -262,11 +262,11 @@ export default function InformacionIngresoPage() {
                 Cargando información de ingreso…
               </p>
             ) : lista === null ||
-              (lista.length === 0 && (reportes?.length ?? 0) === 0) ? (
+              (lista.length === 0 && (pestaña !== "intentos" || (reportes?.length ?? 0) === 0)) ? (
               <p className="py-8 text-center text-sm text-gray-500">
                 {pestaña === "intentos"
                   ? "No hay incidencias registradas para este examen."
-                  : "No hay ingresos autorizados registrados para este examen."}
+                  : pestaña === "excepciones" ? "No hay ingresos manuales registrados para este examen." : "No hay ingresos autorizados registrados para este examen."}
               </p>
             ) : pestaña === "intentos" ? (
               <>
@@ -315,7 +315,6 @@ export default function InformacionIngresoPage() {
                 >
                   {(lista as IntentoIngreso[]).map((intento) => {
                     const [textoPrincipal, textoDetalles] = (intento.motivo || "").split(" ### ");
-                    const tieneDetalles = !!textoDetalles;
                     const estaExpandido = expandido === intento.idIntento;
 
                     return (
@@ -336,8 +335,10 @@ export default function InformacionIngresoPage() {
                             </p>
                           </div>
                           
-                          {tieneDetalles && (
+                          {(
                             <button
+                              type="button"
+                              aria-expanded={estaExpandido}
                               onClick={() => setExpandido(estaExpandido ? null : intento.idIntento)}
                               className="shrink-0 self-start sm:self-center inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-[#0439D9] border border-[#D8E3F5] shadow-sm hover:bg-[#F4F7FB] transition-colors"
                             >
@@ -348,10 +349,10 @@ export default function InformacionIngresoPage() {
                         </div>
 
                         {/* Panel de detalles optimizado */}
-                        {estaExpandido && textoDetalles && (
+                        {estaExpandido && (
                           <div className="mt-4 rounded-r-xl rounded-bl-xl border border-[#E2E8F0] border-l-4 border-l-[#1d40a9] bg-[#F8FAFC] p-3.5 shadow-sm sm:p-4">
                             <div className="flex flex-col gap-2.5">
-                              {textoDetalles.split(" | ").map((detalle, idx) => {
+                              {(textoDetalles || `Motivo: ${textoPrincipal} | Identificador: ${intento.codigoSis || intento.identificador} | Fecha y hora: ${fechaHora(intento.fechaHora)} | Registrado por: ${intento.personalControl}`).split(" | ").map((detalle, idx) => {
                                 const [label, ...rest] = detalle.split(": ");
                                 const value = rest.join(": ");
                                 
@@ -392,16 +393,30 @@ export default function InformacionIngresoPage() {
                       {registro.estudiante}
                     </p>
                     <p className="mt-1 text-xs md:text-sm leading-5 text-[#0439D9]">
-                      Ingreso al examen autorizado.
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${registro.tipoIngreso === 'MANUAL' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}><ShieldCheck size={13} aria-hidden="true" />{registro.tipoIngreso === 'MANUAL' ? 'Autorizado · Ingreso manual' : 'Autorizado · Ingreso normal'}</span>
                     </p>
                     <p className="mt-1 break-words text-[11px] md:text-xs leading-5 text-[#627A9B]">
                       {registro.codigoSis ??
                         `Estudiante ${registro.idEstudiante}`}{" "}
-                      · {fechaHora(registro.fechaHora)}
+                      · Fecha y hora: {fechaHora(registro.fechaHora)}
                       {registro.usuarioControl
-                        ? ` · ${registro.usuarioControl}`
+                        ? ` · Autorizado por: ${registro.usuarioControl}`
                         : ""}
                     </p>
+                    <button type="button" aria-expanded={registroExpandido === registro.idRegistro} onClick={() => setRegistroExpandido(registroExpandido === registro.idRegistro ? null : registro.idRegistro)} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-[#D8E3F5] bg-white px-3 py-1.5 text-xs font-bold text-[#0439D9] shadow-sm hover:bg-[#F4F7FB]">
+                      {registroExpandido === registro.idRegistro ? <ChevronUp size={16} /> : <Eye size={16} />}
+                      {registroExpandido === registro.idRegistro ? 'Ocultar detalles' : 'Ver detalles'}
+                    </button>
+                    {registroExpandido === registro.idRegistro && <div className="mt-3 space-y-2 rounded-lg border border-[#E6EAF0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#344158]">
+                      <p><strong>Estudiante:</strong> {registro.estudiante}</p>
+                      <p><strong>Código SIS:</strong> {registro.codigoSis ?? 'No registrado'}</p>
+                      <p><strong>Tipo de ingreso:</strong> {registro.tipoIngreso === 'MANUAL' ? 'Manual por CI/SIS' : 'Normal'}</p>
+                      {registro.tipoIngreso === 'MANUAL' && <p className="whitespace-pre-wrap break-words"><strong>Justificación:</strong> {registro.justificacionManual}</p>}
+                      <p><strong>Fecha y hora:</strong> {fechaHora(registro.fechaHora)}</p>
+                      <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
+                      {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
+                      {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
+                    </div>}
                   </li>
                 ))}
               </ul>

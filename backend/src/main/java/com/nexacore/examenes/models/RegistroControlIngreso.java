@@ -59,6 +59,13 @@ public class RegistroControlIngreso {
     @Column(name = "observaciones")
     private String observaciones;
 
+    @Column(name = "tipo_ingreso", nullable = false, length = 10)
+    @ColumnDefault("'NORMAL'")
+    private String tipoIngreso = "NORMAL";
+
+    @Column(name = "justificacion_manual", length = 1000)
+    private String justificacionManual;
+
     @NotNull
     @ColumnDefault("now()")
     @Column(name = "fecha_hora", nullable = false)

@@ -89,6 +89,27 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void ingresoManualExigeJustificacionSinAutorizarNiGuardar() {
+        for (String motivo : new String[] {null, "", "         ", "QR roto"}) {
+            var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
+                    null, true, motivo);
+            assertThrows(ControlIngresoException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+        }
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+        verifyNoInteractions(registroRepository);
+    }
+
+    @Test
+    void ingresoManualGuardaMotivoYUsaHoraServidorAunqueElClienteEnvieOtra() {
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
+                "2026-09-25T09:00:00-04:00", true, "  Celular apagado, no presenta QR  ");
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+        verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
+        verify(asistenciaRepository, never()).autorizarConHoraDispositivo(any(), any(), any(), any(), any(), any());
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado, no presenta QR");
+    }
+
+    @Test
     void autorizarGuardaLaHoraLocalYElOffsetDelDispositivoNoLaHoraUtc() {
         when(asistenciaRepository.autorizarConHoraDispositivo(10, 20, 5, 7, "Sin novedades",
                 LocalDateTime.parse("2026-09-25T09:00:00"))).thenReturn(1);

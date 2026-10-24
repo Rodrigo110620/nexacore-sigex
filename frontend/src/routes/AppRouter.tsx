@@ -13,6 +13,7 @@ import MiQrPage from '../pages/PortalEstudiante/MiQrPage'
 import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
+import InicioDocentePage from '../pages/Dashboard/InicioDocentePage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
@@ -45,10 +46,12 @@ function NavigateRegistrar() {
   return null
 }
 
-/** CONTROL tiene su panel operativo; ADMIN y DOCENTE conservan un Inicio neutro. */
+/** Cada rol tiene un inicio adaptado a su tarea principal. */
 function InicioRoute() {
   const { roles } = useAuth()
-  return roles.includes('CONTROL') ? <ControlInicioPage /> : <InicioEnDesarrollo />
+  if (roles.includes('CONTROL')) return <ControlInicioPage />
+  if (roles.includes('DOCENTE')) return <InicioDocentePage />
+  return <InicioEnDesarrollo />
 }
 
 export default function AppRouter() {

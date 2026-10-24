@@ -249,6 +249,28 @@ class PostgresIntegracionTests {
         idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
     }
 
+    @Test
+    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-MANUAL");
+        int examen = examen(paralelo, "08:00", 90);
+        int estudiante = estudiante("202104099", "Ana");
+        habilitacionService.asociar(examen, paralelo, "202104099");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
+        sincronizar();
+        var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");
+        assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
+        sincronizar();
+        assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
+            assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
+            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado, no presenta QR");
+            assertThat(registro.usuarioControl()).isEqualTo("Luis Paz");
+            assertThat(registro.estudiante()).isEqualTo("Ana Prueba");
+            assertThat(registro.fechaHora()).isNotNull();
+        });
+    }
+
     private int materiaYParalelo(String sigla) {
         jdbc.update("INSERT INTO materia (sigla, nombre) VALUES (?, ?)", sigla, "Materia " + sigla);
         Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM materia WHERE sigla = ?", Integer.class, sigla);

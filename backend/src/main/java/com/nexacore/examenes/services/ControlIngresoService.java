@@ -133,10 +133,19 @@ public class ControlIngresoService {
                     "Confirma la verificación de identidad antes de autorizar");
         }
 
+        String justificacionManual = null;
+        if (request.ingresoManual()) {
+            justificacionManual = request.justificacionManual() == null ? "" : request.justificacionManual().strip();
+            if (justificacionManual.length() < 10 || justificacionManual.length() > 1000) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
+                        "La justificación del ingreso manual debe tener entre 10 y 1000 caracteres");
+            }
+        }
+
         RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);
         Integer idAula = aula.idAmbiente();
         int actualizados;
-        if (request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
+        if (request.ingresoManual() || request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
             // Compatibilidad para clientes abiertos antes de esta mejora.
             actualizados = asistenciaRepository.autorizarConFechaServidor(request.idEstudiante(), request.idExamen(), idAula,
                     control.getId(), limpiar(request.observaciones()));
@@ -161,10 +170,14 @@ public class ControlIngresoService {
 
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
 
-        if (request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
+        if (request.ingresoManual() || request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
             guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
         } else {
             guardarRegistro(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
+        }
+
+        if (request.ingresoManual()) {
+            registroRepository.marcarIngresoManual(request.idEstudiante(), request.idExamen(), justificacionManual);
         }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
@@ -375,7 +388,7 @@ public class ControlIngresoService {
                             registro.getObservaciones(),
                             leerVerificaciones(registro.getVerificacionesAdicionales()),
                             (control.getNombre() + " " + control.getApellidos()).trim(),
-                            registro.getFechaHora());
+                            registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual());
                 })
                 .toList();
     }
