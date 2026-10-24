@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-// 🆕 Agregamos el ícono MinusCircle
 import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -36,7 +35,6 @@ const AVATARS = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
 ] as const
 
-// 🆕 Ahora recibe también el estadoMatricula para pintar el badge de inactivo
 function estadoVisual(estado: EstadoHabilitacion, estadoMatricula?: string) {
   if (estadoMatricula === 'NO_MATRICULADO') {
     return {
@@ -77,7 +75,6 @@ function estadoVisual(estado: EstadoHabilitacion, estadoMatricula?: string) {
 function EstadoIcono({ icon }: { icon: ReturnType<typeof estadoVisual>['icon'] }) {
   if (icon === 'check') return <Check size={12} strokeWidth={3} aria-hidden="true" />
   if (icon === 'pending') return <Hourglass size={11} strokeWidth={2.5} aria-hidden="true" />
-  // 🆕 Ícono para inactivos
   if (icon === 'inactive') return <MinusCircle size={11} strokeWidth={2.5} aria-hidden="true" />
   return <X size={12} strokeWidth={3} aria-hidden="true" />
 }
@@ -197,11 +194,9 @@ export default function EstudiantesHabilitadosTab({
   const currentPage = Math.min(page, totalPages - 1)
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
   
-  // 🆕 Filtramos solo los seleccionables para no contar inactivos en el "Seleccionar todos"
   const seleccionablesEnPagina = paged.filter((e) => e.estadoMatricula !== 'NO_MATRICULADO')
   const allPageSelected = seleccionablesEnPagina.length > 0 && seleccionablesEnPagina.every((e) => selected.includes(e.idEstudiante))
   
-  // 🆕 Excluimos inactivos de la selección masiva global
   const seleccionEfectiva = useMemo(() => {
     const visibles = new Set(filtered.filter(e => e.estadoMatricula !== 'NO_MATRICULADO').map((e) => e.idEstudiante))
     return selected.filter((id) => visibles.has(id))
@@ -393,14 +388,13 @@ export default function EstudiantesHabilitadosTab({
               return (
                 <li
                   key={e.idEstudiante}
-                  // 🆕 Fondo gris tenue si está inactivo
                   className={`rounded-xl border bg-white shadow-sm ${noHabilitado && !esInactivo ? 'border-[#FBCFD4]' : 'border-[#D8E3F5]'} ${esInactivo ? 'bg-gray-50/50 opacity-80' : ''}`}
                 >
                   <div className="flex items-start gap-3 p-3">
                     <input
                       type="checkbox"
                       checked={selected.includes(e.idEstudiante)}
-                      disabled={esInactivo} // 🆕 Deshabilitamos checkbox
+                      disabled={esInactivo} // 
                       onChange={(ev) => {
                         setSelected((prev) => (
                           ev.target.checked
@@ -415,7 +409,7 @@ export default function EstudiantesHabilitadosTab({
                       {initialsOfName(`${e.nombre} ${e.apellidos}`)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      {/* 🆕 Texto gris si está inactivo */}
+            
                       <p className={`truncate text-sm font-bold ${esInactivo ? 'text-gray-400' : 'text-[#011140]'}`}>{e.nombre} {e.apellidos}</p>
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
                       <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
@@ -429,7 +423,7 @@ export default function EstudiantesHabilitadosTab({
                   <div className="flex items-end justify-between gap-3 border-t border-[#EDF1F7] px-3 py-2.5">
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#94A3B8]">Motivo / Razón</p>
-                      {/* 🆕 Mostramos texto si está inactivo */}
+
                       <p className={`text-sm ${noHabilitado && !esInactivo ? 'font-medium text-[#B91C1C]' : 'text-[#011140]'}`}>
                         {esInactivo ? 'Estudiante no matriculado' : e.motivo || '—'}
                       </p>
@@ -437,7 +431,7 @@ export default function EstudiantesHabilitadosTab({
                         <p className="mt-1.5 text-[11px] text-[#627A9B]">Aula: <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} /></p>
                       )}
                     </div>
-                    {/* 🆕 Ocultamos botones si está inactivo */}
+
                     {isAdmin && !esInactivo && (
                       <div className="flex shrink-0 gap-2">
                         {!e.ingresado && (
@@ -502,18 +496,18 @@ export default function EstudiantesHabilitadosTab({
                     </td>
                   </tr>
                 ) : paged.map((e, index) => {
-                  // 🆕 Evaluamos si está inactivo
+                  
                   const esInactivo = e.estadoMatricula === 'NO_MATRICULADO'
                   const visual = estadoVisual(e.estadoHabilitacion, e.estadoMatricula)
                   
                   return (
-                    // 🆕 Fila gris si está inactivo
+                
                     <tr key={e.idEstudiante} className={esInactivo ? 'bg-gray-50/50 opacity-75' : ''}>
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selected.includes(e.idEstudiante)}
-                          disabled={esInactivo} // 🆕 Deshabilitamos checkbox
+                          disabled={esInactivo} 
                           onChange={(ev) => {
                             setSelected((prev) => (
                               ev.target.checked
@@ -546,12 +540,12 @@ export default function EstudiantesHabilitadosTab({
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {/* 🆕 Mostramos texto si está inactivo */}
+                       
                         {esInactivo ? <span className="italic">No aplica (inactivo)</span> : (e.motivo ?? '—')}
                       </td>
                       {mostrarAulas && <td className="px-4 py-3">{esInactivo ? '—' : <AulaDe estudiante={e} porLlegada={reparto?.modo === 'LLEGADA'} />}</td>}
                       <td className="px-4 py-3 text-center">
-                        {/* 🆕 Ocultamos botones si está inactivo */}
+                    
                         {isAdmin && !esInactivo ? (
                           <span className="inline-flex items-center gap-3">
                             <button
@@ -589,7 +583,7 @@ export default function EstudiantesHabilitadosTab({
                   type="checkbox"
                   checked={filtered.length > 0 && filtered.every((e) => selected.includes(e.idEstudiante))}
                   onChange={(e) => {
-                    // 🆕 Al hacer "Seleccionar todos", solo agarra a los activos
+                
                     const activos = filtered.filter((s) => s.estadoMatricula !== 'NO_MATRICULADO').map((s) => s.idEstudiante)
                     setSelected(e.target.checked ? activos : [])
                   }}
