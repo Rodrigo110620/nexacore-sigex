@@ -13,6 +13,19 @@ import java.time.LocalDateTime;
 public interface RegistroControlIngresoRepository
         extends JpaRepository<RegistroControlIngreso, RegistroControlIngresoId> {
 
+    /** La autorización y su evidencia manual se confirman en la misma transacción. */
+    @Modifying
+    @Query(value = """
+            UPDATE registro_control_ingreso SET tipo_ingreso = 'MANUAL', justificacion_manual = :justificacion
+            WHERE id_control = (SELECT max(id_control) FROM registro_control_ingreso
+                WHERE id_estudiante = :idEstudiante AND id_examen = :idExamen
+                  AND resultado_autorizacion = 'AUTORIZADO')
+              AND id_estudiante = :idEstudiante AND id_examen = :idExamen
+            """, nativeQuery = true)
+    void marcarIngresoManual(@Param("idEstudiante") Integer idEstudiante,
+                             @Param("idExamen") Integer idExamen,
+                             @Param("justificacion") String justificacion);
+
     List<RegistroControlIngreso> findByIdIdExamenAndIdIdParaleloOrderByFechaHoraAsc(
             Integer idExamen, Integer idParalelo);
 

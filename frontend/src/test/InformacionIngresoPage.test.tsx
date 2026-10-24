@@ -17,6 +17,21 @@ vi.mock('../services/reporteQrDuplicadoConsultaService', () => ({ listarReportes
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
 
 describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
+  it('INCI-02 muestra el responsable y el motivo del ingreso manual en Excepciones', async () => {
+    vi.mocked(intentos.listarIntentosIngreso).mockResolvedValue([])
+    vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue([{
+      idRegistro: 91, idEstudiante: 24, idExamen: 7, estudiante: 'Luis Flores', codigoSis: '202600002',
+      resultado: 'AUTORIZADO', causa: null, observaciones: null, verificacionesAdicionales: [],
+      usuarioControl: 'Diego Control', fechaHora: '2026-10-24T13:30:00', tipoIngreso: 'MANUAL', justificacionManual: 'Celular apagado, no presenta QR',
+    }])
+    renderPage()
+    await screen.findByText('1 ingreso autorizado')
+    fireEvent.click(screen.getByRole('tab', { name: /Ingresos manuales/ }))
+    expect(screen.getByText('Luis Flores')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
+    expect(screen.getByText(/Celular apagado, no presenta QR/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Diego Control/).length).toBeGreaterThan(0)
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(reportes.listarReportesQrDuplicado).mockResolvedValue([])
@@ -54,11 +69,21 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
     expect(within(navigation).getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Control' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+      expect.stringContaining('Ingresos Autorizados en Tiempo Real'),
+      expect.stringContaining('Ingresos manuales'),
+      expect.stringContaining('Ingresos no autorizados'),
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
+    expect(screen.getByText('Tipo de ingreso:')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Ingresos no autorizados/ }))
     const intentosList = await screen.findByRole('list', { name: 'Intentos no autorizados' })
     expect(within(intentosList).getByText('Ana Pérez')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
+    expect(screen.getByText('Motivo:')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: /Ingresos Autorizados en Tiempo Real/ }))
     expect(screen.getByRole('tab', { name: /Ingresos Autorizados en Tiempo Real/ })).toHaveAttribute('aria-selected', 'true')
-    expect(within(await screen.findByRole('list', { name: 'Ingresos autorizados' })).getByText('Luis Flores')).toBeInTheDocument()
+    expect(within(await screen.findByRole('list', { name: 'Ingresos autorizados' })).getAllByText('Luis Flores').length).toBeGreaterThan(0)
   })
 
   it('muestra listas vacías y contadores cero a partir de respuestas vacías', async () => {
@@ -66,7 +91,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue([])
     renderPage()
 
-    expect(await screen.findByText('No hay incidencias registradas para este examen.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay ingresos autorizados registrados para este examen.')).toBeInTheDocument()
     expect(screen.getByText('0 intentos observados')).toBeInTheDocument()
     expect(screen.getByText('0 ingresos autorizados')).toBeInTheDocument()
   })
@@ -78,7 +103,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la información de ingreso')
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
-    expect(await screen.findByText('No hay incidencias registradas para este examen.')).toBeInTheDocument()
+    expect(await screen.findByText('No hay ingresos autorizados registrados para este examen.')).toBeInTheDocument()
     expect(intentos.listarIntentosIngreso).toHaveBeenCalledTimes(2)
   })
 })

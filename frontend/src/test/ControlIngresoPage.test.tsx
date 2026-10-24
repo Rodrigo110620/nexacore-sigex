@@ -53,6 +53,19 @@ const sinConexion = () => {
 const errorDeRed = () => Object.assign(new Error('Network Error'), { code: 'ERR_NETWORK' })
 
 describe('ControlIngresoPage', () => {
+  it('INCI-02 exige motivo y envía el ingreso manual con su justificación', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    expect(service.autorizarIngreso).not.toHaveBeenCalled()
+    expect(screen.getByText('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')).toBeInTheDocument()
+    vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-24T12:00:00', autorizadoPor: 'Carla Control' })
+    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: 'Celular apagado, no presenta QR' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ ingresoManual: true, justificacionManual: 'Celular apagado, no presenta QR' })))
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(service.obtenerHistorialControl).mockResolvedValue([])

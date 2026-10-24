@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -29,7 +29,9 @@ function ExamAvatar({ examen, size = 'card' }: { examen: ExamenDto; size?: 'card
 export default function ExamenesPage() {
   const { isAdmin, roles } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const isControlView = location.pathname === '/dashboard/control'
+  const paraleloSeleccionado = searchParams.get('paralelo')
   const canControl = isAdmin || roles.includes('CONTROL') || roles.includes('DOCENTE')
   const canRegister = (isAdmin || roles.includes('DOCENTE')) && !isControlView
   const navigate = useNavigate()
@@ -75,6 +77,7 @@ export default function ExamenesPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return examenes.filter((e) => {
+      if (paraleloSeleccionado && String(e.idParalelo) !== paraleloSeleccionado) return false
       if (ambienteFiltro && e.ambienteNombre !== ambienteFiltro) return false
       if (fechaFiltro && e.fecha !== fechaFiltro) return false
       if (!q) return true
@@ -87,7 +90,7 @@ export default function ExamenesPage() {
         (e.docente ?? '').toLowerCase().includes(q)
       )
     })
-  }, [examenes, query, ambienteFiltro, fechaFiltro])
+  }, [examenes, query, ambienteFiltro, fechaFiltro, paraleloSeleccionado])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)

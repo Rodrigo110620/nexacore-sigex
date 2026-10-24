@@ -14,5 +14,7 @@ public record RegistroControlIngresoExamenResponse(
         String observaciones,
         List<String> verificacionesAdicionales,
         String usuarioControl,
-        LocalDateTime fechaHora
+        LocalDateTime fechaHora,
+        String tipoIngreso,
+        String justificacionManual
 ) {}

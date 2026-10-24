@@ -33,6 +33,8 @@ export interface AutorizarIngresoPayload {
   detalleDenegacion?: string
   /** Hora local y zona del dispositivo que realizó el control. */
   fechaHoraDispositivo?: string
+  ingresoManual?: boolean
+  justificacionManual?: string
 }
 
 export interface AutorizarIngresoResultado {
@@ -52,6 +54,8 @@ export interface TipoIncidencia {
 }
 
 export interface RegistroControlIngreso {
+  tipoIngreso?: 'NORMAL' | 'MANUAL'
+  justificacionManual?: string | null
   idRegistro: number
   idEstudiante: number
   idExamen: number

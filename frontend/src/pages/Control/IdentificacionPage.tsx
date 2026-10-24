@@ -94,7 +94,7 @@ export default function IdentificacionPage() {
       return
     }
     setErrorContinuar(null)
-    navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}`)
+    navigate(`/dashboard/control-ingresos/${estudianteSeleccionado.idEstudiante}/${idExamen}?ingreso=${tipo === 'qr' ? 'normal' : 'manual'}`)
   }
 
   // Continuar siempre pasa por la verificación de habilitación (ACCS-03/04), consultada otra vez al servidor.

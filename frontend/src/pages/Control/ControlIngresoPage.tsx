@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import { useAuth } from '../../context/AuthContext'
@@ -64,6 +64,9 @@ function StudentSummary({ctx}: {ctx: ContextoControlIngreso}) {
 export default function ControlIngresoPage() {
   const { nombre } = useAuth()
   const nav = useNavigate(), p = useParams()
+  const [searchParams] = useSearchParams()
+  const [ingresoManual, setIngresoManual] = useState(searchParams.get('ingreso') === 'manual')
+  const [justificacionManual, setJustificacionManual] = useState('')
   const idEstudiante = Number(p.idEstudiante), idExamen = Number(p.idExamen)
   const valid = Number.isInteger(idEstudiante) && Number.isInteger(idExamen)
   const [ctx, setCtx] = useState<ContextoControlIngreso | null>(null)
@@ -132,6 +135,10 @@ export default function ControlIngresoPage() {
   })
 
   const submit = async (denegar = false) => {
+    if (!denegar && ingresoManual && (justificacionManual.trim().length < 10 || justificacionManual.trim().length > 1000)) {
+      setError('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')
+      return
+    }
     if (denegar && detalleError) return
     if (obsError) {
       setTextErrorField('observaciones')
@@ -176,6 +183,7 @@ export default function ControlIngresoPage() {
           descripcion: incident.trim() || types.find(t => t.id === id)?.nombre || 'Incidencia detectada',
         })),
         fechaHoraDispositivo: horaLocalDelDispositivo(),
+        ...(!denegar && ingresoManual ? { ingresoManual: true, justificacionManual: justificacionManual.trim() } : {}),
       }
       const response = await (denegar ? denegarIngreso(payload) : autorizarIngreso(payload))
       setResult(response)
@@ -214,6 +222,24 @@ export default function ControlIngresoPage() {
         {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button>}</div></section>}
         {!ctx.ingresoRegistrado && <section className="control-register">
           <Title icon={<ListChecks size={14}/>} text="Registro de control"/>
+          <div className="mb-4 rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">
+            {searchParams.get('ingreso') === 'manual' ? (
+              <div className="flex items-center gap-2 text-sm font-bold text-[#0439D9]">
+                <UserCheck size={18} aria-hidden="true" />
+                <span>Ingreso manual por CI/SIS</span>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 text-sm font-semibold text-[#011140]">
+                <input type="checkbox" checked={ingresoManual} onChange={e=>setIngresoManual(e.target.checked)}/>
+                Ingreso manual por excepción
+              </label>
+            )}
+            {ingresoManual && <div className="mt-3">
+              <label htmlFor="justificacion-manual" className="block text-xs font-semibold">Justificación del ingreso manual (obligatoria)</label>
+              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{setJustificacionManual(e.target.value);setError('')}} minLength={10} maxLength={1000} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado y no puede presentar su QR."/>
+              <p className="mt-1 text-xs text-[#627A9B]">Mínimo 10 caracteres. Se guardará como excepción con el usuario y la hora del servidor.</p>
+            </div>}
+          </div>
           <div className="control-fields">
             <div>
               <TextoLibreCampo id="control-observaciones" className="block text-xs" label={<>Observaciones <span className="text-[#7586A0]">(opcional)</span></>} max={OBSERVACIONES_CONTROL.max} rows={3} value={obs} onChange={v=>{setObs(v); if(textErrorField==='observaciones'){setTextErrorField(null);setError('')}}} error={obsError ?? (textErrorField==='observaciones' ? error : null)} placeholder="Estudiante ingresa con credencial oficial en regla"/>

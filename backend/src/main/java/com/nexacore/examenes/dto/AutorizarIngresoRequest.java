@@ -16,8 +16,17 @@ public record AutorizarIngresoRequest(
         /** Solo al denegar: "Detalle adicional" del modal (opcional, BUG-D02). */
         String detalleDenegacion,
         /** ISO-8601 con offset tomado del dispositivo que hizo la lectura. */
-        String fechaHoraDispositivo
+        String fechaHoraDispositivo,
+        boolean ingresoManual,
+        @Size(max = 1000) String justificacionManual
 ) {
+    public AutorizarIngresoRequest(Integer idEstudiante, Integer idExamen, String observaciones,
+                                   boolean identidadVerificada, List<String> verificacionesAdicionales,
+                                   List<IncidenciaIngresoRequest> incidencias, String detalleDenegacion,
+                                   String fechaHoraDispositivo) {
+        this(idEstudiante, idExamen, observaciones, identidadVerificada, verificacionesAdicionales,
+                incidencias, detalleDenegacion, fechaHoraDispositivo, false, null);
+    }
     public AutorizarIngresoRequest(Integer idEstudiante, Integer idExamen, String observaciones,
                                    boolean identidadVerificada,
                                    List<String> verificacionesAdicionales,
