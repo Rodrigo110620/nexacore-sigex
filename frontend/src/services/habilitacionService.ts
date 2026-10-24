@@ -19,6 +19,7 @@ export interface EstudianteHabilitacionDto {
   ingresado?: boolean
   /** Aviso si tiene otro examen a la misma hora ese día (no bloquea). */
   conflictoHorario?: string | null
+  estadoMatricula?: string 
 }
 
 export interface OcupacionAulaDto {
