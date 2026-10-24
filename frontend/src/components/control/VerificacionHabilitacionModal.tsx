@@ -19,7 +19,7 @@ import RegistrarNoHabilitadoModal from './RegistrarNoHabilitadoModal'
 
 interface Props {
   estudiante: EstudianteIdentificado
-  idEstudiante: number // 🆕 AGREGADO AQUÍ
+  idEstudiante: number 
   idExamen: number 
   idAmbiente: number 
   materia?: string
@@ -224,12 +224,11 @@ export default function VerificacionHabilitacionModal(p: Props) {
         </div>
       </div>
 
-      {/* 🆕 Le pasamos el idEstudiante al modal de excepción */}
       <RegistrarNoHabilitadoModal
         isOpen={isExcepcionOpen}
         onClose={() => setIsExcepcionOpen(false)}
         estudiante={p.estudiante}
-        idEstudiante={p.idEstudiante} // 🆕 AGREGADO AQUÍ
+        idEstudiante={p.idEstudiante} 
         idExamen={p.idExamen}
         idAmbiente={p.idAmbiente}
         onGuardadoExitoso={() => {

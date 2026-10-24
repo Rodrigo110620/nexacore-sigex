@@ -42,7 +42,7 @@ export default function LoginEmailField({ value, error, onChange, onBlur }: Logi
               : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
           }`} />
         
-        {/* 🆕 Ahora es un botón clickeable en lugar de un span estático */}
+
         {showDomain && (
           <button
             type="button"

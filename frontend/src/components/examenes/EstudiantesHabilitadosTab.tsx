@@ -380,7 +380,7 @@ export default function EstudiantesHabilitadosTab({
                   : 'No hay estudiantes asociados a este examen.'}
               </li>
             ) : paged.map((e, index) => {
-              // 🆕 Evaluamos si está inactivo
+             
               const esInactivo = e.estadoMatricula === 'NO_MATRICULADO'
               const noHabilitado = e.estadoHabilitacion === 'NO_HABILITADO'
               const visual = estadoVisual(e.estadoHabilitacion, e.estadoMatricula)
@@ -468,7 +468,7 @@ export default function EstudiantesHabilitadosTab({
                       type="checkbox"
                       checked={allPageSelected}
                       onChange={(e) => {
-                        const ids = seleccionablesEnPagina.map((s) => s.idEstudiante) // 🆕 Solo los activos
+                        const ids = seleccionablesEnPagina.map((s) => s.idEstudiante) 
                         setSelected((prev) => (
                           e.target.checked
                             ? [...new Set([...prev, ...ids])]

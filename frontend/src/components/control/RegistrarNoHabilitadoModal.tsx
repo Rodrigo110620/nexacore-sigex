@@ -8,7 +8,7 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   estudiante: EstudianteIdentificado | null
-  idEstudiante: number // 🆕 Recibimos esto
+  idEstudiante: number 
   idExamen: number
   idAmbiente: number
   onGuardadoExitoso: () => void
@@ -39,7 +39,7 @@ export default function RegistrarNoHabilitadoModal({
     setIsSaving(true)
     try {
       await api.post('/control-ingresos/excepcion-no-habilitado', {
-        idEstudiante: idEstudiante, // 🆕 Usamos el prop directo
+        idEstudiante: idEstudiante, 
         idExamen: idExamen,
         idAmbiente: idAmbiente,
         motivoInhabilitacion: estudiante.motivoInhabilitacion || 'No especificado',
