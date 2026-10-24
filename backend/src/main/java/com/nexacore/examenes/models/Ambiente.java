@@ -22,10 +22,10 @@ public class Ambiente {
     private Integer id;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "ubicacion", length = Integer.MAX_VALUE)
+    @Column(name = "ubicacion")
     private String ubicacion;
 
     /** Aforo del ambiente; null si aún no se registró. */

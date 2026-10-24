@@ -25,9 +25,9 @@ public class Facultad {
     private Integer id;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "codigo", length = Integer.MAX_VALUE)
+    @Column(name = "codigo")
     private String codigo;
 }
