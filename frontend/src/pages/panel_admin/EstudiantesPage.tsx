@@ -23,7 +23,7 @@ const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idC
 
 export default function EstudiantesPage() {
   const { roles } = useAuth()
-  // 🆕 ADMIN y DOCENTE pueden editar/registrar/importar. CONTROL solo consulta.
+  // ADMIN y DOCENTE pueden editar/registrar/importar. CONTROL solo consulta.
   const puedeEditar = roles.includes('ADMIN') || roles.includes('DOCENTE')
   const esAdmin = roles.includes('ADMIN')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)

@@ -281,7 +281,6 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         }
     }
 
-    // 🆕 Agregado font-normal
     const inputClass =
         'mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] font-normal text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]'
 

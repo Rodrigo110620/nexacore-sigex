@@ -403,7 +403,6 @@ public class HabilitacionService {
                     : a.getHabilitado() ? EstadoHabilitacion.HABILITADO : EstadoHabilitacion.NO_HABILITADO;
             RepartoAulasService.Aula aula = reparto.aulaDe(e.getId());
             
-            // 🆕 AGREGAMOS e.getEstadoMatricula() AL FINAL
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
                     aula != null ? aula.nombre() : null, a.getFechaHoraIngreso() != null, cruces.get(e.getId()),

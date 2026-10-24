@@ -61,7 +61,7 @@ export default function EstudianteTable({
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>
                 <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span>
               </td>
-              {/* 🆕 Columna de Matrícula */}
+             
               <td className="px-5 py-3 text-center">
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                   e.estadoMatricula === 'NO_MATRICULADO' 
