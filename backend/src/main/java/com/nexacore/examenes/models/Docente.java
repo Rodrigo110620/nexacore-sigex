@@ -26,13 +26,13 @@ public class Docente {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
-    @Column(name = "titulo", length = Integer.MAX_VALUE)
+    @Column(name = "titulo")
     private String titulo;
 
-    @Column(name = "especialidad", length = Integer.MAX_VALUE)
+    @Column(name = "especialidad")
     private String especialidad;
 
     /** TITULAR | INTERINO | INVITADO (régimen docente UMSS/CEUB). */
-    @Column(name = "categoria", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "categoria", nullable = false)
     private String categoria = "INTERINO";
 }

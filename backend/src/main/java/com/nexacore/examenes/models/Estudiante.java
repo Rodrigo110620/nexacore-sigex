@@ -25,19 +25,19 @@ public class Estudiante {
 
     @NotNull
     @Pattern(regexp = ReglasEstudiante.CODIGO_SIS)
-    @Column(name = "codigo_sis", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "codigo_sis", nullable = false)
     private String codigoSis;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
     @NotNull
-    @Column(name = "apellidos", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "apellidos", nullable = false)
     private String apellidos;
 
     @NotNull
-    @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "ci", nullable = false)
     private String ci;
 
     /** Teléfono o celular opcional: 7 u 8 dígitos que empiezan con 2, 3, 4, 6 o 7 (V32). */
@@ -47,7 +47,7 @@ public class Estudiante {
 
 
     @NotNull
-    @Column(name = "email", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "email", nullable = false)
     private String email;
 
     /** Condición o tipo de estudiante: REGULAR o POSTULANTE (ver CondicionEstudiante). */

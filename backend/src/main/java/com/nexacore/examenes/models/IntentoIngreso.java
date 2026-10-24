@@ -30,7 +30,7 @@ public class IntentoIngreso {
 
     /** CI, código SIS u otro identificador presentado en el control. */
     @NotNull
-    @Column(name = "ci_o_codigo", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "ci_o_codigo", nullable = false)
     private String ciOCodigo;
 
     @Column(name = "id_estudiante")
@@ -55,6 +55,6 @@ public class IntentoIngreso {
     @Column(name = "fecha_hora")
     private Instant fechaHora;
 
-    @Column(name = "observacion", length = Integer.MAX_VALUE)
+    @Column(name = "observacion")
     private String observacion;
 }

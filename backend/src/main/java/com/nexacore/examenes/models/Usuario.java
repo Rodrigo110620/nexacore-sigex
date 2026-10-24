@@ -21,27 +21,27 @@ public class Usuario {
     private Integer id;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
     @NotNull
-    @Column(name = "apellidos", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "apellidos", nullable = false)
     private String apellidos;
 
     @NotNull
-    @Column(name = "ci", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "ci", nullable = false)
     private String ci;
 
     @NotNull
-    @Column(name = "email", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "email", nullable = false)
     private String email;
 
     @NotNull
-    @Column(name = "password", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "password", nullable = false)
     private String password;
 
     @ColumnDefault("'activo'")
-    @Column(name = "estado", length = Integer.MAX_VALUE)
+    @Column(name = "estado")
     private String estado;
 
     /** Intentos de login fallidos seguidos; vuelve a 0 al entrar o al bloquearse la cuenta. */
