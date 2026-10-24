@@ -37,6 +37,13 @@ export interface AutorizarIngresoPayload {
   justificacionManual?: string
 }
 
+/** INCI-01: contrato provisional; identidad y hora se resuelven en el servidor. */
+export interface ExpulsarEstudiantePayload {
+  idEstudiante: number
+  idExamen: number
+  motivo: string
+}
+
 export interface AutorizarIngresoResultado {
   autorizado: boolean
   resultado: string

@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye } from 'lucide-react'
+import { Ban, Eye } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import ExpulsarEstudianteModal from './ExpulsarEstudianteModal'
 import { getUserInitials } from '../users/userAvatar.utils'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 
@@ -44,6 +46,19 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
   )
 }
 
+function Acciones({ idExamen, estudiante, onExpulsar }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {onExpulsar && (
+        <button type="button" onClick={onExpulsar} className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#FDECEC] px-3 text-xs font-semibold text-[#B91C1C] hover:bg-red-100 md:min-h-8">
+          <Ban size={14} aria-hidden="true" /> Expulsar
+        </button>
+      )}
+      <Ver idExamen={idExamen} estudiante={estudiante} />
+    </span>
+  )
+}
+
 const colorCi = (habilitado: boolean) => (habilitado ? 'text-[#0439D9]' : 'text-[#B91C1C]')
 
 function EstadoIngresoBadge({ ingresado }: { ingresado: boolean }) {
@@ -61,7 +76,11 @@ function EstadoIngresoBadge({ ingresado }: { ingresado: boolean }) {
 }
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
-export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idExamen: number; estudiantes: EstudianteAsignado[] }) {
+export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string }) {
+  const { isAdmin } = useAuth()
+  const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
+  const accionExpulsar = (estudiante: EstudianteAsignado) =>
+    isAdmin && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
   return (
     <>
       <table className="hidden w-full text-left md:table">
@@ -83,7 +102,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
                 <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} /></td>
-                <td className="px-4 py-3 text-right"><Ver idExamen={idExamen} estudiante={estudiante} /></td>
+                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} /></td>
               </tr>
             )
           })}
@@ -120,7 +139,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
                       <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>
                       {estudiante.carrera && <p className="mt-0.5 truncate text-[#627A9B]">{estudiante.carrera}</p>}
                     </div>
-                    <Ver idExamen={idExamen} estudiante={estudiante} />
+                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} />
                   </div>
                 </div>
               </div>
@@ -128,6 +147,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes }: { idEx
           )
         })}
       </ul>
+      {isAdmin && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
     </>
   )
 }

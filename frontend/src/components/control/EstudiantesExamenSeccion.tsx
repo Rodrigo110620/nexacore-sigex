@@ -11,6 +11,7 @@ const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstud
 
 interface EstudiantesExamenSeccionProps {
   idExamen: number
+  examen?: string
   resumen?: ResumenEstudiantes
   estado: FiltroEstado
   cambiarEstado: (estado: FiltroEstado) => void
@@ -23,6 +24,7 @@ interface EstudiantesExamenSeccionProps {
 /** Lista "Estudiantes del examen" con pestañas por estado, carga, vacío, error y paginación. */
 export default function EstudiantesExamenSeccion({
   idExamen,
+  examen,
   resumen,
   estado,
   cambiarEstado,
@@ -82,7 +84,7 @@ export default function EstudiantesExamenSeccion({
         </p>
       ) : (
         <>
-          <EstudiantesExamenLista idExamen={idExamen} estudiantes={pagina.contenido} />
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} estudiantes={pagina.contenido} />
           <div className="mt-3">
             <UserPagination
               compact
