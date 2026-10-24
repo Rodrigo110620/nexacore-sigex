@@ -14,6 +14,8 @@ import {
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import { estadoExamen, fechaLarga, horario, separarExamenes, type EstadoExamen } from '../../utils/misExamenes'
 import useEnVivo from '../../hooks/useEnVivo'
+import CronometroExamen from '../../components/examenes/CronometroExamen'
+import { ahoraServidorMs } from '../../services/tiempoService'
 
 const ESTADOS: Record<EstadoExamen, { texto: string; clase: string }> = {
   HABILITADO: { texto: 'Habilitado', clase: 'bg-[#ECFDF5] text-[#047857]' },
@@ -146,7 +148,7 @@ export default function InicioEstudiantePage() {
 
   if (perfil && requiereRegistrarFoto(perfil)) return <Navigate to="/estudiante/foto" replace />
 
-  const { proximos, pasados, proximo } = separarExamenes(examenes ?? [])
+  const { proximos, pasados, proximo } = separarExamenes(examenes ?? [], new Date(ahoraServidorMs()))
   const lista = pestana === 'proximos' ? proximos : pasados
   const carrera = perfil?.carreras?.[0]
   const hoy = new Date().toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -207,6 +209,7 @@ export default function InicioEstudiantePage() {
               <>
                 <div className="mt-4">
                   <AvisoHabilitacion proximo={proximo} fotoEnRevision={perfil.solicitudFoto?.estado === 'PENDIENTE'} />
+                  {proximo && <CronometroExamen examen={proximo} className="mt-3" />}
                 </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_17.5rem]">
                   <div className="flex min-w-0 flex-col gap-4">

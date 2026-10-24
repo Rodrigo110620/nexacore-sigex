@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listarExamenes, type ExamenDto } from '../services/examenService'
 import useEnVivo from './useEnVivo'
+import { ahoraServidorMs, sincronizarReloj } from '../services/tiempoService'
 
 export const REFRESCO_MS = 30_000
 
@@ -11,7 +12,7 @@ export const REFRESCO_MS = 30_000
 export default function usePanelControl() {
   const [examenes, setExamenes] = useState<ExamenDto[]>()
   const [error, setError] = useState<string>()
-  const [ahora, setAhora] = useState(() => new Date())
+  const [ahora, setAhora] = useState(() => new Date(ahoraServidorMs()))
   const [recarga, setRecarga] = useState(0)
   useEnVivo((c) => c.tipo === 'EXAMEN' || c.tipo === 'INGRESO' || c.tipo === 'HABILITACION', () => setRecarga((n) => n + 1))
 
@@ -30,7 +31,8 @@ export default function usePanelControl() {
   },[recarga])
 
   useEffect(() => {
-    const intervalo = window.setInterval(() => setAhora(new Date()), REFRESCO_MS)
+    void sincronizarReloj().then(() => setAhora(new Date(ahoraServidorMs())))
+    const intervalo = window.setInterval(() => setAhora(new Date(ahoraServidorMs())), REFRESCO_MS)
     return () => window.clearInterval(intervalo)
   }, [])
 

@@ -63,22 +63,44 @@ describe('AsociarEstudiantesModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('el código o CI solo acepta números: descarta letras y símbolos al escribir', () => {
+    renderModal()
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
+    const campo = screen.getByLabelText('Códigos universitarios o CI')
+
+    fireEvent.change(campo, { target: { value: 'abc2026-00001x\n11.11@112' } })
+
+    expect(campo).toHaveValue('202600001\n1111112')
+  })
+
+  it('no envía identificadores que no tengan 7, 8 o 9 dígitos y dice cuáles revisar', async () => {
+    renderModal()
+    fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
+    fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), {
+      target: { value: '202600001\n123\n12345678901' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Asociar (3)' }))
+
+    expect(await screen.findByText(/Revisa estos identificadores: 123, 12345678901/)).toBeInTheDocument()
+    expect(habilitacionService.asociarEstudiantesLote).not.toHaveBeenCalled()
+  })
+
   it('muestra el resumen y deja en el cuadro los que no se asociaron', async () => {
     vi.mocked(habilitacionService.asociarEstudiantesLote).mockResolvedValue({
-      asociados: 1, yaAsociados: ['1111111'], noEncontrados: ['999'], estudiantes: [ana],
+      asociados: 1, yaAsociados: ['1111111'], noEncontrados: ['9999999'], estudiantes: [ana],
     })
     const { onClose } = renderModal()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
     fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), {
-      target: { value: '202600002 1111111 999' },
+      target: { value: '202600002 1111111 9999999' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Asociar (3)' }))
 
     expect(await screen.findByText('Se asoció 1 estudiante.')).toBeInTheDocument()
     expect(screen.getByText('Ya estaban asociados: 1111111')).toBeInTheDocument()
-    expect(screen.getByText('No se encontraron: 999')).toBeInTheDocument()
-    expect(screen.getByLabelText('Códigos universitarios o CI')).toHaveValue('1111111\n999')
+    expect(screen.getByText('No se encontraron: 9999999')).toBeInTheDocument()
+    expect(screen.getByLabelText('Códigos universitarios o CI')).toHaveValue('1111111\n9999999')
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -215,7 +237,7 @@ describe('AsociarEstudiantesModal', () => {
     renderModal()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Códigos / CI' }))
-    fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Códigos universitarios o CI'), { target: { value: '1111111' } })
     fireEvent.click(screen.getByRole('button', { name: 'Asociar (1)' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se encontró el examen 2')

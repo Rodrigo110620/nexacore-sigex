@@ -39,6 +39,22 @@ describe('EstudiantesHabilitadosTab', () => {
     vi.resetAllMocks()
   })
 
+  it('con el examen finalizado la lista es de solo lectura: no se asocia, cambia ni quita', async () => {
+    vi.mocked(habilitacionService.listarEstudiantesExamen).mockResolvedValue([ana, luis])
+    render(
+      <EstudiantesHabilitadosTab idExamen={2} idParalelo={2} isAdmin
+        soloLectura="El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes." />,
+    )
+    await waitFor(() => expect(screen.queryByText('Cargando estudiantes...')).not.toBeInTheDocument())
+
+    expect(screen.getByRole('status')).toHaveTextContent('El examen finalizó')
+    expect(screen.queryByRole('button', { name: /Asociar/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Quitar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cambiar/ })).not.toBeInTheDocument()
+    // La lista se sigue viendo.
+    expect(screen.getAllByText(/Ana/).length).toBeGreaterThan(0)
+  })
+
 
   it('con varias aulas muestra el aula de cada uno y avisa si alguien no entra', async () => {
     vi.mocked(habilitacionService.obtenerRepartoAulas).mockResolvedValue({
@@ -198,12 +214,12 @@ describe('EstudiantesHabilitadosTab', () => {
   it('conserva el estado anterior y avisa si falla el guardado', async () => {
     await renderTab()
     vi.mocked(habilitacionService.actualizarHabilitacion).mockRejectedValue({
-      response: { data: { mensaje: 'El examen está cancelado y no admite cambios de habilitación' } },
+      response: { data: { mensaje: 'El examen está cancelado: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.' } },
     })
     fireEvent.click(screen.getByRole('checkbox', { name: 'Seleccionar todos' }))
     fireEvent.click(screen.getByRole('button', { name: /Habilitar/ }))
 
-    expect(await screen.findByRole('alertdialog')).toHaveTextContent('no admite cambios de habilitación')
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('ya no se pueden asociar')
     expect(screen.getAllByText('Pendiente').length).toBeGreaterThan(0)
   })
 

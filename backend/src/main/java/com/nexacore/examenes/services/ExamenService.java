@@ -1,5 +1,10 @@
 package com.nexacore.examenes.services;
 
+import org.springframework.http.HttpStatus;
+import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.dto.ReprogramarExamenRequest;
+import java.time.LocalDateTime;
+import com.nexacore.examenes.utils.EstadoExamen;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,6 +69,7 @@ public class ExamenService {
     private final ParaleloRepository paraleloRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final SesionExamenService sesionExamenService;
     private final NormasExamenService normasExamenService;
     private final EstudianteRepository estudianteRepository;
     private final AsistenciaExamenRepository asistenciaExamenRepository;
@@ -89,7 +95,9 @@ public class ExamenService {
             ExamenAulaRepository examenAulaRepository,
             AuditoriaService auditoriaService,
             NormasExamenService normasExamenService,
-            NotificacionService notificacionService) {
+            NotificacionService notificacionService,
+            SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.examenRepository = examenRepository;
         this.ambienteRepository = ambienteRepository;
@@ -192,6 +200,11 @@ public class ExamenService {
 
         Examen examen = examenRepository.findById(examenId)
                 .orElseThrow(() -> new ExamenNoEncontradoException(idExamen));
+        if (EstadoExamen.FINALIZADO.equals(EstadoExamen.de(examen, LocalDateTime.now()))) {
+            // Editarlo mezclaría la sesión que ya terminó con la nueva: para repetirlo se reprograma.
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "El examen ya finalizó y no se puede editar. Para repetirlo, usa \"Reprogramar\".");
+        }
 
         Ambiente ambiente = ambienteRepository.bloquear(request.idAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
@@ -305,6 +318,53 @@ public class ExamenService {
     }
 
     /** idExamenExcluido: el propio examen al editar (id_examen es único), o null al crear. */
+    /**
+     * Repite un examen ya finalizado en otra fecha. La sesión que terminó se guarda en el historial
+     * (con el resultado de cada estudiante) y todos vuelven a "no ingresado". Conserva el aula, las
+     * aulas adicionales, los estudiantes y su habilitación.
+     */
+    @Transactional
+    public ExamenResponse reprogramar(Integer idExamen, Integer idParalelo, ReprogramarExamenRequest request,
+                                      String emailUsuario) {
+        ExamenId examenId = new ExamenId();
+        examenId.setIdExamen(idExamen);
+        examenId.setIdParalelo(idParalelo);
+        Examen examen = examenRepository.findById(examenId)
+                .orElseThrow(() -> new ExamenNoEncontradoException(idExamen));
+        String estado = EstadoExamen.de(examen, LocalDateTime.now());
+        if (!EstadoExamen.FINALIZADO.equals(estado)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, EstadoExamen.CANCELADO.equals(estado)
+                    ? "Un examen cancelado no se puede reprogramar."
+                    : "Solo se reprograma un examen que ya finalizó; para cambiar la fecha antes, edítalo.");
+        }
+        validarNoPasado(request.fecha(), request.horaInicio());
+        Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
+                .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
+        validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        List<Integer> idsAdicionales = examenAulaRepository.adicionalesDe(idExamen).stream()
+                .map(ea -> ea.getId().getIdAmbiente()).toList();
+        validarAulasAdicionales(ambiente, idsAdicionales, request.fecha(), request.horaInicio(),
+                request.duracionMinutos(), idExamen);
+
+        Integer idUsuario = usuarioRepository.findByEmail(emailUsuario).map(Usuario::getId).orElse(null);
+        Map<String, Object> antes = resumen(examen);
+        int sesion = sesionExamenService.archivarYReiniciar(examen, idUsuario, request.motivo());
+
+        examen.setFecha(request.fecha());
+        examen.setHoraInicio(request.horaInicio());
+        examen.setDuracionMinutos(request.duracionMinutos());
+        Examen guardado = examenRepository.save(examen);
+        auditoriaService.registrar("EXAMEN_REPROGRAMADO", Map.of(
+                "idExamen", idExamen,
+                "sesionArchivada", sesion,
+                "motivo", request.motivo().strip(),
+                "antes", antes,
+                "despues", resumen(guardado)));
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_EXAMEN, idExamen, null);
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
+        return toResponse(guardado);
+    }
+
     private void validarSinConflicto(
             Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
             Integer idExamenExcluido) {
@@ -652,7 +712,7 @@ public class ExamenService {
                 examen.getIdAmbiente(),
                 ambienteNombre,
                 ambienteUbicacion,
-                examen.getEstado(),
+                EstadoExamen.de(examen, LocalDateTime.now()),
                 generales,
                 particulares,
                 examen.getIdMateria(),

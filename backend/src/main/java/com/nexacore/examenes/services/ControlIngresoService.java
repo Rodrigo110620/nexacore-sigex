@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.utils.EstadoExamen;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -101,6 +102,7 @@ public class ControlIngresoService {
                 .orElseThrow(() -> new ControlIngresoException(
                         HttpStatus.NOT_FOUND,
                         "El estudiante no está asociado al examen seleccionado"));
+        verificarIngresoAbierto(asistencia);
 
         if (!Boolean.TRUE.equals(asistencia.getHabilitado())) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
@@ -216,6 +218,21 @@ public class ControlIngresoService {
         return new RepartoAulasService.Aula(examen.getIdAmbiente(), nombre, null, 0);
     }
 
+    /**
+     * Un examen cancelado o ya terminado no admite más ingresos (ni autorizar ni denegar). Los
+     * reportes de incidentes (intentos, aula incorrecta, QR duplicado, foto) siguen permitidos.
+     */
+    private void verificarIngresoAbierto(AsistenciaExamen asistencia) {
+        String estado = EstadoExamen.de(asistencia.getExamen(), asistenciaRepository.obtenerFechaHoraServidor());
+        if (EstadoExamen.CANCELADO.equals(estado)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El examen fue cancelado; no se pueden registrar ingresos.");
+        }
+        if (EstadoExamen.FINALIZADO.equals(estado)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "El examen ya terminó; no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.");
+        }
+    }
+
     @Transactional
     public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
@@ -237,6 +254,7 @@ public class ControlIngresoService {
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
         AsistenciaExamen asistencia = asistenciaRepository.buscarParaAutorizar(request.idEstudiante(), request.idExamen())
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "El estudiante no está asociado al examen seleccionado"));
+        verificarIngresoAbierto(asistencia);
         if (asistencia.getFechaHoraIngreso() != null) {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
                     "No se puede denegar un ingreso que ya fue autorizado");

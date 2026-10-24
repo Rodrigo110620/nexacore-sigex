@@ -27,6 +27,17 @@ public class ExamenAccesoService {
                 .orElse(false);
     }
 
+    /** Reprogramar: el ADMIN cualquier examen; el DOCENTE solo los suyos, sin pedirlo al ADMIN. */
+    public boolean puedeReprogramar(Integer idExamen, Authentication authentication) {
+        if (idExamen == null || authentication == null || !authentication.isAuthenticated()) return false;
+        if (tieneRol(authentication, "ROLE_ADMIN")) return true;
+        if (!tieneRol(authentication, "ROLE_DOCENTE")) return false;
+        return usuarioRepository.findByEmail(authentication.getName())
+                .map(Usuario::getId)
+                .map(idDocente -> examenRepository.perteneceADocente(idExamen, idDocente))
+                .orElse(false);
+    }
+
     private boolean tieneRol(Authentication authentication, String rol) {
         return authentication.getAuthorities().stream().anyMatch(a -> rol.equals(a.getAuthority()));
     }

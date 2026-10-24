@@ -96,3 +96,41 @@ export async function actualizarExamen(
 export async function cancelarExamen(idExamen: number, idParalelo: number): Promise<void> {
   await api.delete(`/examenes/${idExamen}/${idParalelo}`)
 }
+
+/** Repite un examen ya finalizado: la sesión anterior queda en el historial (ADMIN o su DOCENTE). */
+export async function reprogramarExamen(
+  idExamen: number,
+  idParalelo: number,
+  payload: { fecha: string; horaInicio: string; duracionMinutos: number; motivo: string },
+): Promise<ExamenDto> {
+  const { data } = await api.post<ExamenDto>(`/examenes/${idExamen}/${idParalelo}/reprogramar`, payload)
+  return data
+}
+
+/** Sesión anterior de un examen reprogramado (GET /examenes/{id}/{paralelo}/sesiones). */
+export interface SesionExamen {
+  numero: number
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  ambiente: string | null
+  asociados: number
+  ingresaron: number
+  motivoReprogramacion: string
+  reprogramadoPor: string | null
+  cerradaEn: string
+  estudiantes: {
+    idEstudiante: number
+    codigoSis: string
+    nombre: string
+    habilitado: boolean | null
+    motivoInhabilitacion: string | null
+    fechaHoraIngreso: string | null
+    aulaIngreso: string | null
+  }[]
+}
+
+export async function listarSesionesExamen(idExamen: number, idParalelo: number): Promise<SesionExamen[]> {
+  const { data } = await api.get<SesionExamen[]>(`/examenes/${idExamen}/${idParalelo}/sesiones`)
+  return data
+}

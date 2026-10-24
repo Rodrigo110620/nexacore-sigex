@@ -22,6 +22,7 @@ import useEnVivo from '../../hooks/useEnVivo'
 import ReportarFotoModal from '../../components/control/ReportarFotoModal'
 import ReporteQrDuplicadoModal from '../../components/control/ReporteQrDuplicadoModal'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
+import useTiempoExamen from '../../hooks/useTiempoExamen'
 
 const VERIFICACION = 'Identidad biométrica cotejada / Carnet físico verificado'
 const MAX_DETALLE_DENEGACION = 500
@@ -80,6 +81,9 @@ export default function ControlIngresoPage() {
   const [ambienteConfirmado, setAmbienteConfirmado] = useState(true)
   const [aviso, setAviso] = useState<Resultado | null>(null)
   const [reportarFotoOpen, setReportarFotoOpen] = useState(false)
+  // Al terminar el examen se bloquean los ingresos (el backend también lo impide).
+  const tiempoExamen = useTiempoExamen(ctx ? { fecha: ctx.fecha, horaInicio: ctx.horaInicio, duracionMinutos: ctx.duracionMinutos } : null)
+  const examenTerminado = tiempoExamen?.fase === 'finalizado'
   /** Reporte abierto de la foto: se avisa en lugar de dejar reportarla otra vez. */
   const [reporteFoto, setReporteFoto] = useState<ReporteFotoAbierto | null>(null)
   const [normasAbiertas, setNormasAbiertas] = useState<Set<string>>(new Set())
@@ -218,7 +222,8 @@ export default function ControlIngresoPage() {
             <fieldset className="control-incidents"><legend className="sr-only">Incidencias detectadas</legend><p className="mb-3 flex items-center gap-2 font-semibold text-[#A6450A]"><AlertTriangle size={14}/>Incidencias Detectadas</p>{types.filter(t=>['LLEGADA_TARDE','DOCUMENTO_MAL_ESTADO','OTRA_INCIDENCIA'].includes(t.nombre)).map(t=><label key={t.id} className="mb-2 flex items-start gap-2"><input type="checkbox" checked={selectedIncidents.includes(t.id)} onChange={()=>setSelectedIncidents(v=>v.includes(t.id)?v.filter(id=>id!==t.id):[...v,t.id])}/>{ETIQUETA_INCIDENCIA[t.nombre]}</label>)}{selectedIncidents.length>0&&<><textarea aria-label="Detalle de incidencias" aria-invalid={textErrorField==='incidencia'} value={incident} onChange={e=>{setIncident(e.target.value); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}} rows={2} maxLength={1000} className="control-input" placeholder="Opcional: describe la incidencia..."/>{textErrorField==='incidencia'&&<p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}</>}</fieldset>
           </div>
         </section>}
-        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
+        {examenTerminado&&!ctx.ingresoRegistrado&&<p role="status" className="mx-1 mb-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#344158]"><strong>El examen ya terminó:</strong> no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.</p>}
+        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result||examenTerminado} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||examenTerminado||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
       </div>}
     </div></main>
     {denialOpen&&ctx&&<div className="control-overlay control-denial-overlay fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Denegar ingreso"><section className="control-denial-modal">

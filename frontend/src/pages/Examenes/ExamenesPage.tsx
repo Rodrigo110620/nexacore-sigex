@@ -8,8 +8,9 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import { addMinutes, estadoLabel, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+import { addMinutes, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
+import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 
 const PAGE_SIZE = 5
 
@@ -21,25 +22,6 @@ function ExamAvatar({ examen, size = 'card' }: { examen: ExamenDto; size?: 'card
       className={`flex shrink-0 items-center justify-center rounded-lg border font-bold ${sizeClass} ${getUserAvatarPalette({ id: examen.idExamen })}`}
     >
       {initialsOfName(examen.asignatura)}
-    </span>
-  )
-}
-
-function EstadoDot({ estado, className = 'text-[11px]' }: { estado: string; className?: string }) {
-  const cancelado = estado === 'cancelado'
-  return (
-    <span className={`inline-flex items-center gap-1.5 font-medium ${cancelado ? 'text-red-600' : 'text-[#15803D]'} ${className}`}>
-      <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
-        {!cancelado && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22C55E] opacity-60 motion-reduce:hidden" />
-        )}
-        <span
-          className={`relative inline-flex h-2 w-2 rounded-full ${
-            cancelado ? 'bg-red-500' : 'bg-[#16A34A] motion-safe:animate-pulse'
-          }`}
-        />
-      </span>
-      {estadoLabel(estado)}
     </span>
   )
 }
@@ -309,7 +291,7 @@ export default function ExamenesPage() {
                               <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
                               <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
                             </div>
-                            <EstadoDot estado={e.estado} />
+                            <EstadoExamenBadge examen={e} />
                           </div>
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-600">
                             <span className="inline-flex items-center gap-1">
@@ -381,7 +363,7 @@ export default function ExamenesPage() {
                           </td>
                           <td className="px-5 py-3 text-gray-600">{e.ambienteNombre}</td>
                           <td className="px-5 py-3">
-                            <EstadoDot estado={e.estado} className="text-sm" />
+                            <EstadoExamenBadge examen={e} className="text-sm" />
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-center gap-2">

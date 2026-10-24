@@ -1,6 +1,10 @@
 package com.nexacore.examenes.exceptions;
 
 import com.nexacore.examenes.dto.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import com.nexacore.examenes.exceptions.RolDuplicadoException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -13,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,6 +32,23 @@ import java.util.Map;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * Pestaña cerrada o recargada con las notificaciones en vivo abiertas: el siguiente envío falla
+     * con "broken pipe". La conexión ya se descartó en NotificacionService, así que no es un error;
+     * sin esto Tomcat lo registraba como ERROR con toda la traza. En otras rutas se sigue propagando.
+     */
+    @ExceptionHandler({IOException.class, AsyncRequestNotUsableException.class})
+    public void manejarConexionCerrada(Exception ex, HttpServletRequest request) throws Exception {
+        String uri = request.getRequestURI();
+        if (uri.endsWith("/notificaciones/stream") || uri.endsWith("/mi/eventos")) {
+            log.debug("Conexión en vivo cerrada por el cliente: {}", ex.getMessage());
+            return;
+        }
+        throw ex;
+    }
 
     @ExceptionHandler(ControlIngresoException.class)
     public ResponseEntity<ErrorResponse> manejarControlIngreso(ControlIngresoException ex) {

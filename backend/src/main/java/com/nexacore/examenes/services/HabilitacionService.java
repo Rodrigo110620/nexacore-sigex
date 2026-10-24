@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.utils.EstadoExamen;
 import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
 import com.nexacore.examenes.dto.EstudianteExamenFila;
@@ -359,10 +360,10 @@ public class HabilitacionService {
 
     private Examen buscarExamenEditable(Integer idExamen, Integer idParalelo) {
         Examen examen = buscarExamen(idExamen, idParalelo);
-        String estado = examen.getEstado() == null ? "programado" : examen.getEstado().toLowerCase();
-        if (estado.equals("cancelado") || estado.equals("finalizado")) {
+        String estado = EstadoExamen.de(examen, java.time.LocalDateTime.now());
+        if (estado.equals(EstadoExamen.CANCELADO) || estado.equals(EstadoExamen.FINALIZADO)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
-                    "El examen está " + estado + " y no admite cambios de habilitación");
+                    "El examen está " + estado + ": ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.");
         }
         return examen;
     }

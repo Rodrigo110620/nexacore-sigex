@@ -1,6 +1,7 @@
 package com.nexacore.examenes.dto;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -9,5 +10,5 @@ import java.util.List;
 public record AsociarEstudiantesLoteRequest(
         @NotEmpty(message = "Ingrese al menos un código universitario o CI")
         @Size(max = 500, message = "Se pueden asociar hasta 500 estudiantes a la vez")
-        List<String> identificadores
+        List<@Pattern(regexp = ReglasEstudiante.IDENTIFICADOR, message = ReglasEstudiante.MSG_IDENTIFICADOR) String> identificadores
 ) {}
