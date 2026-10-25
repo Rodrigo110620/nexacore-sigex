@@ -69,6 +69,9 @@ class ControlIngresoPorLlegadaTests {
                     INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado)
                     VALUES (?, ?, ?, TRUE)
                     """, id, EXAMEN, PARALELO);
+            // Sin foto el control no puede autorizar el ingreso.
+            jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
+                    + "VALUES (?, ?, 'image/jpeg', CURRENT_TIMESTAMP)", id, new byte[]{(byte) 0xFF, (byte) 0xD8});
         }
     }
 

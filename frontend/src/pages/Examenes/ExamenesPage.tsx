@@ -11,6 +11,9 @@ import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { addMinutes, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
+import { ordenarPorFase } from '../../utils/tiempoExamen'
+import { offsetServidorMinutos } from '../../services/tiempoService'
+import useReloj from '../../hooks/useReloj'
 
 const PAGE_SIZE = 5
 
@@ -74,7 +77,8 @@ export default function ExamenesPage() {
     [examenes],
   )
 
-  const filtered = useMemo(() => {
+  const ahora = useReloj(30_000)
+  const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase()
     return examenes.filter((e) => {
       if (paraleloSeleccionado && String(e.idParalelo) !== paraleloSeleccionado) return false
@@ -91,6 +95,10 @@ export default function ExamenesPage() {
       )
     })
   }, [examenes, query, ambienteFiltro, fechaFiltro, paraleloSeleccionado])
+
+  // Primero lo activo: en curso, próximos (el más cercano primero), finalizados (el más reciente primero)
+  // y al final los cancelados. Se reordena solo cuando un examen empieza o termina.
+  const filtered = useMemo(() => ordenarPorFase(filtrados, ahora, offsetServidorMinutos()), [filtrados, ahora])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
