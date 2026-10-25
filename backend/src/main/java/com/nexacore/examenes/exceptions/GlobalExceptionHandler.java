@@ -56,16 +56,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(cuerpo);
     }
 
-    /** Falla alguna anotacion de validacion del LoginRequest. */
+    /** Falla alguna anotacion de validacion del Request. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> manejarValidaciones(MethodArgumentNotValidException ex) {
         Map<String, String> errores = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(error -> errores.put(error.getField(), error.getDefaultMessage()));
 
+        
+        String mensajePrincipal = errores.values().stream()
+                .findFirst()
+                .orElse("Los datos enviados no son validos");
+
         ErrorResponse cuerpo = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                "Los datos enviados no son validos",
+                mensajePrincipal,
                 errores);
 
         return ResponseEntity.badRequest().body(cuerpo);
