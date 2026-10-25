@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Ban, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ExpulsarEstudianteModal from './ExpulsarEstudianteModal'
+import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 
@@ -61,16 +62,16 @@ function Acciones({ idExamen, estudiante, onExpulsar }: { idExamen: number; estu
 
 const colorCi = (habilitado: boolean) => (habilitado ? 'text-[#0439D9]' : 'text-[#B91C1C]')
 
-function EstadoIngresoBadge({ ingresado }: { ingresado: boolean }) {
+function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expulsado?: boolean }) {
   return (
     <span
       className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-        ingresado
+        ingresado && !expulsado
           ? 'bg-[#DCFCE7] text-[#166534]'
           : 'bg-[#FDECEC] text-[#B91C1C]'
       }`}
     >
-      {ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
+      {expulsado ? 'EXPULSADO' : ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
     </span>
   )
 }
@@ -98,10 +99,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
             const habilitado = estudiante.estado === 'HABILITADO'
             return (
               <tr key={estudiante.idEstudiante} className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'}`}>
-                <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado} /></td>
+                <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado}>
+                  {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
+                </Identidad></td>
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
-                <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} /></td>
+                <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} /></td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} /></td>
               </tr>
             )
@@ -131,7 +134,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                     <p className="min-w-0 text-xs font-semibold leading-tight text-[#011140]">
                       {estudiante.nombre} {estudiante.apellidos}
                     </p>
-                    <EstadoIngresoBadge ingresado={estudiante.ingresado} />
+                    <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-[#EDF1F7] pt-2">
@@ -141,6 +144,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                     </div>
                     <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} />
                   </div>
+                  {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </div>
               </div>
             </li>
