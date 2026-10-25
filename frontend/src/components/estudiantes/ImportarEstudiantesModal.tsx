@@ -15,7 +15,9 @@ interface ImportarEstudiantesModalProps {
   onImported: (result: ImportarEstudiantesResponse) => void
 }
 
-const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'telefono', 'email', 'idFacultad', 'idCarrera']
+const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'email', 'idFacultad', 'idCarrera']
+/** Si faltan o van vacías: sin teléfono y MATRICULADO. */
+const COLUMNAS_OPCIONALES = ['telefono', 'estadoMatricula (MATRICULADO o NO_MATRICULADO)']
 const MAX_BYTES = 1024 * 1024
 
 export default function ImportarEstudiantesModal({ open, onClose, onImported }: ImportarEstudiantesModalProps) {
@@ -166,6 +168,8 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
                 Columnas requeridas (separadas por coma o punto y coma):
               </p>
               <p className="mt-1 break-words font-mono text-[11px] font-semibold text-[#0439D9]">{COLUMNAS.join(', ')}</p>
+              <p className="mt-2">Opcionales:</p>
+              <p className="mt-1 break-words font-mono text-[11px] font-semibold text-[#0439D9]">{COLUMNAS_OPCIONALES.join(', ')}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 {(['csv', 'pdf'] as const).map((formato) => (
                   <button

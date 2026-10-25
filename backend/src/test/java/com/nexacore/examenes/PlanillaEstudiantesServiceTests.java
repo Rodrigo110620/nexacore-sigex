@@ -89,10 +89,10 @@ class PlanillaEstudiantesServiceTests {
         String csv = new String(service.csv(), StandardCharsets.UTF_8);
 
         assertEquals("""
-            \uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera
-            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;1
-            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;2
-            202404012;Ana;Rojas Vargas;7489210;202404012@est.umss.edu;;
+            \uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula
+            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;1;;MATRICULADO
+            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;2;;MATRICULADO
+            202404012;Ana;Rojas Vargas;7489210;202404012@est.umss.edu;;;;MATRICULADO
             """, csv);
     }
 
@@ -103,7 +103,7 @@ class PlanillaEstudiantesServiceTests {
 
         String csv = new String(service.csv(), StandardCharsets.UTF_8);
 
-        assertEquals("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera\n", csv);
+        assertEquals("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula\n", csv);
     }
 
     @Test

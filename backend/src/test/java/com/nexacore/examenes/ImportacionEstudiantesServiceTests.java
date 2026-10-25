@@ -1,5 +1,7 @@
 package com.nexacore.examenes;
 
+import java.util.List;
+import com.nexacore.examenes.dto.ReglasEstudiante;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
 import com.nexacore.examenes.services.EstudianteService;
@@ -54,6 +56,44 @@ class ImportacionEstudiantesServiceTests {
     private static final String ENCABEZADO = "codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera\n";
 
     @Test
+    void leeElCsvQueExcelGuardaEnWindowsConTildesYEnie() {
+        // "CSV (delimitado por comas)" de Excel en Windows: Windows-1252, no UTF-8.
+        var file = new MockMultipartFile("file", "estudiantes.csv", "text/csv",
+            (ENCABEZADO + "202404013,Íñigo,Gutiérrez Peña,7489211,202404013@est.umss.edu,1,10\n")
+                .getBytes(java.nio.charset.Charset.forName("windows-1252")));
+
+        var result = service.importar(file);
+
+        assertEquals(1, result.insertados(), String.valueOf(result.errores()));
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            r.nombre().equals("Íñigo") && r.apellidos().equals("Gutiérrez Peña")));
+    }
+
+    @Test
+    void cadaErrorDeDigitosSeInformaUnaSolaVez() {
+        var file = csv(ENCABEZADO
+            + "20240401,Ana,Rojas Vargas,7489212,202404014@est.umss.edu,1,10\n"
+            + "202404015,Ana,Rojas Vargas,123456,202404015@est.umss.edu,1,10\n");
+
+        var result = service.importar(file);
+
+        assertEquals(List.of("Fila 2: " + ReglasEstudiante.MSG_CODIGO_SIS + ".", "Fila 3: " + ReglasEstudiante.MSG_CI + "."),
+            result.errores());
+    }
+
+    @Test
+    void importaTelefonoYEstadoDeMatriculaDeLaPlanillaExportada() {
+        var file = csv("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula\n"
+            + "202404016;Ana;Rojas Vargas;7489216;202404016@est.umss.edu;1;10;71234567;NO_MATRICULADO\n");
+
+        var result = service.importar(file);
+
+        assertEquals(1, result.insertados(), String.valueOf(result.errores()));
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            "71234567".equals(r.telefono()) && "NO_MATRICULADO".equals(r.estadoMatricula())));
+    }
+
+    @Test
     void importaCsvDeExcelConBomYPuntoYComa() {
         var file = csv("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera\n"
             + "202404012;María;González Flores;7489210;Maria@umss.edu;1;10\n");
@@ -96,7 +136,7 @@ class ImportacionEstudiantesServiceTests {
         assertEquals(0, result.insertados());
         assertEquals(3, result.ignorados());
         assertTrue(result.errores().get(0).startsWith("Fila 2: "));
-        assertTrue(result.errores().get(0).contains("9 digitos"));
+        assertTrue(result.errores().get(0).contains("9 dígitos"));
         assertTrue(result.errores().get(1).contains("correo electrónico es obligatorio"));
         assertTrue(result.errores().get(2).contains("idFacultad debe ser un número"));
         verify(estudianteService, never()).registrar(any());
