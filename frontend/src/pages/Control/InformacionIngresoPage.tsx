@@ -32,6 +32,7 @@ import {
   type ReporteQrDuplicado,
 } from "../../services/reporteQrDuplicadoConsultaService";
 import useEnVivo from "../../hooks/useEnVivo";
+import ExpulsionesReporte from "../../components/control/ExpulsionesReporte";
 
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
@@ -220,8 +221,8 @@ export default function InformacionIngresoPage() {
             </button>
             <button type="button" role="tab" aria-selected={pestaña === "excepciones"} onClick={() => setPestaña("excepciones")}
               className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9]/40 ${pestaña === "excepciones" ? "border-[#0439D9] bg-[#F1F6FF] text-[#0439D9]" : "border-transparent text-[#627A9B] hover:bg-slate-50"}`}>
-              <FileText size={16} aria-hidden="true" /> Ingresos manuales
-              <span className="rounded-full bg-[#E6ECFF] px-2 py-0.5 text-xs text-[#0439D9]">{ingresosManuales.length}</span>
+              <FileText size={16} aria-hidden="true" /> Excepciones
+              <span className="rounded-full bg-[#E6ECFF] px-2 py-0.5 text-xs text-[#0439D9]">{ingresosManuales.length} manual{ingresosManuales.length === 1 ? '' : 'es'}</span>
             </button>
             <button type="button" role="tab" aria-selected={pestaña === "intentos"} onClick={() => setPestaña("intentos")}
               className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}>
@@ -234,9 +235,14 @@ export default function InformacionIngresoPage() {
             <h2 className="border-b border-[#E6EAF0] pb-2 text-base font-bold text-[#20242A]">
               {pestaña === "intentos"
                 ? "Ingresos no autorizados"
-                : pestaña === "excepciones" ? "Ingresos manuales autorizados" : "Ingresos autorizados"}
+                : pestaña === "excepciones" ? "Excepciones del examen" : "Ingresos autorizados"}
             </h2>
-            {pestaña === "excepciones" && <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>}
+            {pestaña === "excepciones" && <>
+              {idValido && <ExpulsionesReporte idExamen={idExamen} controles={registros ?? []}
+                examen={examen?.idExamen === idExamen ? examen.asignatura : undefined} />}
+              <h3 className="mt-4 font-semibold text-[#011140]">Ingresos manuales autorizados</h3>
+              <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>
+            </>}
             {error ? (
               <div
                 className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
