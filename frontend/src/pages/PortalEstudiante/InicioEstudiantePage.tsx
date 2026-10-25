@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, CircleCheck, Clock, Info, LoaderCircle, MapPin, QrCode, RotateCw, ShieldCheck, ShieldX, TriangleAlert, WifiOff } from 'lucide-react'
+import { CalendarDays, CircleCheck, Clock, Info, LoaderCircle, MapPin, QrCode, RotateCw, ScrollText, ShieldCheck, ShieldX, TriangleAlert, WifiOff } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import PortalEstudianteLayout from '../../components/estudiantes/PortalEstudianteLayout'
@@ -12,11 +12,13 @@ import {
   type MiExamen,
 } from '../../services/panelEstudianteService'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
-import { estadoExamen, fechaLarga, horario, separarExamenes, type EstadoExamen } from '../../utils/misExamenes'
+import { estadoExamen, fechaLarga, horaDe, horario, pasoPorControl, separarExamenes, type EstadoExamen } from '../../utils/misExamenes'
 import useEnVivo from '../../hooks/useEnVivo'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
 import { ahoraServidorMs } from '../../services/tiempoService'
 import AvisoIngresoExamen from '../../components/estudiantes/AvisoIngresoExamen'
+import EstadoIngresoExamen from '../../components/estudiantes/EstadoIngresoExamen'
+import NormasExamen from '../../components/estudiantes/NormasExamen'
 
 const ESTADOS: Record<EstadoExamen, { texto: string; clase: string }> = {
   HABILITADO: { texto: 'Habilitado', clase: 'bg-[#ECFDF5] text-[#047857]' },
@@ -25,6 +27,7 @@ const ESTADOS: Record<EstadoExamen, { texto: string; clase: string }> = {
   INGRESO: { texto: 'Ingresó', clase: 'bg-[#ECFDF5] text-[#047857]' },
   DENEGADO: { texto: 'Ingreso denegado', clase: 'bg-[#FEF2F2] text-[#B91C1C]' },
   NO_SE_PRESENTO: { texto: 'No se presentó', clase: 'bg-[#F1F5F9] text-[#475569]' },
+  EXPULSADO: { texto: 'Expulsado', clase: 'bg-[#FEF2F2] text-[#B91C1C]' },
 }
 
 function EstadoBadge({ estado }: { estado: EstadoExamen }) {
@@ -34,7 +37,8 @@ function EstadoBadge({ estado }: { estado: EstadoExamen }) {
 
 /** Aviso según el próximo examen: habilitado, pendiente de revisión o no habilitado (con la razón). */
 function AvisoHabilitacion({ proximo, fotoEnRevision }: { proximo: MiExamen | null; fotoEnRevision: boolean }) {
-  if (!proximo) return null
+  // Si ya pasó por el control, lo que importa es lo que pasó ahí (lo muestra la tarjeta del examen).
+  if (!proximo || pasoPorControl(proximo)) return null
   if (proximo.habilitado === false) {
     return (
       <div role="alert" className="flex gap-3 rounded-xl border border-[#FBCFD4] bg-[#FFF5F5] p-4 text-sm text-[#7F1D1D]">
@@ -95,14 +99,28 @@ function ProximoExamen({ examen }: { examen: MiExamen }) {
       </div>
       {/* Todo lo del mismo examen junto: cuánto falta o queda, el aviso de ingreso y su QR. */}
       <CronometroExamen examen={examen} className="mt-4" />
+      <EstadoIngresoExamen examen={examen} className="mt-3" />
       <AvisoIngresoExamen examen={examen} conBotonQr={false} className="mt-3" />
-      <Link
-        to="/estudiante/qr"
-        className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white hover:bg-[#0027a2]"
-      >
-        <QrCode size={20} aria-hidden="true" /> Mostrar mi QR
-      </Link>
-      <p className="mt-2 text-center text-[11px] text-[#627A9B]">Tu QR se renueva cada 60 segundos: muéstralo desde tu celular, no lo captures.</p>
+      <NormasExamen examen={examen} className="mt-3" />
+      {/* Expulsado ya no necesita su QR; si ya ingresó, el QR pasa a segundo plano. */}
+      {!examen.expulsado && (examen.fechaHoraIngreso ? (
+        <Link
+          to="/estudiante/qr"
+          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#BFD2F8] bg-white text-sm font-semibold text-[#0439D9] hover:bg-[#EAF2FF]"
+        >
+          <QrCode size={18} aria-hidden="true" /> Ver mi QR
+        </Link>
+      ) : (
+        <>
+          <Link
+            to="/estudiante/qr"
+            className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white hover:bg-[#0027a2]"
+          >
+            <QrCode size={20} aria-hidden="true" /> Mostrar mi QR
+          </Link>
+          <p className="mt-2 text-center text-[11px] text-[#627A9B]">Tu QR se renueva cada 60 segundos: muéstralo desde tu celular, no lo captures.</p>
+        </>
+      ))}
     </article>
   )
 }
@@ -110,18 +128,25 @@ function ProximoExamen({ examen }: { examen: MiExamen }) {
 function FilaExamen({ examen, pasado }: { examen: MiExamen; pasado: boolean }) {
   const estado = estadoExamen(examen, pasado)
   const detalle =
-    estado === 'NO_HABILITADO' ? examen.motivoInhabilitacion
-      : estado === 'DENEGADO' ? examen.motivoDenegacion
-        : estado === 'INGRESO' && examen.fechaHoraIngreso
-          ? `Ingresaste a las ${new Date(examen.fechaHoraIngreso).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-          : null
+    estado === 'EXPULSADO' ? 'Tu participación fue anulada. Comunícate con la administración.'
+      : estado === 'NO_HABILITADO' ? examen.motivoInhabilitacion
+        : estado === 'DENEGADO' ? examen.motivoDenegacion
+          : estado === 'INGRESO' && examen.fechaHoraIngreso
+            ? `Ingresaste a las ${horaDe(examen.fechaHoraIngreso)}`
+            : null
+  const normas = (examen.normasGenerales?.length ?? 0) + (examen.normasParticulares?.length ?? 0)
   return (
     <li className="flex items-start justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4">
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-[#011140]">{examen.materia}</p>
         <p className="mt-0.5 text-xs text-[#627A9B]">{fechaLarga(examen.fecha)} · {horario(examen)}</p>
         <p className="text-xs text-[#627A9B]">{examen.aula ? `Aula ${examen.aula}` : 'Aula por asignar'}</p>
-        {detalle && <p className="mt-1 text-xs text-[#7F1D1D]">{detalle}</p>}
+        {detalle && <p className={`mt-1 text-xs ${estado === 'INGRESO' ? 'text-[#047857]' : 'text-[#7F1D1D]'}`}>{detalle}</p>}
+        {!pasado && normas > 0 && (
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-[#0439D9]">
+            <ScrollText size={12} aria-hidden="true" /> {normas === 1 ? '1 norma' : `${normas} normas`} para este examen
+          </p>
+        )}
       </div>
       <EstadoBadge estado={estado} />
     </li>

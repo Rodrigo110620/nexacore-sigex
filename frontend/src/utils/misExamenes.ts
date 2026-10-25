@@ -39,16 +39,33 @@ export function horario(e: Pick<MiExamen, 'fecha' | 'horaInicio' | 'duracionMinu
   return `${hora(inicio)} – ${hora(fin)}`
 }
 
-export type EstadoExamen = 'HABILITADO' | 'PENDIENTE' | 'NO_HABILITADO' | 'INGRESO' | 'DENEGADO' | 'NO_SE_PRESENTO'
+export type EstadoExamen = 'HABILITADO' | 'PENDIENTE' | 'NO_HABILITADO' | 'INGRESO' | 'DENEGADO' | 'NO_SE_PRESENTO' | 'EXPULSADO'
 
-/** Estado que se muestra del examen: la habilitación si es próximo; el resultado del ingreso si ya pasó. */
+/**
+ * Estado que se muestra del examen: lo que pasó en el control (expulsión, ingreso o denegación) y,
+ * si todavía no pasó por el control, su habilitación (próximo) o que no se presentó (pasado).
+ */
 export function estadoExamen(e: MiExamen, pasado: boolean): EstadoExamen {
+  if (e.expulsado) return 'EXPULSADO'
   if (pasado) {
     if (e.resultadoIngreso === 'AUTORIZADO') return 'INGRESO'
     if (e.resultadoIngreso === 'DENEGADO') return 'DENEGADO'
     return e.habilitado === false ? 'NO_HABILITADO' : 'NO_SE_PRESENTO'
   }
+  // Ya pasó por el control: el estado es lo que pasó ahí, no la habilitación.
+  if (e.fechaHoraIngreso) return 'INGRESO'
+  if (e.resultadoIngreso === 'DENEGADO') return 'DENEGADO'
   if (e.habilitado === true) return 'HABILITADO'
   if (e.habilitado === false) return 'NO_HABILITADO'
   return 'PENDIENTE'
+}
+
+/** Hora (HH:MM) de un instante del servidor, sin depender de la zona horaria del celular. */
+export function horaDe(fechaHora: string): string {
+  return fechaHora.slice(11, 16)
+}
+
+/** Ya pasó por el control (ingresó, se le denegó el ingreso o lo expulsaron). */
+export function pasoPorControl(e: MiExamen): boolean {
+  return e.expulsado || Boolean(e.fechaHoraIngreso) || e.resultadoIngreso === 'DENEGADO'
 }

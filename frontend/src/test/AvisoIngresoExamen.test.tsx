@@ -14,7 +14,7 @@ vi.mock('../services/tiempoService', () => ({
 const examen = (extra: Partial<MiExamen> = {}): MiExamen => ({
   idExamen: 1, materia: 'Física General', fecha: '2026-10-24', horaInicio: '08:00:00', duracionMinutos: 90,
   aula: '691A', habilitado: true, motivoInhabilitacion: null, resultadoIngreso: null, motivoDenegacion: null,
-  fechaHoraIngreso: null, ...extra,
+  fechaHoraIngreso: null, expulsado: false, normasGenerales: [], normasParticulares: [], ...extra,
 } as MiExamen)
 
 const mostrar = (e: MiExamen) => render(<MemoryRouter><AvisoIngresoExamen examen={e} /></MemoryRouter>)
