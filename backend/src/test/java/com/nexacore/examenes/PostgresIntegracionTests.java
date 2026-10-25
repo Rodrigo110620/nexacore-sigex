@@ -60,6 +60,7 @@ class PostgresIntegracionTests {
     }
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.nexacore.examenes.repositories.TrasladoAmbienteRepository trasladoRepository;
     @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
@@ -292,6 +293,53 @@ class PostgresIntegracionTests {
         } finally {
             jdbc.execute("ROLLBACK TO SAVEPOINT antes_del_error");
         }
+    }
+
+    @Test
+    void elTrasladoDeAmbienteGuardaOrigenYDestinoSinCambiarLaHoraDeIngreso() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-906");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int trasladado = estudiante("202000061", "Ana");
+        int ajeno = estudiante("202000062", "Beto");
+        int aulaNueva = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) "
+                + "VALUES (?, ?, ?, true, TIMESTAMP '2026-10-20 07:55:00', ?)", trasladado, idExamen, paralelo, idAmbiente);
+
+        // El servicio de Fernando: guarda el traslado y cambia el aula sin tocar la hora de ingreso.
+        com.nexacore.examenes.models.TrasladoAmbiente traslado = new com.nexacore.examenes.models.TrasladoAmbiente();
+        traslado.setIdExamen(idExamen);
+        traslado.setIdEstudiante(trasladado);
+        traslado.setIdAmbienteOrigen(idAmbiente);
+        traslado.setIdAmbienteDestino(aulaNueva);
+        traslado.setMotivo("Computadora dañada");
+        traslado.setIdUsuarioAdmin(idDocente);
+        Integer id = trasladoRepository.saveAndFlush(traslado).getId();
+        jdbc.update("UPDATE asistencia_examen SET id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                aulaNueva, trasladado, idExamen);
+        sincronizar();
+
+        var guardado = trasladoRepository.findById(id).orElseThrow();
+        assertThat(guardado.getFechaHoraTraslado()).isNotNull();
+        assertThat(jdbc.queryForMap("SELECT id_ambiente_ingreso, fecha_hora_ingreso FROM asistencia_examen WHERE id_estudiante = ?", trasladado))
+                .containsEntry("id_ambiente_ingreso", aulaNueva)
+                .containsEntry("fecha_hora_ingreso", java.sql.Timestamp.valueOf("2026-10-20 07:55:00"));
+        assertThat(trasladoRepository.delEstudianteEnSesionActual(idExamen, trasladado, null))
+                .singleElement().satisfies(t -> assertThat(t.getIdAmbienteOrigen()).isEqualTo(idAmbiente));
+        assertThat(trasladoRepository.deSesionActual(idExamen, null)).hasSize(1);
+
+        // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
+        String insertar = "INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, motivo, id_usuario_admin) VALUES (";
+        assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + idAmbiente + ", " + aulaNueva + ", '  ', " + idDocente + ")"))
+                .contains("ck_ta_motivo");
+        assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + aulaNueva + ", " + aulaNueva + ", 'Red caída', " + idDocente + ")"))
+                .contains("ck_ta_aulas_distintas");
+        assertThat(errorSql(insertar + idExamen + ", " + ajeno + ", " + idAmbiente + ", " + aulaNueva + ", 'Red caída', " + idDocente + ")"))
+                .contains("fk_ta_asistencia");
+
+        // Tras reprogramar (cierre de sesión posterior), el traslado queda en la sesión anterior.
+        java.time.LocalDateTime cierre = guardado.getFechaHoraTraslado().plusMinutes(1);
+        assertThat(trasladoRepository.deSesionActual(idExamen, cierre)).isEmpty();
     }
 
     private void prepararCatalogo() {
