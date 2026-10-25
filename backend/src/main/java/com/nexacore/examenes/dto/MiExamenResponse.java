@@ -3,6 +3,7 @@ package com.nexacore.examenes.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 /** Examen del estudiante en su panel: datos, habilitación y resultado del ingreso. */
 public record MiExamenResponse(
@@ -19,5 +20,11 @@ public record MiExamenResponse(
         /** AUTORIZADO, DENEGADO o null si todavía no pasó por el control. */
         String resultadoIngreso,
         String motivoDenegacion,
-        LocalDateTime fechaHoraIngreso
+        LocalDateTime fechaHoraIngreso,
+        /** INCI-01: lo expulsaron en la sesión actual del examen. */
+        boolean expulsado,
+        /** Normas del examen que valen para todos. */
+        List<String> normasGenerales,
+        /** Normas particulares (adaptaciones) de este estudiante; nunca las de otros. */
+        List<String> normasParticulares
 ) {}
