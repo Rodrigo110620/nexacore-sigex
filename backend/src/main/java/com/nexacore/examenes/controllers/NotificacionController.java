@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +57,22 @@ public class NotificacionController {
     @PostMapping("/leidas")
     public ResponseEntity<Void> marcarTodasLeidas(Authentication authentication) {
         notificacionService.marcarTodasLeidas(authentication);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Quitar una notificación de mi lista",
+            description = "Solo para el usuario que la quita: los demás la siguen viendo.")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> ocultar(@PathVariable Integer id, Authentication authentication) {
+        notificacionService.ocultar(id, authentication);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Limpiar todas mis notificaciones",
+            description = "Quita de mi lista todas las notificaciones hasta ahora; las nuevas siguen llegando.")
+    @DeleteMapping
+    public ResponseEntity<Void> limpiarTodas(Authentication authentication) {
+        notificacionService.limpiarTodas(authentication);
         return ResponseEntity.noContent().build();
     }
 }

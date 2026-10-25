@@ -25,6 +25,10 @@ public class NotificacionLeida {
     @Column(name = "leida_en", nullable = false)
     private LocalDateTime leidaEn;
 
+    /** El usuario la quitó de su lista (V46); los demás la siguen viendo. */
+    @Column(name = "oculta", nullable = false)
+    private boolean oculta;
+
     @Getter
     @Setter
     @EqualsAndHashCode

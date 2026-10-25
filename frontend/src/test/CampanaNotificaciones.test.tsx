@@ -12,6 +12,8 @@ vi.mock('../services/notificacionService', async (original) => ({
   listarNotificaciones: vi.fn(),
   marcarNotificacionLeida: vi.fn().mockResolvedValue(undefined),
   marcarTodasLeidas: vi.fn().mockResolvedValue(undefined),
+  quitarNotificacion: vi.fn().mockResolvedValue(undefined),
+  limpiarNotificaciones: vi.fn().mockResolvedValue(undefined),
 }))
 
 const notificacion = (id: number, extra: Partial<Notificacion> = {}): Notificacion => ({
@@ -83,9 +85,46 @@ describe('CampanaNotificaciones', () => {
     render(<MemoryRouter><CampanaNotificaciones roles={['ADMIN']} /></MemoryRouter>)
 
     await user.click(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }))
-    await user.click(screen.getByRole('button', { name: /QR duplicado: Estudiante 1/ }))
+    await user.click(screen.getByRole('button', { name: (nombre) => nombre.includes('QR duplicado: Estudiante 1') && !nombre.startsWith('Quitar') }))
 
     expect(service.marcarNotificacionLeida).toHaveBeenCalledWith(1)
+    expect(screen.getByRole('button', { name: 'Notificaciones' })).toBeInTheDocument()
+  })
+
+  it('quita una notificación solo de mi lista', async () => {
+    vi.mocked(service.listarNotificaciones).mockResolvedValue([
+      notificacion(1, { tipo: 'EXPULSION', titulo: 'Expulsión: Ana Rojas' }),
+      notificacion(2, { tipo: 'INGRESO_MANUAL', titulo: 'Ingreso manual: Beto Paz' }),
+    ])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(flujoSse().respuesta))
+    const user = userEvent.setup()
+
+    render(<MemoryRouter><CampanaNotificaciones roles={['CONTROL']} /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Notificaciones: 2 sin leer' }))
+    // Los incidentes de la Épica 4 tienen su etiqueta.
+    expect(screen.getByText(/^Expulsión ·/)).toBeInTheDocument()
+    expect(screen.getByText(/^Ingreso manual ·/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Quitar notificación: Expulsión: Ana Rojas' }))
+
+    expect(service.quitarNotificacion).toHaveBeenCalledWith(1)
+    expect(screen.queryByText('Expulsión: Ana Rojas')).not.toBeInTheDocument()
+    expect(screen.getByText('Ingreso manual: Beto Paz')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notificaciones: 1 sin leer' })).toBeInTheDocument()
+  })
+
+  it('limpia todas las notificaciones', async () => {
+    vi.mocked(service.listarNotificaciones).mockResolvedValue([notificacion(1), notificacion(2, { leida: true })])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(flujoSse().respuesta))
+    const user = userEvent.setup()
+
+    render(<MemoryRouter><CampanaNotificaciones roles={['DOCENTE']} /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }))
+    await user.click(screen.getByRole('button', { name: /Limpiar todas/ }))
+
+    expect(service.limpiarNotificaciones).toHaveBeenCalled()
+    expect(screen.getByText('No hay reportes por ahora.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Limpiar todas/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Notificaciones' })).toBeInTheDocument()
   })
 })

@@ -3,11 +3,13 @@ package com.nexacore.examenes.services;
 import com.nexacore.examenes.dto.NotificacionResponse;
 import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.NotificacionLeida;
+import com.nexacore.examenes.models.NotificacionLimpieza;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.NotificacionLeidaRepository;
+import com.nexacore.examenes.repositories.NotificacionLimpiezaRepository;
 import com.nexacore.examenes.repositories.NotificacionRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import jakarta.annotation.PreDestroy;
@@ -54,6 +56,7 @@ public class NotificacionService {
 
     private final NotificacionRepository notificacionRepository;
     private final NotificacionLeidaRepository leidaRepository;
+    private final NotificacionLimpiezaRepository limpiezaRepository;
     private final UsuarioRepository usuarioRepository;
     private final ExamenRepository examenRepository;
     private final AsistenciaExamenRepository asistenciaRepository;
@@ -89,7 +92,9 @@ public class NotificacionService {
                                UsuarioRepository usuarioRepository,
                                ExamenRepository examenRepository,
                                AsistenciaExamenRepository asistenciaRepository,
-                               EstudianteRepository estudianteRepository) {
+                               EstudianteRepository estudianteRepository,
+                               NotificacionLimpiezaRepository limpiezaRepository) {
+        this.limpiezaRepository = limpiezaRepository;
         this.notificacionRepository = notificacionRepository;
         this.leidaRepository = leidaRepository;
         this.usuarioRepository = usuarioRepository;
@@ -164,9 +169,10 @@ public class NotificacionService {
     public List<NotificacionResponse> listar(Authentication authentication) {
         Usuario usuario = usuario(authentication);
         PageRequest pagina = PageRequest.of(0, MAXIMO_LISTADO);
+        int desde = limpiezaRepository.findById(usuario.getId()).map(NotificacionLimpieza::getHastaId).orElse(0);
         List<Notificacion> lista = veTodo(authentication)
-                ? notificacionRepository.findAllByOrderByIdDesc(pagina)
-                : notificacionRepository.deDocente(usuario.getId(), pagina);
+                ? notificacionRepository.visibles(usuario.getId(), desde, pagina)
+                : notificacionRepository.deDocente(usuario.getId(), desde, pagina);
         if (lista.isEmpty()) {
             return List.of();
         }
@@ -278,6 +284,43 @@ public class NotificacionService {
 
     private boolean puedeVer(Notificacion n, Integer idUsuario, boolean veTodo) {
         return veTodo || (n.getIdExamen() != null && examenRepository.perteneceADocente(n.getIdExamen(), idUsuario));
+    }
+
+    /** Quita una notificación de la lista del usuario; los demás la siguen viendo. */
+    @Transactional
+    public void ocultar(Integer idNotificacion, Authentication authentication) {
+        Usuario usuario = usuario(authentication);
+        Notificacion n = notificacionRepository.findById(idNotificacion)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró la notificación."));
+        if (!puedeVer(n, usuario.getId(), veTodo(authentication))) {
+            throw new AccessDeniedException("La notificación no es de tus exámenes.");
+        }
+        NotificacionLeida.Id id = new NotificacionLeida.Id();
+        id.setIdNotificacion(n.getId());
+        id.setIdUsuario(usuario.getId());
+        NotificacionLeida leida = leidaRepository.findById(id).orElseGet(() -> {
+            NotificacionLeida nueva = new NotificacionLeida();
+            nueva.setId(id);
+            nueva.setLeidaEn(LocalDateTime.now());
+            return nueva;
+        });
+        leida.setOculta(true);
+        leidaRepository.save(leida);
+    }
+
+    /** Limpia todas las notificaciones del usuario hasta ahora; las nuevas le siguen llegando. */
+    @Transactional
+    public void limpiarTodas(Authentication authentication) {
+        Integer idUsuario = usuario(authentication).getId();
+        Integer ultimo = notificacionRepository.ultimoId();
+        if (ultimo == null) {
+            return;
+        }
+        NotificacionLimpieza limpieza = limpiezaRepository.findById(idUsuario).orElseGet(NotificacionLimpieza::new);
+        limpieza.setIdUsuario(idUsuario);
+        limpieza.setHastaId(ultimo);
+        limpieza.setLimpiadaEn(LocalDateTime.now());
+        limpiezaRepository.save(limpieza);
     }
 
     private void marcar(Integer idNotificacion, Integer idUsuario) {

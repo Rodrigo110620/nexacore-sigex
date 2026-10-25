@@ -4,6 +4,7 @@ import com.nexacore.examenes.dto.RegistrarExceptionRequest;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExcepcionNoHabilitado;
+import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.*;
 import org.springframework.stereotype.Service;
@@ -17,13 +18,16 @@ public class ExcepcionService {
     private final UsuarioRepository usuarioRepo;
     private final IntentoIngresoRepository intentoIngresoRepo;
     private final ExamenRepository examenRepo;
+    private final NotificacionService notificacionService;
 
     public ExcepcionService(
             ExcepcionNoHabilitadoRepository excepcionRepo,
             EstudianteRepository estudianteRepo,
             UsuarioRepository usuarioRepo,
             IntentoIngresoRepository intentoIngresoRepo,
-            ExamenRepository examenRepo) {
+            ExamenRepository examenRepo,
+            NotificacionService notificacionService) {
+        this.notificacionService = notificacionService;
         this.excepcionRepo = excepcionRepo;
         this.estudianteRepo = estudianteRepo;
         this.usuarioRepo = usuarioRepo;
@@ -95,5 +99,13 @@ public class ExcepcionService {
                 est.getCodigoSis(),
                 textoFinal 
         );
+
+        // 3. Avisar a ADMIN, CONTROL y al DOCENTE del examen (como los demás reportes del control).
+        notificacionService.publicar(Notificacion.EXCEPCION_NO_HABILITADO,
+                "Excepción de no habilitado: " + est.getNombre() + " " + est.getApellidos(),
+                notificacionService.materia(req.idExamen()) + " · " + detalles
+                        + " · Registrada por " + user.getNombre() + " " + user.getApellidos(),
+                req.idExamen(), est.getId(), "/dashboard/control/" + req.idExamen() + "/informacion",
+                emailUsuarioControl);
     }
 }

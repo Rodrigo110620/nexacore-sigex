@@ -74,6 +74,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.HabilitacionService habilitacionService;
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
+    @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -477,6 +478,43 @@ class PostgresIntegracionTests {
         sincronizar();
         assertThat(panelEstudianteService.examenes(correoAna)).singleElement()
                 .satisfies(e -> assertThat(e.expulsado()).isFalse());
+    }
+
+    @Test
+    void laExpulsionElIngresoManualYLaExcepcionNotificanAlPersonal() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-909");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int ana = estudiante("202000091", "Ana");
+        int beto = estudiante("202000092", "Beto");
+        int carla = estudiante("202000093", "Carla");
+        habilitacionService.asociar(idExamen, paralelo, "202000091");
+        habilitacionService.asociar(idExamen, paralelo, "202000092");
+        habilitacionService.asociar(idExamen, paralelo, "202000093");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_examen = ? AND id_estudiante IN (?, ?)", idExamen, ana, beto);
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) VALUES (?, ?, 'image/jpeg', NOW())",
+                beto, new byte[]{(byte) 0xFF, (byte) 0xD8});
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                idAmbiente, ana, idExamen);
+        sincronizar();
+        var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
+        controlIngresoService.autorizar(new com.nexacore.examenes.dto.AutorizarIngresoRequest(beto, idExamen, null, true,
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR"), "luis.paz@umss.edu");
+        excepcionService.registrarExcepcion(new com.nexacore.examenes.dto.RegistrarExceptionRequest(carla, idExamen, idAmbiente,
+                "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
+        sincronizar();
+
+        var avisos = jdbc.queryForList("SELECT tipo, titulo, detalle, id_estudiante, enlace FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion", idExamen);
+        assertThat(avisos).extracting(a -> a.get("tipo"))
+                .containsExactly("EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
+        assertThat(avisos.get(0)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
+        assertThat((String) avisos.get(0).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
+        assertThat((String) avisos.get(1).get("detalle")).contains("Celular apagado, no presenta QR");
+        assertThat((String) avisos.get(2).get("detalle")).contains("Se le permitió esperar afuera");
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

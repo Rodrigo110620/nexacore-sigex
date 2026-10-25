@@ -23,6 +23,8 @@ import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.Estudiante;
+import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.CatalogoIncidencia;
 import com.nexacore.examenes.models.Usuario;
@@ -133,6 +135,12 @@ public class ControlIngresoService {
             throw new ControlIngresoException(HttpStatus.CONFLICT, "La sesión cambió durante la operación; vuelve a intentarlo");
         }
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        Estudiante expulsado = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.EXPULSION,
+                "Expulsión: " + expulsado.getNombre() + " " + expulsado.getApellidos(),
+                notificacionService.materia(request.idExamen()) + " · " + motivo
+                        + " · Registrada por " + admin.getNombre() + " " + admin.getApellidos(),
+                request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), email);
         return new ExpulsionResponse(expulsion.getId(), request.idEstudiante(), request.idExamen(), motivo,
                 admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora);
     }
@@ -229,6 +237,12 @@ public class ControlIngresoService {
 
         if (request.ingresoManual()) {
             registroRepository.marcarIngresoManual(request.idEstudiante(), request.idExamen(), justificacionManual);
+            Estudiante estudiante = asistencia.getEstudiante();
+            notificacionService.publicar(Notificacion.INGRESO_MANUAL,
+                    "Ingreso manual: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
+                    notificacionService.materia(request.idExamen()) + " · " + justificacionManual
+                            + " · Autorizado por " + control.getNombre() + " " + control.getApellidos(),
+                    request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), control.getEmail());
         }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
@@ -614,6 +628,11 @@ public class ControlIngresoService {
     private static void validarObservaciones(String observaciones) {
         ValidacionTextoLibre.validarOpcional(
                 observaciones, "La observación", OBSERVACIONES_MIN, OBSERVACIONES_MAX);
+    }
+
+    /** Donde se revisan los incidentes del examen (Información de ingreso). */
+    private static String enlaceInformacion(Integer idExamen) {
+        return "/dashboard/control/" + idExamen + "/informacion";
     }
 
     private static String limpiar(String valor) {

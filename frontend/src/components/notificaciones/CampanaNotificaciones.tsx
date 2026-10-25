@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, CheckCheck, X } from 'lucide-react'
+import { Bell, CheckCheck, Trash2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   EVENTO_NOTIFICACION,
@@ -8,6 +8,8 @@ import {
   listarNotificaciones,
   marcarNotificacionLeida,
   marcarTodasLeidas,
+  limpiarNotificaciones,
+  quitarNotificacion,
   type Notificacion,
 } from '../../services/notificacionService'
 
@@ -17,6 +19,8 @@ const ETIQUETA: Record<string, string> = {
   INTENTO_INGRESO: 'Intento de ingreso',
   AULA_INCORRECTA: 'Aula incorrecta',
   EXCEPCION_NO_HABILITADO: 'No habilitado',
+  EXPULSION: 'Expulsión',
+  INGRESO_MANUAL: 'Ingreso manual',
 }
 
 const hace = (iso: string) => {
@@ -104,6 +108,18 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
     void marcarTodasLeidas().catch(() => undefined)
   }
 
+  // Limpiar es solo para quien lo hace: los demás siguen viendo sus notificaciones. Si falla, se
+  // recarga la lista para no mostrar algo distinto a lo guardado.
+  const quitar = (n: Notificacion) => {
+    setLista((actual) => actual.filter((x) => x.id !== n.id))
+    void quitarNotificacion(n.id).catch(cargar)
+  }
+
+  const limpiarTodas = () => {
+    setLista([])
+    void limpiarNotificaciones().catch(cargar)
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -129,22 +145,29 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
         >
           <div className="flex items-center justify-between border-b border-[#EDF1F7] px-4 py-3">
             <p className="text-sm font-bold text-[#011140]">Notificaciones</p>
-            {noLeidas > 0 && (
-              <button type="button" onClick={leerTodas} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0439D9] hover:underline">
-                <CheckCheck size={14} aria-hidden="true" /> Marcar todas como leídas
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {noLeidas > 0 && (
+                <button type="button" onClick={leerTodas} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0439D9] hover:underline">
+                  <CheckCheck size={14} aria-hidden="true" /> Marcar leídas
+                </button>
+              )}
+              {lista.length > 0 && (
+                <button type="button" onClick={limpiarTodas} className="inline-flex items-center gap-1 text-xs font-semibold text-[#B91C1C] hover:underline">
+                  <Trash2 size={14} aria-hidden="true" /> Limpiar todas
+                </button>
+              )}
+            </div>
           </div>
           <ul className="max-h-[calc(70dvh-3rem)] overflow-y-auto">
             {lista.length === 0 && (
               <li className="px-4 py-8 text-center text-xs text-[#627A9B]">No hay reportes por ahora.</li>
             )}
             {lista.map((n) => (
-              <li key={n.id}>
+              <li key={n.id} className={`group flex items-start border-b border-[#F1F4F9] ${n.leida ? '' : 'bg-[#F1F6FF]'}`}>
                 <button
                   type="button"
                   onClick={() => abrir(n)}
-                  className={`flex w-full gap-3 border-b border-[#F1F4F9] px-4 py-3 text-left hover:bg-[#F8FAFC] ${n.leida ? '' : 'bg-[#F1F6FF]'}`}
+                  className="flex min-w-0 flex-1 gap-3 py-3 pl-4 text-left hover:bg-[#F8FAFC]"
                 >
                   <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.leida ? 'bg-transparent' : 'bg-[#0439D9]'}`} />
                   <span className="min-w-0">
@@ -154,6 +177,15 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
                     <span className="block text-[13px] font-semibold text-[#011140]">{n.titulo}</span>
                     {n.detalle && <span className="mt-0.5 block text-xs text-[#45628D]">{n.detalle}</span>}
                   </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quitar(n)}
+                  aria-label={`Quitar notificación: ${n.titulo}`}
+                  title="Quitar de mi lista"
+                  className="m-2 shrink-0 rounded p-1.5 text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                >
+                  <X size={14} aria-hidden="true" />
                 </button>
               </li>
             ))}
