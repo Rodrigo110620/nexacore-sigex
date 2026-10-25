@@ -5,6 +5,10 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
@@ -26,11 +30,27 @@ final class LecturaCsv {
             throw new IllegalArgumentException("El archivo debe tener formato CSV (.csv).");
         }
         try {
-            String contenido = new String(file.getBytes(), StandardCharsets.UTF_8);
+            String contenido = decodificar(file.getBytes());
             // Excel guarda el CSV UTF-8 con BOM al inicio.
             return contenido.startsWith("﻿") ? contenido.substring(1) : contenido;
         } catch (IOException e) {
             throw new IllegalArgumentException("No se pudo leer el archivo CSV.");
+        }
+    }
+
+    /**
+     * UTF-8 si el archivo lo es; si no, Windows-1252: es lo que guarda Excel en Windows con
+     * "CSV (delimitado por comas)". Sin esto, "Peña" o "Íñigo" llegaban rotos y se rechazaban.
+     */
+    static String decodificar(byte[] bytes) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes))
+                .toString();
+        } catch (CharacterCodingException e) {
+            return new String(bytes, Charset.forName("windows-1252"));
         }
     }
 

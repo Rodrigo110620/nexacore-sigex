@@ -69,7 +69,8 @@ public class PlanillaEstudiantesService {
     /** Una fila de la planilla. Facultad y carrera en null si el estudiante no tiene carrera. */
     record Fila(
         String codigoSis, String nombre, String apellidos, String ci, String email,
-        Integer idFacultad, String facultad, Integer idCarrera, String carrera
+        Integer idFacultad, String facultad, Integer idCarrera, String carrera,
+        String telefono, String estadoMatricula
     ) {}
 
     @Transactional(readOnly = true)
@@ -83,7 +84,7 @@ public class PlanillaEstudiantesService {
             List<EstudianteCarrera> carreras = carrerasPorEstudiante.getOrDefault(e.getId(), List.of());
             if (carreras.isEmpty()) {
                 filas.add(new Fila(e.getCodigoSis(), e.getNombre(), e.getApellidos(), e.getCi(), e.getEmail(),
-                    null, null, null, null));
+                    null, null, null, null, e.getTelefono(), e.getEstadoMatricula()));
                 continue;
             }
             carreras.stream()
@@ -91,7 +92,8 @@ public class PlanillaEstudiantesService {
                 .forEach(ec -> filas.add(new Fila(
                     e.getCodigoSis(), e.getNombre(), e.getApellidos(), e.getCi(), e.getEmail(),
                     ec.getId().getIdFacultad(), ec.getCarrera().getFacultad().getNombre(),
-                    ec.getId().getIdCarrera(), ec.getCarrera().getNombre()
+                    ec.getId().getIdCarrera(), ec.getCarrera().getNombre(),
+                    e.getTelefono(), e.getEstadoMatricula()
                 )));
         }
         return filas;
@@ -103,7 +105,8 @@ public class PlanillaEstudiantesService {
         var formato = CSVFormat.DEFAULT.builder()
             .setDelimiter(';')
             .setRecordSeparator("\n")
-            .setHeader(ImportacionEstudiantesService.COLUMNAS.toArray(String[]::new))
+            .setHeader(java.util.stream.Stream.concat(ImportacionEstudiantesService.COLUMNAS.stream(),
+                ImportacionEstudiantesService.COLUMNAS_OPCIONALES.stream()).toArray(String[]::new))
             .build();
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
             // El BOM va antes de crear el printer: CSVPrinter escribe el encabezado al construirse.
@@ -111,7 +114,7 @@ public class PlanillaEstudiantesService {
             var printer = new CSVPrinter(writer, formato);
             for (Fila f : filas()) {
                 printer.printRecord(f.codigoSis(), f.nombre(), f.apellidos(), f.ci(), f.email(),
-                    f.idFacultad(), f.idCarrera());
+                    f.idFacultad(), f.idCarrera(), f.telefono(), f.estadoMatricula());
             }
             printer.flush();
         } catch (IOException e) {
@@ -170,12 +173,13 @@ public class PlanillaEstudiantesService {
     }
 
     private PdfPTable tabla(List<Fila> filas, BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{0.5f, 1.5f, 1.8f, 2.1f, 1.2f, 3f, 3.9f, 2.7f});
+        // CI y teléfono con ancho para 8 dígitos en una sola línea (no deben partirse).
+        var tabla = new PdfPTable(new float[]{0.5f, 1.6f, 1.7f, 2.0f, 1.6f, 1.6f, 1.8f, 3.0f, 2.8f, 2.4f});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
 
         var fuenteEncabezado = new Font(negrita, 9, Font.NORMAL, Color.WHITE);
-        for (String columna : List.of("#", "Código SIS", "Nombre", "Apellidos", "CI", "Correo", "Facultad", "Carrera")) {
+        for (String columna : List.of("#", "Código SIS", "Nombre", "Apellidos", "CI", "Teléfono", "Matrícula", "Correo", "Facultad", "Carrera")) {
             var celda = celda(columna, fuenteEncabezado);
             celda.setBackgroundColor(PRIMARIO);
             celda.setBorderColor(PRIMARIO);
@@ -202,6 +206,8 @@ public class PlanillaEstudiantesService {
                 celda(f.nombre(), fuente),
                 celda(f.apellidos(), fuente),
                 celda(f.ci(), fuente),
+                celda(f.telefono() == null ? "—" : f.telefono(), fuente),
+                celda("NO_MATRICULADO".equals(f.estadoMatricula()) ? "No matriculado" : "Matriculado", fuente),
                 celda(f.email(), fuente),
                 celda(f.facultad() == null ? "—" : f.facultad(), fuente),
                 celda(f.carrera() == null ? "—" : f.carrera(), fuente)
