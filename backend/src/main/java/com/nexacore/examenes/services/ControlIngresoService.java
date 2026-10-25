@@ -41,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.nexacore.examenes.models.TrasladoAmbiente;
 import com.nexacore.examenes.repositories.TrasladoAmbienteRepository;
 import com.nexacore.examenes.repositories.AmbienteRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -88,6 +89,7 @@ public class ControlIngresoService {
     private final TrasladoAmbienteRepository trasladoAmbienteRepository;
     private final AmbienteRepository ambienteRepository;
 
+    @Autowired
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
             CatalogoIncidenciaRepository catalogoRepository,
