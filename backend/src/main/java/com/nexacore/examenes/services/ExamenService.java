@@ -326,6 +326,7 @@ public class ExamenService {
     @Transactional
     public ExamenResponse reprogramar(Integer idExamen, Integer idParalelo, ReprogramarExamenRequest request,
                                       String emailUsuario) {
+        sesionExamenService.bloquearContexto(idExamen);
         ExamenId examenId = new ExamenId();
         examenId.setIdExamen(idExamen);
         examenId.setIdParalelo(idParalelo);

@@ -1,11 +1,13 @@
 package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.repositories.ExamenSesionRepository;
+import com.nexacore.examenes.repositories.ExamenAulaRepository;
 import com.nexacore.examenes.dto.SesionExamenResponse;
 import com.nexacore.examenes.models.Examen;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -27,10 +29,25 @@ public class SesionExamenService {
 
     private final JdbcTemplate jdbc;
     private final ExamenSesionRepository sesionRepository;
+    private final ExamenAulaRepository aulaRepository;
 
-    public SesionExamenService(JdbcTemplate jdbc, ExamenSesionRepository sesionRepository) {
+    public SesionExamenService(JdbcTemplate jdbc, ExamenSesionRepository sesionRepository, ExamenAulaRepository aulaRepository) {
         this.jdbc = jdbc;
         this.sesionRepository = sesionRepository;
+        this.aulaRepository = aulaRepository;
+    }
+
+    /** Orden compartido: examen, ambientes por ID y luego las asistencias de la operación. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void bloquearContexto(Integer idExamen) {
+        aulaRepository.bloquearExamen(idExamen);
+        jdbc.queryForList("""
+                SELECT a.id_ambiente FROM ambiente a
+                WHERE a.id_ambiente IN (
+                    SELECT id_ambiente FROM examen WHERE id_examen = ?
+                    UNION SELECT id_ambiente FROM examen_aula WHERE id_examen = ?
+                ) ORDER BY a.id_ambiente FOR NO KEY UPDATE
+                """, idExamen, idExamen);
     }
 
     /**
@@ -58,13 +75,14 @@ public class SesionExamenService {
     public int archivarYReiniciar(Examen examen, Integer idUsuario, String motivo) {
         Integer idExamen = examen.getId().getIdExamen();
         Integer idParalelo = examen.getId().getIdParalelo();
+        jdbc.queryForList("SELECT id_estudiante FROM asistencia_examen WHERE id_examen = ? ORDER BY id_estudiante FOR UPDATE", idExamen);
         int numero = jdbc.queryForObject(
                 "SELECT COALESCE(MAX(numero), 0) + 1 FROM examen_sesion WHERE id_examen = ?", Integer.class, idExamen);
         Integer idSesion = jdbc.queryForObject("""
                 INSERT INTO examen_sesion (id_examen, numero, fecha, hora_inicio, duracion_minutos, id_ambiente,
-                                           asociados, ingresaron, motivo_reprogramacion, id_usuario)
+                                           asociados, ingresaron, motivo_reprogramacion, id_usuario, cerrada_en)
                 SELECT ?, ?, ?, ?, ?, ?,
-                       COUNT(*), COUNT(fecha_hora_ingreso), ?, ?
+                       COUNT(*), COUNT(fecha_hora_ingreso), ?, ?, clock_timestamp()
                 FROM asistencia_examen WHERE id_examen = ? AND id_paralelo = ?
                 RETURNING id_sesion
                 """, Integer.class, idExamen, numero, examen.getFecha(), examen.getHoraInicio(),
