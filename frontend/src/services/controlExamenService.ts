@@ -13,6 +13,8 @@ export interface EstudianteAsignado {
   estado: 'HABILITADO' | 'DESHABILITADO'
   motivoInhabilitacion: string | null
   ingresado: boolean
+  /** Provisional: solo si la API informa explícitamente una expulsión. */
+  expulsado?: boolean
 }
 
 export interface ResumenEstudiantes {
