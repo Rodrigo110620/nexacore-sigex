@@ -6,9 +6,7 @@ import { createPortal } from 'react-dom'
 export interface OpcionDesplegable {
   value: string
   label: string
-  /** Encabezado bajo el que se agrupa la opción (p. ej. la facultad de una carrera). */
   grupo?: string
-  /** Se muestra en gris con este motivo (p. ej. "Ocupada") y no se puede elegir. */
   deshabilitada?: string
 }
 
@@ -17,11 +15,9 @@ interface FiltroDesplegableProps {
   value: string
   onChange: (value: string) => void
   opciones: OpcionDesplegable[]
-  /** Primera opción, de valor vacío: "Todas las facultades". */
   textoTodas: string
   placeholderBusqueda?: string
   disabled?: boolean
-  /** Clases de alto, borde y texto del botón, para encajar en cada formulario. */
   className?: string
 }
 
@@ -32,11 +28,6 @@ const MARGEN = 8
 const normalizar = (texto: string) =>
   texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-/**
- * Desplegable de filtro con buscador y grupos. Reemplaza al <select> nativo, que corta los
- * nombres largos y no agrupa. La lista se abre en un portal con posición fija para que el
- * overflow de los modales no la recorte, y se abre hacia arriba si no hay espacio abajo.
- */
 export default function FiltroDesplegable({
   id,
   value,
