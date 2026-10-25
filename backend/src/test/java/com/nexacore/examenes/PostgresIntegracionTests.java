@@ -60,6 +60,7 @@ class PostgresIntegracionTests {
     }
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
     @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
@@ -237,6 +238,60 @@ class PostgresIntegracionTests {
                 new com.nexacore.examenes.dto.ReprogramarExamenRequest(nueva.plusDays(1), java.time.LocalTime.of(10, 0),
                         60, "Otra vez"), "luis.paz@umss.edu"))
                 .hasMessageContaining("Solo se reprograma un examen que ya finalizó");
+    }
+
+    @Test
+    void laExpulsionGuardaLaHoraDelServidorEsInmutableYValeSoloParaLaSesionActual() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-905");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int expulsado = estudiante("202000051", "Eva");
+        int ajeno = estudiante("202000052", "Leo");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) "
+                + "VALUES (?, ?, ?, true, NOW())", expulsado, idExamen, paralelo);
+
+        com.nexacore.examenes.models.Expulsion expulsion = new com.nexacore.examenes.models.Expulsion();
+        expulsion.setIdEstudiante(expulsado);
+        expulsion.setIdExamen(idExamen);
+        expulsion.setIdUsuarioResponsable(idDocente);
+        expulsion.setMotivo("Uso de celular durante el examen");
+        Integer id = expulsionRepository.saveAndFlush(expulsion).getId();
+        sincronizar();
+
+        // La hora la pone la base.
+        var guardada = expulsionRepository.findById(id).orElseThrow();
+        assertThat(guardada.getFechaHora()).isNotNull();
+        assertThat(expulsionRepository.expulsadoEnSesionActual(expulsado, idExamen, null)).isTrue();
+        assertThat(expulsionRepository.deSesionActual(idExamen, null)).hasSize(1);
+
+        // La hora no se puede modificar, ni por SQL; el motivo sí (p. ej. una corrección de redacción).
+        assertThat(errorSql("UPDATE expulsion SET fecha_hora = fecha_hora - interval '1 hour' WHERE id_expulsion = " + id))
+                .contains("La hora de la expulsión no se puede modificar");
+        assertThat(jdbc.update("UPDATE expulsion SET motivo = 'Uso de celular' WHERE id_expulsion = ?", id)).isEqualTo(1);
+
+        // Motivo obligatorio y solo para estudiantes asociados al examen.
+        assertThat(errorSql("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES ("
+                + expulsado + ", " + idExamen + ", " + idDocente + ", '   ')")).contains("ck_expulsion_motivo");
+        assertThat(errorSql("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES ("
+                + ajeno + ", " + idExamen + ", " + idDocente + ", 'Copia')")).contains("fk_expulsion_asistencia");
+
+        // Tras reprogramar (cierre de sesión posterior), la expulsión queda en la sesión anterior.
+        java.time.LocalDateTime cierre = guardada.getFechaHora().plusMinutes(1);
+        assertThat(expulsionRepository.expulsadoEnSesionActual(expulsado, idExamen, cierre)).isFalse();
+        assertThat(expulsionRepository.deSesionActual(idExamen, cierre)).isEmpty();
+    }
+
+    /** Ejecuta un SQL que debe fallar sin anular la transacción de la prueba; devuelve el mensaje del error. */
+    private String errorSql(String sql) {
+        jdbc.execute("SAVEPOINT antes_del_error");
+        try {
+            jdbc.execute(sql);
+            return "(no falló)";
+        } catch (org.springframework.dao.DataAccessException e) {
+            return e.getMostSpecificCause().getMessage();
+        } finally {
+            jdbc.execute("ROLLBACK TO SAVEPOINT antes_del_error");
+        }
     }
 
     private void prepararCatalogo() {
