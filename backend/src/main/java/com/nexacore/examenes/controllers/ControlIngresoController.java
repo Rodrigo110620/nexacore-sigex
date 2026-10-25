@@ -10,7 +10,7 @@ import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
 import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
-import com.nexacore.examenes.dto.RegistrarExceptionRequest; 
+
 import com.nexacore.examenes.services.ControlIngresoService;
 import com.nexacore.examenes.services.ExcepcionService; 
 import io.swagger.v3.oas.annotations.Operation;
