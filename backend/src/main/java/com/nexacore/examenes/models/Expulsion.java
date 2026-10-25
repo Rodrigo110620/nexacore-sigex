@@ -8,11 +8,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 
 import java.time.LocalDateTime;
 
 /**
- * INCI-01: expulsión de un estudiante durante el examen (V42). La hora la pone la base (NOW()) y
+ * INCI-01: expulsión de un estudiante durante el examen (V43). La hora efectiva la pone la base y
  * no se puede modificar: después de guardar, recargar la entidad para leer fechaHora.
  */
 @Getter
@@ -41,5 +43,6 @@ public class Expulsion {
 
     /** Hora del servidor; la asigna la base y es inmutable. */
     @Column(name = "fecha_hora", nullable = false, insertable = false, updatable = false)
+    @Generated(event = EventType.INSERT, sql = "clock_timestamp()")
     private LocalDateTime fechaHora;
 }
