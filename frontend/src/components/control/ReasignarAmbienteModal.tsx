@@ -22,11 +22,11 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
-  const [cargandoAmbientes, setCargandoAmbientes] = useState(false)
+  const [cargandoAmbientes, setCargandoAmbientes] = useState(true)
 
   useEffect(() => {
     let vigente = true
-    setCargandoAmbientes(true)
+    
     listarAmbientes()
       .then((data) => {
         if (vigente) setAmbientes(Array.isArray(data) ? data : [])
