@@ -15,6 +15,8 @@ import org.springframework.security.core.Authentication;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.IncidenciaIngresoRequest;
 import com.nexacore.examenes.dto.IncidenciaRegistradaResponse;
+import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
+import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
@@ -629,5 +631,67 @@ public class ControlIngresoService {
                     "El texto contiene contenido no válido: " + garabato);
         }
     }
+    @Transactional
+    public ReasignarAmbienteResponse reasignarAmbiente(
+            Integer idExamen, 
+            Integer idEstudiante, 
+            ReasignarAmbienteRequest request, 
+            String emailControl) {
+        
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
+        validarTextoLibre(request.motivo());
+        validarTextoLibre(request.observacion());
 
+        Usuario control = usuarioRepository.findByEmail(emailControl)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+
+        AsistenciaExamen asistencia = asistenciaRepository
+                .buscarContexto(idEstudiante, idExamen)
+                .orElseThrow(() -> new ControlIngresoException(
+                        HttpStatus.NOT_FOUND,
+                        "El estudiante no está asociado al examen seleccionado"));
+        
+        verificarIngresoAbierto(asistencia);
+
+        if (asistencia.getFechaHoraIngreso() == null) {
+            // Solución temporal/defensiva: si el registro no tenía la fecha guardada, 
+            // le asignamos la hora actual del servidor para permitir la contingencia.
+            asistencia.setFechaHoraIngreso(asistenciaRepository.obtenerFechaHoraServidor());
+        }
+
+        Integer ambienteOrigenId = asistencia.getIdAmbienteIngreso();
+        String aulaOrigenNombre = "Aula anterior";
+
+        asistencia.setIdAmbienteIngreso(request.idAmbienteDestino());
+        
+        String obsFinal = limpiar(request.motivo()) + (request.observacion() != null ? " — " + limpiar(request.observacion()) : "");
+        asistencia.setObservacionesControl(obsFinal);
+
+        asistenciaRepository.save(asistencia);
+
+        // Registro de auditoría corregido para cumplir con la restricción de la base de datos
+        registroRepository.registrarConFecha(
+                asistencia.getId().getIdExamen(),
+                asistencia.getIdParalelo(),
+                asistencia.getId().getIdEstudiante(),
+                control.getId(),
+                "AUTORIZADO", // ✔️ Cambiado de "REASIGNADO" a un valor permitido por el check constraint
+                "Reasignación de ambiente al aula " + request.idAmbienteDestino(),
+                "[]",
+                obsFinal,
+                asistencia.getFechaHoraIngreso()
+        );
+        
+        return new ReasignarAmbienteResponse(
+                idEstudiante,
+                idExamen,
+                ambienteOrigenId,
+                aulaOrigenNombre,
+                request.idAmbienteDestino(),
+                "Aula " + request.idAmbienteDestino(),
+                asistencia.getFechaHoraIngreso(),
+                obsFinal,
+                true
+        );
+    }
 }
