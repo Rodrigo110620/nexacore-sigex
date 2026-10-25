@@ -7,6 +7,8 @@ import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
+import ReasignarAmbienteModal from './ReasignarAmbienteModal'
+
 
 interface FilaProps {
   estudiante: EstudianteAsignado
@@ -68,12 +70,21 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
   )
 }
 
-function Acciones({ idExamen, estudiante, onExpulsar }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void }) {
+function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
   return (
     <span className="inline-flex items-center gap-2">
       {onExpulsar && (
         <button type="button" onClick={onExpulsar} className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#FDECEC] px-3 text-xs font-semibold text-[#B91C1C] hover:bg-red-100 md:min-h-8">
           <Ban size={14} aria-hidden="true" /> Expulsar
+        </button>
+      )}
+      {estudiante.ingresado && onReasignar && (
+        <button
+          type="button"
+          onClick={onReasignar}
+          className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#F1F6FF] px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#D8E3F5] md:min-h-8"
+        >
+          Reasignar
         </button>
       )}
       <Ver idExamen={idExamen} estudiante={estudiante} />
@@ -103,6 +114,13 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
     isAdmin && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
+  const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
+
+  const handleReasignarClick = (estudiante: EstudianteAsignado) => {
+    setEstudianteSeleccionado(estudiante)
+    setModalReasignarAbierto(true)
+  }
   return (
     <>
       <table className="hidden w-full text-left md:table">
@@ -126,7 +144,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
                 <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} /></td>
-                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} /></td>
+                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
               </tr>
             )
           })}
@@ -159,7 +177,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                       <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>
                       {estudiante.carrera && <p className="mt-0.5 truncate text-[#627A9B]">{estudiante.carrera}</p>}
                     </div>
-                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} />
+                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} />
                   </div>
                   {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </div>
@@ -169,6 +187,20 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
         })}
       </ul>
       {isAdmin && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
+        {modalReasignarAbierto && estudianteSeleccionado && (
+        <ReasignarAmbienteModal
+          idExamen={idExamen}
+          estudiante={estudianteSeleccionado}
+          onClose={() => {
+            setModalReasignarAbierto(false)
+            setEstudianteSeleccionado(null)
+          }}
+          onSuccess={() => {
+            setModalReasignarAbierto(false)
+            setEstudianteSeleccionado(null)
+          }}
+        />
+      )}
     </>
   )
 }

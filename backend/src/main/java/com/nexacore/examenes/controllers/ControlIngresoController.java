@@ -7,8 +7,10 @@ import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
+import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
+import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
-import com.nexacore.examenes.dto.RegistrarExceptionRequest; 
+
 import com.nexacore.examenes.services.ControlIngresoService;
 import com.nexacore.examenes.services.ExcepcionService; 
 import io.swagger.v3.oas.annotations.Operation;
@@ -93,16 +95,16 @@ public class ControlIngresoController {
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());
     }
-
-    // NUEVO ENDPOINT PARA LA HU#4
-    @Operation(summary = "Registrar excepción de no habilitado", 
-               description = "Registra en la tabla de excepciones y en el historial de intentos automáticamente.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
-    @PostMapping("/excepcion-no-habilitado")
-    public ResponseEntity<Void> registrarExcepcion(
-            @Valid @RequestBody RegistrarExceptionRequest request,
+@Operation(summary = "Reasignar ambiente por contingencia", description = "Reasigna al estudiante a un nuevo ambiente manteniendo intacta su hora de ingreso original.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PostMapping("/{idExamen}/{idEstudiante}/reasignar") // <-- Cambiado el orden en la URL
+    public ResponseEntity<ReasignarAmbienteResponse> reasignarAmbiente(
+            @PathVariable Integer idExamen,      // <-- Primero el idExamen
+            @PathVariable Integer idEstudiante,   // <-- Después el idEstudiante
+            @Valid @RequestBody ReasignarAmbienteRequest request,
             Authentication authentication) {
-        excepcionService.registrarExcepcion(request, authentication.getName());
-        return ResponseEntity.ok().build();
+        
+        ReasignarAmbienteResponse response = service.reasignarAmbiente(idExamen, idEstudiante, request, authentication.getName());
+        return ResponseEntity.ok(response);
     }
 }

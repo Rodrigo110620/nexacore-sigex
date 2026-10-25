@@ -49,3 +49,17 @@ export async function obtenerResumenExamen(idExamen: number): Promise<ResumenEst
   const { data } = await api.get<ResumenEstudiantes>(`/examenes/${idExamen}/estudiantes/resumen`)
   return data
 }
+export interface ReasignarAmbienteRequest {
+  idAmbienteDestino: number
+  motivo: string
+  observacion?: string
+}
+
+/** Reasigna un estudiante a otro ambiente por contingencia. */
+export async function reasignarAmbiente(
+  idExamen: number,
+  idEstudiante: number,
+  request: ReasignarAmbienteRequest,
+): Promise<void> {
+  await api.post(`/control-ingresos/${idExamen}/${idEstudiante}/reasignar`, request)
+}
