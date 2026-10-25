@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import java.time.LocalDateTime;
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.MiExamenResponse;
 import com.nexacore.examenes.dto.MiPerfilResponse;
@@ -7,6 +8,7 @@ import com.nexacore.examenes.dto.MiQrResponse;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteFoto;
+import com.nexacore.examenes.models.EstudianteFotoSolicitud;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.RegistroControlIngreso;
 import com.nexacore.examenes.models.Usuario;
@@ -43,6 +45,7 @@ public class PanelEstudianteService {
     private final EstudianteFotoService fotoService;
     private final QrEstudianteService qrService;
     private final PasswordEncoder passwordEncoder;
+    private final SesionExamenService sesionExamenService;
 
     public PanelEstudianteService(UsuarioRepository usuarioRepository,
                                   EstudianteRepository estudianteRepository,
@@ -52,7 +55,9 @@ public class PanelEstudianteService {
                                   RepartoAulasService repartoAulasService,
                                   EstudianteFotoService fotoService,
                                   QrEstudianteService qrService,
-                                  PasswordEncoder passwordEncoder) {
+                                  PasswordEncoder passwordEncoder,
+                                  SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.usuarioRepository = usuarioRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -81,7 +86,9 @@ public class PanelEstudianteService {
         return new MiPerfilResponse(
                 e.getId(), e.getCodigoSis(), e.getNombre(), e.getApellidos(), enmascarar(e.getCi()), e.getEmail(),
                 e.getTelefono(), e.getEstadoMatricula(), e.getCondicion(), carreras,
-                fotoService.obtener(e.getId()).isPresent() ? RUTA_FOTO : null, solicitud);
+                fotoService.obtener(e.getId()).isPresent() ? RUTA_FOTO : null, solicitud,
+                fotoService.reporteAbierto(e.getId()).isPresent()
+                        && (solicitud == null || !EstudianteFotoSolicitud.PENDIENTE.equals(solicitud.estado())));
     }
 
     @Transactional(readOnly = true)
@@ -122,9 +129,13 @@ public class PanelEstudianteService {
     private MiExamenResponse aExamen(Integer idEstudiante, AsistenciaExamen a) {
         Examen ex = a.getExamen();
         Integer idExamen = a.getId().getIdExamen();
+        // Solo el resultado de la sesión actual: si el examen se reprogramó, lo anterior es historial.
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
         Optional<RegistroControlIngreso> registro = registroRepository
                 .findByIdIdEstudianteAndIdIdExamenOrderByFechaHoraDesc(idEstudiante, idExamen)
-                .stream().findFirst();
+                .stream()
+                .filter(r -> cierre == null || r.getFechaHora() == null || r.getFechaHora().isAfter(cierre))
+                .findFirst();
         return new MiExamenResponse(
                 idExamen,
                 ex.getParalelo().getMateria().getNombre(),

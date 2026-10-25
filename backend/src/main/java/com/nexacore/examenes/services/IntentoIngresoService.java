@@ -1,5 +1,7 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.models.Notificacion;
+
 import com.nexacore.examenes.dto.IntentoIngresoResponse;
 import com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest;
 import com.nexacore.examenes.dto.RegistrarIntentoIngresoRequest;
@@ -20,20 +22,25 @@ import java.util.List;
 
 @Service
 public class IntentoIngresoService {
+    private final SesionExamenService sesionExamenService;
     private final IntentoIngresoRepository intentoRepository;
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
     private final AsistenciaExamenRepository asistenciaRepository;
     private final UsuarioRepository usuarioRepository;
+    private final NotificacionService notificacionService;
 
     public IntentoIngresoService(IntentoIngresoRepository intentoRepository, EstudianteRepository estudianteRepository,
                                  ExamenRepository examenRepository, AsistenciaExamenRepository asistenciaRepository,
-                                 UsuarioRepository usuarioRepository) {
+                                 UsuarioRepository usuarioRepository,
+                                 NotificacionService notificacionService, SesionExamenService sesionExamenService) {
+        this.sesionExamenService = sesionExamenService;
         this.intentoRepository = intentoRepository;
         this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
         this.asistenciaRepository = asistenciaRepository;
         this.usuarioRepository = usuarioRepository;
+        this.notificacionService = notificacionService;
     }
 
     @Transactional
@@ -56,6 +63,16 @@ public class IntentoIngresoService {
         int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),
                 request.identificador().trim(), request.motivo().trim());
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
+        var estudiante = estudianteRepository.findById(request.idEstudiante()).orElseThrow();
+        notificacionService.publicar(Notificacion.INTENTO_INGRESO,
+                "Intento de ingreso incorrecto: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
+                notificacionService.materia(request.idExamen()) + " · " + request.motivo().trim()
+                        + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
+                request.idExamen(), request.idEstudiante(), enlace(request.idExamen()), emailControl);
+    }
+
+    private static String enlace(Integer idExamen) {
+        return "/dashboard/control/" + idExamen + "/informacion";
     }
 
     /**
@@ -86,6 +103,12 @@ public class IntentoIngresoService {
         int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),
                 asistencia.getEstudiante().getCodigoSis(), motivo);
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
+        var estudiante = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.AULA_INCORRECTA,
+                "Estudiante en aula incorrecta: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
+                notificacionService.materia(request.idExamen()) + " · " + motivo
+                        + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
+                request.idExamen(), request.idEstudiante(), enlace(request.idExamen()), emailControl);
         // El listado viene ordenado del más reciente al más antiguo: el primero es el que se acaba de guardar.
         return intentoRepository.listar(request.idExamen(), request.idEstudiante()).stream()
                 .findFirst().map(this::respuesta)
@@ -98,7 +121,10 @@ public class IntentoIngresoService {
         if (!examenRepository.existsByIdIdExamen(idExamen)) {
             throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen);
         }
-        return intentoRepository.listar(idExamen, idEstudiante).stream().map(this::respuesta).toList();
+        java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        return intentoRepository.listar(idExamen, idEstudiante).stream().map(this::respuesta)
+                .filter(i -> cierre == null || i.fechaHora() == null || i.fechaHora().isAfter(cierre))
+                .toList();
     }
 
     private IntentoIngresoResponse respuesta(Object[] fila) {

@@ -7,7 +7,7 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
  * /dashboard:
  * - ADMIN → pantalla unificada de exámenes
  * - CONTROL → resumen operativo; desde el menú entra a Control
- * - DOCENTE → exámenes
+ * - DOCENTE → inicio de gestión de grupos
  * - Sin rol → aviso (evita bucle con AdminRoute)
  */
 export default function DashboardPage() {
@@ -20,7 +20,7 @@ export default function DashboardPage() {
     return <Navigate to="/dashboard/inicio" replace />
   }
   if (roles.includes('DOCENTE')) {
-    return <Navigate to="/dashboard/examenes" replace />
+    return <Navigate to="/dashboard/inicio" replace />
   }
 
   return (

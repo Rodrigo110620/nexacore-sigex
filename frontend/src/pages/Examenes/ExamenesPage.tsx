@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -8,7 +8,9 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import { addMinutes, estadoLabel, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+import { addMinutes, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+import useEnVivo from '../../hooks/useEnVivo'
+import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 
 const PAGE_SIZE = 5
 
@@ -24,29 +26,12 @@ function ExamAvatar({ examen, size = 'card' }: { examen: ExamenDto; size?: 'card
   )
 }
 
-function EstadoDot({ estado, className = 'text-[11px]' }: { estado: string; className?: string }) {
-  const cancelado = estado === 'cancelado'
-  return (
-    <span className={`inline-flex items-center gap-1.5 font-medium ${cancelado ? 'text-red-600' : 'text-[#15803D]'} ${className}`}>
-      <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
-        {!cancelado && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22C55E] opacity-60 motion-reduce:hidden" />
-        )}
-        <span
-          className={`relative inline-flex h-2 w-2 rounded-full ${
-            cancelado ? 'bg-red-500' : 'bg-[#16A34A] motion-safe:animate-pulse'
-          }`}
-        />
-      </span>
-      {estadoLabel(estado)}
-    </span>
-  )
-}
-
 export default function ExamenesPage() {
   const { isAdmin, roles } = useAuth()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const isControlView = location.pathname === '/dashboard/control'
+  const paraleloSeleccionado = searchParams.get('paralelo')
   const canControl = isAdmin || roles.includes('CONTROL') || roles.includes('DOCENTE')
   const canRegister = (isAdmin || roles.includes('DOCENTE')) && !isControlView
   const navigate = useNavigate()
@@ -59,8 +44,8 @@ export default function ExamenesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
       setExamenes(await listarExamenes())
@@ -78,6 +63,8 @@ export default function ExamenesPage() {
     return () => window.clearTimeout(handle)
   }, [load])
 
+  useEnVivo((c) => c.tipo === 'EXAMEN' || c.tipo === 'HABILITACION' || c.tipo === 'INGRESO', () => void load({ silencioso: true }))
+
   const ambientes = useMemo(
     () => [...new Set(examenes.map((e) => e.ambienteNombre).filter(Boolean))].sort(),
     [examenes],
@@ -90,6 +77,7 @@ export default function ExamenesPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return examenes.filter((e) => {
+      if (paraleloSeleccionado && String(e.idParalelo) !== paraleloSeleccionado) return false
       if (ambienteFiltro && e.ambienteNombre !== ambienteFiltro) return false
       if (fechaFiltro && e.fecha !== fechaFiltro) return false
       if (!q) return true
@@ -102,7 +90,7 @@ export default function ExamenesPage() {
         (e.docente ?? '').toLowerCase().includes(q)
       )
     })
-  }, [examenes, query, ambienteFiltro, fechaFiltro])
+  }, [examenes, query, ambienteFiltro, fechaFiltro, paraleloSeleccionado])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
@@ -306,7 +294,7 @@ export default function ExamenesPage() {
                               <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
                               <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
                             </div>
-                            <EstadoDot estado={e.estado} />
+                            <EstadoExamenBadge examen={e} />
                           </div>
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-600">
                             <span className="inline-flex items-center gap-1">
@@ -378,7 +366,7 @@ export default function ExamenesPage() {
                           </td>
                           <td className="px-5 py-3 text-gray-600">{e.ambienteNombre}</td>
                           <td className="px-5 py-3">
-                            <EstadoDot estado={e.estado} className="text-sm" />
+                            <EstadoExamenBadge examen={e} className="text-sm" />
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-center gap-2">

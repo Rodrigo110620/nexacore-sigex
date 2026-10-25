@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import useEnVivo from './useEnVivo'
 import axios from 'axios'
 import {
   listarEstudiantesExamen,
@@ -30,6 +31,9 @@ export default function useEstudiantesExamen(idExamen: number) {
   const [pageSize, setPageSize] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768 ? 3 : 5)
   const [resumen, setResumen] = useState<ResumenEstudiantes>()
   const [resultado, setResultado] = useState<Resultado>()
+  /** Sube con cada cambio en vivo del examen: recarga resumen y lista sin volver a "cargando". */
+  const [recarga, setRecarga] = useState(0)
+  useEnVivo((c) => c.idExamen === idExamen || c.tipo === 'FOTO', () => setRecarga((n) => n + 1))
   const clave = `${idExamen}|${estado}|${page}|${pageSize}`
   const idValido = Number.isInteger(idExamen) && idExamen > 0
 
@@ -54,7 +58,7 @@ export default function useEstudiantesExamen(idExamen: number) {
     return () => {
       vigente = false
     }
-  }, [idExamen, idValido])
+  }, [idExamen, idValido, recarga])
 
   useEffect(() => {
     if (!idValido) return
@@ -69,7 +73,7 @@ export default function useEstudiantesExamen(idExamen: number) {
     return () => {
       vigente = false
     }
-  }, [clave, idExamen, idValido, estado, page, pageSize])
+  }, [clave, idExamen, idValido, estado, page, pageSize, recarga])
 
   const actual = resultado?.clave === clave ? resultado : undefined
   const cambiarEstado = (nuevo: FiltroEstado) => {

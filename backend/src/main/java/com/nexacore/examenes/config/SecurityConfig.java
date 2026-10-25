@@ -5,6 +5,7 @@ import com.nexacore.examenes.security.AuthRateLimitFilter;
 import com.nexacore.examenes.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -91,11 +92,14 @@ public class SecurityConfig {
                 // /error sin JWT: OncePerRequestFilter no revalida el token en el
                 // dispatch de error y un 500 acababa respondiendo 401.
                 auth.requestMatchers("/error").permitAll();
+                // Continuación asíncrona de una petición ya autorizada (notificaciones en vivo, SSE):
+                // el JWT no se revalida en ese despacho y sin esto Spring Security la cortaría.
+                auth.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll();
                 if (swaggerEnabled) {
                     auth.requestMatchers(SWAGGER_PATHS).permitAll();
                 }
                 // Sesión propia: cualquier usuario autenticado, también el estudiante.
-                auth.requestMatchers("/auth/me", "/auth/cambiar-password").authenticated();
+                auth.requestMatchers("/auth/me", "/auth/cambiar-password", "/tiempo").authenticated();
                 // Panel del estudiante: solo su cuenta (rol ESTUDIANTE).
                 auth.requestMatchers("/mi/**").hasRole(Rol.ESTUDIANTE);
                 // El resto de la API es del personal. El rol ESTUDIANTE (cuenta del estudiante)

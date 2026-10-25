@@ -57,7 +57,9 @@ class ControlIngresoServiceTests {
                 registroRepository,
                 new ObjectMapper(),
                 repartoSinAula(),
-                normasExamenService);
+                normasExamenService,
+                mock(com.nexacore.examenes.services.NotificacionService.class),
+                mock(com.nexacore.examenes.services.SesionExamenService.class));
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -84,6 +86,44 @@ class ControlIngresoServiceTests {
         assertNotNull(response.fechaHoraIngreso());
         verify(asistenciaRepository, never()).autorizarConFechaServidor(anyInt(), anyInt(), anyInt(), anyInt(), any());
         verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", "Documento inválido", "[]", "Documento inválido");
+    }
+
+    @Test
+    void ingresoManualExigeJustificacionSinAutorizarNiGuardar() {
+        for (String motivo : new String[] {null, "", "         ", "QR roto"}) {
+            var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
+                    null, true, motivo);
+            assertThrows(ControlIngresoException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+        }
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+        verifyNoInteractions(registroRepository);
+    }
+
+    @Test
+    void ingresoManualGuardaMotivoYUsaHoraServidorAunqueElClienteEnvieOtra() {
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
+                "2026-09-25T09:00:00-04:00", true, "  Celular apagado, no presenta QR  ");
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+        verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
+        verify(asistenciaRepository, never()).autorizarConHoraDispositivo(any(), any(), any(), any(), any(), any());
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado, no presenta QR");
+    }
+
+    @Test
+    void autorizarGuardaLaHoraLocalYElOffsetDelDispositivoNoLaHoraUtc() {
+        when(asistenciaRepository.autorizarConHoraDispositivo(10, 20, 5, 7, "Sin novedades",
+                LocalDateTime.parse("2026-09-25T09:00:00"))).thenReturn(1);
+        when(asistenciaRepository.obtenerFechaHoraIngreso(10, 20)).thenReturn(LocalDateTime.parse("2026-09-25T09:00:00"));
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of(), null,
+                "2026-09-25T09:00:00-04:00");
+
+        service.autorizar(request, "control@umss.edu.bo");
+
+        verify(asistenciaRepository).autorizarConHoraDispositivo(10, 20, 5, 7, "Sin novedades",
+                LocalDateTime.parse("2026-09-25T09:00:00"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(10, 20, 5, 7, "Sin novedades");
+        verify(registroRepository).registrarConFecha(20, 40, 10, 7, "AUTORIZADO", null, "[]",
+                "Sin novedades", LocalDateTime.parse("2026-09-25T09:00:00"));
     }
 
     /** BUG-D02: se guarda en el orden de antes: razón — detalle — observaciones. */
@@ -566,6 +606,54 @@ class ControlIngresoServiceTests {
         registro.setHabilitado(true);
         return registro;
     }
+    /** Hora del servidor en las pruebas: 2026-09-25 16:00. */
+    private void horario(String hora, int duracionMinutos) {
+        asistencia.getExamen().setFecha(java.time.LocalDate.parse("2026-09-25"));
+        asistencia.getExamen().setHoraInicio(java.time.LocalTime.parse(hora));
+        asistencia.getExamen().setDuracionMinutos(duracionMinutos);
+    }
+
+    @Test
+    void noSeAutorizaNiDeniegaElIngresoCuandoElExamenYaTermino() {
+        horario("13:00", 120); // terminó a las 15:00
+        var autorizar = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        var denegar = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(autorizar, "control@umss.edu.bo"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+        assertTrue(error.getMessage().contains("ya terminó"));
+        assertThrows(ControlIngresoException.class, () -> service.denegar(denegar, "control@umss.edu.bo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void noSeRegistranIngresosEnUnExamenCancelado() {
+        horario("15:30", 120);
+        asistencia.getExamen().setEstado("cancelado");
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo"));
+        assertTrue(error.getMessage().contains("cancelado"));
+    }
+
+    @Test
+    void seAutorizaElIngresoMientrasElExamenEstaEnCurso() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("15:30", 120); // en curso hasta las 17:30
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void seAutorizaElIngresoAntesDeQueEmpieceElExamen() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("18:00", 90); // todavía no empieza
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
     @Test
     void autorizaCorrectamenteCuandoElAmbienteEsValido() {
         // El ambiente del examen (id: 5) coincide con el ambiente verificado

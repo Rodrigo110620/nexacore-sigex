@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.5</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
     <groupId>com.nexacore</groupId>
@@ -15,6 +15,12 @@
     <description>Sistema de Control de Ingreso a Examenes Masivos</description>
     <properties>
         <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- Seguridad (oct. 2026): versiones con parches que Spring Boot 3.5.16 aún no trae. -->
+        <tomcat.version>10.1.61</tomcat.version>
+        <jackson-bom.version>2.22.4</jackson-bom.version>
+        <postgresql.version>42.7.14</postgresql.version>
+        <commons-lang3.version>3.21.0</commons-lang3.version>
+        <log4j2.version>2.26.1</log4j2.version>
         <java.version>21</java.version>
     </properties>
     <dependencies>
@@ -47,6 +53,11 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
+        <!-- Desde Flyway 10 el soporte de PostgreSQL va en un módulo aparte. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.cdimascio</groupId>
             <artifactId>dotenv-java</artifactId>
@@ -77,7 +88,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.2.0</version>
+            <version>2.8.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

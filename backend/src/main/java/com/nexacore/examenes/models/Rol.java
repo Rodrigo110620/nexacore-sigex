@@ -19,7 +19,7 @@ public class Rol {
     private Integer id;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
 }

@@ -3,12 +3,13 @@ spring:
     active: ${DB_TARGET:docker}
 
   jpa:
+    # Se registra a mano en OpenInViewConfig para excluir las notificaciones en vivo (SSE).
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
   flyway:

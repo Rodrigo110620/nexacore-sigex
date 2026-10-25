@@ -90,7 +90,9 @@ class ExamenServiceTests {
                 docenteRepository, paraleloRepository, usuarioRepository, estudianteRepository,
                 asistenciaExamenRepository, new ObjectMapper(), examenAulaRepository,
                 org.mockito.Mockito.mock(AuditoriaService.class),
-                new NormasExamenService(normaExamenRepository, estudianteRepository, asistenciaExamenRepository));
+                new NormasExamenService(normaExamenRepository, estudianteRepository, asistenciaExamenRepository),
+                mock(com.nexacore.examenes.services.NotificacionService.class),
+                mock(com.nexacore.examenes.services.SesionExamenService.class));
         org.mockito.Mockito.lenient().when(normaExamenRepository.saveAllAndFlush(any())).thenAnswer(inv -> {
             Iterable<NormaExamen> normas = inv.getArgument(0);
             normas.forEach(n -> { if (!normasGuardadas.contains(n)) normasGuardadas.add(n); });

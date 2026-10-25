@@ -60,6 +60,10 @@ class PostgresIntegracionTests {
     }
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.nexacore.examenes.services.ExamenService examenService;
+    @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
+    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
+    @Autowired com.nexacore.examenes.repositories.MateriaRepository materiaRepository;
     @Autowired EstudianteService estudianteService;
     @Autowired EstudianteRepository estudianteRepository;
     @Autowired UsuarioRepository usuarioRepository;
@@ -68,6 +72,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
+    @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
 
     /** Tras escribir con JDBC en la misma transacción, Hibernate debe volver a leer. */
     private void sincronizar() {
@@ -153,6 +158,87 @@ class PostgresIntegracionTests {
     private int idAmbiente;
 
     /** Docente, materia y paralelo; devuelve el id del paralelo. */
+    @Test
+    void laBusquedaDeMateriasIgnoraTildesEnPostgres() {
+        com.nexacore.examenes.models.Materia materia = new com.nexacore.examenes.models.Materia();
+        materia.setSigla("ZFS902");
+        materia.setNombre("Física Óptica Zeta");
+        materiaRepository.saveAndFlush(materia);
+
+        for (String q : new String[]{"fisica optica", "física óptica", "FÍSICA ÓPTICA", "zfs902"}) {
+            assertThat(materiaRepository.buscar(com.nexacore.examenes.utils.TextoBusqueda.sinTildes(q)))
+                    .extracting(com.nexacore.examenes.models.Materia::getNombre)
+                    .contains("Física Óptica Zeta");
+        }
+    }
+
+    @Test
+    void reprogramarUnExamenFinalizadoGuardaLaSesionYReiniciaLosIngresos() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-904");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int ingreso = estudiante("202000041", "Ana");
+        int denegado = estudiante("202000042", "Beto");
+        int conDeuda = estudiante("202000043", "Ciro");
+        String asociar = """
+                INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, motivo_inhabilitacion,
+                                               fecha_hora_ingreso)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """;
+        jdbc.update(asociar, ingreso, idExamen, paralelo, true, null, java.sql.Timestamp.valueOf("2026-10-20 07:55:00"));
+        jdbc.update(asociar, denegado, idExamen, paralelo, false, "Ingreso denegado por CONTROL: Documento inválido", null);
+        jdbc.update(asociar, conDeuda, idExamen, paralelo, false,
+                "Deuda pendiente\nIngreso denegado por CONTROL: Llegó tarde", null);
+        jdbc.update("""
+                INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_control, id_usuario_control,
+                                                      resultado_autorizacion, fecha_hora)
+                VALUES (?, ?, ?, 1, ?, 'AUTORIZADO', TIMESTAMP '2026-10-20 07:55:00')
+                """, idExamen, paralelo, ingreso, idDocente);
+        // El examen fue ayer: ya finalizó.
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", idExamen);
+        sincronizar();
+
+        var nueva = java.time.LocalDate.now().plusDays(7);
+        var respuesta = examenService.reprogramar(idExamen, paralelo, new com.nexacore.examenes.dto.ReprogramarExamenRequest(
+                nueva, java.time.LocalTime.of(10, 0), 120, "Se repite por un corte de luz"), "luis.paz@umss.edu");
+        sincronizar();
+
+        assertThat(respuesta.fecha()).isEqualTo(nueva);
+        assertThat(respuesta.estado()).isEqualTo("programado");
+
+        // La sesión que terminó queda en el historial, con quién y por qué se reprogramó.
+        var sesiones = sesionExamenService.listar(idExamen);
+        assertThat(sesiones).hasSize(1);
+        var anterior = sesiones.get(0);
+        assertThat(anterior.numero()).isEqualTo(1);
+        assertThat(anterior.fecha()).isEqualTo(java.time.LocalDate.now().minusDays(1));
+        assertThat(anterior.asociados()).isEqualTo(3);
+        assertThat(anterior.ingresaron()).isEqualTo(1);
+        assertThat(anterior.motivoReprogramacion()).isEqualTo("Se repite por un corte de luz");
+        assertThat(anterior.reprogramadoPor()).isEqualTo("Luis Paz");
+        assertThat(anterior.estudiantes()).filteredOn(e -> e.idEstudiante() == ingreso).singleElement()
+                .satisfies(e -> assertThat(e.fechaHoraIngreso()).isEqualTo(java.time.LocalDateTime.parse("2026-10-20T07:55")));
+
+        // Todos vuelven a "no ingresado"; sin las denegaciones del control de la sesión anterior.
+        assertThat(jdbc.queryForObject("SELECT COUNT(fecha_hora_ingreso) FROM asistencia_examen WHERE id_examen = ?",
+                Integer.class, idExamen)).isZero();
+        assertThat(jdbc.queryForMap("SELECT habilitado, motivo_inhabilitacion FROM asistencia_examen WHERE id_estudiante = ?", denegado))
+                .containsEntry("habilitado", null).containsEntry("motivo_inhabilitacion", null);
+        assertThat(jdbc.queryForMap("SELECT habilitado, motivo_inhabilitacion FROM asistencia_examen WHERE id_estudiante = ?", conDeuda))
+                .containsEntry("habilitado", false).containsEntry("motivo_inhabilitacion", "Deuda pendiente");
+
+        // El autorizado de la sesión anterior ya no aparece como ingreso de la sesión actual.
+        assertThat(controlIngresoService.consultarRegistrosExamen(idExamen)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM registro_control_ingreso WHERE id_examen = ?",
+                Integer.class, idExamen)).isEqualTo(1);
+
+        // Ya no está finalizado: no se puede volver a reprogramar hasta que termine.
+        assertThatThrownBy(() -> examenService.reprogramar(idExamen, paralelo,
+                new com.nexacore.examenes.dto.ReprogramarExamenRequest(nueva.plusDays(1), java.time.LocalTime.of(10, 0),
+                        60, "Otra vez"), "luis.paz@umss.edu"))
+                .hasMessageContaining("Solo se reprograma un examen que ya finalizó");
+    }
+
     private void prepararCatalogo() {
         jdbc.update("""
                 INSERT INTO usuario (nombre, apellidos, ci, email, password, estado)
@@ -161,6 +247,28 @@ class PostgresIntegracionTests {
         idDocente = jdbc.queryForObject("SELECT id_usuario FROM usuario WHERE email = 'luis.paz@umss.edu'", Integer.class);
         jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", idDocente);
         idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
+    }
+
+    @Test
+    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-MANUAL");
+        int examen = examen(paralelo, "08:00", 90);
+        int estudiante = estudiante("202104099", "Ana");
+        habilitacionService.asociar(examen, paralelo, "202104099");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
+        sincronizar();
+        var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");
+        assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
+        sincronizar();
+        assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
+            assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
+            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado, no presenta QR");
+            assertThat(registro.usuarioControl()).isEqualTo("Luis Paz");
+            assertThat(registro.estudiante()).isEqualTo("Ana Prueba");
+            assertThat(registro.fechaHora()).isNotNull();
+        });
     }
 
     private int materiaYParalelo(String sigla) {
@@ -264,5 +372,39 @@ class PostgresIntegracionTests {
         assertThat(lista).filteredOn(r -> r.codigoSis().equals("202104011")).singleElement()
                 .satisfies(r -> assertThat(r.ingresado()).isTrue());
         assertThat(normasExamenService.leerParaEstudiante(idExamen, ana, "Ana Prueba").particulares()).isEmpty();
+    }
+
+    // ---------- INCI-04: tabla de excepciones de no habilitados (V39) ----------
+
+    @Test
+    void laExcepcionDeNoHabilitadoGuardaLaHoraDelServidorYExigeSusDatos() {
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-903");
+        int idExamen = examen(p1, "08:00", 90);
+        int ana = estudiante("202104020", "Ana");
+
+        var excepcion = new com.nexacore.examenes.models.ExcepcionNoHabilitado();
+        excepcion.setIdEstudiante(ana);
+        excepcion.setIdExamen(idExamen);
+        excepcion.setIdAmbiente(idAmbiente);
+        excepcion.setIdUsuarioControl(idDocente);
+        excepcion.setMotivoInhabilitacion("No pagó la matrícula");
+        excepcion.setAccionTomada("Se le informó que no está habilitado");
+        excepcionRepository.saveAndFlush(excepcion);
+        sincronizar();
+
+        var guardadas = excepcionRepository.findByIdExamenOrderByFechaHoraDesc(idExamen);
+        assertThat(guardadas).singleElement().satisfies(e -> {
+            assertThat(e.getFechaHora()).isNotNull();
+            assertThat(e.getObservaciones()).isNull();
+            assertThat(e.getIdAmbiente()).isEqualTo(idAmbiente);
+        });
+        // La acción tomada es obligatoria y no puede quedar vacía.
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO excepcion_no_habilitado
+                    (id_estudiante, id_examen, id_ambiente, id_usuario_control, motivo_inhabilitacion, accion_tomada)
+                VALUES (?, ?, ?, ?, 'No pagó la matrícula', '   ')
+                """, ana, idExamen, idAmbiente, idDocente))
+                .hasMessageContaining("ck_excepcion_accion");
     }
 }

@@ -21,6 +21,13 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
             """)
     boolean perteneceADocente(@Param("idExamen") Integer idExamen, @Param("idDocente") Integer idDocente);
 
+    /** Nombre de la materia del examen, para el texto de las notificaciones. */
+    @Query("""
+            SELECT m.nombre FROM Examen e JOIN e.paralelo p JOIN p.materia m
+            WHERE e.id.idExamen = :idExamen
+            """)
+    List<String> nombreMateria(@Param("idExamen") Integer idExamen);
+
     /** id_examen es único por sí solo (uq_id_examen), aunque la PK incluya id_paralelo. */
     boolean existsByIdIdExamen(Integer idExamen);
 
@@ -47,4 +54,5 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
             @Param("idAmbiente") Integer idAmbiente,
             @Param("fecha") LocalDate fecha);
 
+    java.util.Optional<Examen> findFirstByIdIdExamen(Integer idExamen);
 }

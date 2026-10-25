@@ -31,6 +31,10 @@ export interface AutorizarIngresoPayload {
   incidencias: Array<{ idTipoIncidencia: number; descripcion: string }>
   /** Solo al denegar: "Detalle adicional" del modal (opcional). */
   detalleDenegacion?: string
+  /** Hora local y zona del dispositivo que realizó el control. */
+  fechaHoraDispositivo?: string
+  ingresoManual?: boolean
+  justificacionManual?: string
 }
 
 export interface AutorizarIngresoResultado {
@@ -50,6 +54,8 @@ export interface TipoIncidencia {
 }
 
 export interface RegistroControlIngreso {
+  tipoIngreso?: 'NORMAL' | 'MANUAL'
+  justificacionManual?: string | null
   idRegistro: number
   idEstudiante: number
   idExamen: number

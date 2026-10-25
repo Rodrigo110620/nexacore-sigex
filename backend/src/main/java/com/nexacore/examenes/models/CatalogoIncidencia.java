@@ -16,10 +16,10 @@ public class CatalogoIncidencia {
     private Integer id;
 
     @NotNull
-    @Column(name = "nombre", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(name = "descripcion", length = Integer.MAX_VALUE)
+    @Column(name = "descripcion")
     private String descripcion;
 
 

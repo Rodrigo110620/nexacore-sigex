@@ -38,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -257,5 +258,21 @@ class CuentaEstudianteFlujoTests {
         mockMvc.perform(post("/auth/estudiante/activacion/solicitar").contentType("application/json")
                 .content("{\"codigoSis\":\"" + SIS + "\",\"ci\":\"1111111\",\"email\":\"" + EMAIL + "\"}"))
             .andExpect(status().isAccepted());
+    }
+
+    @Test
+    @WithMockUser(username = EMAIL, roles = "ESTUDIANTE")
+    void alCambiarSuContrasenaTampocoPuedeUsarSusDatos() throws Exception {
+        activar();
+        mockMvc.perform(put("/auth/cambiar-password").contentType("application/json").content("""
+                {"passwordActual":"%s","passwordNueva":"Ana#%s","passwordConfirmacion":"Ana#%s"}
+                """.formatted(PASSWORD, SIS, SIS)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.mensaje").value("La contraseña no puede contener tu nombre, tu código SIS ni tu CI."));
+
+        mockMvc.perform(put("/auth/cambiar-password").contentType("application/json").content("""
+                {"passwordActual":"%s","passwordNueva":"Otra#Clave77","passwordConfirmacion":"Otra#Clave77"}
+                """.formatted(PASSWORD)))
+            .andExpect(status().isOk());
     }
 }

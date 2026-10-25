@@ -1,6 +1,7 @@
 package com.nexacore.examenes;
 
 import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
@@ -9,11 +10,13 @@ import com.nexacore.examenes.models.EstudianteQrCredencial;
 import com.nexacore.examenes.repositories.EstudianteQrCredencialRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.services.QrEstudianteService;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
+import java.util.Base64;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +29,7 @@ import static org.mockito.Mockito.when;
 /** Verifica un QR real: se codifica como PNG, se decodifica y el servidor valida su credencial. */
 class QrEstudianteServiceTests {
 
-    @Test
+    @RepeatedTest(100)
     void generaUnPngEscaneableYResuelveAlEstudianteCorrecto() throws Exception {
         EstudianteQrCredencialRepository credenciales = mock(EstudianteQrCredencialRepository.class);
         EstudianteRepository estudiantes = mock(EstudianteRepository.class);
@@ -49,13 +52,19 @@ class QrEstudianteServiceTests {
         when(estudiantes.findById(91)).thenReturn(Optional.of(estudiante));
 
         QrEstudianteService.QrGenerado qr = service.regenerar(estudiante);
+        // Es el PNG original, sin perspectiva ni fondo de cámara. PURE_BARCODE evita
+        // falsos negativos del detector de posición con algunos patrones aleatorios.
         String leidoDelPng = new MultiFormatReader().decode(new BinaryBitmap(new HybridBinarizer(
-                new BufferedImageLuminanceSource(ImageIO.read(new ByteArrayInputStream(qr.png())))))).getText();
+                new BufferedImageLuminanceSource(ImageIO.read(new ByteArrayInputStream(qr.png()))))),
+                Map.of(DecodeHintType.PURE_BARCODE, true)).getText();
 
         assertEquals(qr.contenido(), leidoDelPng);
         assertTrue(leidoDelPng.startsWith("SIGEX2."));
         assertTrue(!leidoDelPng.contains("202401234"));
         assertEquals("202401234", service.validar(leidoDelPng));
-        assertThrows(IllegalArgumentException.class, () -> service.validar(leidoDelPng.substring(0, leidoDelPng.length() - 1) + "x"));
+        byte[] alterado = Base64.getUrlDecoder().decode(leidoDelPng.substring("SIGEX2.".length()));
+        alterado[alterado.length - 1] ^= 1;
+        String qrAlterado = "SIGEX2." + Base64.getUrlEncoder().withoutPadding().encodeToString(alterado);
+        assertThrows(IllegalArgumentException.class, () -> service.validar(qrAlterado));
     }
 }

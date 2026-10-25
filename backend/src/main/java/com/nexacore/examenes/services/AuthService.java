@@ -16,6 +16,7 @@ import com.nexacore.examenes.models.PasswordResetToken;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.models.UsuarioRol;
 import com.nexacore.examenes.repositories.PasswordResetTokenRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.security.JwtService;
 import com.nexacore.examenes.security.PasswordPolicy;
@@ -47,6 +48,7 @@ public class AuthService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
+    private final EstudianteRepository estudianteRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -57,6 +59,7 @@ public class AuthService {
 
     public AuthService(
             UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
@@ -65,6 +68,7 @@ public class AuthService {
             @Value("${app.security.login.max-intentos:3}") int maxIntentosFallidos,
             @Value("${app.security.login.minutos-bloqueo:15}") int minutosBloqueo) {
         this.usuarioRepository = usuarioRepository;
+        this.estudianteRepository = estudianteRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -161,6 +165,7 @@ public class AuthService {
         if (!passwordEncoder.matches(request.passwordActual(), usuario.getPassword())) {
             throw new PasswordActualIncorrectaException();
         }
+        validarSiEsEstudiante(usuario, request.passwordNueva());
 
         if (passwordEncoder.matches(request.passwordNueva(), usuario.getPassword())) {
             throw new IllegalArgumentException("La nueva contraseña debe ser distinta a la actual");
@@ -168,6 +173,12 @@ public class AuthService {
 
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
+    }
+
+    /** La cuenta de un estudiante sigue la misma regla que al activarla: sin su nombre, SIS ni CI. */
+    private void validarSiEsEstudiante(Usuario usuario, String passwordNueva) {
+        estudianteRepository.findByIdUsuario(usuario.getId()).ifPresent(e ->
+                PasswordPolicy.validarSinDatosDelEstudiante(passwordNueva, e.getCodigoSis(), e.getCi(), e.getNombre()));
     }
 
     /**
@@ -219,6 +230,7 @@ public class AuthService {
         if (usuario == null || !ESTADO_ACTIVO.equalsIgnoreCase(usuario.getEstado())) {
             throw new TokenResetInvalidoException();
         }
+        validarSiEsEstudiante(usuario, request.passwordNueva());
 
         if (passwordEncoder.matches(request.passwordNueva(), usuario.getPassword())) {
             throw new IllegalArgumentException("La nueva contraseña debe ser distinta a la actual");

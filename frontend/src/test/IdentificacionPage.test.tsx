@@ -136,7 +136,7 @@ describe('IdentificacionPage', () => {
     expect(within(verificacion()).queryByText(/Error de habilitación académica/)).not.toBeInTheDocument()
     expect(within(verificacion()).queryByRole('button', { name: /Continuar/ })).not.toBeInTheDocument()
 
-    fireEvent.click(within(verificacion()).getByRole('button', { name: 'CERRAR' }))
+    fireEvent.click(within(verificacion()).getByRole('button', { name: 'Cerrar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByText('Flujo ACCS-02')).not.toBeInTheDocument()
     expect(screen.getByText('María José González Flores')).toBeInTheDocument()

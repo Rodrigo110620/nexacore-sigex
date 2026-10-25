@@ -1,6 +1,7 @@
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
+import FotoEstudiante from './FotoEstudiante'
 
 interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
@@ -43,9 +44,12 @@ export default function EstudianteTable({
             <tr key={e.id}>
               <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
-                  <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}>
-                    {getInitials(e.nombre, e.apellidos)}
-                  </span>
+                  <FotoEstudiante
+                    fotoUrl={e.fotoUrl}
+                    nombre={`${e.nombre} ${e.apellidos}`}
+                    iniciales={getInitials(e.nombre, e.apellidos)}
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}
+                  />
                   <span>
                     <span className="block font-semibold">{e.nombre} {e.apellidos}</span>
                     <span className="mt-1 block text-xs text-gray-500">Cód: {e.codigoSis}</span>
@@ -57,7 +61,7 @@ export default function EstudianteTable({
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>
                 <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span>
               </td>
-              {/* 🆕 Columna de Matrícula */}
+             
               <td className="px-5 py-3 text-center">
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                   e.estadoMatricula === 'NO_MATRICULADO' 

@@ -19,7 +19,8 @@ const contextoBase: ContextoControlIngreso = {
   documento: '74839201',
   idExamen: 20,
   asignatura: 'INF-101 - Programación',
-  fecha: '2026-10-15',
+  // Examen futuro: con uno ya terminado no se pueden registrar ingresos.
+  fecha: '2099-10-15',
   horaInicio: '10:00:00',
   duracionMinutos: 120,
   ambiente: 'Aula 401',
@@ -52,6 +53,19 @@ const sinConexion = () => {
 const errorDeRed = () => Object.assign(new Error('Network Error'), { code: 'ERR_NETWORK' })
 
 describe('ControlIngresoPage', () => {
+  it('INCI-02 exige motivo y envía el ingreso manual con su justificación', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    expect(service.autorizarIngreso).not.toHaveBeenCalled()
+    expect(screen.getByText('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')).toBeInTheDocument()
+    vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-24T12:00:00', autorizadoPor: 'Carla Control' })
+    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: 'Celular apagado, no presenta QR' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ ingresoManual: true, justificacionManual: 'Celular apagado, no presenta QR' })))
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(service.obtenerHistorialControl).mockResolvedValue([])
@@ -77,6 +91,14 @@ describe('ControlIngresoPage', () => {
     expect((obs as HTMLTextAreaElement).value).toHaveLength(100)
     expect(screen.getByText('100/100')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeEnabled()
+  })
+
+  it('con el examen ya terminado avisa y no deja autorizar ni denegar', async () => {
+    renderPage({ ...contextoBase, fecha: '2020-01-10' })
+
+    expect(await screen.findByText(/El examen ya terminó:/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Autorizar Ingreso/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Denegar/ })).toBeDisabled()
   })
 
   it('CA-68/70: "Ver todo" muestra la observación completa cuando no cabe en el campo', async () => {
@@ -246,6 +268,7 @@ describe('ControlIngresoPage', () => {
       identidadVerificada: true,
       verificacionesAdicionales: ['Identidad biométrica cotejada / Carnet físico verificado'],
       incidencias: [{ idTipoIncidencia: 3, descripcion: 'Documento deteriorado' }],
+      fechaHoraDispositivo: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/),
     }))
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
     expect(screen.getByText('Autorizado por')).toBeInTheDocument()

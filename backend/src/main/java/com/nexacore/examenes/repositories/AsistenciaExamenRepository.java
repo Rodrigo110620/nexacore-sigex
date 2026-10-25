@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExamen, AsistenciaExamenId> {
+
+    /** El estudiante está asociado al examen (para enviarle en vivo los cambios de ese examen). */
+    boolean existsByIdIdEstudianteAndIdIdExamen(Integer idEstudiante, Integer idExamen);
     String CONSULTA_CONTEXTO = """
             SELECT a FROM AsistenciaExamen a
             JOIN FETCH a.estudiante e
@@ -39,7 +42,7 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE asistencia_examen
-            SET fecha_hora_ingreso = NOW(),
+            SET fecha_hora_ingreso = :fechaHoraIngreso,
                 id_ambiente_ingreso = :idAmbiente,
                 id_usuario_control = :idUsuarioControl,
                 observaciones_control = :observaciones
@@ -47,11 +50,24 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
               AND id_examen = :idExamen
               AND fecha_hora_ingreso IS NULL
             """, nativeQuery = true)
-    int autorizarConFechaServidor(
+    int autorizarConHoraDispositivo(
             @Param("idEstudiante") Integer idEstudiante,
             @Param("idExamen") Integer idExamen,
             @Param("idAmbiente") Integer idAmbiente,
             @Param("idUsuarioControl") Integer idUsuarioControl,
+            @Param("observaciones") String observaciones,
+            @Param("fechaHoraIngreso") LocalDateTime fechaHoraIngreso);
+
+    /** Conservado para compatibilidad; las nuevas autorizaciones usan la hora del dispositivo. */
+    @Deprecated
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            UPDATE asistencia_examen SET fecha_hora_ingreso = NOW(), id_ambiente_ingreso = :idAmbiente,
+                id_usuario_control = :idUsuarioControl, observaciones_control = :observaciones
+            WHERE id_estudiante = :idEstudiante AND id_examen = :idExamen AND fecha_hora_ingreso IS NULL
+            """, nativeQuery = true)
+    int autorizarConFechaServidor(@Param("idEstudiante") Integer idEstudiante, @Param("idExamen") Integer idExamen,
+            @Param("idAmbiente") Integer idAmbiente, @Param("idUsuarioControl") Integer idUsuarioControl,
             @Param("observaciones") String observaciones);
 
     @Query(value = "SELECT fecha_hora_ingreso FROM asistencia_examen WHERE id_estudiante = :idEstudiante AND id_examen = :idExamen", nativeQuery = true)

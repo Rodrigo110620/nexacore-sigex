@@ -1,5 +1,7 @@
 package com.nexacore.examenes;
 
+import com.nexacore.examenes.services.NotificacionService;
+
 import com.nexacore.examenes.services.IntentoIngresoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @AutoConfigureTestDatabase
 @ActiveProfiles("test")
-@Import(IntentoIngresoService.class)
+@Import({IntentoIngresoService.class, NotificacionService.class, com.nexacore.examenes.services.SesionExamenService.class})
 class IntentoIngresoRepositoryIntegrationTests {
 
     private static final int EXAMEN = 980201;

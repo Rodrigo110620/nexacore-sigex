@@ -18,12 +18,13 @@ public record EstudianteHabilitacionResponse(
         /** true si ya ingresó al examen: entonces no se lo puede quitar ni inhabilitar. */
         boolean ingresado,
         /** Aviso si tiene otro examen que se cruza en horario ese día; null si no. No bloquea. */
-        String conflictoHorario
+        String conflictoHorario,
+        String estadoMatricula
 ) {
     public EstudianteHabilitacionResponse(Integer idEstudiante, String nombre, String apellidos, String codigoSis,
                                           String ci, String facultad, EstadoHabilitacion estadoHabilitacion,
-                                          String motivo, String aula) {
-        this(idEstudiante, nombre, apellidos, codigoSis, ci, facultad, estadoHabilitacion, motivo, aula, false, null);
+                                          String motivo, String aula, String estadoMatricula) {
+        this(idEstudiante, nombre, apellidos, codigoSis, ci, facultad, estadoHabilitacion, motivo, aula, false, null, estadoMatricula);
     }
 
     /** Refleja asistencia_examen.habilitado: true → HABILITADO; false → NO_HABILITADO; null → PENDIENTE. */

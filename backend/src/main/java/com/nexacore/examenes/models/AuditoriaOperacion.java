@@ -22,14 +22,14 @@ public class AuditoriaOperacion {
     private com.nexacore.examenes.models.Usuario idUsuario;
 
     @NotNull
-    @Column(name = "accion", nullable = false, length = Integer.MAX_VALUE)
+    @Column(name = "accion", nullable = false)
     private String accion;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "fecha_hora")
     private Instant fechaHora;
 
-    @Column(name = "detalles", length = Integer.MAX_VALUE)
+    @Column(name = "detalles")
     private String detalles;
 
 

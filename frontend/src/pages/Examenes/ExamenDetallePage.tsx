@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
+  CalendarClock,
   CalendarDays,
   Check,
   Clock,
@@ -26,12 +27,17 @@ import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/e
 import {
   addMinutes,
   codigoExamen,
-  estadoLabel,
   formatFecha,
   horaCorta,
   initialsOfName,
   semanaDelAnio,
 } from '../../utils/examenFormat'
+import useEnVivo from '../../hooks/useEnVivo'
+import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
+import CronometroExamen from '../../components/examenes/CronometroExamen'
+import useTiempoExamen from '../../hooks/useTiempoExamen'
+import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
+import HistorialSesiones from '../../components/examenes/HistorialSesiones'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -53,26 +59,6 @@ function InfoChip({ icon, children }: { icon: ReactNode; children: ReactNode }) 
   )
 }
 
-function EstadoPill({ cancelado, label }: { cancelado: boolean; label: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-      cancelado ? 'bg-[#FDECEC] text-[#B91C1C]' : 'bg-[#DCFCE7] text-[#166534]'
-    }`}>
-      <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
-        {!cancelado && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22C55E] opacity-60 motion-reduce:hidden" />
-        )}
-        <span
-          className={`relative inline-flex h-2 w-2 rounded-full ${
-            cancelado ? 'bg-[#B91C1C]' : 'bg-[#16A34A] motion-safe:animate-pulse'
-          }`}
-        />
-      </span>
-      {label}
-    </span>
-  )
-}
-
 function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className = '' }: {
   label: string
   value: string
@@ -90,7 +76,7 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 }
 
 export default function ExamenDetallePage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, roles } = useAuth()
   const navigate = useNavigate()
   const idExamen = Number(useParams().idExamen)
   const idParalelo = Number(useParams().idParalelo)
@@ -99,14 +85,16 @@ export default function ExamenDetallePage() {
   const [error, setError] = useState('')
   const [tab, setTab] = useState<'normas' | 'habilitados'>('normas')
   const [editOpen, setEditOpen] = useState(false)
+  const [reprogramarOpen, setReprogramarOpen] = useState(false)
+  const [recargaSesiones, setRecargaSesiones] = useState(0)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [habilitadosCount, setHabilitadosCount] = useState<number | null>(null)
   /** Código y CI de los estudiantes con norma particular, por idEstudiante. */
   const [datosNormas, setDatosNormas] = useState<Map<number, { codigoSis: string; ci: string }>>(new Map())
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
+    if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
       const lista = await listarExamenes()
@@ -126,6 +114,9 @@ export default function ExamenDetallePage() {
     }, 0)
     return () => window.clearTimeout(handle)
   }, [load])
+
+  // En vivo: otro usuario editó o canceló este examen.
+  useEnVivo((c) => c.tipo === 'EXAMEN' && c.idExamen === idExamen, () => void load({ silencioso: true }))
 
   useEffect(() => {
     const ids = [...new Set(
@@ -150,6 +141,16 @@ export default function ExamenDetallePage() {
   const horaFin = examen ? addMinutes(examen.horaInicio, examen.duracionMinutos) : '—'
   const semana = examen ? semanaDelAnio(examen.fecha) : null
   const cancelado = examen?.estado === 'cancelado'
+  // En vivo: al terminar el examen, la lista de estudiantes pasa a solo lectura.
+  const faseExamen = useTiempoExamen(examen, 15_000)?.fase
+  // Un examen finalizado no se edita: se reprograma (ADMIN, o el DOCENTE de sus exámenes).
+  const finalizado = faseExamen === 'finalizado'
+  const puedeReprogramar = finalizado && (isAdmin || roles.includes('DOCENTE'))
+  const soloLecturaHabilitacion = faseExamen === 'finalizado'
+    ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
+    : faseExamen === 'cancelado' || cancelado
+      ? 'El examen fue cancelado: la lista de estudiantes es de solo lectura.'
+      : undefined
 
   return (
     <PanelLayout compactDesktop>
@@ -189,24 +190,35 @@ export default function ExamenDetallePage() {
                         {codigoExamen(examen)}
                       </span>
                       <span className="hidden min-[960px]:inline-flex">
-                        <EstadoPill cancelado={cancelado} label={estadoLabel(examen.estado)} />
+                        <EstadoExamenBadge examen={examen} variante="pastilla" />
                       </span>
                     </div>
                     <div className="mt-2 min-[960px]:hidden">
-                      <EstadoPill cancelado={cancelado} label={estadoLabel(examen.estado)} />
+                      <EstadoExamenBadge examen={examen} variante="pastilla" />
                     </div>
                   </div>
-                  {isAdmin && (
+                  {(isAdmin || puedeReprogramar) && (
                     <div className="hidden shrink-0 items-center gap-2 min-[960px]:flex">
-                      <button
-                        type="button"
-                        onClick={() => setEditOpen(true)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-white px-4 text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB]"
-                      >
-                        <Pencil size={14} aria-hidden="true" />
-                        Editar Examen
-                      </button>
-                      {!cancelado && (
+                      {puedeReprogramar ? (
+                        <button
+                          type="button"
+                          onClick={() => setReprogramarOpen(true)}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2]"
+                        >
+                          <CalendarClock size={14} aria-hidden="true" />
+                          Reprogramar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditOpen(true)}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#D8E3F5] bg-white px-4 text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB]"
+                        >
+                          <Pencil size={14} aria-hidden="true" />
+                          Editar Examen
+                        </button>
+                      )}
+                      {isAdmin && !cancelado && (
                         <button
                           type="button"
                           onClick={() => setCancelOpen(true)}
@@ -225,17 +237,28 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
-                {isAdmin && (
+                {(isAdmin || puedeReprogramar) && (
                   <div className="mt-3 grid grid-cols-2 gap-2 min-[960px]:hidden">
-                    <button
-                      type="button"
-                      onClick={() => setEditOpen(true)}
-                      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado ? 'col-span-2' : ''}`}
-                    >
-                      <Pencil size={15} aria-hidden="true" />
-                      Editar Examen
-                    </button>
-                    {!cancelado && (
+                    {puedeReprogramar ? (
+                      <button
+                        type="button"
+                        onClick={() => setReprogramarOpen(true)}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] text-sm font-semibold text-white hover:bg-[#0027a2] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
+                      >
+                        <CalendarClock size={15} aria-hidden="true" />
+                        Reprogramar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditOpen(true)}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado ? 'col-span-2' : ''}`}
+                      >
+                        <Pencil size={15} aria-hidden="true" />
+                        Editar Examen
+                      </button>
+                    )}
+                    {isAdmin && !cancelado && (
                       <button
                         type="button"
                         onClick={() => setCancelOpen(true)}
@@ -247,7 +270,9 @@ export default function ExamenDetallePage() {
                     )}
                   </div>
                 )}
+                <CronometroExamen examen={examen} className="mt-3" />
               </section>
+              <HistorialSesiones idExamen={examen.idExamen} idParalelo={examen.idParalelo} recarga={recargaSesiones} />
 
               <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
                 <div role="tablist" className="flex min-w-max gap-6 border-b border-[#EDF1F7] px-1">
@@ -420,6 +445,7 @@ export default function ExamenDetallePage() {
                   idExamen={examen.idExamen}
                   idParalelo={examen.idParalelo}
                   isAdmin={isAdmin}
+                  soloLectura={soloLecturaHabilitacion}
                   examenResumen={`${examen.asignatura} · ${formatFecha(examen.fecha)} · ${examen.ambienteNombre}`}
                   onCountChange={setHabilitadosCount}
                 />
@@ -428,6 +454,17 @@ export default function ExamenDetallePage() {
           )}
         </div>
         <MobileBottomNav />
+        {reprogramarOpen && examen && (
+          <ReprogramarExamenModal
+            examen={examen}
+            onClose={() => setReprogramarOpen(false)}
+            onReprogramado={() => {
+              setReprogramarOpen(false)
+              setRecargaSesiones((n) => n + 1)
+              void load()
+            }}
+          />
+        )}
         <EditExamenModal
           isOpen={editOpen}
           examen={examen}

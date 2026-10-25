@@ -36,6 +36,12 @@ const mensajeDeError = (err: unknown, fallback: string) => {
 /** Códigos o CI separados por saltos de línea, comas, punto y coma o espacios. */
 const separarIdentificadores = (texto: string) => texto.split(/[\s,;]+/).map((t) => t.trim()).filter(Boolean)
 
+/** Solo números y separadores (salto de línea, espacio, coma o punto y coma). */
+const soloNumerosYSeparadores = (texto: string) => texto.replace(/[^\d\s,;]/g, '')
+
+/** Código SIS (9 dígitos) o CI (7 u 8 dígitos). */
+const IDENTIFICADOR_VALIDO = /^\d{7,9}$/
+
 const carrerasDe = (e: EstudianteListItem) => e.carreras?.map((c) => c.nombreCarrera).join(', ') || 'Sin carrera'
 
 interface AsociarEstudiantesModalProps {
@@ -168,6 +174,11 @@ export default function AsociarEstudiantesModal({
         : 'Selecciona al menos un estudiante para asociar.')
       return
     }
+    const invalidos = modo === 'codigos' ? identificadores.filter((id) => !IDENTIFICADOR_VALIDO.test(id)) : []
+    if (invalidos.length > 0) {
+      setError(`Revisa ${invalidos.length === 1 ? 'este identificador' : 'estos identificadores'}: ${invalidos.slice(0, 5).join(', ')}${invalidos.length > 5 ? '…' : ''}. El código SIS tiene 9 dígitos y el CI, 7 u 8.`)
+      return
+    }
     if (isOffline()) {
       setResultado({ tipo: 'offline', mensaje: SIN_CONEXION })
       return
@@ -279,7 +290,7 @@ export default function AsociarEstudiantesModal({
               <textarea
                 id="identificadores"
                 value={texto}
-                onChange={(e) => { setTexto(e.target.value); setError('') }}
+                onChange={(e) => { setTexto(soloNumerosYSeparadores(e.target.value)); setError('') }}
                 rows={8}
                 className="mt-2 w-full rounded-xl border border-[#B8CBEF] bg-[#F8FAFD] px-4 py-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                 placeholder={'Uno por línea o separados por coma\n201904725\n6512340'}

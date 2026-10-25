@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2 } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import { useAuth } from '../../context/AuthContext'
@@ -16,7 +16,13 @@ import { NormaTexto } from '../../components/examenes/ExamFormDialogs'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import { isNetworkError, isOffline } from '../../utils/examFormUtils'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
+import AvisoFotoReportada from '../../components/estudiantes/AvisoFotoReportada'
+import { obtenerReporteFoto, type ReporteFotoAbierto } from '../../services/fotoRevisionService'
+import useEnVivo from '../../hooks/useEnVivo'
+import ReportarFotoModal from '../../components/control/ReportarFotoModal'
+import ReporteQrDuplicadoModal from '../../components/control/ReporteQrDuplicadoModal'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
+import useTiempoExamen from '../../hooks/useTiempoExamen'
 
 const VERIFICACION = 'Identidad biométrica cotejada / Carnet físico verificado'
 const MAX_DETALLE_DENEGACION = 500
@@ -29,6 +35,16 @@ const ETIQUETA_INCIDENCIA: Record<string, string> = {
 }
 const SIN_CONEXION_AUTORIZAR = 'No se pudo autorizar ni registrar el ingreso porque no hay conexión a Internet. La información ingresada se conserva: vuelve a presionar "Autorizar Ingreso" cuando recuperes la conexión.'
 const SIN_CONEXION_DENEGAR = 'No se pudo registrar la denegación porque no hay conexión a Internet. La información ingresada se conserva: vuelve a presionar "Confirmar Denegación" cuando recuperes la conexión.'
+
+/** ISO local con offset: no usar toISOString(), que convierte la hora visible del dispositivo a UTC. */
+function horaLocalDelDispositivo() {
+  const ahora = new Date()
+  const minutos = -ahora.getTimezoneOffset()
+  const signo = minutos >= 0 ? '+' : '-'
+  const absoluto = Math.abs(minutos)
+  const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60_000).toISOString().slice(0, 19)
+  return `${local}${signo}${String(Math.floor(absoluto / 60)).padStart(2, '0')}:${String(absoluto % 60).padStart(2, '0')}`
+}
 
 /** Mensaje del backend (p. ej. una validación 400), o null si no trae uno. */
 function mensajeDelServidor(err: unknown): string | null {
@@ -48,6 +64,9 @@ function StudentSummary({ctx}: {ctx: ContextoControlIngreso}) {
 export default function ControlIngresoPage() {
   const { nombre } = useAuth()
   const nav = useNavigate(), p = useParams()
+  const [searchParams] = useSearchParams()
+  const [ingresoManual, setIngresoManual] = useState(searchParams.get('ingreso') === 'manual')
+  const [justificacionManual, setJustificacionManual] = useState('')
   const idEstudiante = Number(p.idEstudiante), idExamen = Number(p.idExamen)
   const valid = Number.isInteger(idEstudiante) && Number.isInteger(idExamen)
   const [ctx, setCtx] = useState<ContextoControlIngreso | null>(null)
@@ -64,9 +83,16 @@ export default function ControlIngresoPage() {
   const [verificarAmbienteOpen, setVerificarAmbienteOpen] = useState(false)
   const [ambienteConfirmado, setAmbienteConfirmado] = useState(true)
   const [aviso, setAviso] = useState<Resultado | null>(null)
+  const [reportarFotoOpen, setReportarFotoOpen] = useState(false)
+  // Al terminar el examen se bloquean los ingresos (el backend también lo impide).
+  const tiempoExamen = useTiempoExamen(ctx ? { fecha: ctx.fecha, horaInicio: ctx.horaInicio, duracionMinutos: ctx.duracionMinutos } : null)
+  const examenTerminado = tiempoExamen?.fase === 'finalizado'
+  /** Reporte abierto de la foto: se avisa en lugar de dejar reportarla otra vez. */
+  const [reporteFoto, setReporteFoto] = useState<ReporteFotoAbierto | null>(null)
   const [normasAbiertas, setNormasAbiertas] = useState<Set<string>>(new Set())
   const obsError = validarTextoLibre(obs, OBSERVACIONES_CONTROL)
   const [loadError, setLoadError] = useState('')
+  const [reporteQrOpen, setReporteQrOpen] = useState(false)
 
   const pedirContexto = useCallback(() => Promise.all([obtenerContextoControl(idEstudiante, idExamen), obtenerTiposIncidencia()])
     .then(([c, t]) => { setCtx(c); setTypes(t) })
@@ -78,6 +104,22 @@ export default function ControlIngresoPage() {
   useEffect(() => {
     if (valid) void pedirContexto()
   }, [valid, pedirContexto])
+
+  // Sin conexión o con error, simplemente no se muestra el aviso: no debe frenar el control.
+  const cargarReporteFoto = useCallback(() => obtenerReporteFoto(idEstudiante)
+    .then(setReporteFoto)
+    .catch(() => setReporteFoto(null)), [idEstudiante])
+
+  useEffect(() => {
+    if (valid) void cargarReporteFoto()
+  }, [valid, cargarReporteFoto])
+
+  // En vivo: si otro miembro del personal reporta o revisa la foto, el aviso se actualiza; si registra
+  // el ingreso de este estudiante en otro dispositivo, el estado se actualiza (evita un doble ingreso).
+  useEnVivo((c) => c.idEstudiante === idEstudiante, () => {
+    void cargarReporteFoto()
+    void pedirContexto()
+  })
 
   const reintentarCarga = () => {
     setLoading(true)
@@ -93,6 +135,10 @@ export default function ControlIngresoPage() {
   })
 
   const submit = async (denegar = false) => {
+    if (!denegar && ingresoManual && (justificacionManual.trim().length < 10 || justificacionManual.trim().length > 1000)) {
+      setError('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')
+      return
+    }
     if (denegar && detalleError) return
     if (obsError) {
       setTextErrorField('observaciones')
@@ -136,6 +182,8 @@ export default function ControlIngresoPage() {
           idTipoIncidencia: id,
           descripcion: incident.trim() || types.find(t => t.id === id)?.nombre || 'Incidencia detectada',
         })),
+        fechaHoraDispositivo: horaLocalDelDispositivo(),
+        ...(!denegar && ingresoManual ? { ingresoManual: true, justificacionManual: justificacionManual.trim() } : {}),
       }
       const response = await (denegar ? denegarIngreso(payload) : autorizarIngreso(payload))
       setResult(response)
@@ -161,7 +209,7 @@ export default function ControlIngresoPage() {
       {!loading && ctx && <div className="control-sheet space-y-4">
         <section className="control-exam-header"><div className="flex flex-col justify-between gap-3 border-b border-[#E6EDF8] bg-[#F8F9FB] px-4 py-3 min-[760px]:flex-row min-[760px]:items-center sm:px-5"><div className="flex flex-wrap items-center gap-2"><UserCheck size={16} className="text-[#0439D9]"/><h1 className="text-sm font-extrabold uppercase text-[#15213B]">Control de ingreso</h1><span className="text-sm text-[#15213B]">{ctx.asignatura}</span><span className="text-sm text-[#15213B]">· {ctx.ambiente}</span></div><div className="flex flex-wrap gap-4 text-[10px] text-[#627A9B]"><span>Fecha: <b>{ctx.fecha.split('-').reverse().join('/')}</b></span><span>Hora: <b>{ctx.horaInicio.slice(0,5)} hrs</b></span></div></div></section>
         <section className="grid gap-4">
-          <div className="control-student-heading"><span>Estudiante identificado</span></div><article className="control-student"><div className="control-student-row"><div className="control-student-identity flex min-w-0 items-center gap-3"><FotoEstudiante fotoUrl={ctx.fotoUrl} nombre={ctx.estudiante} iniciales={ctx.estudiante.split(' ').slice(0,2).map(x=>x[0]).join('')} className="control-avatar"/><div><p className="text-[9px] font-semibold uppercase text-[#45628D]">{etiquetaCondicion(ctx.condicion)}</p><p className="text-sm font-bold text-[#20242a]">{ctx.estudiante}</p><p className="text-xs text-[#45628D]">Código: <span>{ctx.codigoSis}</span></p></div></div><dl className="control-student-details"><div><dt>CI</dt><dd>{ctx.documento}</dd></div><div><dt>Carrera</dt><dd>{ctx.carrera || 'No registrada'}</dd></div></dl><span className={`control-status ${ctx.habilitado?'':'control-status-denied'}`}><CheckCircle2 size={14}/>{ctx.habilitado?'HABILITADO':'NO HABILITADO'}</span></div></article>
+          <div className="control-student-heading"><span>Estudiante identificado</span></div><article className="control-student"><div className="control-student-row"><div className="control-student-identity flex min-w-0 items-center gap-3"><FotoEstudiante fotoUrl={ctx.fotoUrl} nombre={ctx.estudiante} iniciales={ctx.estudiante.split(' ').slice(0,2).map(x=>x[0]).join('')} className="control-avatar"/><div><p className="text-[9px] font-semibold uppercase text-[#45628D]">{etiquetaCondicion(ctx.condicion)}</p><p className="text-sm font-bold text-[#20242a]">{ctx.estudiante}</p><p className="text-xs text-[#45628D]">Código: <span>{ctx.codigoSis}</span></p>{reporteFoto?<AvisoFotoReportada reporte={reporteFoto}/>:ctx.fotoUrl&&<button type="button" onClick={()=>setReportarFotoOpen(true)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-[#B45309] hover:underline"><Flag size={12} aria-hidden="true"/>¿La foto no coincide? → Reportar foto</button>}</div></div><dl className="control-student-details"><div><dt>CI</dt><dd>{ctx.documento}</dd></div><div><dt>Carrera</dt><dd>{ctx.carrera || 'No registrada'}</dd></div></dl><span className={`control-status ${ctx.habilitado?'':'control-status-denied'}`}><CheckCircle2 size={14}/>{ctx.habilitado?'HABILITADO':'NO HABILITADO'}</span></div></article>
           <article className="rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)] sm:p-5">
             <div className="mb-4 flex items-center gap-2 border-b border-[#E6EDF8] pb-3"><Building2 size={16} className="text-[#0439D9]"/><h2 className="text-xs font-extrabold uppercase tracking-wide text-[#15213B]">Verificación de ambiente</h2></div>
             <div className="flex flex-col gap-3 rounded-lg border border-[#E6EDF8] bg-[#F8F9FB] p-3.5 sm:flex-row sm:items-center sm:justify-between">
@@ -171,9 +219,27 @@ export default function ControlIngresoPage() {
           </article>
           <article className="control-rules"><Title icon={<ListChecks size={14}/>} text="Normas del examen"/><div className="control-rules-box"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales:</b>{ctx.normasGenerales.length ? <ul className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ul> : <p>No registradas.</p>}</div></div><div className="mt-2 flex items-start gap-2"><ClipboardList size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas particulares:</b>{ctx.normasParticulares.length ? <ul className="control-rules-list">{ctx.normasParticulares.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`p-${i}`)} onToggle={()=>alternarNorma(`p-${i}`)}/></li>)}</ul> : <p>No se registraron normas particulares para este estudiante.</p>}</div></div></div></article>
         </section>
-        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF2F4] p-4 text-[#C7193F]"><div className="flex gap-2"><AlertTriangle size={20}/><div><b>No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div></section>}
+        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button>}</div></section>}
         {!ctx.ingresoRegistrado && <section className="control-register">
           <Title icon={<ListChecks size={14}/>} text="Registro de control"/>
+          <div className="mb-4 rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">
+            {searchParams.get('ingreso') === 'manual' ? (
+              <div className="flex items-center gap-2 text-sm font-bold text-[#0439D9]">
+                <UserCheck size={18} aria-hidden="true" />
+                <span>Ingreso manual por CI/SIS</span>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 text-sm font-semibold text-[#011140]">
+                <input type="checkbox" checked={ingresoManual} onChange={e=>setIngresoManual(e.target.checked)}/>
+                Ingreso manual por excepción
+              </label>
+            )}
+            {ingresoManual && <div className="mt-3">
+              <label htmlFor="justificacion-manual" className="block text-xs font-semibold">Justificación del ingreso manual (obligatoria)</label>
+              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{setJustificacionManual(e.target.value);setError('')}} minLength={10} maxLength={1000} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado y no puede presentar su QR."/>
+              <p className="mt-1 text-xs text-[#627A9B]">Mínimo 10 caracteres. Se guardará como excepción con el usuario y la hora del servidor.</p>
+            </div>}
+          </div>
           <div className="control-fields">
             <div>
               <TextoLibreCampo id="control-observaciones" className="block text-xs" label={<>Observaciones <span className="text-[#7586A0]">(opcional)</span></>} max={OBSERVACIONES_CONTROL.max} rows={3} value={obs} onChange={v=>{setObs(v); if(textErrorField==='observaciones'){setTextErrorField(null);setError('')}}} error={obsError ?? (textErrorField==='observaciones' ? error : null)} placeholder="Estudiante ingresa con credencial oficial en regla"/>
@@ -182,7 +248,8 @@ export default function ControlIngresoPage() {
             <fieldset className="control-incidents"><legend className="sr-only">Incidencias detectadas</legend><p className="mb-3 flex items-center gap-2 font-semibold text-[#A6450A]"><AlertTriangle size={14}/>Incidencias Detectadas</p>{types.filter(t=>['LLEGADA_TARDE','DOCUMENTO_MAL_ESTADO','OTRA_INCIDENCIA'].includes(t.nombre)).map(t=><label key={t.id} className="mb-2 flex items-start gap-2"><input type="checkbox" checked={selectedIncidents.includes(t.id)} onChange={()=>setSelectedIncidents(v=>v.includes(t.id)?v.filter(id=>id!==t.id):[...v,t.id])}/>{ETIQUETA_INCIDENCIA[t.nombre]}</label>)}{selectedIncidents.length>0&&<><textarea aria-label="Detalle de incidencias" aria-invalid={textErrorField==='incidencia'} value={incident} onChange={e=>{setIncident(e.target.value); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}} rows={2} maxLength={1000} className="control-input" placeholder="Opcional: describe la incidencia..."/>{textErrorField==='incidencia'&&<p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}</>}</fieldset>
           </div>
         </section>}
-        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
+        {examenTerminado&&!ctx.ingresoRegistrado&&<p role="status" className="mx-1 mb-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#344158]"><strong>El examen ya terminó:</strong> no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.</p>}
+        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result||examenTerminado} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||examenTerminado||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
       </div>}
     </div></main>
     {denialOpen&&ctx&&<div className="control-overlay control-denial-overlay fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Denegar ingreso"><section className="control-denial-modal">
@@ -190,6 +257,7 @@ export default function ControlIngresoPage() {
       <div className="control-denial-body"><StudentSummary ctx={ctx}/><div className="mt-3 flex justify-between text-xs"><label htmlFor="denial-reason">Razón de denegación <span className="text-red-600">*</span></label><span className="text-[9px] text-[#45628D]">Requerido para auditoría</span></div><select id="denial-reason" className="control-input" value={reason} onChange={e=>setReason(e.target.value)}><option value="">Seleccionar razón</option>{['Suplantación','Fuera de tiempo','Documento inválido','Incumplimiento de normas','Deuda pendiente',OTRA_RAZON].map(x=><option key={x}>{x}</option>)}</select>{reason&&<p className="mt-2 rounded-md bg-[#f3f3f3] px-2 py-1 text-[10px] text-[#45628D]">{reason}</p>}<TextoLibreCampo id="denial-detail" label={<>Detalle adicional {otraRazon ? <span className="text-red-600">*</span> : <span className="text-[#45628D]">(opcional)</span>}</>} max={DETALLE_DENEGACION.max} value={denialDetail} onChange={setDenialDetail} error={detalleError} placeholder={otraRazon ? 'Especifique la razón de la denegación...' : 'Especifique el motivo o detalles de la denegación para auditoría institucional...'}/><div className="control-denial-audit"><p>AL CONFIRMAR, SE REGISTRARÁ:</p><div className="flex justify-between"><span>PERSONAL DE CONTROL</span><b>{nombre}</b></div><div className="flex justify-between"><span>FECHA Y HORA OFICIAL</span><span>Al confirmar · servidor</span></div></div></div>
       {error&&!textErrorField&&<p role="alert" className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}<div className="control-denial-footer"><button onClick={()=>setDenialOpen(false)} className="control-change">Cancelar</button><button disabled={!reason.trim()||saving||!!detalleError||!!obsError} onClick={()=>void submit(true)} className="control-deny"><Ban size={14}/>{saving?'Registrando...':'Confirmar Denegación'}</button></div></section></div>}
     {result&&ctx&&<div className="control-overlay control-result-overlay fixed inset-0 z-[60] grid place-items-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Resultado del control"><section className="control-receipt"><button aria-label="Cerrar resultado" onClick={()=>{setResult(null); if(result.autorizado) setCtx({...ctx,ingresoRegistrado:true})}} className="absolute right-3 top-3 rounded-full bg-[#F4F5F7] p-1 text-[#7586A0]"><X size={16}/></button><div className={`control-receipt-icon mx-auto grid h-12 w-12 place-items-center rounded-full ${result.autorizado?'bg-green-100 text-green-600':'bg-red-100 text-red-700'}`}>{result.autorizado?<CheckCircle2 size={30}/>:<AlertTriangle/>}</div><h2 className={`mx-auto mt-3 w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?'Ingreso autorizado':'Ingreso denegado'}</h2><div className="mt-4"><StudentSummary ctx={ctx}/></div><dl className="control-receipt-meta my-4 space-y-2 text-xs"><div><dt className="text-[#45628D]">{result.autorizado ? 'Autorizado por' : 'Denegado por'}</dt><dd>{result.autorizadoPor}</dd></div><div><dt className="text-[#45628D]">Fecha y hora oficial</dt><dd>{new Date(result.fechaHoraIngreso).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })}</dd></div></dl><p className={`rounded-lg p-3 text-xs ${result.autorizado?'bg-[#ECFDF5] text-[#087F59]':'bg-red-50 text-red-700'}`}>{result.autorizado?(result.ambiente?<>El estudiante debe ingresar al aula <b className="text-base">{result.ambiente}</b>.</>:'El estudiante puede ingresar al ambiente de evaluación.'):result.causa}</p><button onClick={()=>nav(`/dashboard/control/${idExamen}/identificar`)} className="mt-4 min-h-10 w-full rounded-lg bg-[#0439D9] text-sm font-semibold text-white shadow-md">→ Registrar siguiente estudiante</button></section></div>}
+    {reportarFotoOpen&&ctx&&<ReportarFotoModal idEstudiante={idEstudiante} idExamen={idExamen} estudiante={ctx.estudiante} codigoSis={ctx.codigoSis} onClose={()=>setReportarFotoOpen(false)} onReportada={(mensaje)=>{setReportarFotoOpen(false);setAviso({tipo:'exito',mensaje});void cargarReporteFoto()}}/>}
     <ResultadoModal resultado={aviso} onClose={()=>setAviso(null)}/>
     <VerificarAmbienteModal 
   isOpen={verificarAmbienteOpen} 
@@ -202,5 +270,6 @@ export default function ControlIngresoPage() {
   aulaActualExamen={ctx?.ambiente}
   usuarioNombre={nombre ?? undefined}
 />
+    {reporteQrOpen && ctx && <ReporteQrDuplicadoModal idExamen={idExamen} idEstudianteQr={idEstudiante} onClose={()=>{ setReporteQrOpen(false); nav(`/dashboard/control/${idExamen}/identificar`) }}/>}
   </PanelLayout>{(denialOpen || result || verificarAmbienteOpen) && <MobileBottomNav variant="controlHome" />}</div>
 }

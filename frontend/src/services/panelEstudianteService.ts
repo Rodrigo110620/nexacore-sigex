@@ -18,9 +18,12 @@ export interface MiPerfilEstudiante {
   telefono: string | null
   estadoMatricula: string
   condicion: string
+  carreras?: { idCarrera: number; nombreCarrera: string; idFacultad: number; nombreFacultad: string }[]
   /** Ruta de la foto aprobada (la que ve el personal de control), o null si no tiene. */
   fotoUrl: string | null
   solicitudFoto: SolicitudFoto | null
+  /** El personal de control reportó que su foto no coincide y aún no envió otra. */
+  fotoReportada?: boolean
 }
 
 export async function obtenerMiPerfil(): Promise<MiPerfilEstudiante> {
@@ -59,9 +62,69 @@ export async function enviarMiFoto(foto: Blob, password: string): Promise<Result
 
 /**
  * CTA-02: la foto es obligatoria. El estudiante debe registrarla si no tiene una foto aprobada y
- * no hay una pendiente de revisión (nunca envió una o se la rechazaron).
+ * no hay una pendiente de revisión (nunca envió una o se la rechazaron), o si el personal de
+ * control reportó que su foto no coincide y todavía no envió otra.
  */
 export function requiereRegistrarFoto(perfil: MiPerfilEstudiante): boolean {
+  if (perfil.fotoReportada) return true
   if (perfil.fotoUrl) return false
   return perfil.solicitudFoto?.estado !== 'PENDIENTE'
+}
+
+/** Examen del estudiante en su panel (GET /mi/examenes). */
+export interface MiExamen {
+  idExamen: number
+  materia: string
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  /** Aula donde debe presentarse, o null si se asigna al llegar. */
+  aula: string | null
+  /** true habilitado, false no habilitado, null pendiente de revisión. */
+  habilitado: boolean | null
+  motivoInhabilitacion: string | null
+  /** AUTORIZADO, DENEGADO o null si todavía no pasó por el control. */
+  resultadoIngreso: 'AUTORIZADO' | 'DENEGADO' | null
+  motivoDenegacion: string | null
+  fechaHoraIngreso: string | null
+}
+
+/** QR temporal del estudiante (GET /mi/qr). */
+export interface MiQr {
+  contenido: string
+  pngBase64: string
+  expiraEn: string
+  segundosValidez: number
+}
+
+function errorDePanel(error: unknown, fallback: string): Error {
+  const err = error as { response?: { data?: { mensaje?: string } } }
+  if (!err.response) return new SinConexionError()
+  return new Error(err.response.data?.mensaje || fallback)
+}
+
+/** Falla de red: el portal muestra el estado "sin conexión" en vez de un error genérico. */
+export class SinConexionError extends Error {
+  constructor() {
+    super('No hay conexión a Internet. Revisa tu conexión e intenta de nuevo.')
+    this.name = 'SinConexionError'
+  }
+}
+
+export async function obtenerMisExamenes(): Promise<MiExamen[]> {
+  try {
+    const { data } = await api.get<MiExamen[]>('/mi/examenes')
+    return data
+  } catch (error: unknown) {
+    throw errorDePanel(error, 'No se pudieron cargar tus exámenes. Intenta más tarde.')
+  }
+}
+
+export async function obtenerMiQr(): Promise<MiQr> {
+  try {
+    const { data } = await api.get<MiQr>('/mi/qr')
+    return data
+  } catch (error: unknown) {
+    throw errorDePanel(error, 'No se pudo generar tu QR. Intenta más tarde.')
+  }
 }

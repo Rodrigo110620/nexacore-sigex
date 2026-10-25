@@ -1,5 +1,11 @@
 package com.nexacore.examenes.controllers;
 
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.nexacore.examenes.services.NotificacionService;
+
 import com.nexacore.examenes.dto.MiExamenResponse;
 import com.nexacore.examenes.dto.MiPerfilResponse;
 import com.nexacore.examenes.dto.MiQrResponse;
@@ -29,9 +35,21 @@ import java.util.Map;
 public class PanelEstudianteController {
 
     private final PanelEstudianteService panelService;
+    private final NotificacionService notificacionService;
 
-    public PanelEstudianteController(PanelEstudianteService panelService) {
+    public PanelEstudianteController(PanelEstudianteService panelService, NotificacionService notificacionService) {
+        this.notificacionService = notificacionService;
         this.panelService = panelService;
+    }
+
+    @Operation(summary = "Cambios en vivo (Server-Sent Events)",
+            description = "Evento 'cambio' cuando cambia algo del estudiante o de sus exámenes (p. ej. su ingreso), "
+                    + "para que el panel se actualice solo.")
+    @GetMapping(value = "/eventos", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter eventos(Authentication authentication, HttpServletResponse response) {
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
+        return notificacionService.suscribirEstudiante(authentication);
     }
 
     @Operation(summary = "Mis datos", description = "Datos de solo lectura, con el CI enmascarado.")

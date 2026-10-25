@@ -19,7 +19,12 @@ public record MiPerfilResponse(
         /** Ruta de la foto aprobada (la que ve el personal de control), o null. */
         String fotoUrl,
         /** Foto enviada por el estudiante: null, PENDIENTE o RECHAZADA. */
-        SolicitudFoto solicitudFoto
+        SolicitudFoto solicitudFoto,
+        /**
+         * El personal de control reportó que su foto no coincide y todavía no envió otra: debe volver
+         * a escanear su rostro.
+         */
+        boolean fotoReportada
 ) {
     public record SolicitudFoto(String estado, String motivoRechazo, LocalDateTime enviadaEn) {}
 }

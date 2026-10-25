@@ -4,6 +4,7 @@ import com.nexacore.examenes.dto.CarreraResponse;
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.FotoPendienteResponse;
 import com.nexacore.examenes.dto.RechazarFotoRequest;
+import com.nexacore.examenes.dto.ReportarFotoRequest;
 import com.nexacore.examenes.dto.ImportarEstudiantesResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
@@ -20,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
@@ -81,18 +83,44 @@ public class EstudianteController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Fotos enviadas por estudiantes",
-            description = "Fotos que los estudiantes subieron desde su cuenta y esperan aprobación. ADMIN.")
+    @Operation(summary = "Revisión de fotos",
+            description = "Cambios de foto enviados por los estudiantes y fotos reportadas por el personal de control, "
+                    + "de la más antigua a la más reciente. ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/fotos-pendientes")
     public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes() {
-        return ResponseEntity.ok(estudianteFotoService.listarPendientes().stream()
-                .map(s -> estudianteService.obtenerEntidad(s.getIdEstudiante())
-                        .map(e -> new FotoPendienteResponse(e.getId(), e.getCodigoSis(), e.getNombre(),
-                                e.getApellidos(), s.getEnviadaEn(), "/estudiantes/" + e.getId() + "/foto-solicitud"))
-                        .orElse(null))
-                .filter(java.util.Objects::nonNull)
-                .toList());
+        return ResponseEntity.ok(estudianteFotoService.listarRevision());
+    }
+
+    @Operation(summary = "Reportar foto que no coincide",
+            description = "El estudiante deberá volver a escanear su rostro y la administración revisará la nueva foto. "
+                    + "No autoriza ni deniega el ingreso. 409 si ya tiene un reporte abierto. ADMIN, DOCENTE y CONTROL.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PostMapping("/{id}/foto/reportes")
+    public ResponseEntity<Void> reportarFoto(@PathVariable Integer id, @Valid @RequestBody ReportarFotoRequest request,
+                                             Authentication authentication) {
+        estudianteFotoService.reportar(id, request, authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @Operation(summary = "Reporte abierto de la foto",
+            description = "Si la foto del estudiante fue reportada y espera la revisión del ADMIN: motivo, detalle, "
+                    + "quién la reportó y cuándo. 204 si no tiene reporte abierto. ADMIN, DOCENTE y CONTROL.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @GetMapping("/{id}/foto/reporte")
+    public ResponseEntity<FotoPendienteResponse.Reporte> reporteFoto(@PathVariable Integer id) {
+        return estudianteFotoService.reporteVigente(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @Operation(summary = "Descartar el reporte de una foto",
+            description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/foto/reportes/descartar")
+    public ResponseEntity<Void> descartarReporte(@PathVariable Integer id) {
+        estudianteFotoService.descartarReporte(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Foto enviada por el estudiante", description = "404 si no envió ninguna. ADMIN.")
