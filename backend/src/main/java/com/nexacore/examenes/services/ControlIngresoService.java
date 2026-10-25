@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import com.nexacore.examenes.utils.EstadoExamen;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -49,7 +50,11 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
+
+    static final String SIN_FOTO = "El estudiante no tiene foto registrada: no se puede verificar su identidad. "
+            + "Debe registrarla en su portal o la administración desde su ficha.";
     private final SesionExamenService sesionExamenService;
+    private final EstudianteFotoRepository fotoRepository;
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
@@ -85,8 +90,9 @@ public class ControlIngresoService {
             RepartoAulasService repartoAulasService,
             NormasExamenService normasExamenService,
             NotificacionService notificacionService, SesionExamenService sesionExamenService,
-            ExpulsionRepository expulsionRepository) {
+            ExpulsionRepository expulsionRepository, EstudianteFotoRepository fotoRepository) {
         this.expulsionRepository = expulsionRepository;
+        this.fotoRepository = fotoRepository;
         this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.asistenciaRepository = asistenciaRepository;
@@ -163,6 +169,11 @@ public class ControlIngresoService {
             guardarRegistro(asistencia, control, request, "DENEGADO", causa);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
+        }
+
+        // La foto es obligatoria: sin ella no se puede verificar la identidad (también en el ingreso manual).
+        if (!fotoRepository.existsById(request.idEstudiante())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, SIN_FOTO);
         }
 
         if (!request.identidadVerificada()) {

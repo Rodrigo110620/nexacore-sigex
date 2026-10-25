@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import com.nexacore.examenes.utils.EstadoExamen;
 import com.nexacore.examenes.dto.ActualizarHabilitacionRequest;
 import com.nexacore.examenes.dto.AsociacionLoteResponse;
@@ -58,6 +59,7 @@ import java.util.stream.Collectors;
 public class HabilitacionService {
 
     private final NotificacionService notificacionService;
+    private final EstudianteFotoRepository fotoRepository;
 
     private static final String SIN_FACULTAD = "—";
     static final int RAZON_MIN = 10;
@@ -84,7 +86,9 @@ public class HabilitacionService {
                                RepartoAulasService repartoAulasService,
                                AuditoriaService auditoriaService,
                                NormasExamenService normasExamenService,
-                               NotificacionService notificacionService) {
+                               NotificacionService notificacionService,
+                               EstudianteFotoRepository fotoRepository) {
+        this.fotoRepository = fotoRepository;
         this.notificacionService = notificacionService;
         this.asistenciaExamenRepository = asistenciaExamenRepository;
         this.estudianteRepository = estudianteRepository;
@@ -390,6 +394,7 @@ public class HabilitacionService {
                 .map(a -> a.getId().getIdEstudiante())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         Map<Integer, String> cruces = crucesDeHorario(examen, ids);
+        Set<Integer> conFoto = fotoRepository.conFoto(ids);
         // Una sola consulta para las facultades de todos; sin duplicados y en orden alfabético.
         Map<Integer, String> facultades = estudianteCarreraRepository.findByEstudianteIds(ids).stream()
                 .collect(Collectors.groupingBy(
@@ -407,7 +412,7 @@ public class HabilitacionService {
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
                     aula != null ? aula.nombre() : null, a.getFechaHoraIngreso() != null, cruces.get(e.getId()),
-                    e.getEstadoMatricula());
+                    e.getEstadoMatricula(), conFoto.contains(e.getId()));
         }).toList();
     }
 

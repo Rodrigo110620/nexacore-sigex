@@ -33,6 +33,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ControlIngresoServiceTests {
+    private com.nexacore.examenes.repositories.EstudianteFotoRepository fotoRepository;
     private final com.nexacore.examenes.repositories.ExpulsionRepository expulsiones = mock(com.nexacore.examenes.repositories.ExpulsionRepository.class);
     private final com.nexacore.examenes.services.SesionExamenService sesiones = mock(com.nexacore.examenes.services.SesionExamenService.class);
     private final com.nexacore.examenes.services.NotificacionService notificaciones = mock(com.nexacore.examenes.services.NotificacionService.class);
@@ -55,6 +56,8 @@ class ControlIngresoServiceTests {
         normasExamenService = mock(NormasExamenService.class);
         when(normasExamenService.leerParaEstudiante(any(), any(), any()))
                 .thenReturn(new NormasExamenService.NormasDeEstudiante(List.of(), List.of()));
+        fotoRepository = mock(com.nexacore.examenes.repositories.EstudianteFotoRepository.class);
+        when(fotoRepository.existsById(any())).thenReturn(true);
         service = new ControlIngresoService(
                 asistenciaRepository,
                 catalogoRepository,
@@ -65,7 +68,7 @@ class ControlIngresoServiceTests {
                 new ObjectMapper(),
                 repartoSinAula(),
                 normasExamenService,
-                notificaciones, sesiones, expulsiones);
+                notificaciones, sesiones, expulsiones, fotoRepository);
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -617,6 +620,23 @@ class ControlIngresoServiceTests {
         asistencia.getExamen().setFecha(java.time.LocalDate.parse("2026-09-25"));
         asistencia.getExamen().setHoraInicio(java.time.LocalTime.parse(hora));
         asistencia.getExamen().setDuracionMinutos(duracionMinutos);
+    }
+
+    @Test
+    void sinFotoRegistradaNoSeAutorizaElIngresoNiElManual() {
+        asistencia.getExamen().setIdAmbiente(5);
+        when(fotoRepository.existsById(10)).thenReturn(false);
+        var normal = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of());
+        var manual = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of(),
+                null, null, true, "El QR no se pudo leer por pantalla dañada");
+
+        for (var request : List.of(normal, manual)) {
+            ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                    () -> service.autorizar(request, "control@umss.edu.bo"));
+            assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+            assertTrue(error.getMessage().contains("no tiene foto registrada"));
+        }
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
     }
 
     @Test

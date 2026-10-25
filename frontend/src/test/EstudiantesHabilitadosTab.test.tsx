@@ -39,6 +39,13 @@ describe('EstudiantesHabilitadosTab', () => {
     vi.resetAllMocks()
   })
 
+  it('avisa quién no tiene foto, porque el control no podrá autorizar su ingreso', async () => {
+    await renderTab([{ ...ana, tieneFoto: false }, { ...luis, tieneFoto: true }])
+
+    expect(screen.getByRole('status')).toHaveTextContent('1 estudiante no tiene foto.')
+    expect(screen.getAllByText('Sin foto: no podrá ingresar hasta registrarla').length).toBeGreaterThan(0)
+  })
+
   it('con el examen finalizado la lista es de solo lectura: no se asocia, cambia ni quita', async () => {
     vi.mocked(habilitacionService.listarEstudiantesExamen).mockResolvedValue([ana, luis])
     render(

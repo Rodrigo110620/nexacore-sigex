@@ -361,6 +361,9 @@ class PostgresIntegracionTests {
         int estudiante = estudiante("202104099", "Ana");
         habilitacionService.asociar(examen, paralelo, "202104099");
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
+        // Sin foto el control no puede autorizar el ingreso.
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
+                + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
                 List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");

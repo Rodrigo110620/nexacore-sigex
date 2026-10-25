@@ -60,7 +60,8 @@ class HabilitacionAccesoDocenteTests {
         service = new HabilitacionService(asistenciaRepository, estudianteRepository, estudianteCarreraRepository,
                 examenRepository, inscripcionParaleloRepository, usuarioRepository, repartoAulasService,
                 mock(AuditoriaService.class), mock(NormasExamenService.class),
-                mock(com.nexacore.examenes.services.NotificacionService.class));
+                mock(com.nexacore.examenes.services.NotificacionService.class),
+                mock(com.nexacore.examenes.repositories.EstudianteFotoRepository.class));
         lenient().when(repartoAulasService.repartir(any(), any())).thenReturn(
                 new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
         ExamenId id = new ExamenId();

@@ -62,3 +62,20 @@ export const ETIQUETA_FASE: Record<FaseExamen, string> = {
   finalizado: 'Finalizado',
   cancelado: 'Cancelado',
 }
+
+const ORDEN_FASE: Record<FaseExamen, number> = { en_curso: 0, programado: 1, finalizado: 2, cancelado: 3 }
+
+/**
+ * Primero lo activo: en curso, próximos (el más cercano primero), finalizados (el más reciente
+ * primero) y al final los cancelados.
+ */
+export function ordenarPorFase<T extends HorarioExamen>(examenes: T[], ahoraMs: number, offsetMinutos: number): T[] {
+  return examenes
+    .map((e) => ({ e, t: tiempoExamen(e, ahoraMs, offsetMinutos) }))
+    .sort((a, b) => {
+      const prioridad = ORDEN_FASE[a.t.fase] - ORDEN_FASE[b.t.fase]
+      if (prioridad !== 0) return prioridad
+      return a.t.fase === 'finalizado' || a.t.fase === 'cancelado' ? b.t.inicioMs - a.t.inicioMs : a.t.inicioMs - b.t.inicioMs
+    })
+    .map(({ e }) => e)
+}

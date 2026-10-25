@@ -19,6 +19,8 @@ export default function ResultadoEstudianteCard({ estudiante }: ResultadoEstudia
           nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
           iniciales={getUserInitials(estudiante)}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#0439D9] text-sm font-bold text-white sm:h-12 sm:w-12 sm:text-base"
+          ampliable
+          detalle={`Código: ${estudiante.codigoSis}`}
         />
         <div className="min-w-0">
           <p className="text-[9px] font-semibold uppercase tracking-wide text-[#627A9B] sm:text-[10px]">
