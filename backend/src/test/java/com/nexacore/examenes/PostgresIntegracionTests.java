@@ -262,6 +262,7 @@ class PostgresIntegracionTests {
         // La hora la pone la base.
         var guardada = expulsionRepository.findById(id).orElseThrow();
         assertThat(guardada.getFechaHora()).isNotNull();
+        assertThat(expulsionRepository.fechaHoraRegistrada(id)).isEqualTo(guardada.getFechaHora());
         assertThat(expulsionRepository.expulsadoEnSesionActual(expulsado, idExamen, null)).isTrue();
         assertThat(expulsionRepository.deSesionActual(idExamen, null)).hasSize(1);
 
