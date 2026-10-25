@@ -112,9 +112,10 @@ public class ControlIngresoService {
     public ExpulsionResponse expulsar(ExpulsarEstudianteRequest request, Authentication authentication) {
         String email = ExpulsionValidaciones.responsableAutenticado(authentication);
         String motivo = ExpulsionValidaciones.motivo(request.motivo());
+        sesionExamenService.bloquearContexto(request.idExamen());
         Usuario admin = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
-        AsistenciaExamen asistencia = asistenciaRepository.buscarParaAutorizar(request.idEstudiante(), request.idExamen()).orElse(null);
+        AsistenciaExamen asistencia = asistenciaRepository.bloquearParaExpulsar(request.idEstudiante(), request.idExamen()).orElse(null);
         ExpulsionValidaciones.asistencia(request, asistencia);
         LocalDateTime cierre = sesionExamenService.ultimoCierre(request.idExamen());
         if (expulsionRepository.expulsadoEnSesionActual(request.idEstudiante(), request.idExamen(), cierre)) {
