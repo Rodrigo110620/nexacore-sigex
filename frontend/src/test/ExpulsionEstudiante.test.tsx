@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
 import EstudiantesExamenLista from '../components/control/EstudiantesExamenLista'
 import api from '../services/api'
+import { EVENTO_CAMBIO } from '../services/notificacionService'
 
 vi.mock('../services/api')
 const estudiante = {
@@ -75,4 +76,42 @@ it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar',
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).toHaveBeenCalledTimes(2)
   expect(screen.getAllByText('INGRESÓ')).toHaveLength(2)
+})
+
+it.each([0, 1])('vista %s: confirma auditoría válida y conserva el bloqueo hasta cerrar', async (indice) => {
+  const registro = { idExpulsion: 90, idEstudiante: 10, idExamen: 20, motivo: 'Uso de celular',
+    idResponsable: 7, responsable: 'Ana Rojas', fechaHora: '2026-10-24T14:00:00' }
+  vi.mocked(api.post).mockResolvedValueOnce({ data: registro })
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
+  const modal = screen.getByRole('dialog')
+  fireEvent.change(within(modal).getByRole('textbox'), { target: { value: 'Uso de celular' } })
+  fireEvent.submit(modal.querySelector('form')!)
+  expect(await screen.findByRole('status')).toHaveTextContent('Expulsión registrada correctamente.')
+  fireEvent.click(within(modal).getByText('Ver registro de expulsión'))
+  expect(within(modal).getByText('Ana Rojas')).toBeVisible()
+  expect(within(modal).getByText('2026-10-24 14:00:00')).toBeVisible()
+  expect(within(modal).getByRole('textbox')).toBeDisabled()
+  fireEvent.submit(modal.querySelector('form')!)
+  expect(api.post).toHaveBeenCalledTimes(1)
+  fireEvent.click(within(modal).getByRole('button', { name: 'Cerrar' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('una respuesta válida de otro estudiante no confirma ni solicita recarga', async () => {
+  const avisos = vi.fn()
+  window.addEventListener(EVENTO_CAMBIO, avisos)
+  try {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { idExpulsion: 90, idEstudiante: 11,
+      idExamen: 20, motivo: 'Uso de celular', idResponsable: 7, responsable: 'Ana', fechaHora: '2026-10-24T14:00:00' } })
+    montar()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[0])
+    const modal = screen.getByRole('dialog')
+    fireEvent.change(within(modal).getByRole('textbox'), { target: { value: 'Uso de celular' } })
+    fireEvent.submit(modal.querySelector('form')!)
+    expect(await screen.findByRole('status')).toHaveTextContent('sin registro verificable')
+    expect(avisos).not.toHaveBeenCalled()
+  } finally {
+    window.removeEventListener(EVENTO_CAMBIO, avisos)
+  }
 })

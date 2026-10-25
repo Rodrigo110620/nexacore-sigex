@@ -16,6 +16,12 @@ import java.util.Optional;
 
 public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExamen, AsistenciaExamenId> {
 
+    /** Sin JOIN FETCH: bloquea solamente la asistencia después del examen y sus ambientes. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM AsistenciaExamen a WHERE a.id.idEstudiante = :idEstudiante AND a.id.idExamen = :idExamen")
+    Optional<AsistenciaExamen> bloquearParaExpulsar(@Param("idEstudiante") Integer idEstudiante,
+                                                @Param("idExamen") Integer idExamen);
+
     /** El estudiante está asociado al examen (para enviarle en vivo los cambios de ese examen). */
     boolean existsByIdIdEstudianteAndIdIdExamen(Integer idEstudiante, Integer idExamen);
     String CONSULTA_CONTEXTO = """

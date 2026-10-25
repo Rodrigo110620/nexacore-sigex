@@ -704,6 +704,7 @@ class ControlIngresoServiceTests {
     }
     @Test
     void expulsionPersisteAuditoriaConHoraDeBdYControlaDuplicadosPorSesion() {
+        when(asistenciaRepository.bloquearParaExpulsar(10, 20)).thenReturn(Optional.of(asistencia));
         var request = new ExpulsarEstudianteRequest(10, 20, "  Uso de celular  ");
         var admin = UsernamePasswordAuthenticationToken.authenticated("control@umss.edu.bo", null,
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
@@ -722,7 +723,8 @@ class ControlIngresoServiceTests {
         verify(expulsiones).saveAndFlush(argThat(e -> e.getIdEstudiante() == 10 && e.getIdExamen() == 20
                 && e.getIdUsuarioResponsable() == 7 && e.getMotivo().equals("Uso de celular")));
         var orden = inOrder(asistenciaRepository, sesiones, expulsiones, notificaciones);
-        orden.verify(asistenciaRepository).buscarParaAutorizar(10, 20);
+        orden.verify(sesiones).bloquearContexto(20);
+        orden.verify(asistenciaRepository).bloquearParaExpulsar(10, 20);
         orden.verify(sesiones).ultimoCierre(20);
         orden.verify(expulsiones).expulsadoEnSesionActual(10, 20, null);
         orden.verify(expulsiones).saveAndFlush(any());
@@ -744,7 +746,7 @@ class ControlIngresoServiceTests {
         verify(notificaciones, times(2)).emitirCambio("INGRESO", 20, 10);
         asistencia.setFechaHoraIngreso(null);
         assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
-        when(asistenciaRepository.buscarParaAutorizar(10, 20)).thenReturn(Optional.empty());
+        when(asistenciaRepository.bloquearParaExpulsar(10, 20)).thenReturn(Optional.empty());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
         verify(expulsiones, times(4)).saveAndFlush(any());
     }

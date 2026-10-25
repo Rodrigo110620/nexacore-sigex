@@ -1,8 +1,10 @@
 import api from './api'
+import { esExpulsionConfirmada, type ExpulsionResponse } from './expulsionService'
+import { emitirCambioLocal } from './notificacionService'
 import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
 
-/** La respuesta sigue sin contrato: recibirla no confirma por sí solo una expulsión. */
-export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<unknown> {
+/** null significa que hubo respuesta HTTP, pero no un registro verificable. */
+export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | null> {
   const motivo = payload.motivo.trim()
   if (!motivo) throw new Error('El motivo de expulsión es obligatorio.')
   if (![payload.idEstudiante, payload.idExamen].every((id) => Number.isSafeInteger(id) && id > 0)) {
@@ -14,6 +16,9 @@ export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Pr
     idExamen: payload.idExamen,
     motivo,
   })
+  if (!esExpulsionConfirmada(data) || data.idEstudiante !== payload.idEstudiante
+    || data.idExamen !== payload.idExamen || data.motivo !== motivo) return null
+  emitirCambioLocal({ tipo: 'INGRESO', idExamen: data.idExamen, idEstudiante: data.idEstudiante })
   return data
 }
 
