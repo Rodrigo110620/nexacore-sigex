@@ -1,5 +1,6 @@
 import api from './api'
 import type { PageResponse } from '../types/userApi'
+import { listarExpulsionesExamen, type ExpulsionResponse } from './expulsionService'
 
 export type FiltroEstado = 'TODOS' | 'HABILITADOS' | 'NO_HABILITADOS'
 
@@ -15,8 +16,9 @@ export interface EstudianteAsignado {
   ingresado: boolean
   /** Ruta de la foto; null si no tiene (no se podrá autorizar su ingreso). */
   fotoUrl?: string | null
-  /** Provisional: solo si la API informa explícitamente una expulsión. */
+  /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
+  expulsion?: ExpulsionResponse
 }
 
 export interface ResumenEstudiantes {
@@ -33,10 +35,14 @@ export async function listarEstudiantesExamen(
   page: number,
   size = 5,
 ): Promise<PageResponse<EstudianteAsignado>> {
-  const { data } = await api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, {
-    params: { estado, page, size },
-  })
-  return data
+  const [{ data }, expulsiones] = await Promise.all([
+    api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, { params: { estado, page, size } }),
+    listarExpulsionesExamen(idExamen),
+  ])
+  const porEstudiante = new Map([...expulsiones].reverse().map((registro) => [registro.idEstudiante, registro]))
+  return { ...data, contenido: data.contenido.map((estudiante) => ({
+    ...estudiante, expulsado: porEstudiante.has(estudiante.idEstudiante), expulsion: porEstudiante.get(estudiante.idEstudiante),
+  })) }
 }
 
 export async function obtenerResumenExamen(idExamen: number): Promise<ResumenEstudiantes> {
