@@ -5,6 +5,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacore.examenes.dto.AutorizarIngresoRequest;
+import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
+import com.nexacore.examenes.dto.ExpulsionResponse;
+import com.nexacore.examenes.models.Expulsion;
+import com.nexacore.examenes.repositories.ExpulsionRepository;
+import com.nexacore.examenes.utils.ExpulsionValidaciones;
+import org.springframework.security.core.Authentication;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.IncidenciaIngresoRequest;
 import com.nexacore.examenes.dto.IncidenciaRegistradaResponse;
@@ -66,6 +72,7 @@ public class ControlIngresoService {
     private final NormasExamenService normasExamenService;
 
     private final RepartoAulasService repartoAulasService;
+    private final ExpulsionRepository expulsionRepository;
 
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
@@ -77,7 +84,9 @@ public class ControlIngresoService {
             ObjectMapper objectMapper,
             RepartoAulasService repartoAulasService,
             NormasExamenService normasExamenService,
-            NotificacionService notificacionService, SesionExamenService sesionExamenService) {
+            NotificacionService notificacionService, SesionExamenService sesionExamenService,
+            ExpulsionRepository expulsionRepository) {
+        this.expulsionRepository = expulsionRepository;
         this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.asistenciaRepository = asistenciaRepository;
@@ -89,6 +98,34 @@ public class ControlIngresoService {
         this.objectMapper = objectMapper;
         this.normasExamenService = normasExamenService;
         this.repartoAulasService = repartoAulasService;
+    }
+
+    @Transactional
+    public ExpulsionResponse expulsar(ExpulsarEstudianteRequest request, Authentication authentication) {
+        String email = ExpulsionValidaciones.responsableAutenticado(authentication);
+        String motivo = ExpulsionValidaciones.motivo(request.motivo());
+        Usuario admin = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        AsistenciaExamen asistencia = asistenciaRepository.buscarParaAutorizar(request.idEstudiante(), request.idExamen()).orElse(null);
+        ExpulsionValidaciones.asistencia(request, asistencia);
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(request.idExamen());
+        if (expulsionRepository.expulsadoEnSesionActual(request.idEstudiante(), request.idExamen(), cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La expulsión del estudiante ya está registrada");
+        }
+        Expulsion expulsion = new Expulsion();
+        expulsion.setIdEstudiante(request.idEstudiante());
+        expulsion.setIdExamen(request.idExamen());
+        expulsion.setIdUsuarioResponsable(admin.getId());
+        expulsion.setMotivo(motivo);
+        expulsionRepository.saveAndFlush(expulsion);
+        LocalDateTime fechaHora = expulsionRepository.fechaHoraRegistrada(expulsion.getId());
+        if (fechaHora == null) throw new IllegalStateException("No se recuperó la hora de la expulsión persistida");
+        if (cierre != null && !fechaHora.isAfter(cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La sesión cambió durante la operación; vuelve a intentarlo");
+        }
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        return new ExpulsionResponse(expulsion.getId(), request.idEstudiante(), request.idExamen(), motivo,
+                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora);
     }
 
     @Transactional

@@ -1,6 +1,8 @@
 package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.AutorizarIngresoRequest;
+import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
+import com.nexacore.examenes.dto.ExpulsionResponse;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
@@ -28,6 +30,13 @@ public class ControlIngresoController {
     public ControlIngresoController(ControlIngresoService service, ExcepcionService excepcionService) {
         this.service = service;
         this.excepcionService = excepcionService; 
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/expulsar")
+    public ResponseEntity<ExpulsionResponse> expulsar(
+            @Valid @RequestBody ExpulsarEstudianteRequest request, Authentication authentication) {
+        return ResponseEntity.ok(service.expulsar(request, authentication));
     }
 
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
