@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, Eye } from 'lucide-react'
+import { Ban, CameraOff, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ExpulsarEstudianteModal from './ExpulsarEstudianteModal'
 import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 
 interface FilaProps {
@@ -12,22 +13,42 @@ interface FilaProps {
   habilitado: boolean
 }
 
+/** Foto del estudiante (al tocarla se ve en grande); sin foto, sus iniciales. */
+function FotoDeLista({ estudiante, habilitado, tamano }: FilaProps & { tamano: string }) {
+  return (
+    <FotoEstudiante
+      fotoUrl={estudiante.fotoUrl}
+      nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+      iniciales={getUserInitials(estudiante)}
+      className={`flex ${tamano} shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        habilitado ? 'bg-[#E9F1FF] text-[#0439D9]' : 'bg-[#FDECEC] text-[#B91C1C]'
+      }`}
+      ampliable
+      detalle={`Código: ${estudiante.codigoSis}`}
+    />
+  )
+}
+
+/** Sin foto el control no podrá autorizar su ingreso: se avisa antes de que llegue a la puerta. */
+function SinFoto({ estudiante }: { estudiante: EstudianteAsignado }) {
+  if (estudiante.fotoUrl !== null || estudiante.ingresado) return null
+  return (
+    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-[#B91C1C]">
+      <CameraOff size={12} aria-hidden="true" /> Sin foto: no podrá ingresar
+    </p>
+  )
+}
+
 function Identidad({ estudiante, habilitado, children }: FilaProps & { children?: ReactNode }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <span
-        aria-hidden="true"
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-          habilitado ? 'bg-[#E9F1FF] text-[#0439D9]' : 'bg-[#FDECEC] text-[#B91C1C]'
-        }`}
-      >
-        {getUserInitials(estudiante)}
-      </span>
+      <FotoDeLista estudiante={estudiante} habilitado={habilitado} tamano="h-9 w-9" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-[#011140]">
           {estudiante.nombre} {estudiante.apellidos}
         </p>
         <p className="text-[11px] text-[#627A9B]">COD: {estudiante.codigoSis}</p>
+        <SinFoto estudiante={estudiante} />
         {children}
       </div>
     </div>
@@ -123,12 +144,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
               }`}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${habilitado ? 'bg-[#E9F1FF] text-[#0439D9]' : 'bg-[#FDECEC] text-[#B91C1C]'}`}
-                >
-                  {getUserInitials(estudiante)}
-                </span>
+                <FotoDeLista estudiante={estudiante} habilitado={habilitado} tamano="h-10 w-10" />
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <p className="min-w-0 text-xs font-semibold leading-tight text-[#011140]">
@@ -137,6 +153,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                     <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
+                  <SinFoto estudiante={estudiante} />
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-[#EDF1F7] pt-2">
                     <div className="min-w-0 text-[10px]">
                       <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>

@@ -116,7 +116,8 @@ public class IdentificacionService {
     private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila) {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
-                fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null);
+                fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
+                EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()));
     }
 
     private IdentificacionResponse.Estado estadoDe(EstudianteExamenFila fila) {

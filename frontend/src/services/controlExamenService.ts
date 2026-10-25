@@ -14,6 +14,8 @@ export interface EstudianteAsignado {
   estado: 'HABILITADO' | 'DESHABILITADO'
   motivoInhabilitacion: string | null
   ingresado: boolean
+  /** Ruta de la foto; null si no tiene (no se podrá autorizar su ingreso). */
+  fotoUrl?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse
