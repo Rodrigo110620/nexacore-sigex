@@ -60,6 +60,7 @@ class PostgresIntegracionTests {
     }
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.nexacore.examenes.repositories.AsistenciaExamenRepository asistenciaExamenRepository;
     @Autowired com.nexacore.examenes.repositories.TrasladoAmbienteRepository trasladoRepository;
     @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
@@ -341,6 +342,41 @@ class PostgresIntegracionTests {
         // Tras reprogramar (cierre de sesión posterior), el traslado queda en la sesión anterior.
         java.time.LocalDateTime cierre = guardado.getFechaHoraTraslado().plusMinutes(1);
         assertThat(trasladoRepository.deSesionActual(idExamen, cierre)).isEmpty();
+    }
+
+    @Test
+    void losRegistrosGuardanLaHoraRealYNoLaDelInicioDeLaTransaccion() {
+        // V45: con NOW() todo lo guardado en una transacción tenía la misma hora (la de su inicio).
+        var columnas = jdbc.queryForList("""
+                SELECT table_name || '.' || column_name AS columna, column_default FROM information_schema.columns
+                WHERE (table_name, column_name) IN (('registro_control_ingreso', 'fecha_hora'), ('intento_ingreso', 'fecha_hora'),
+                    ('incidencia', 'fecha_hora'), ('reporte_qr_duplicado', 'fecha_hora_servidor'),
+                    ('excepcion_no_habilitado', 'fecha_hora'), ('traslado_ambiente', 'fecha_hora_traslado'),
+                    ('expulsion', 'fecha_hora'))
+                """);
+        assertThat(columnas).hasSize(7)
+                .allSatisfy(c -> assertThat((String) c.get("column_default")).contains("clock_timestamp()"));
+
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-907");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int idEstudiante = estudiante("202000071", "Ana");
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, id_estudiante, observacion) "
+                + "VALUES (?, ?, ?, '202000071', ?, 'Prueba de hora real')";
+        jdbc.update(intento, idExamen, paralelo, idDocente, idEstudiante);
+        jdbc.execute("SELECT pg_sleep(0.05)");
+        jdbc.update(intento, idExamen, paralelo, idDocente, idEstudiante);
+
+        var horas = jdbc.queryForList("SELECT fecha_hora FROM intento_ingreso WHERE id_examen = ? ORDER BY id_intento",
+                java.sql.Timestamp.class, idExamen);
+        assertThat(horas).hasSize(2);
+        assertThat(horas.get(1)).isAfter(horas.get(0));
+        assertThat(asistenciaRepositoryHora()).isAfter(horas.get(1).toLocalDateTime());
+    }
+
+    private java.time.LocalDateTime asistenciaRepositoryHora() {
+        jdbc.execute("SELECT pg_sleep(0.01)");
+        return asistenciaExamenRepository.obtenerFechaHoraServidor();
     }
 
     private void prepararCatalogo() {
