@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -34,10 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ExpulsionConsultaTests {
     @Autowired MockMvc mvc;
     @Autowired ExpulsionConsultaService service;
-    @MockBean ExpulsionRepository expulsiones;
-    @MockBean UsuarioRepository usuarios;
-    @MockBean ExamenRepository examenes;
-    @MockBean SesionExamenService sesiones;
+    @MockitoBean ExpulsionRepository expulsiones;
+    @MockitoBean UsuarioRepository usuarios;
+    @MockitoBean ExamenRepository examenes;
+    @MockitoBean SesionExamenService sesiones;
     private final LocalDateTime fecha = LocalDateTime.of(2026, 10, 24, 14, 0);
 
     @BeforeEach

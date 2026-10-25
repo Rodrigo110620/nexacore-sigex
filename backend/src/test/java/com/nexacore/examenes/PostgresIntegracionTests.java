@@ -9,7 +9,7 @@ import com.nexacore.examenes.services.EstudianteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -84,7 +84,7 @@ class PostgresIntegracionTests {
         entityManager.flush();
         entityManager.clear();
     }
-    @MockBean EmailService emailService;
+    @MockitoBean EmailService emailService;
 
     @Test
     void flywayAplicaTodasLasMigracionesYHibernateValidaElEsquema() throws IOException {

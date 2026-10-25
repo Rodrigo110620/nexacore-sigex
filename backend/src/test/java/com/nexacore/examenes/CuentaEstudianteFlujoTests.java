@@ -21,7 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -69,7 +69,7 @@ class CuentaEstudianteFlujoTests {
     @Autowired RolRepository rolRepository;
     @Autowired EntityManager entityManager;
     @Autowired com.nexacore.examenes.services.EstudianteFotoService fotoService;
-    @MockBean EmailService emailService;
+    @MockitoBean EmailService emailService;
 
     @BeforeEach
     void setUp() {
