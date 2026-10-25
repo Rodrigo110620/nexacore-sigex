@@ -9,6 +9,7 @@ import com.nexacore.examenes.dto.AutorizarIngresoRequest;
 import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
 import com.nexacore.examenes.dto.ExpulsionResponse;
 import com.nexacore.examenes.models.Expulsion;
+import com.nexacore.examenes.models.TrasladoAmbiente;
 import com.nexacore.examenes.repositories.ExpulsionRepository;
 import com.nexacore.examenes.utils.ExpulsionValidaciones;
 import org.springframework.security.core.Authentication;
@@ -39,6 +40,10 @@ import com.nexacore.examenes.utils.ValidacionTextoLibre;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.nexacore.examenes.models.TrasladoAmbiente;
+import com.nexacore.examenes.repositories.TrasladoAmbienteRepository;
+import com.nexacore.examenes.repositories.AmbienteRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -83,6 +88,10 @@ public class ControlIngresoService {
     private final RepartoAulasService repartoAulasService;
     private final ExpulsionRepository expulsionRepository;
 
+    private final TrasladoAmbienteRepository trasladoAmbienteRepository;
+    private final AmbienteRepository ambienteRepository;
+
+    @Autowired
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
             CatalogoIncidenciaRepository catalogoRepository,
@@ -94,7 +103,9 @@ public class ControlIngresoService {
             RepartoAulasService repartoAulasService,
             NormasExamenService normasExamenService,
             NotificacionService notificacionService, SesionExamenService sesionExamenService,
-            ExpulsionRepository expulsionRepository, EstudianteFotoRepository fotoRepository) {
+            ExpulsionRepository expulsionRepository, EstudianteFotoRepository fotoRepository,
+            TrasladoAmbienteRepository trasladoAmbienteRepository, // <-- Añadir aquí
+            AmbienteRepository ambienteRepository) {
         this.expulsionRepository = expulsionRepository;
         this.fotoRepository = fotoRepository;
         this.sesionExamenService = sesionExamenService;
@@ -108,8 +119,29 @@ public class ControlIngresoService {
         this.objectMapper = objectMapper;
         this.normasExamenService = normasExamenService;
         this.repartoAulasService = repartoAulasService;
+        this.trasladoAmbienteRepository = trasladoAmbienteRepository;
+        this.ambienteRepository = ambienteRepository;
     }
-
+    // 2. Constructor de compatibilidad (para que los tests antiguos sigan compilando sin tocarlos)
+    public ControlIngresoService(
+            AsistenciaExamenRepository asistenciaRepository,
+            CatalogoIncidenciaRepository catalogoRepository,
+            IncidenciaRepository incidenciaRepository,
+            UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
+            RegistroControlIngresoRepository registroRepository,
+            ObjectMapper objectMapper,
+            RepartoAulasService repartoAulasService,
+            NormasExamenService normasExamenService,
+            NotificacionService notificacionService, 
+            SesionExamenService sesionExamenService,
+            ExpulsionRepository expulsionRepository, 
+            EstudianteFotoRepository fotoRepository) {
+        this(asistenciaRepository, catalogoRepository, incidenciaRepository, usuarioRepository,
+            estudianteRepository, registroRepository, objectMapper, repartoAulasService,
+            normasExamenService, notificacionService, sesionExamenService, expulsionRepository,
+            fotoRepository, null, null);
+    }
     @Transactional
     public ExpulsionResponse expulsar(ExpulsarEstudianteRequest request, Authentication authentication) {
         String email = ExpulsionValidaciones.responsableAutenticado(authentication);
@@ -658,6 +690,9 @@ public class ControlIngresoService {
             ReasignarAmbienteRequest request, 
             String emailControl) {
         
+        // 6. Usar el bloqueo de concurrencia de Marcelo al inicio
+        sesionExamenService.bloquearContexto(idExamen);
+
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
         validarTextoLibre(request.motivo());
         validarTextoLibre(request.observacion());
@@ -673,34 +708,49 @@ public class ControlIngresoService {
         
         verificarIngresoAbierto(asistencia);
 
+        // 4. Tampoco trasladar a un estudiante expulsado
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        if (expulsionRepository.expulsadoEnSesionActual(idEstudiante, idExamen, cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "No se puede reasignar a un estudiante expulsado");
+        }
+
+        // 2. Solo reasignar a quien ya ingresó (Debe responder 409 con el mensaje exacto)
         if (asistencia.getFechaHoraIngreso() == null) {
-            // Solución temporal/defensiva: si el registro no tenía la fecha guardada, 
-            // le asignamos la hora actual del servidor para permitir la contingencia.
-            asistencia.setFechaHoraIngreso(asistenciaRepository.obtenerFechaHoraServidor());
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El estudiante aún no ingresó");
         }
 
         Integer ambienteOrigenId = asistencia.getIdAmbienteIngreso();
-        String aulaOrigenNombre = "Aula anterior";
 
+        // 4. Validar el aula destino: que sea distinta de la actual
+        if (ambienteOrigenId != null && ambienteOrigenId.equals(request.idAmbienteDestino())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El aula destino debe ser distinta a la actual");
+        }
+
+        // 4 y 7. Validar que el aula destino exista y obtener los nombres reales de las aulas
+        var ambienteOrigen = ambienteOrigenId != null ? ambienteRepository.findById(ambienteOrigenId).orElse(null) : null;
+        var ambienteDestino = ambienteRepository.findById(request.idAmbienteDestino())
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "El aula destino no existe"));
+
+        String aulaOrigenNombre = ambienteOrigen != null ? ambienteOrigen.getNombre() : "Aula anterior";
+        String aulaDestinoNombre = ambienteDestino.getNombre();
+
+        // 5. No borrar la observación del control: se mantiene intacta.
+        // El motivo y observaciones del traslado van exclusivamente a la tabla traslado_ambiente.
+
+        // Actualizar únicamente el ambiente destino conservando la fecha de ingreso original intacta
         asistencia.setIdAmbienteIngreso(request.idAmbienteDestino());
-        
-        String obsFinal = limpiar(request.motivo()) + (request.observacion() != null ? " — " + limpiar(request.observacion()) : "");
-        asistencia.setObservacionesControl(obsFinal);
-
         asistenciaRepository.save(asistencia);
 
-        // Registro de auditoría corregido para cumplir con la restricción de la base de datos
-        registroRepository.registrarConFecha(
-                asistencia.getId().getIdExamen(),
-                asistencia.getIdParalelo(),
-                asistencia.getId().getIdEstudiante(),
-                control.getId(),
-                "AUTORIZADO", // ✔️ Cambiado de "REASIGNADO" a un valor permitido por el check constraint
-                "Reasignación de ambiente al aula " + request.idAmbienteDestino(),
-                "[]",
-                obsFinal,
-                asistencia.getFechaHoraIngreso()
-        );
+       // 1 y 3. Guardar el traslado en la tabla traslado_ambiente (V44) sin duplicar registros de control
+TrasladoAmbiente traslado = new TrasladoAmbiente();
+traslado.setIdEstudiante(idEstudiante);
+traslado.setIdExamen(idExamen);
+traslado.setIdAmbienteOrigen(ambienteOrigenId);
+traslado.setIdAmbienteDestino(request.idAmbienteDestino()); 
+traslado.setMotivo(limpiar(request.motivo()));               
+traslado.setIdUsuarioAdmin(control.getId());
+traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
+trasladoAmbienteRepository.save(traslado);
         
         return new ReasignarAmbienteResponse(
                 idEstudiante,
@@ -708,9 +758,9 @@ public class ControlIngresoService {
                 ambienteOrigenId,
                 aulaOrigenNombre,
                 request.idAmbienteDestino(),
-                "Aula " + request.idAmbienteDestino(),
-                asistencia.getFechaHoraIngreso(),
-                obsFinal,
+                aulaDestinoNombre,
+                asistencia.getFechaHoraIngreso(), // La fecha original no cambia
+                limpiar(request.motivo()),
                 true
         );
     }
