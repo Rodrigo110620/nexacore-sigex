@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X } from 'lucide-react'
+import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X, CameraOff } from 'lucide-react'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -178,6 +178,9 @@ export default function EstudiantesHabilitadosTab({
 
   const mostrarAulas = Boolean(reparto && (reparto.aulas.length > 1 || reparto.sinAula > 0))
 
+  // Sin foto y todavía sin ingresar (a los no habilitados no se los autoriza igual).
+  const sinFoto = estudiantes.filter((e) => e.tieneFoto === false && !e.ingresado && e.estadoHabilitacion !== 'NO_HABILITADO').length
+
   const asociadosIds = useMemo(() => new Set(estudiantes.map((e) => e.idEstudiante)), [estudiantes])
 
   const facultades = useMemo(
@@ -310,6 +313,16 @@ export default function EstudiantesHabilitadosTab({
           {soloLectura}
         </p>
       )}
+      {sinFoto > 0 && !soloLectura && (
+        <p role="status" className="flex items-start gap-2 rounded-lg border border-[#FECACA] bg-[#FFF5F5] p-3 text-sm text-[#7F1D1D]">
+          <CameraOff size={18} className="mt-0.5 shrink-0 text-[#B91C1C]" aria-hidden="true" />
+          <span>
+            <strong>{sinFoto === 1 ? '1 estudiante no tiene' : `${sinFoto} estudiantes no tienen`} foto.</strong>{' '}
+            El control no podrá autorizar su ingreso hasta que la registren: el estudiante desde su portal, o la
+            administración o el docente desde su ficha.
+          </span>
+        </p>
+      )}
       {mostrarAulas && reparto && <ResumenAulas reparto={reparto} />}
       <div className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -426,6 +439,7 @@ export default function EstudiantesHabilitadosTab({
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
                       <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
                       <AvisoCruce estudiante={e} />
+                      <AvisoSinFoto estudiante={e} />
                     </div>
                     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${visual.badge}`}>
                       <EstadoIcono icon={visual.icon} />
@@ -539,6 +553,7 @@ export default function EstudiantesHabilitadosTab({
                             <span className="block font-semibold text-[#011140]">{e.nombre} {e.apellidos}</span>
                             <span className="text-xs text-gray-500">Cód: {e.codigoSis}</span>
                             <AvisoCruce estudiante={e} />
+                      <AvisoSinFoto estudiante={e} />
                           </span>
                         </div>
                       </td>
@@ -873,6 +888,17 @@ export default function EstudiantesHabilitadosTab({
  * todavía no tiene aula ("Al llegar"); por orden alfabético, quien no entra se marca en rojo.
  */
 /** MAST-04: el estudiante tiene otro examen que se cruza en horario. Solo avisa. */
+/** Sin foto el control no puede autorizar su ingreso: se avisa antes del examen para que la registre. */
+function AvisoSinFoto({ estudiante }: { estudiante: EstudianteHabilitacionDto }) {
+  if (estudiante.tieneFoto !== false || estudiante.ingresado) return null
+  return (
+    <span className="mt-1 flex items-start gap-1 text-[11px] font-semibold text-[#B91C1C]">
+      <CameraOff size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <span>Sin foto: no podrá ingresar hasta registrarla</span>
+    </span>
+  )
+}
+
 function AvisoCruce({ estudiante }: { estudiante: EstudianteHabilitacionDto }) {
   if (!estudiante.conflictoHorario) return null
   return (

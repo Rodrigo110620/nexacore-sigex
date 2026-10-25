@@ -30,6 +30,8 @@ const contextoBase: ContextoControlIngreso = {
   motivoInhabilitacion: null,
   ingresoRegistrado: false,
   fechaHoraIngreso: null,
+  // Con foto: sin ella el control no puede autorizar el ingreso.
+  fotoUrl: '/estudiantes/10/foto',
 }
 
 function renderPage(contexto: ContextoControlIngreso = contextoBase) {
@@ -91,6 +93,14 @@ describe('ControlIngresoPage', () => {
     expect((obs as HTMLTextAreaElement).value).toHaveLength(100)
     expect(screen.getByText('100/100')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeEnabled()
+  })
+
+  it('sin foto registrada avisa y no deja autorizar, pero sí denegar', async () => {
+    renderPage({ ...contextoBase, fotoUrl: null })
+
+    expect(await screen.findByText(/Sin foto registrada:/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Autorizar Ingreso/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Denegar/ })).toBeEnabled()
   })
 
   it('con el examen ya terminado avisa y no deja autorizar ni denegar', async () => {

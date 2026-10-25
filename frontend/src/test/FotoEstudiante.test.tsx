@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import FotoEstudiante from '../components/estudiantes/FotoEstudiante'
 import { descargarFotoEstudiante } from '../services/estudianteService'
@@ -52,5 +52,38 @@ describe('condición y archivo de la foto', () => {
     expect(validarArchivoFoto(new File(['x'], 'foto.jpg', { type: 'image/jpeg' }))).toBeNull()
     expect(validarArchivoFoto(new File(['x'], 'doc.pdf', { type: 'application/pdf' })))
       .toBe('La fotografía debe ser una imagen JPG, PNG o WEBP.')
+  })
+})
+
+describe('FotoEstudiante ampliable', () => {
+  const foto = 'blob:foto-de-prueba'
+
+  it('al tocar la foto se ve en grande con su nombre y código, y se cierra con Escape', () => {
+    render(<FotoEstudiante src={foto} nombre="Ana Prueba" iniciales="AP" className="h-10 w-10" ampliable detalle="Código: 202104010" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver la foto de Ana Prueba en grande' }))
+    const ampliada = screen.getByRole('dialog', { name: 'Foto de Ana Prueba' })
+    expect(ampliada).toHaveTextContent('Ana Prueba')
+    expect(ampliada).toHaveTextContent('Código: 202104010')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('muestra la acción (p. ej. reportar la foto) y la cierra al usarla', () => {
+    const reportar = vi.fn()
+    render(<FotoEstudiante src={foto} nombre="Ana Prueba" iniciales="AP" className="h-10 w-10" ampliable
+      accionAmpliada={(cerrar) => <button type="button" onClick={() => { cerrar(); reportar() }}>Reportar foto</button>} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /en grande/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reportar foto' }))
+    expect(reportar).toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('sin foto (solo iniciales) no hay nada que ampliar', () => {
+    render(<FotoEstudiante nombre="Ana Prueba" iniciales="AP" className="h-10 w-10" ampliable />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByText('AP')).toBeInTheDocument()
   })
 })

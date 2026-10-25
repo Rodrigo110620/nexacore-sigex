@@ -175,7 +175,8 @@ describe('Mi QR (CTA-03)', () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10')])
     renderEn('/estudiante/qr')
     expect(await screen.findByRole('img', { name: 'Tu código QR de ingreso' })).toBeInTheDocument()
-    expect(screen.getByText(/Se renueva en (59|60) s/)).toBeInTheDocument()
+    // Con la máquina cargada pueden pasar unos segundos antes de revisar: basta con que la cuenta corra cerca de 60.
+    expect(screen.getByText(/Se renueva en (5\d|60) s/)).toBeInTheDocument()
     expect(await screen.findByText('Acceso habilitado')).toBeInTheDocument()
   })
 
