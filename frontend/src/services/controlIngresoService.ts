@@ -1,5 +1,21 @@
 import api from './api'
-import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+
+/** La respuesta sigue sin contrato: recibirla no confirma por sí solo una expulsión. */
+export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<unknown> {
+  const motivo = payload.motivo.trim()
+  if (!motivo) throw new Error('El motivo de expulsión es obligatorio.')
+  if (![payload.idEstudiante, payload.idExamen].every((id) => Number.isSafeInteger(id) && id > 0)) {
+    throw new Error('El estudiante y el examen deben tener identificadores válidos.')
+  }
+  // Lista explícita: tampoco se transmiten campos extra presentes en tiempo de ejecución.
+  const { data } = await api.post<unknown>('/control-ingresos/expulsar', {
+    idEstudiante: payload.idEstudiante,
+    idExamen: payload.idExamen,
+    motivo,
+  })
+  return data
+}
 
 export async function obtenerContextoControl(idEstudiante: number, idExamen: number) {
   const { data } = await api.get<ContextoControlIngreso>(`/control-ingresos/${idEstudiante}/${idExamen}/contexto`)
