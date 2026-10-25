@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EVENTO_CAMBIO } from '../services/notificacionService'
 import api from '../services/api'
 import { autorizarIngreso, expulsarEstudiante, obtenerContextoControl, obtenerHistorialControl, obtenerTiposIncidencia } from '../services/controlIngresoService'
 
@@ -43,11 +44,27 @@ describe('controlIngresoService', () => {
   })
 })
 
-describe('INCI-01: cliente provisional de expulsión', () => {
+describe('INCI-01: confirmación de expulsión', () => {
   const payload = { idEstudiante: 10, idExamen: 20, motivo: 'Uso de celular durante el examen' }
+  const registro = {
+    idExpulsion: 90, ...payload, idResponsable: 7, responsable: 'Ana Rojas', fechaHora: '2026-10-24T14:00:00.123456',
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(window, 'dispatchEvent')
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('devuelve la auditoría del servidor sin cambiarla y solicita recarga solo tras confirmar', async () => {
+    mockedApi.post = vi.fn().mockResolvedValue({ data: registro })
+    await expect(expulsarEstudiante(payload)).resolves.toBe(registro)
+    expect(window.dispatchEvent).toHaveBeenCalledTimes(1)
+    const evento = vi.mocked(window.dispatchEvent).mock.calls[0][0] as CustomEvent
+    expect(evento.type).toBe(EVENTO_CAMBIO)
+    expect(evento.detail).toEqual({ tipo: 'INGRESO', idExamen: 20, idEstudiante: 10 })
   })
 
   it('envía únicamente estudiante, examen y motivo al endpoint autenticado', async () => {
@@ -78,18 +95,27 @@ describe('INCI-01: cliente provisional de expulsión', () => {
     const error = { response: { status, data: { resultado: 'EXPULSADO', autorizado: true } } }
     mockedApi.post = vi.fn().mockRejectedValue(error)
     await expect(expulsarEstudiante(payload)).rejects.toBe(error)
+    expect(window.dispatchEvent).not.toHaveBeenCalled()
   })
 
   it('propaga errores de red sin fabricar un registro', async () => {
     const error = new Error('Network Error')
     mockedApi.post = vi.fn().mockRejectedValue(error)
     await expect(expulsarEstudiante(payload)).rejects.toBe(error)
+    expect(window.dispatchEvent).not.toHaveBeenCalled()
   })
 
-  it.each([undefined, null, {}, { resultado: 'PENDIENTE' }])(
+  it.each([
+    undefined, null, {}, { resultado: 'PENDIENTE' },
+    { ...registro, idEstudiante: 11 }, { ...registro, idExamen: 21 },
+    { ...registro, motivo: 'Otro motivo' }, { ...registro, idExpulsion: 0 },
+    { ...registro, idResponsable: 0 }, { ...registro, responsable: '  ' },
+    { ...registro, fechaHora: '2026-02-30T14:00:00' },
+  ])(
     'no transforma una respuesta %j en éxito ni agrega datos de auditoría', async (data) => {
       mockedApi.post = vi.fn().mockResolvedValue({ data })
-      await expect(expulsarEstudiante(payload)).resolves.toBe(data)
+      await expect(expulsarEstudiante(payload)).resolves.toBeNull()
+      expect(window.dispatchEvent).not.toHaveBeenCalled()
     },
   )
 })
