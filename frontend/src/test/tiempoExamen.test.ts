@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatoCronometro, instanteServidor, ordenarPorFase, tiempoExamen } from '../utils/tiempoExamen'
+import { formatoCronometro, instanteServidor, ordenarPorFase, tiempoExamen, aperturaControl, controlSinAbrir, type TiempoExamen } from '../utils/tiempoExamen'
 
 const BOLIVIA = -240
 const examen = { fecha: '2026-10-24', horaInicio: '08:00:00', duracionMinutos: 90 }
@@ -43,5 +43,21 @@ describe('tiempoExamen', () => {
     expect(ordenarPorFase(lista, a('08:30'), BOLIVIA).map((e) => e.nombre)).toEqual([
       'en curso', 'próximo de hoy', 'próximo lejano', 'finalizado de hoy', 'finalizado de ayer', 'cancelado',
     ])
+  })
+})
+
+describe('apertura del control de ingreso', () => {
+  it('abre 15 minutos antes del inicio, también si cruza la medianoche', () => {
+    expect(aperturaControl('2026-10-27', '08:00:00')).toEqual({ fecha: '27/10/2026', hora: '07:45' })
+    expect(aperturaControl('2026-10-27', '00:10:00')).toEqual({ fecha: '26/10/2026', hora: '23:55' })
+  })
+
+  it('está cerrado si falta más de 15 minutos y abierto desde ahí', () => {
+    const programado = (min: number): TiempoExamen => ({ fase: 'programado', inicioMs: 0, finMs: 0, restanteMs: min * 60_000, progreso: 0 })
+    expect(controlSinAbrir(programado(60))).toBe(true)
+    expect(controlSinAbrir(programado(15))).toBe(false)
+    expect(controlSinAbrir(programado(5))).toBe(false)
+    expect(controlSinAbrir({ fase: 'en_curso', inicioMs: 0, finMs: 0, restanteMs: 10, progreso: 0.5 })).toBe(false)
+    expect(controlSinAbrir(null)).toBe(false)
   })
 })

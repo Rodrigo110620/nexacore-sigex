@@ -18,6 +18,16 @@ vi.mock('../services/fotoRevisionService', async (original) => ({
 }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ nombre: 'Carla Control', roles: ['CONTROL'] }) }))
 
+/** Fecha y hora de inicio, en hora de Bolivia (UTC-4), a `minutos` de ahora. */
+function horarioEnBolivia(minutos: number) {
+  const t = new Date(Date.now() - 4 * 3_600_000 + minutos * 60_000)
+  const dos = (n: number) => String(n).padStart(2, '0')
+  return {
+    fecha: `${t.getUTCFullYear()}-${dos(t.getUTCMonth() + 1)}-${dos(t.getUTCDate())}`,
+    horaInicio: `${dos(t.getUTCHours())}:${dos(t.getUTCMinutes())}:00`,
+  }
+}
+
 const contextoBase: ContextoControlIngreso = {
   idEstudiante: 10,
   estudiante: 'Laura Paredes',
@@ -25,9 +35,9 @@ const contextoBase: ContextoControlIngreso = {
   documento: '74839201',
   idExamen: 20,
   asignatura: 'INF-101 - Programación',
-  // Examen futuro: con uno ya terminado no se pueden registrar ingresos.
-  fecha: '2099-10-15',
-  horaInicio: '10:00:00',
+  // Examen en curso (empezó hace 5 minutos, hora de Bolivia): el control está abierto. Con uno ya
+  // terminado o que abre más tarde no se pueden registrar ingresos.
+  ...horarioEnBolivia(-5),
   duracionMinutos: 120,
   ambiente: 'Aula 401',
   normasGenerales: ['Presentar CI'],
@@ -106,6 +116,25 @@ describe('ControlIngresoPage', () => {
 
     expect(await screen.findByText(/Sin foto registrada:/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Autorizar Ingreso/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Denegar/ })).toBeEnabled()
+  })
+
+  it('antes de que abra el control (15 min antes del inicio) avisa la hora y no deja registrar el ingreso', async () => {
+    const enUnaHora = horarioEnBolivia(60)
+    renderPage({ ...contextoBase, ...enUnaHora })
+
+    const aviso = await screen.findByText(/El control de ingreso aún no está habilitado:/)
+    // Abre 15 minutos antes: 45 minutos después de ahora.
+    const apertura = horarioEnBolivia(45).horaInicio.slice(0, 5)
+    expect(aviso.parentElement).toHaveTextContent(`a las ${apertura}`)
+    expect(screen.getByRole('button', { name: /Autorizar Ingreso/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Denegar/ })).toBeDisabled()
+  })
+
+  it('a 10 minutos del inicio el control ya está abierto', async () => {
+    renderPage({ ...contextoBase, ...horarioEnBolivia(10) })
+    await screen.findByRole('button', { name: /Autorizar Ingreso/ })
+    expect(screen.queryByText(/aún no está habilitado/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Denegar/ })).toBeEnabled()
   })
 

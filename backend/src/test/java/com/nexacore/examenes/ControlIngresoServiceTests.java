@@ -673,11 +673,44 @@ class ControlIngresoServiceTests {
     }
 
     @Test
-    void seAutorizaElIngresoAntesDeQueEmpieceElExamen() {
+    void seAutorizaElIngresoDentroDeLos15MinutosAntesDelInicio() {
         asistencia.getExamen().setIdAmbiente(5);
-        horario("18:00", 90); // todavía no empieza
+        horario("16:10", 90); // empieza en 10 minutos: el control ya está abierto
         var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
         assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void elControlAbreJustoQuinceMinutosAntes() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("16:15", 90); // abre a las 16:00, la hora del servidor
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void noSeRegistraNiDeniegaElIngresoAntesDeQueAbraElControl() {
+        horario("18:00", 90); // abre a las 17:45
+        var autorizar = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        var denegar = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(autorizar, "control@umss.edu.bo"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+        assertTrue(error.getMessage().contains("se habilita el 25/09/2026 a las 17:45"), error.getMessage());
+        assertThrows(ControlIngresoException.class, () -> service.denegar(denegar, "control@umss.edu.bo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void noSeRegistraElIngresoUnaSemanaAntes() {
+        horario("10:00", 90);
+        asistencia.getExamen().setFecha(java.time.LocalDate.parse("2026-10-02"));
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo"));
+        assertTrue(error.getMessage().contains("se habilita el 02/10/2026 a las 09:45"), error.getMessage());
     }
 
     @Test

@@ -29,6 +29,24 @@ export function instanteServidor(fecha: string, hora: string, offsetMinutos: num
   return Date.UTC(anio, mes - 1, dia, h || 0, m || 0, s || 0) - offsetMinutos * 60_000
 }
 
+/** El control de ingreso se habilita estos minutos antes del inicio (igual que el backend). */
+export const MINUTOS_APERTURA_CONTROL = 15
+
+/** Fecha (dd/mm/aaaa) y hora (HH:MM) en que se habilita el control de ingreso del examen. */
+export function aperturaControl(fecha: string, horaInicio: string): { fecha: string; hora: string } {
+  const apertura = new Date(instanteServidor(fecha, horaInicio, 0) - MINUTOS_APERTURA_CONTROL * 60_000)
+  const dos = (n: number) => String(n).padStart(2, '0')
+  return {
+    fecha: `${dos(apertura.getUTCDate())}/${dos(apertura.getUTCMonth() + 1)}/${apertura.getUTCFullYear()}`,
+    hora: `${dos(apertura.getUTCHours())}:${dos(apertura.getUTCMinutes())}`,
+  }
+}
+
+/** Todavía no se pueden registrar ingresos: falta más de MINUTOS_APERTURA_CONTROL para el inicio. */
+export function controlSinAbrir(tiempo: TiempoExamen | null): boolean {
+  return tiempo?.fase === 'programado' && tiempo.restanteMs > MINUTOS_APERTURA_CONTROL * 60_000
+}
+
 export function tiempoExamen(examen: HorarioExamen, ahoraMs: number, offsetMinutos: number): TiempoExamen {
   const inicioMs = instanteServidor(examen.fecha, examen.horaInicio, offsetMinutos)
   const finMs = inicioMs + (examen.duracionMinutos || 0) * 60_000
