@@ -477,11 +477,14 @@ class PostgresIntegracionTests {
             // Solo sus adaptaciones: nunca las de otro estudiante.
             assertThat(e.normasParticulares()).containsExactly("Tiempo adicional de 15 minutos");
             assertThat(e.expulsado()).isTrue();
+            // Su cronómetro se detiene en la hora oficial de la expulsión.
+            assertThat(e.fechaHoraExpulsion()).isNotNull();
             assertThat(e.fechaHoraIngreso()).isNotNull();
         });
         assertThat(panelEstudianteService.examenes(correoLuis)).singleElement().satisfies(e -> {
             assertThat(e.normasParticulares()).containsExactly("Asiento cerca de la puerta");
             assertThat(e.expulsado()).isFalse();
+            assertThat(e.fechaHoraExpulsion()).isNull();
         });
 
         // Si el examen se reprograma, la expulsión queda en la sesión anterior.

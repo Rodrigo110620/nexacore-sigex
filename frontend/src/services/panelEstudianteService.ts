@@ -89,6 +89,8 @@ export interface MiExamen {
   fechaHoraIngreso: string | null
   /** INCI-01: lo expulsaron en la sesión actual del examen. */
   expulsado: boolean
+  /** Hora oficial de la expulsión: su cronómetro se detiene ahí. */
+  fechaHoraExpulsion?: string | null
   /** Normas del examen que valen para todos. */
   normasGenerales: string[]
   /** Sus adaptaciones (normas particulares); nunca las de otros estudiantes. */

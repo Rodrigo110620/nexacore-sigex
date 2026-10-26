@@ -35,7 +35,7 @@ public class ControlIngresoController {
         this.excepcionService = excepcionService; 
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@examenAccesoService.puedeExpulsar(#request.idExamen, authentication)")
     @PostMapping("/expulsar")
     public ResponseEntity<ExpulsionResponse> expulsar(
             @Valid @RequestBody ExpulsarEstudianteRequest request, Authentication authentication) {

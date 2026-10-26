@@ -98,7 +98,7 @@ function ProximoExamen({ examen }: { examen: MiExamen }) {
         </p>
       </div>
       {/* Todo lo del mismo examen junto: cuánto falta o queda, el aviso de ingreso y su QR. */}
-      <CronometroExamen examen={examen} className="mt-4" />
+      <CronometroExamen examen={examen} detenidoEn={examen.expulsado ? examen.fechaHoraExpulsion : null} className="mt-4" />
       <EstadoIngresoExamen examen={examen} className="mt-3" />
       <AvisoIngresoExamen examen={examen} conBotonQr={false} className="mt-3" />
       <NormasExamen examen={examen} className="mt-3" />

@@ -144,6 +144,7 @@ public class PanelEstudianteService {
                 .stream()
                 .filter(r -> cierre == null || r.getFechaHora() == null || r.getFechaHora().isAfter(cierre))
                 .findFirst();
+        Optional<LocalDateTime> expulsion = expulsionRepository.horaExpulsionEnSesionActual(idEstudiante, idExamen, cierre);
         NormasExamenService.NormasDeEstudiante normas =
                 normasExamenService.leerParaEstudiante(idExamen, idEstudiante, nombreCompleto);
         return new MiExamenResponse(
@@ -158,7 +159,8 @@ public class PanelEstudianteService {
                 registro.map(RegistroControlIngreso::getResultadoAutorizacion).orElse(null),
                 registro.map(RegistroControlIngreso::getMotivoDenegacion).orElse(null),
                 a.getFechaHoraIngreso(),
-                expulsionRepository.expulsadoEnSesionActual(idEstudiante, idExamen, cierre),
+                expulsion.isPresent(),
+                expulsion.orElse(null),
                 normas.generales(),
                 normas.particulares());
     }

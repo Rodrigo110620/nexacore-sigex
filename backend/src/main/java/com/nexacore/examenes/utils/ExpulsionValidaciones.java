@@ -21,9 +21,10 @@ public final class ExpulsionValidaciones {
                 || authentication.getName() == null || authentication.getName().isBlank()) {
             throw new ControlIngresoException(UNAUTHORIZED, "Se requiere una sesión autenticada");
         }
-        boolean admin = authentication.getAuthorities().stream()
-                .anyMatch(rol -> "ROLE_ADMIN".equals(rol.getAuthority()));
-        if (!admin) throw new ControlIngresoException(FORBIDDEN, "Solo ADMIN puede expulsar estudiantes");
+        // Que el docente sea el de ese examen lo verifica la ruta (ExamenAccesoService.puedeExpulsar).
+        boolean puede = authentication.getAuthorities().stream()
+                .anyMatch(rol -> "ROLE_ADMIN".equals(rol.getAuthority()) || "ROLE_DOCENTE".equals(rol.getAuthority()));
+        if (!puede) throw new ControlIngresoException(FORBIDDEN, "Solo el administrador o el docente del examen puede expulsar estudiantes");
         return authentication.getName();
     }
 

@@ -25,7 +25,8 @@ beforeEach(() => {
 it.each([
   { rol: 'ADMIN', ingresado: true, expulsado: false, visible: true },
   { rol: 'CONTROL', ingresado: true, expulsado: false, visible: false },
-  { rol: 'DOCENTE', ingresado: true, expulsado: false, visible: false },
+  // El docente del examen también expulsa (el backend verifica que el examen sea suyo); el control no.
+  { rol: 'DOCENTE', ingresado: true, expulsado: false, visible: true },
   { rol: 'ADMIN', ingresado: false, expulsado: false, visible: false },
   { rol: 'ADMIN', ingresado: true, expulsado: true, visible: false },
 ])('comparte elegibilidad en tabla y tarjetas: $rol, ingresado=$ingresado, expulsado=$expulsado', ({ rol, ingresado, expulsado, visible }) => {

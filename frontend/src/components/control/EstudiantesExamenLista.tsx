@@ -110,10 +110,13 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
 export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, roles } = useAuth()
+  // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
+  // personal de control reporta el incidente y la notificación les llega a ellos.
+  const puedeExpulsar = isAdmin || roles.includes('DOCENTE')
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
-    isAdmin && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
+    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
 

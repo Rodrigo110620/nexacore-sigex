@@ -44,9 +44,15 @@ class ExpulsionValidacionesTests {
         assertEquals("admin@sigex.test", ExpulsionValidaciones.responsableAutenticado(autenticado("ADMIN")));
     }
 
+    /** El docente también expulsa; que el examen sea suyo lo verifica la ruta (ExamenAccesoService.puedeExpulsar). */
+    @Test
+    void elDocenteTambienPuedeSerResponsable() {
+        assertEquals("admin@sigex.test", ExpulsionValidaciones.responsableAutenticado(autenticado("DOCENTE")));
+    }
+
     @ParameterizedTest
-    @ValueSource(strings = {"CONTROL", "DOCENTE", "ESTUDIANTE", "SUPERADMIN"})
-    void exigeAdminExactoAunqueElRolPuedaControlar(String rol) {
+    @ValueSource(strings = {"CONTROL", "ESTUDIANTE", "SUPERADMIN"})
+    void exigeAdminODocenteAunqueElRolPuedaControlar(String rol) {
         var error = assertThrows(ControlIngresoException.class,
                 () -> ExpulsionValidaciones.responsableAutenticado(autenticado(rol)));
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
