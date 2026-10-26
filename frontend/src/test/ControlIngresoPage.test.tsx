@@ -10,6 +10,12 @@ vi.mock('../components/layout/PanelLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 vi.mock('../services/controlIngresoService')
+// Sin esto la página pedía el reporte de foto al servidor de verdad: la petición fallaba después de
+// terminar la prueba y a veces rompía la corrida ("window is not defined").
+vi.mock('../services/fotoRevisionService', async (original) => ({
+  ...(await original<typeof import('../services/fotoRevisionService')>()),
+  obtenerReporteFoto: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ nombre: 'Carla Control', roles: ['CONTROL'] }) }))
 
 const contextoBase: ContextoControlIngreso = {
