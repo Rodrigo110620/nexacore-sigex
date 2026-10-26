@@ -23,6 +23,7 @@ import ReportarFotoModal from '../../components/control/ReportarFotoModal'
 import ReporteQrDuplicadoModal from '../../components/control/ReporteQrDuplicadoModal'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import useTiempoExamen from '../../hooks/useTiempoExamen'
+import { aperturaControl, controlSinAbrir, MINUTOS_APERTURA_CONTROL } from '../../utils/tiempoExamen'
 
 const VERIFICACION = 'Identidad biométrica cotejada / Carnet físico verificado'
 const MAX_DETALLE_DENEGACION = 500
@@ -87,6 +88,9 @@ export default function ControlIngresoPage() {
   // Al terminar el examen se bloquean los ingresos (el backend también lo impide).
   const tiempoExamen = useTiempoExamen(ctx ? { fecha: ctx.fecha, horaInicio: ctx.horaInicio, duracionMinutos: ctx.duracionMinutos } : null)
   const examenTerminado = tiempoExamen?.fase === 'finalizado'
+  // No se registra el ingreso días antes: el control abre 15 minutos antes del inicio.
+  const controlCerrado = controlSinAbrir(tiempoExamen)
+  const apertura = ctx ? aperturaControl(ctx.fecha, ctx.horaInicio) : null
   // La foto es obligatoria para verificar la identidad (el backend también lo impide).
   const sinFoto = Boolean(ctx && !ctx.fotoUrl)
   /** Reporte abierto de la foto: se avisa en lugar de dejar reportarla otra vez. */
@@ -251,8 +255,9 @@ export default function ControlIngresoPage() {
           </div>
         </section>}
         {sinFoto&&!examenTerminado&&!ctx.ingresoRegistrado&&<p role="alert" className="mx-1 mb-2 rounded-lg border border-[#FECACA] bg-[#FFF5F5] p-3 text-xs text-[#7F1D1D]"><strong>Sin foto registrada:</strong> no se puede verificar su identidad ni autorizar su ingreso. Debe registrarla en su portal, o la administración o el docente desde su ficha. Puedes denegar el ingreso o reportar la incidencia.</p>}
+        {controlCerrado&&apertura&&!ctx.ingresoRegistrado&&<p role="status" className="mx-1 mb-2 rounded-lg border border-[#BFD2F8] bg-[#EAF2FF] p-3 text-xs text-[#011140]"><strong>El control de ingreso aún no está habilitado:</strong> se habilita el {apertura.fecha} a las {apertura.hora}, {MINUTOS_APERTURA_CONTROL} minutos antes del inicio del examen.</p>}
         {examenTerminado&&!ctx.ingresoRegistrado&&<p role="status" className="mx-1 mb-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#344158]"><strong>El examen ya terminó:</strong> no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.</p>}
-        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result||examenTerminado} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||examenTerminado||sinFoto||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
+        {!ctx.ingresoRegistrado&&<div className="control-actions"><div><button onClick={()=>setDenialOpen(true)} disabled={saving||!!result||examenTerminado||controlCerrado} className="control-deny"><Ban size={14}/>Denegar</button><button onClick={()=>void submit()} disabled={saving||!!result||examenTerminado||controlCerrado||sinFoto||!ctx.habilitado||checks.length===0||!ambienteConfirmado||!!obsError} className="control-authorize"><CheckCircle2 size={17}/>{saving?'Registrando...':'Autorizar Ingreso'}</button></div></div>}
       </div>}
     </div></main>
     {denialOpen&&ctx&&<div className="control-overlay control-denial-overlay fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Denegar ingreso"><section className="control-denial-modal">

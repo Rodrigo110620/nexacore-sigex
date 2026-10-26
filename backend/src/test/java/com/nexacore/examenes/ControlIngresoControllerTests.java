@@ -36,6 +36,43 @@ class ControlIngresoControllerTests {
     @MockitoBean
     private ControlIngresoService service;
 
+    @MockitoBean
+    private com.nexacore.examenes.services.ExcepcionService excepcionService;
+
+    private static final String EXCEPCION = "{\"idEstudiante\":10,\"idExamen\":20,\"idAmbiente\":0,"
+            + "\"motivoInhabilitacion\":\"Deuda en biblioteca\",\"accionTomada\":\"Se le indicó acudir a administración\","
+            + "\"observaciones\":\"Insistió en ingresar\"}";
+
+    // INCI-04: la ruta se borró una vez al resolver un conflicto de fusión; estas pruebas lo detectan.
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "CONTROL"})
+    void registrarExcepcionDeNoHabilitadoGuardaLaExcepcion(String rol) throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").with(user("control@sigex.test").roles(rol))
+                        .contentType(APPLICATION_JSON).content(EXCEPCION))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(excepcionService).registrarExcepcion(
+                org.mockito.ArgumentMatchers.argThat(r -> r.idEstudiante() == 10 && r.idExamen() == 20
+                        && "Se le indicó acudir a administración".equals(r.accionTomada())),
+                org.mockito.ArgumentMatchers.eq("control@sigex.test"));
+    }
+
+    @Test
+    @WithMockUser(roles = "CONTROL")
+    void registrarExcepcionExigeLaAccionTomada() throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").contentType(APPLICATION_JSON)
+                        .content(EXCEPCION.replace("Se le indicó acudir a administración", " ")))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(excepcionService);
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void registrarExcepcionNoLaPermiteAUnDocenteDeOtroExamen() throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").contentType(APPLICATION_JSON).content(EXCEPCION))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(excepcionService);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"ADMIN", "CONTROL", "DOCENTE"})
     void expulsionExigeAdmin(String rol) throws Exception {

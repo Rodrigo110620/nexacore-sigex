@@ -395,7 +395,7 @@ class PostgresIntegracionTests {
     void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-MANUAL");
-        int examen = examen(paralelo, "08:00", 90);
+        int examen = examenPorEmpezar(paralelo, 90);
         int estudiante = estudiante("202104099", "Ana");
         habilitacionService.asociar(examen, paralelo, "202104099");
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
@@ -432,6 +432,17 @@ class PostgresIntegracionTests {
                 """, Integer.class, paralelo, hora, duracion, idMateria, idDocente, idAmbiente);
     }
 
+    /** Examen que empieza en 5 minutos (hora de la base): el control de ingreso ya está abierto. */
+    private int examenPorEmpezar(int paralelo, int duracion) {
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        return jdbc.queryForObject("""
+                INSERT INTO examen (id_paralelo, fecha, hora_inicio, duracion_minutos, id_materia, id_docente, id_ambiente)
+                SELECT ?, CAST(t AS date), CAST(t AS time(0)), ?, ?, ?, ?
+                FROM (SELECT CAST(clock_timestamp() AS timestamp) + INTERVAL '5 minutes' AS t) ahora
+                RETURNING id_examen
+                """, Integer.class, paralelo, duracion, idMateria, idDocente, idAmbiente);
+    }
+
     private int estudiante(String sis, String nombre) {
         jdbc.update("INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email) VALUES (?, ?, 'Prueba', ?, ?)",
                 sis, nombre, sis.substring(2), sis + "@est.umss.edu");
@@ -466,11 +477,14 @@ class PostgresIntegracionTests {
             // Solo sus adaptaciones: nunca las de otro estudiante.
             assertThat(e.normasParticulares()).containsExactly("Tiempo adicional de 15 minutos");
             assertThat(e.expulsado()).isTrue();
+            // Su cronómetro se detiene en la hora oficial de la expulsión.
+            assertThat(e.fechaHoraExpulsion()).isNotNull();
             assertThat(e.fechaHoraIngreso()).isNotNull();
         });
         assertThat(panelEstudianteService.examenes(correoLuis)).singleElement().satisfies(e -> {
             assertThat(e.normasParticulares()).containsExactly("Asiento cerca de la puerta");
             assertThat(e.expulsado()).isFalse();
+            assertThat(e.fechaHoraExpulsion()).isNull();
         });
 
         // Si el examen se reprograma, la expulsión queda en la sesión anterior.
@@ -484,7 +498,7 @@ class PostgresIntegracionTests {
     void laExpulsionElIngresoManualYLaExcepcionNotificanAlPersonal() {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-909");
-        int idExamen = examen(paralelo, "08:00", 90);
+        int idExamen = examenPorEmpezar(paralelo, 90);
         int ana = estudiante("202000091", "Ana");
         int beto = estudiante("202000092", "Beto");
         int carla = estudiante("202000093", "Carla");

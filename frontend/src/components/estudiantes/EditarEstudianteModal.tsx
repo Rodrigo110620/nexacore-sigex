@@ -16,6 +16,7 @@ import type {
     FacultadOption,
 } from '../../types/estudiante'
 import FotoEstudiante from './FotoEstudiante'
+import { useAuth } from '../../context/AuthContext'
 import { getInitials } from './avatarColors'
 import { prepararFoto, validarArchivoFoto } from '../../utils/fotoEstudiante'
 import {
@@ -80,6 +81,8 @@ function FieldError({ children }: { children?: string }) {
 }
 
 export default function EditarEstudianteModal({ open, estudianteId, onClose, onSaved }: Props) {
+    // La foto subida aquí queda oficial sin revisión: solo el ADMIN la cambia o la quita.
+    const { isAdmin } = useAuth()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -345,6 +348,12 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                     <p className="text-[11px] text-[#627A9B]">
                                         Se muestra al identificar al estudiante en el control de ingreso. JPG, PNG o WEBP.
                                     </p>
+                                    {!isAdmin ? (
+                                        <p className="mt-2 text-[11px] text-[#45628D]">
+                                            Solo la administración puede cambiar o quitar la foto. Si no coincide con el
+                                            estudiante, repórtala desde el control de ingreso.
+                                        </p>
+                                    ) : (
                                     <div className="mt-2 flex flex-wrap gap-2">
                                         <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[#C9D7EC] px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
                                             {procesandoFoto ? <LoaderCircle size={14} className="animate-spin" /> : <Camera size={14} />}
@@ -369,6 +378,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                             </button>
                                         )}
                                     </div>
+                                    )}
                                     <FieldError>{fotoError}</FieldError>
                                 </div>
                             </div>

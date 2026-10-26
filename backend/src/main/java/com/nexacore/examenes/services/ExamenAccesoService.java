@@ -27,6 +27,14 @@ public class ExamenAccesoService {
                 .orElse(false);
     }
 
+    /**
+     * Expulsar (INCI-01): el ADMIN en cualquier examen; el DOCENTE solo en los suyos. El personal de
+     * control no expulsa: reporta el incidente y la notificación le llega al docente y al ADMIN.
+     */
+    public boolean puedeExpulsar(Integer idExamen, Authentication authentication) {
+        return puedeReprogramar(idExamen, authentication);
+    }
+
     /** Reprogramar: el ADMIN cualquier examen; el DOCENTE solo los suyos, sin pedirlo al ADMIN. */
     public boolean puedeReprogramar(Integer idExamen, Authentication authentication) {
         if (idExamen == null || authentication == null || !authentication.isAuthenticated()) return false;

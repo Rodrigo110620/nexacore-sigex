@@ -335,13 +335,23 @@ public class ControlIngresoService {
      * reportes de incidentes (intentos, aula incorrecta, QR duplicado, foto) siguen permitidos.
      */
     private void verificarIngresoAbierto(AsistenciaExamen asistencia) {
-        String estado = EstadoExamen.de(asistencia.getExamen(), asistenciaRepository.obtenerFechaHoraServidor());
+        LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
+        String estado = EstadoExamen.de(asistencia.getExamen(), ahora);
         if (EstadoExamen.CANCELADO.equals(estado)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT, "El examen fue cancelado; no se pueden registrar ingresos.");
         }
         if (EstadoExamen.FINALIZADO.equals(estado)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
                     "El examen ya terminó; no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.");
+        }
+        // No se puede registrar el ingreso días antes: el control abre poco antes del inicio.
+        LocalDateTime apertura = EstadoExamen.aperturaControl(asistencia.getExamen());
+        if (apertura != null && ahora.isBefore(apertura)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, String.format(
+                    "El control de ingreso de este examen se habilita el %s a las %s, %d minutos antes del inicio.",
+                    apertura.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    apertura.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                    EstadoExamen.MINUTOS_APERTURA_CONTROL));
         }
     }
 

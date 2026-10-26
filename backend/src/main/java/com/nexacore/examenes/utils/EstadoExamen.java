@@ -16,6 +16,8 @@ public final class EstadoExamen {
     public static final String EN_CURSO = "en_curso";
     public static final String FINALIZADO = "finalizado";
     public static final String CANCELADO = "cancelado";
+    /** El control de ingreso se habilita estos minutos antes del inicio (no días antes). */
+    public static final int MINUTOS_APERTURA_CONTROL = 15;
 
     private EstadoExamen() {
     }
@@ -40,6 +42,12 @@ public final class EstadoExamen {
             return null;
         }
         return examen.getFecha().atTime(examen.getHoraInicio());
+    }
+
+    /** Desde cuándo se pueden registrar ingresos: MINUTOS_APERTURA_CONTROL antes del inicio. */
+    public static LocalDateTime aperturaControl(Examen examen) {
+        LocalDateTime inicio = inicio(examen);
+        return inicio == null ? null : inicio.minusMinutes(MINUTOS_APERTURA_CONTROL);
     }
 
     public static LocalDateTime fin(Examen examen) {

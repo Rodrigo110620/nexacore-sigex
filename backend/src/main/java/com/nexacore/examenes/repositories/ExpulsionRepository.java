@@ -32,6 +32,16 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
     }
 
     /** El estudiante ya fue expulsado en la sesión actual (para no expulsarlo dos veces y mostrarlo en rojo). */
+    java.util.Optional<Expulsion> findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterOrderByFechaHoraAsc(
+            Integer idEstudiante, Integer idExamen, LocalDateTime desde);
+
+    /** Hora oficial de la expulsión del estudiante en la sesión actual (su cronómetro se detiene ahí). */
+    default java.util.Optional<LocalDateTime> horaExpulsionEnSesionActual(Integer idEstudiante, Integer idExamen,
+                                                                          LocalDateTime ultimoCierre) {
+        return findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterOrderByFechaHoraAsc(idEstudiante, idExamen,
+                ultimoCierre == null ? DESDE_SIEMPRE : ultimoCierre).map(Expulsion::getFechaHora);
+    }
+
     default boolean expulsadoEnSesionActual(Integer idEstudiante, Integer idExamen, LocalDateTime ultimoCierre) {
         return existsByIdEstudianteAndIdExamenAndFechaHoraAfter(idEstudiante, idExamen,
                 ultimoCierre == null ? DESDE_SIEMPRE : ultimoCierre);
