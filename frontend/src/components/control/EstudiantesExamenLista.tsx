@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, CameraOff, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -7,6 +7,7 @@ import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
+import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import ReasignarAmbienteModal from './ReasignarAmbienteModal'
 
 
@@ -119,11 +120,24 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
     puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
+  const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
+  const [cargandoAulas, setCargandoAulas] = useState(true)
+  const [traslados, setTraslados] = useState<Map<number, string>>(new Map())
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
     setEstudianteSeleccionado(estudiante)
     setModalReasignarAbierto(true)
   }
+
+  useEffect(() => {
+    listarAmbientes()
+      .then((data) => {
+        setAulasExamen(Array.isArray(data) ? data : [])
+      })
+      .catch(() => setAulasExamen([]))
+      .finally(() => setCargandoAulas(false))
+  }, [])
+
   return (
     <>
       <table className="hidden w-full text-left md:table">
@@ -146,7 +160,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                 </Identidad></td>
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
-                <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} /></td>
+                <td className="px-4 py-3">
+                  <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                  {estudiante.ingresado && traslados.get(estudiante.idEstudiante) && (
+                    <p className="text-[10px] text-[#627A9B] mt-1">{traslados.get(estudiante.idEstudiante)}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
               </tr>
             )
@@ -194,11 +213,21 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
         <ReasignarAmbienteModal
           idExamen={idExamen}
           estudiante={estudianteSeleccionado}
+          aulas={aulasExamen}
+          aulaActualId={estudianteSeleccionado?.idAmbienteIngreso ?? undefined}
           onClose={() => {
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
           }}
           onSuccess={() => {
+            if (estudianteSeleccionado) {
+              const idAulaOrigen = (estudianteSeleccionado as any)?.idAmbienteIngreso
+              const aulaOrigen = aulasExamen.find((a) => a.id === idAulaOrigen)
+              const nombreOrigen = aulaOrigen?.nombre || 'aula anterior'
+              setTraslados((prev) =>
+                new Map(prev).set(estudianteSeleccionado.idEstudiante, `Trasladado desde ${nombreOrigen}`)
+              )
+            }
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
           }}

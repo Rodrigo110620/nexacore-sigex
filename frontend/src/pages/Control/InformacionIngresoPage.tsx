@@ -422,6 +422,7 @@ export default function InformacionIngresoPage() {
                       <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
                       {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
+                      {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? ' (Reasignado)' : ''}</p>}
                     </div>}
                   </li>
                 ))}

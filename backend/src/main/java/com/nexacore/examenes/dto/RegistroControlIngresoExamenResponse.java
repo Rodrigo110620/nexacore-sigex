@@ -16,5 +16,7 @@ public record RegistroControlIngresoExamenResponse(
         String usuarioControl,
         LocalDateTime fechaHora,
         String tipoIngreso,
-        String justificacionManual
+        String justificacionManual,
+        String ambienteIngreso,
+        Boolean reasignado
 ) {}
