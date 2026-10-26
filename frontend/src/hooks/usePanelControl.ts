@@ -33,12 +33,20 @@ export default function usePanelControl() {
   useEffect(() => {
     // Con la hora del servidor: solo se corrige si el reloj del dispositivo estaba desfasado más de
     // 30 s; si no, no hace falta volver a pedir el avance de los exámenes.
-    void sincronizarReloj().then(() => setAhora((anterior) => {
-      const servidor = ahoraServidorMs()
-      return Math.abs(servidor - anterior.getTime()) > REFRESCO_MS ? new Date(servidor) : anterior
-    }))
+    // Si la pantalla ya se cerró cuando responde el servidor, no se actualiza nada.
+    let vigente = true
+    void sincronizarReloj().then(() => {
+      if (!vigente) return
+      setAhora((anterior) => {
+        const servidor = ahoraServidorMs()
+        return Math.abs(servidor - anterior.getTime()) > REFRESCO_MS ? new Date(servidor) : anterior
+      })
+    })
     const intervalo = window.setInterval(() => setAhora(new Date(ahoraServidorMs())), REFRESCO_MS)
-    return () => window.clearInterval(intervalo)
+    return () => {
+      vigente = false
+      window.clearInterval(intervalo)
+    }
   }, [])
 
   return { examenes, error, ahora }
