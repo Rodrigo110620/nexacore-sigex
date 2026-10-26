@@ -129,11 +129,17 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
   }
 
   useEffect(() => {
+    let vigente = true
     listarAmbientes()
       .then((data) => {
-        setAulasExamen(Array.isArray(data) ? data : [])
+        if (vigente) setAulasExamen(Array.isArray(data) ? data : [])
       })
-      .catch(() => setAulasExamen([]))
+      .catch(() => {
+        if (vigente) setAulasExamen([])
+      })
+    return () => {
+      vigente = false
+    }
   }, [])
 
   return (
