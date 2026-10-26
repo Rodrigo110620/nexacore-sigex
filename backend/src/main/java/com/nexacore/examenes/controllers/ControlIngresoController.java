@@ -9,6 +9,7 @@ import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
 import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
+import com.nexacore.examenes.dto.RegistrarExceptionRequest;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 
 import com.nexacore.examenes.services.ControlIngresoService;
@@ -106,5 +107,18 @@ public class ControlIngresoController {
         
         ReasignarAmbienteResponse response = service.reasignarAmbiente(idExamen, idEstudiante, request, authentication.getName());
         return ResponseEntity.ok(response);
+    }
+
+    // INCI-04 (Lia): se había borrado al resolver un conflicto con INCI-03 (commit ea64843).
+    // ControlIngresoControllerTests la llama para que no vuelva a desaparecer sin que fallen las pruebas.
+    @Operation(summary = "Registrar excepción de no habilitado",
+               description = "Registra en la tabla de excepciones y en el historial de intentos automáticamente.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
+    @PostMapping("/excepcion-no-habilitado")
+    public ResponseEntity<Void> registrarExcepcion(
+            @Valid @RequestBody RegistrarExceptionRequest request,
+            Authentication authentication) {
+        excepcionService.registrarExcepcion(request, authentication.getName());
+        return ResponseEntity.ok().build();
     }
 }
