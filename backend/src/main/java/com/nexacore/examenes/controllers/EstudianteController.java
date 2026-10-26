@@ -67,16 +67,18 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Subir o reemplazar la fotografía",
-            description = "Imagen JPG, PNG o WEBP de hasta 150 KB. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+            description = "Imagen JPG, PNG o WEBP de hasta 150 KB. Solo ADMIN: queda como foto oficial sin revisión, "
+                    + "así que no la puede cambiar un docente (el docente reporta la foto si no coincide).")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(value = "/{id}/foto", consumes = "multipart/form-data")
     public ResponseEntity<Void> subirFoto(@PathVariable Integer id, @RequestParam("file") MultipartFile file) {
         estudianteFotoService.guardar(id, file);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Quitar la fotografía", description = "ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @Operation(summary = "Quitar la fotografía",
+            description = "Solo ADMIN: sin foto el estudiante no puede ingresar a ningún examen.")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}/foto")
     public ResponseEntity<Void> quitarFoto(@PathVariable Integer id) {
         estudianteFotoService.eliminar(id);
