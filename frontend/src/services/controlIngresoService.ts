@@ -1,5 +1,26 @@
 import api from './api'
-import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+import { esExpulsionConfirmada, type ExpulsionResponse } from './expulsionService'
+import { emitirCambioLocal } from './notificacionService'
+import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+
+/** null significa que hubo respuesta HTTP, pero no un registro verificable. */
+export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | null> {
+  const motivo = payload.motivo.trim()
+  if (!motivo) throw new Error('El motivo de expulsión es obligatorio.')
+  if (![payload.idEstudiante, payload.idExamen].every((id) => Number.isSafeInteger(id) && id > 0)) {
+    throw new Error('El estudiante y el examen deben tener identificadores válidos.')
+  }
+  // Lista explícita: tampoco se transmiten campos extra presentes en tiempo de ejecución.
+  const { data } = await api.post<unknown>('/control-ingresos/expulsar', {
+    idEstudiante: payload.idEstudiante,
+    idExamen: payload.idExamen,
+    motivo,
+  })
+  if (!esExpulsionConfirmada(data) || data.idEstudiante !== payload.idEstudiante
+    || data.idExamen !== payload.idExamen || data.motivo !== motivo) return null
+  emitirCambioLocal({ tipo: 'INGRESO', idExamen: data.idExamen, idEstudiante: data.idEstudiante })
+  return data
+}
 
 export async function obtenerContextoControl(idEstudiante: number, idExamen: number) {
   const { data } = await api.get<ContextoControlIngreso>(`/control-ingresos/${idEstudiante}/${idExamen}/contexto`)

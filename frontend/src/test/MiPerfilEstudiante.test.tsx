@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
@@ -79,21 +79,20 @@ describe('MiPerfilPage (CTA-02)', () => {
     expect(await screen.findByText('Registro obligatorio')).toBeInTheDocument()
   })
 
+  // Los campos se llenan con fireEvent.change (no tecla por tecla): con la CPU cargada (CI) se pasaban de 20 s.
   it('no deja usar su código SIS como contraseña y cambia la contraseña válida', async () => {
     obtener.mockResolvedValue(PERFIL)
     cambiar.mockResolvedValue('Contraseña actualizada correctamente')
     renderPerfil()
-    await userEvent.type(await screen.findByLabelText('Contraseña actual'), 'Clave#Segura9')
-    await userEvent.type(screen.getByLabelText('Nueva contraseña'), 'Sis#202104010')
-    await userEvent.type(screen.getByLabelText('Confirmar nueva contraseña'), 'Sis#202104010')
+    fireEvent.change(await screen.findByLabelText('Contraseña actual'), { target: { value: 'Clave#Segura9' } })
+    fireEvent.change(screen.getByLabelText('Nueva contraseña'), { target: { value: 'Sis#202104010' } })
+    fireEvent.change(screen.getByLabelText('Confirmar nueva contraseña'), { target: { value: 'Sis#202104010' } })
     await userEvent.click(screen.getByRole('button', { name: 'Actualizar contraseña' }))
     expect(screen.getByText('No puede contener tu nombre, tu código SIS ni tu CI')).toBeInTheDocument()
     expect(cambiar).not.toHaveBeenCalled()
 
-    await userEvent.clear(screen.getByLabelText('Nueva contraseña'))
-    await userEvent.type(screen.getByLabelText('Nueva contraseña'), 'Otra#Clave77')
-    await userEvent.clear(screen.getByLabelText('Confirmar nueva contraseña'))
-    await userEvent.type(screen.getByLabelText('Confirmar nueva contraseña'), 'Otra#Clave77')
+    fireEvent.change(screen.getByLabelText('Nueva contraseña'), { target: { value: 'Otra#Clave77' } })
+    fireEvent.change(screen.getByLabelText('Confirmar nueva contraseña'), { target: { value: 'Otra#Clave77' } })
     await userEvent.click(screen.getByRole('button', { name: 'Actualizar contraseña' }))
 
     await waitFor(() => expect(cambiar).toHaveBeenCalledWith({
@@ -106,9 +105,9 @@ describe('MiPerfilPage (CTA-02)', () => {
     obtener.mockResolvedValue(PERFIL)
     cambiar.mockRejectedValue(new Error('La contraseña actual es incorrecta'))
     renderPerfil()
-    await userEvent.type(await screen.findByLabelText('Contraseña actual'), 'Mala#1234')
-    await userEvent.type(screen.getByLabelText('Nueva contraseña'), 'Otra#Clave77')
-    await userEvent.type(screen.getByLabelText('Confirmar nueva contraseña'), 'Otra#Clave77')
+    fireEvent.change(await screen.findByLabelText('Contraseña actual'), { target: { value: 'Mala#1234' } })
+    fireEvent.change(screen.getByLabelText('Nueva contraseña'), { target: { value: 'Otra#Clave77' } })
+    fireEvent.change(screen.getByLabelText('Confirmar nueva contraseña'), { target: { value: 'Otra#Clave77' } })
     await userEvent.click(screen.getByRole('button', { name: 'Actualizar contraseña' }))
     expect(await screen.findByText('La contraseña actual es incorrecta')).toBeInTheDocument()
   })

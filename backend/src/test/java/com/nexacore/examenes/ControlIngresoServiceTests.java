@@ -2,6 +2,10 @@ package com.nexacore.examenes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacore.examenes.dto.AutorizarIngresoRequest;
+import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
+import com.nexacore.examenes.dto.ExpulsionResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.*;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
@@ -29,6 +33,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ControlIngresoServiceTests {
+    private com.nexacore.examenes.repositories.EstudianteFotoRepository fotoRepository;
+    private final com.nexacore.examenes.repositories.ExpulsionRepository expulsiones = mock(com.nexacore.examenes.repositories.ExpulsionRepository.class);
+    private final com.nexacore.examenes.services.SesionExamenService sesiones = mock(com.nexacore.examenes.services.SesionExamenService.class);
+    private final com.nexacore.examenes.services.NotificacionService notificaciones = mock(com.nexacore.examenes.services.NotificacionService.class);
     private AsistenciaExamenRepository asistenciaRepository;
     private UsuarioRepository usuarioRepository;
     private ControlIngresoService service;
@@ -48,6 +56,8 @@ class ControlIngresoServiceTests {
         normasExamenService = mock(NormasExamenService.class);
         when(normasExamenService.leerParaEstudiante(any(), any(), any()))
                 .thenReturn(new NormasExamenService.NormasDeEstudiante(List.of(), List.of()));
+        fotoRepository = mock(com.nexacore.examenes.repositories.EstudianteFotoRepository.class);
+        when(fotoRepository.existsById(any())).thenReturn(true);
         service = new ControlIngresoService(
                 asistenciaRepository,
                 catalogoRepository,
@@ -58,8 +68,7 @@ class ControlIngresoServiceTests {
                 new ObjectMapper(),
                 repartoSinAula(),
                 normasExamenService,
-                mock(com.nexacore.examenes.services.NotificacionService.class),
-                mock(com.nexacore.examenes.services.SesionExamenService.class));
+                notificaciones, sesiones, expulsiones, fotoRepository);
         asistencia = crearAsistencia();
 
         Usuario control = new Usuario();
@@ -614,6 +623,23 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void sinFotoRegistradaNoSeAutorizaElIngresoNiElManual() {
+        asistencia.getExamen().setIdAmbiente(5);
+        when(fotoRepository.existsById(10)).thenReturn(false);
+        var normal = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of());
+        var manual = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of("Identidad confirmada"), List.of(),
+                null, null, true, "El QR no se pudo leer por pantalla dañada");
+
+        for (var request : List.of(normal, manual)) {
+            ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                    () -> service.autorizar(request, "control@umss.edu.bo"));
+            assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+            assertTrue(error.getMessage().contains("no tiene foto registrada"));
+        }
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+    }
+
+    @Test
     void noSeAutorizaNiDeniegaElIngresoCuandoElExamenYaTermino() {
         horario("13:00", 120); // terminó a las 15:00
         var autorizar = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
@@ -676,6 +702,55 @@ class ControlIngresoServiceTests {
         assertEquals(5, asistencia.getIdAmbienteIngreso());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
     }
+    @Test
+    void expulsionPersisteAuditoriaConHoraDeBdYControlaDuplicadosPorSesion() {
+        when(asistenciaRepository.bloquearParaExpulsar(10, 20)).thenReturn(Optional.of(asistencia));
+        var request = new ExpulsarEstudianteRequest(10, 20, "  Uso de celular  ");
+        var admin = UsernamePasswordAuthenticationToken.authenticated("control@umss.edu.bo", null,
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        var fecha = LocalDateTime.of(2026, 10, 24, 16, 0);
+        asistencia.setFechaHoraIngreso(fecha);
+        asistencia.setHabilitado(false);
+        when(expulsiones.saveAndFlush(any())).thenAnswer(inv -> {
+            Expulsion expulsion = inv.getArgument(0);
+            assertNull(expulsion.getFechaHora());
+            expulsion.setId(99);
+            return expulsion;
+        });
+        when(expulsiones.fechaHoraRegistrada(99)).thenReturn(fecha);
+        assertEquals(new ExpulsionResponse(99, 10, 20, "Uso de celular", 7, "Carla Control", fecha),
+                service.expulsar(request, admin));
+        verify(expulsiones).saveAndFlush(argThat(e -> e.getIdEstudiante() == 10 && e.getIdExamen() == 20
+                && e.getIdUsuarioResponsable() == 7 && e.getMotivo().equals("Uso de celular")));
+        var orden = inOrder(asistenciaRepository, sesiones, expulsiones, notificaciones);
+        orden.verify(sesiones).bloquearContexto(20);
+        orden.verify(asistenciaRepository).bloquearParaExpulsar(10, 20);
+        orden.verify(sesiones).ultimoCierre(20);
+        orden.verify(expulsiones).expulsadoEnSesionActual(10, 20, null);
+        orden.verify(expulsiones).saveAndFlush(any());
+        orden.verify(expulsiones).fechaHoraRegistrada(99);
+        orden.verify(notificaciones).emitirCambio("INGRESO", 20, 10);
+        when(expulsiones.expulsadoEnSesionActual(10, 20, null)).thenReturn(true);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
+        verify(expulsiones, times(1)).saveAndFlush(any());
+        when(sesiones.ultimoCierre(20)).thenReturn(fecha.plusSeconds(1));
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
+        verify(notificaciones, times(1)).emitirCambio("INGRESO", 20, 10);
+        when(expulsiones.fechaHoraRegistrada(99)).thenReturn(fecha.plusSeconds(2));
+        assertDoesNotThrow(() -> service.expulsar(request, admin));
+        verify(expulsiones, times(2)).expulsadoEnSesionActual(10, 20, fecha.plusSeconds(1));
+        assertEquals(fecha, asistencia.getFechaHoraIngreso());
+        assertEquals(Boolean.FALSE, asistencia.getHabilitado());
+        when(expulsiones.fechaHoraRegistrada(99)).thenReturn(null);
+        assertThrows(IllegalStateException.class, () -> service.expulsar(request, admin));
+        verify(notificaciones, times(2)).emitirCambio("INGRESO", 20, 10);
+        asistencia.setFechaHoraIngreso(null);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
+        when(asistenciaRepository.bloquearParaExpulsar(10, 20)).thenReturn(Optional.empty());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ControlIngresoException.class, () -> service.expulsar(request, admin)).getStatus());
+        verify(expulsiones, times(4)).saveAndFlush(any());
+    }
+
     /** Reparto que no asigna aula: el ingreso queda registrado en el aula principal del examen. */
     private static RepartoAulasService repartoSinAula() {
         RepartoAulasService reparto = mock(RepartoAulasService.class);

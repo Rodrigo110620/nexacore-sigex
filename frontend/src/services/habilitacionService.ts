@@ -20,6 +20,8 @@ export interface EstudianteHabilitacionDto {
   /** Aviso si tiene otro examen a la misma hora ese día (no bloquea). */
   conflictoHorario?: string | null
   estadoMatricula?: string 
+  /** false si no tiene foto: el control no podrá autorizar su ingreso. */
+  tieneFoto?: boolean
 }
 
 export interface OcupacionAulaDto {

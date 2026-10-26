@@ -4,10 +4,13 @@ import com.nexacore.examenes.dto.AutorizarIngresoRequest;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.services.ControlIngresoService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
@@ -30,8 +33,24 @@ class ControlIngresoControllerTests {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ControlIngresoService service;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "CONTROL", "DOCENTE"})
+    void expulsionExigeAdmin(String rol) throws Exception {
+        mockMvc.perform(post("/control-ingresos/expulsar").with(user("admin@sigex.test").roles(rol))
+                        .contentType(APPLICATION_JSON).content("{\"idEstudiante\":10,\"idExamen\":20,\"motivo\":\"Uso de celular\"}"))
+                .andExpect(status().is(rol.equals("ADMIN") ? 200 : 403));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void expulsionRechazaMotivoVacio() throws Exception {
+        mockMvc.perform(post("/control-ingresos/expulsar").contentType(APPLICATION_JSON)
+                        .content("{\"idEstudiante\":10,\"idExamen\":20,\"motivo\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+    }
 
     @Test
     @WithMockUser(roles = "DOCENTE")

@@ -87,6 +87,12 @@ export interface MiExamen {
   resultadoIngreso: 'AUTORIZADO' | 'DENEGADO' | null
   motivoDenegacion: string | null
   fechaHoraIngreso: string | null
+  /** INCI-01: lo expulsaron en la sesión actual del examen. */
+  expulsado: boolean
+  /** Normas del examen que valen para todos. */
+  normasGenerales: string[]
+  /** Sus adaptaciones (normas particulares); nunca las de otros estudiantes. */
+  normasParticulares: string[]
 }
 
 /** QR temporal del estudiante (GET /mi/qr). */

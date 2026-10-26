@@ -25,6 +25,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 /**
@@ -45,6 +48,8 @@ class NotificacionEnVivoTests {
     @Autowired NotificacionRepository notificacionRepository;
     @Autowired UsuarioRepository usuarioRepository;
     @Autowired EstudianteRepository estudianteRepository;
+    @Autowired com.nexacore.examenes.repositories.NotificacionLeidaRepository leidaRepository;
+    @Autowired com.nexacore.examenes.repositories.NotificacionLimpiezaRepository limpiezaRepository;
 
     private final List<Integer> usuarios = new ArrayList<>();
     private final List<Integer> estudiantes = new ArrayList<>();
@@ -58,6 +63,8 @@ class NotificacionEnVivoTests {
 
     @AfterEach
     void limpiar() {
+        leidaRepository.deleteAll();
+        limpiezaRepository.deleteAll();
         notificacionRepository.deleteAll();
         estudianteRepository.deleteAllById(estudiantes);
         usuarioRepository.deleteAllById(usuarios);
@@ -114,6 +121,44 @@ class NotificacionEnVivoTests {
         // El estudiante no recibe las notificaciones del personal.
         notificacionService.publicar(Notificacion.FOTO_REPORTADA, "Foto reportada: Eva", null, null, idEstudiante, null, CONTROL);
         assertThat(estudiante.getContentAsString()).doesNotContain("event:notificacion");
+    }
+
+    @Test
+    void cadaUnoLimpiaSusNotificacionesSinBorrarselasALosDemas() throws Exception {
+        notificacionService.publicar(Notificacion.EXPULSION, "Expulsión: Ana", null, null, null, null, DOCENTE);
+        notificacionService.publicar(Notificacion.INGRESO_MANUAL, "Ingreso manual: Beto", null, null, null, null, DOCENTE);
+        Integer idPrimera = notificacionRepository.findAll().stream()
+                .filter(n -> n.getTitulo().equals("Expulsión: Ana")).findFirst().orElseThrow().getId();
+
+        // Quitar una: solo desaparece para quien la quitó.
+        mockMvc.perform(delete("/notificaciones/" + idPrimera).with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("ADMIN")))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].titulo").value("Ingreso manual: Beto"));
+        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("CONTROL")))
+                .andExpect(jsonPath("$.length()").value(2));
+
+        // Limpiar todas: la lista queda vacía, pero las nuevas siguen llegando.
+        mockMvc.perform(delete("/notificaciones").with(user(ADMIN).roles("ADMIN")))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("ADMIN")))
+                .andExpect(jsonPath("$.length()").value(0));
+        notificacionService.publicar(Notificacion.EXCEPCION_NO_HABILITADO, "Excepción: Carla", null, null, null, null, DOCENTE);
+        mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("ADMIN")))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].titulo").value("Excepción: Carla"));
+        // El control no limpió nada: sigue viendo las tres.
+        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("CONTROL")))
+                .andExpect(jsonPath("$.length()").value(3));
+    }
+
+    @Test
+    void elDocenteNoPuedeQuitarUnaNotificacionDeUnExamenAjeno() throws Exception {
+        notificacionService.publicar(Notificacion.FOTO_REPORTADA, "Foto reportada: Luis", null, null, null, null, CONTROL);
+        Integer id = notificacionRepository.findAll().get(0).getId();
+        mockMvc.perform(delete("/notificaciones/" + id).with(user(DOCENTE).roles("DOCENTE")))
+                .andExpect(status().isForbidden());
     }
 
     private MockHttpServletResponse abrir(String email, String rol) throws Exception {

@@ -1,19 +1,31 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import com.nexacore.examenes.utils.EstadoExamen;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexacore.examenes.dto.AutorizarIngresoRequest;
+import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
+import com.nexacore.examenes.dto.ExpulsionResponse;
+import com.nexacore.examenes.models.Expulsion;
+import com.nexacore.examenes.models.TrasladoAmbiente;
+import com.nexacore.examenes.repositories.ExpulsionRepository;
+import com.nexacore.examenes.utils.ExpulsionValidaciones;
+import org.springframework.security.core.Authentication;
 import com.nexacore.examenes.dto.AutorizarIngresoResponse;
 import com.nexacore.examenes.dto.IncidenciaIngresoRequest;
 import com.nexacore.examenes.dto.IncidenciaRegistradaResponse;
+import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
+import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoResponse;
 import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.Estudiante;
+import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.CatalogoIncidencia;
 import com.nexacore.examenes.models.Usuario;
@@ -28,6 +40,10 @@ import com.nexacore.examenes.utils.ValidacionTextoLibre;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.nexacore.examenes.models.TrasladoAmbiente;
+import com.nexacore.examenes.repositories.TrasladoAmbienteRepository;
+import com.nexacore.examenes.repositories.AmbienteRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -43,7 +59,11 @@ import java.util.List;
 
 @Service
 public class ControlIngresoService {
+
+    static final String SIN_FOTO = "El estudiante no tiene foto registrada: no se puede verificar su identidad. "
+            + "Debe registrarla en su portal o la administración desde su ficha.";
     private final SesionExamenService sesionExamenService;
+    private final EstudianteFotoRepository fotoRepository;
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
@@ -66,7 +86,12 @@ public class ControlIngresoService {
     private final NormasExamenService normasExamenService;
 
     private final RepartoAulasService repartoAulasService;
+    private final ExpulsionRepository expulsionRepository;
 
+    private final TrasladoAmbienteRepository trasladoAmbienteRepository;
+    private final AmbienteRepository ambienteRepository;
+
+    @Autowired
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
             CatalogoIncidenciaRepository catalogoRepository,
@@ -77,7 +102,12 @@ public class ControlIngresoService {
             ObjectMapper objectMapper,
             RepartoAulasService repartoAulasService,
             NormasExamenService normasExamenService,
-            NotificacionService notificacionService, SesionExamenService sesionExamenService) {
+            NotificacionService notificacionService, SesionExamenService sesionExamenService,
+            ExpulsionRepository expulsionRepository, EstudianteFotoRepository fotoRepository,
+            TrasladoAmbienteRepository trasladoAmbienteRepository, // <-- Añadir aquí
+            AmbienteRepository ambienteRepository) {
+        this.expulsionRepository = expulsionRepository;
+        this.fotoRepository = fotoRepository;
         this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.asistenciaRepository = asistenciaRepository;
@@ -89,6 +119,62 @@ public class ControlIngresoService {
         this.objectMapper = objectMapper;
         this.normasExamenService = normasExamenService;
         this.repartoAulasService = repartoAulasService;
+        this.trasladoAmbienteRepository = trasladoAmbienteRepository;
+        this.ambienteRepository = ambienteRepository;
+    }
+    // 2. Constructor de compatibilidad (para que los tests antiguos sigan compilando sin tocarlos)
+    public ControlIngresoService(
+            AsistenciaExamenRepository asistenciaRepository,
+            CatalogoIncidenciaRepository catalogoRepository,
+            IncidenciaRepository incidenciaRepository,
+            UsuarioRepository usuarioRepository,
+            EstudianteRepository estudianteRepository,
+            RegistroControlIngresoRepository registroRepository,
+            ObjectMapper objectMapper,
+            RepartoAulasService repartoAulasService,
+            NormasExamenService normasExamenService,
+            NotificacionService notificacionService, 
+            SesionExamenService sesionExamenService,
+            ExpulsionRepository expulsionRepository, 
+            EstudianteFotoRepository fotoRepository) {
+        this(asistenciaRepository, catalogoRepository, incidenciaRepository, usuarioRepository,
+            estudianteRepository, registroRepository, objectMapper, repartoAulasService,
+            normasExamenService, notificacionService, sesionExamenService, expulsionRepository,
+            fotoRepository, null, null);
+    }
+    @Transactional
+    public ExpulsionResponse expulsar(ExpulsarEstudianteRequest request, Authentication authentication) {
+        String email = ExpulsionValidaciones.responsableAutenticado(authentication);
+        String motivo = ExpulsionValidaciones.motivo(request.motivo());
+        sesionExamenService.bloquearContexto(request.idExamen());
+        Usuario admin = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        AsistenciaExamen asistencia = asistenciaRepository.bloquearParaExpulsar(request.idEstudiante(), request.idExamen()).orElse(null);
+        ExpulsionValidaciones.asistencia(request, asistencia);
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(request.idExamen());
+        if (expulsionRepository.expulsadoEnSesionActual(request.idEstudiante(), request.idExamen(), cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La expulsión del estudiante ya está registrada");
+        }
+        Expulsion expulsion = new Expulsion();
+        expulsion.setIdEstudiante(request.idEstudiante());
+        expulsion.setIdExamen(request.idExamen());
+        expulsion.setIdUsuarioResponsable(admin.getId());
+        expulsion.setMotivo(motivo);
+        expulsionRepository.saveAndFlush(expulsion);
+        LocalDateTime fechaHora = expulsionRepository.fechaHoraRegistrada(expulsion.getId());
+        if (fechaHora == null) throw new IllegalStateException("No se recuperó la hora de la expulsión persistida");
+        if (cierre != null && !fechaHora.isAfter(cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La sesión cambió durante la operación; vuelve a intentarlo");
+        }
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        Estudiante expulsado = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.EXPULSION,
+                "Expulsión: " + expulsado.getNombre() + " " + expulsado.getApellidos(),
+                notificacionService.materia(request.idExamen()) + " · " + motivo
+                        + " · Registrada por " + admin.getNombre() + " " + admin.getApellidos(),
+                request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), email);
+        return new ExpulsionResponse(expulsion.getId(), request.idEstudiante(), request.idExamen(), motivo,
+                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora);
     }
 
     @Transactional
@@ -126,6 +212,11 @@ public class ControlIngresoService {
             guardarRegistro(asistencia, control, request, "DENEGADO", causa);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
+        }
+
+        // La foto es obligatoria: sin ella no se puede verificar la identidad (también en el ingreso manual).
+        if (!fotoRepository.existsById(request.idEstudiante())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, SIN_FOTO);
         }
 
         if (!request.identidadVerificada()) {
@@ -178,6 +269,12 @@ public class ControlIngresoService {
 
         if (request.ingresoManual()) {
             registroRepository.marcarIngresoManual(request.idEstudiante(), request.idExamen(), justificacionManual);
+            Estudiante estudiante = asistencia.getEstudiante();
+            notificacionService.publicar(Notificacion.INGRESO_MANUAL,
+                    "Ingreso manual: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
+                    notificacionService.materia(request.idExamen()) + " · " + justificacionManual
+                            + " · Autorizado por " + control.getNombre() + " " + control.getApellidos(),
+                    request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), control.getEmail());
         }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
@@ -565,6 +662,11 @@ public class ControlIngresoService {
                 observaciones, "La observación", OBSERVACIONES_MIN, OBSERVACIONES_MAX);
     }
 
+    /** Donde se revisan los incidentes del examen (Información de ingreso). */
+    private static String enlaceInformacion(Integer idExamen) {
+        return "/dashboard/control/" + idExamen + "/informacion";
+    }
+
     private static String limpiar(String valor) {
         if (valor == null) return null;
         String limpio = valor.trim();
@@ -581,5 +683,85 @@ public class ControlIngresoService {
                     "El texto contiene contenido no válido: " + garabato);
         }
     }
+    @Transactional
+    public ReasignarAmbienteResponse reasignarAmbiente(
+            Integer idExamen, 
+            Integer idEstudiante, 
+            ReasignarAmbienteRequest request, 
+            String emailControl) {
+        
+        // 6. Usar el bloqueo de concurrencia de Marcelo al inicio
+        sesionExamenService.bloquearContexto(idExamen);
 
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
+        validarTextoLibre(request.motivo());
+        validarTextoLibre(request.observacion());
+
+        Usuario control = usuarioRepository.findByEmail(emailControl)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+
+        AsistenciaExamen asistencia = asistenciaRepository
+                .buscarContexto(idEstudiante, idExamen)
+                .orElseThrow(() -> new ControlIngresoException(
+                        HttpStatus.NOT_FOUND,
+                        "El estudiante no está asociado al examen seleccionado"));
+        
+        verificarIngresoAbierto(asistencia);
+
+        // 4. Tampoco trasladar a un estudiante expulsado
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        if (expulsionRepository.expulsadoEnSesionActual(idEstudiante, idExamen, cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "No se puede reasignar a un estudiante expulsado");
+        }
+
+        // 2. Solo reasignar a quien ya ingresó (Debe responder 409 con el mensaje exacto)
+        if (asistencia.getFechaHoraIngreso() == null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El estudiante aún no ingresó");
+        }
+
+        Integer ambienteOrigenId = asistencia.getIdAmbienteIngreso();
+
+        // 4. Validar el aula destino: que sea distinta de la actual
+        if (ambienteOrigenId != null && ambienteOrigenId.equals(request.idAmbienteDestino())) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El aula destino debe ser distinta a la actual");
+        }
+
+        // 4 y 7. Validar que el aula destino exista y obtener los nombres reales de las aulas
+        var ambienteOrigen = ambienteOrigenId != null ? ambienteRepository.findById(ambienteOrigenId).orElse(null) : null;
+        var ambienteDestino = ambienteRepository.findById(request.idAmbienteDestino())
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "El aula destino no existe"));
+
+        String aulaOrigenNombre = ambienteOrigen != null ? ambienteOrigen.getNombre() : "Aula anterior";
+        String aulaDestinoNombre = ambienteDestino.getNombre();
+
+        // 5. No borrar la observación del control: se mantiene intacta.
+        // El motivo y observaciones del traslado van exclusivamente a la tabla traslado_ambiente.
+
+        // Actualizar únicamente el ambiente destino conservando la fecha de ingreso original intacta
+        asistencia.setIdAmbienteIngreso(request.idAmbienteDestino());
+        asistenciaRepository.save(asistencia);
+
+       // 1 y 3. Guardar el traslado en la tabla traslado_ambiente (V44) sin duplicar registros de control
+TrasladoAmbiente traslado = new TrasladoAmbiente();
+traslado.setIdEstudiante(idEstudiante);
+traslado.setIdExamen(idExamen);
+traslado.setIdAmbienteOrigen(ambienteOrigenId);
+traslado.setIdAmbienteDestino(request.idAmbienteDestino()); 
+traslado.setMotivo(limpiar(request.motivo()));               
+traslado.setIdUsuarioAdmin(control.getId());
+traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
+trasladoAmbienteRepository.save(traslado);
+        
+        return new ReasignarAmbienteResponse(
+                idEstudiante,
+                idExamen,
+                ambienteOrigenId,
+                aulaOrigenNombre,
+                request.idAmbienteDestino(),
+                aulaDestinoNombre,
+                asistencia.getFechaHoraIngreso(), // La fecha original no cambia
+                limpiar(request.motivo()),
+                true
+        );
+    }
 }

@@ -9,7 +9,7 @@ import com.nexacore.examenes.services.EstudianteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -60,6 +60,9 @@ class PostgresIntegracionTests {
     }
 
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.nexacore.examenes.repositories.AsistenciaExamenRepository asistenciaExamenRepository;
+    @Autowired com.nexacore.examenes.repositories.TrasladoAmbienteRepository trasladoRepository;
+    @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
     @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
@@ -70,6 +73,8 @@ class PostgresIntegracionTests {
     @Autowired AmbienteRepository ambienteRepository;
     @Autowired com.nexacore.examenes.services.HabilitacionService habilitacionService;
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
+    @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
+    @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -79,7 +84,7 @@ class PostgresIntegracionTests {
         entityManager.flush();
         entityManager.clear();
     }
-    @MockBean EmailService emailService;
+    @MockitoBean EmailService emailService;
 
     @Test
     void flywayAplicaTodasLasMigracionesYHibernateValidaElEsquema() throws IOException {
@@ -239,6 +244,143 @@ class PostgresIntegracionTests {
                 .hasMessageContaining("Solo se reprograma un examen que ya finalizó");
     }
 
+    @Test
+    void laExpulsionGuardaLaHoraDelServidorEsInmutableYValeSoloParaLaSesionActual() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-905");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int expulsado = estudiante("202000051", "Eva");
+        int ajeno = estudiante("202000052", "Leo");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) "
+                + "VALUES (?, ?, ?, true, NOW())", expulsado, idExamen, paralelo);
+
+        com.nexacore.examenes.models.Expulsion expulsion = new com.nexacore.examenes.models.Expulsion();
+        expulsion.setIdEstudiante(expulsado);
+        expulsion.setIdExamen(idExamen);
+        expulsion.setIdUsuarioResponsable(idDocente);
+        expulsion.setMotivo("Uso de celular durante el examen");
+        Integer id = expulsionRepository.saveAndFlush(expulsion).getId();
+        sincronizar();
+
+        // La hora la pone la base.
+        var guardada = expulsionRepository.findById(id).orElseThrow();
+        assertThat(guardada.getFechaHora()).isNotNull();
+        assertThat(expulsionRepository.fechaHoraRegistrada(id)).isEqualTo(guardada.getFechaHora());
+        assertThat(expulsionRepository.expulsadoEnSesionActual(expulsado, idExamen, null)).isTrue();
+        assertThat(expulsionRepository.deSesionActual(idExamen, null)).hasSize(1);
+
+        // La hora no se puede modificar, ni por SQL; el motivo sí (p. ej. una corrección de redacción).
+        assertThat(errorSql("UPDATE expulsion SET fecha_hora = fecha_hora - interval '1 hour' WHERE id_expulsion = " + id))
+                .contains("La hora de la expulsión no se puede modificar");
+        assertThat(jdbc.update("UPDATE expulsion SET motivo = 'Uso de celular' WHERE id_expulsion = ?", id)).isEqualTo(1);
+
+        // Motivo obligatorio y solo para estudiantes asociados al examen.
+        assertThat(errorSql("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES ("
+                + expulsado + ", " + idExamen + ", " + idDocente + ", '   ')")).contains("ck_expulsion_motivo");
+        assertThat(errorSql("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES ("
+                + ajeno + ", " + idExamen + ", " + idDocente + ", 'Copia')")).contains("fk_expulsion_asistencia");
+
+        // Tras reprogramar (cierre de sesión posterior), la expulsión queda en la sesión anterior.
+        java.time.LocalDateTime cierre = guardada.getFechaHora().plusMinutes(1);
+        assertThat(expulsionRepository.expulsadoEnSesionActual(expulsado, idExamen, cierre)).isFalse();
+        assertThat(expulsionRepository.deSesionActual(idExamen, cierre)).isEmpty();
+    }
+
+    /** Ejecuta un SQL que debe fallar sin anular la transacción de la prueba; devuelve el mensaje del error. */
+    private String errorSql(String sql) {
+        jdbc.execute("SAVEPOINT antes_del_error");
+        try {
+            jdbc.execute(sql);
+            return "(no falló)";
+        } catch (org.springframework.dao.DataAccessException e) {
+            return e.getMostSpecificCause().getMessage();
+        } finally {
+            jdbc.execute("ROLLBACK TO SAVEPOINT antes_del_error");
+        }
+    }
+
+    @Test
+    void elTrasladoDeAmbienteGuardaOrigenYDestinoSinCambiarLaHoraDeIngreso() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-906");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int trasladado = estudiante("202000061", "Ana");
+        int ajeno = estudiante("202000062", "Beto");
+        int aulaNueva = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) "
+                + "VALUES (?, ?, ?, true, TIMESTAMP '2026-10-20 07:55:00', ?)", trasladado, idExamen, paralelo, idAmbiente);
+
+        // El servicio de Fernando: guarda el traslado y cambia el aula sin tocar la hora de ingreso.
+        com.nexacore.examenes.models.TrasladoAmbiente traslado = new com.nexacore.examenes.models.TrasladoAmbiente();
+        traslado.setIdExamen(idExamen);
+        traslado.setIdEstudiante(trasladado);
+        traslado.setIdAmbienteOrigen(idAmbiente);
+        traslado.setIdAmbienteDestino(aulaNueva);
+        traslado.setMotivo("Computadora dañada");
+        traslado.setIdUsuarioAdmin(idDocente);
+        Integer id = trasladoRepository.saveAndFlush(traslado).getId();
+        jdbc.update("UPDATE asistencia_examen SET id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                aulaNueva, trasladado, idExamen);
+        sincronizar();
+
+        var guardado = trasladoRepository.findById(id).orElseThrow();
+        assertThat(guardado.getFechaHoraTraslado()).isNotNull();
+        assertThat(jdbc.queryForMap("SELECT id_ambiente_ingreso, fecha_hora_ingreso FROM asistencia_examen WHERE id_estudiante = ?", trasladado))
+                .containsEntry("id_ambiente_ingreso", aulaNueva)
+                .containsEntry("fecha_hora_ingreso", java.sql.Timestamp.valueOf("2026-10-20 07:55:00"));
+        assertThat(trasladoRepository.delEstudianteEnSesionActual(idExamen, trasladado, null))
+                .singleElement().satisfies(t -> assertThat(t.getIdAmbienteOrigen()).isEqualTo(idAmbiente));
+        assertThat(trasladoRepository.deSesionActual(idExamen, null)).hasSize(1);
+
+        // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
+        String insertar = "INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, motivo, id_usuario_admin) VALUES (";
+        assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + idAmbiente + ", " + aulaNueva + ", '  ', " + idDocente + ")"))
+                .contains("ck_ta_motivo");
+        assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + aulaNueva + ", " + aulaNueva + ", 'Red caída', " + idDocente + ")"))
+                .contains("ck_ta_aulas_distintas");
+        assertThat(errorSql(insertar + idExamen + ", " + ajeno + ", " + idAmbiente + ", " + aulaNueva + ", 'Red caída', " + idDocente + ")"))
+                .contains("fk_ta_asistencia");
+
+        // Tras reprogramar (cierre de sesión posterior), el traslado queda en la sesión anterior.
+        java.time.LocalDateTime cierre = guardado.getFechaHoraTraslado().plusMinutes(1);
+        assertThat(trasladoRepository.deSesionActual(idExamen, cierre)).isEmpty();
+    }
+
+    @Test
+    void losRegistrosGuardanLaHoraRealYNoLaDelInicioDeLaTransaccion() {
+        // V45: con NOW() todo lo guardado en una transacción tenía la misma hora (la de su inicio).
+        var columnas = jdbc.queryForList("""
+                SELECT table_name || '.' || column_name AS columna, column_default FROM information_schema.columns
+                WHERE (table_name, column_name) IN (('registro_control_ingreso', 'fecha_hora'), ('intento_ingreso', 'fecha_hora'),
+                    ('incidencia', 'fecha_hora'), ('reporte_qr_duplicado', 'fecha_hora_servidor'),
+                    ('excepcion_no_habilitado', 'fecha_hora'), ('traslado_ambiente', 'fecha_hora_traslado'),
+                    ('expulsion', 'fecha_hora'))
+                """);
+        assertThat(columnas).hasSize(7)
+                .allSatisfy(c -> assertThat((String) c.get("column_default")).contains("clock_timestamp()"));
+
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-907");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int idEstudiante = estudiante("202000071", "Ana");
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, id_estudiante, observacion) "
+                + "VALUES (?, ?, ?, '202000071', ?, 'Prueba de hora real')";
+        jdbc.update(intento, idExamen, paralelo, idDocente, idEstudiante);
+        jdbc.execute("SELECT pg_sleep(0.05)");
+        jdbc.update(intento, idExamen, paralelo, idDocente, idEstudiante);
+
+        var horas = jdbc.queryForList("SELECT fecha_hora FROM intento_ingreso WHERE id_examen = ? ORDER BY id_intento",
+                java.sql.Timestamp.class, idExamen);
+        assertThat(horas).hasSize(2);
+        assertThat(horas.get(1)).isAfter(horas.get(0));
+        assertThat(asistenciaRepositoryHora()).isAfter(horas.get(1).toLocalDateTime());
+    }
+
+    private java.time.LocalDateTime asistenciaRepositoryHora() {
+        jdbc.execute("SELECT pg_sleep(0.01)");
+        return asistenciaExamenRepository.obtenerFechaHoraServidor();
+    }
+
     private void prepararCatalogo() {
         jdbc.update("""
                 INSERT INTO usuario (nombre, apellidos, ci, email, password, estado)
@@ -257,6 +399,9 @@ class PostgresIntegracionTests {
         int estudiante = estudiante("202104099", "Ana");
         habilitacionService.asociar(examen, paralelo, "202104099");
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
+        // Sin foto el control no puede autorizar el ingreso.
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
+                + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
                 List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");
@@ -291,6 +436,95 @@ class PostgresIntegracionTests {
         jdbc.update("INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email) VALUES (?, ?, 'Prueba', ?, ?)",
                 sis, nombre, sis.substring(2), sis + "@est.umss.edu");
         return jdbc.queryForObject("SELECT id_estudiante FROM estudiante WHERE codigo_sis = ?", Integer.class, sis);
+    }
+
+    @Test
+    void elPortalDelEstudianteMuestraSusNormasYSiFueExpulsado() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-908");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int ana = estudiante("202000081", "Ana");
+        int luis = estudiante("202000082", "Luis");
+        String correoAna = cuentaDeEstudiante(ana, "202000081@est.umss.edu");
+        String correoLuis = cuentaDeEstudiante(luis, "202000082@est.umss.edu");
+        habilitacionService.asociar(idExamen, paralelo, "202000081");
+        habilitacionService.asociar(idExamen, paralelo, "202000082");
+        var examen = examenRepository.findAll().stream()
+                .filter(x -> x.getId().getIdExamen() == idExamen).findFirst().orElseThrow();
+        normasExamenService.actualizar(examen, List.of("Presentar CI vigente", "No usar celular"), List.of(
+                new com.nexacore.examenes.dto.NormaParticularRequest("Ana Prueba", "Tiempo adicional de 15 minutos", ana),
+                new com.nexacore.examenes.dto.NormaParticularRequest("Luis Prueba", "Asiento cerca de la puerta", luis)));
+        // Ana ingresó y después la expulsaron (INCI-01).
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                idAmbiente, ana, idExamen);
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Copia durante el examen')",
+                ana, idExamen, idDocente);
+        sincronizar();
+
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> {
+            assertThat(e.normasGenerales()).containsExactly("Presentar CI vigente", "No usar celular");
+            // Solo sus adaptaciones: nunca las de otro estudiante.
+            assertThat(e.normasParticulares()).containsExactly("Tiempo adicional de 15 minutos");
+            assertThat(e.expulsado()).isTrue();
+            assertThat(e.fechaHoraIngreso()).isNotNull();
+        });
+        assertThat(panelEstudianteService.examenes(correoLuis)).singleElement().satisfies(e -> {
+            assertThat(e.normasParticulares()).containsExactly("Asiento cerca de la puerta");
+            assertThat(e.expulsado()).isFalse();
+        });
+
+        // Si el examen se reprograma, la expulsión queda en la sesión anterior.
+        sesionExamenService.archivarYReiniciar(examen, idDocente, "Corte de luz");
+        sincronizar();
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement()
+                .satisfies(e -> assertThat(e.expulsado()).isFalse());
+    }
+
+    @Test
+    void laExpulsionElIngresoManualYLaExcepcionNotificanAlPersonal() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-909");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int ana = estudiante("202000091", "Ana");
+        int beto = estudiante("202000092", "Beto");
+        int carla = estudiante("202000093", "Carla");
+        habilitacionService.asociar(idExamen, paralelo, "202000091");
+        habilitacionService.asociar(idExamen, paralelo, "202000092");
+        habilitacionService.asociar(idExamen, paralelo, "202000093");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_examen = ? AND id_estudiante IN (?, ?)", idExamen, ana, beto);
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) VALUES (?, ?, 'image/jpeg', NOW())",
+                beto, new byte[]{(byte) 0xFF, (byte) 0xD8});
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                idAmbiente, ana, idExamen);
+        sincronizar();
+        var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
+        controlIngresoService.autorizar(new com.nexacore.examenes.dto.AutorizarIngresoRequest(beto, idExamen, null, true,
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR"), "luis.paz@umss.edu");
+        excepcionService.registrarExcepcion(new com.nexacore.examenes.dto.RegistrarExceptionRequest(carla, idExamen, idAmbiente,
+                "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
+        sincronizar();
+
+        var avisos = jdbc.queryForList("SELECT tipo, titulo, detalle, id_estudiante, enlace FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion", idExamen);
+        assertThat(avisos).extracting(a -> a.get("tipo"))
+                .containsExactly("EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
+        assertThat(avisos.get(0)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
+        assertThat((String) avisos.get(0).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
+        assertThat((String) avisos.get(1).get("detalle")).contains("Celular apagado, no presenta QR");
+        assertThat((String) avisos.get(2).get("detalle")).contains("Se le permitió esperar afuera");
+    }
+
+    /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */
+    private String cuentaDeEstudiante(int idEstudiante, String correo) {
+        Integer idUsuario = jdbc.queryForObject("""
+                INSERT INTO usuario (nombre, apellidos, ci, email, password, estado)
+                VALUES ('Est', 'Prueba', ?, ?, 'x', 'activo') RETURNING id_usuario
+                """, Integer.class, correo.substring(2, 9), correo);
+        jdbc.update("UPDATE estudiante SET id_usuario = ? WHERE id_estudiante = ?", idUsuario, idEstudiante);
+        return correo;
     }
 
     @Test

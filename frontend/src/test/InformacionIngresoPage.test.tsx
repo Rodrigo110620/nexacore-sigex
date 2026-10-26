@@ -15,6 +15,7 @@ vi.mock('../services/intentoIngresoService')
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn() }))
 vi.mock('../services/reporteQrDuplicadoConsultaService', () => ({ listarReportesQrDuplicado: vi.fn() }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
+vi.mock('../services/expulsionService', () => ({ listarExpulsionesExamen: vi.fn().mockResolvedValue([]) }))
 
 describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
   it('INCI-02 muestra el responsable y el motivo del ingreso manual en Excepciones', async () => {
@@ -26,7 +27,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     }])
     renderPage()
     await screen.findByText('1 ingreso autorizado')
-    fireEvent.click(screen.getByRole('tab', { name: /Ingresos manuales/ }))
+    fireEvent.click(screen.getByRole('tab', { name: /Excepciones/ }))
     expect(screen.getByText('Luis Flores')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
     expect(screen.getByText(/Celular apagado, no presenta QR/)).toBeInTheDocument()
@@ -71,7 +72,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     expect(within(navigation).getByRole('link', { name: 'Control' })).toBeInTheDocument()
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       expect.stringContaining('Ingresos Autorizados en Tiempo Real'),
-      expect.stringContaining('Ingresos manuales'),
+      expect.stringContaining('Excepciones'),
       expect.stringContaining('Ingresos no autorizados'),
     ])
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))

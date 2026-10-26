@@ -3,7 +3,8 @@ import api from './api'
 /** Reporte del control de ingreso notificado al personal (GET /notificaciones). */
 export interface Notificacion {
   id: number
-  tipo: 'FOTO_REPORTADA' | 'QR_DUPLICADO' | 'INTENTO_INGRESO' | 'AULA_INCORRECTA' | 'EXCEPCION_NO_HABILITADO' | string
+  tipo: 'FOTO_REPORTADA' | 'QR_DUPLICADO' | 'INTENTO_INGRESO' | 'AULA_INCORRECTA' | 'EXCEPCION_NO_HABILITADO'
+    | 'EXPULSION' | 'INGRESO_MANUAL' | string
   titulo: string
   detalle: string | null
   idExamen: number | null
@@ -34,6 +35,16 @@ export async function marcarNotificacionLeida(id: number): Promise<void> {
 
 export async function marcarTodasLeidas(): Promise<void> {
   await api.post('/notificaciones/leidas')
+}
+
+/** Quita una notificación de mi lista; los demás la siguen viendo. */
+export async function quitarNotificacion(id: number): Promise<void> {
+  await api.delete(`/notificaciones/${id}`)
+}
+
+/** Limpia todas mis notificaciones hasta ahora; las nuevas siguen llegando. */
+export async function limpiarNotificaciones(): Promise<void> {
+  await api.delete('/notificaciones')
 }
 
 /** Aviso liviano de que algo cambió (evento "cambio"): la pantalla abierta recarga si le afecta. */

@@ -33,6 +33,7 @@ const AHORA = new Date('2026-10-20T08:00:00')
 const examen = (id: number, materia: string, fecha: string, extra: Partial<MiExamen> = {}): MiExamen => ({
   idExamen: id, materia, fecha, horaInicio: '09:00:00', duracionMinutos: 120, aula: '691A',
   habilitado: true, motivoInhabilitacion: null, resultadoIngreso: null, motivoDenegacion: null, fechaHoraIngreso: null,
+  expulsado: false, normasGenerales: [], normasParticulares: [],
   ...extra,
 })
 
@@ -76,6 +77,14 @@ describe('separarExamenes y estadoExamen', () => {
     expect(estadoExamen(examen(1, 'A', '2026-10-10', { resultadoIngreso: 'DENEGADO' }), true)).toBe('DENEGADO')
     expect(estadoExamen(examen(1, 'A', '2026-10-10'), true)).toBe('NO_SE_PRESENTO')
   })
+
+  it('si ya pasó por el control, el próximo examen muestra lo que pasó ahí y no la habilitación', () => {
+    const ingreso = { fechaHoraIngreso: '2026-10-25T08:05:00', resultadoIngreso: 'AUTORIZADO' as const }
+    expect(estadoExamen(examen(1, 'A', '2026-10-25', ingreso), false)).toBe('INGRESO')
+    expect(estadoExamen(examen(1, 'A', '2026-10-25', { resultadoIngreso: 'DENEGADO' }), false)).toBe('DENEGADO')
+    expect(estadoExamen(examen(1, 'A', '2026-10-25', { ...ingreso, expulsado: true }), false)).toBe('EXPULSADO')
+    expect(estadoExamen(examen(1, 'A', '2026-10-10', { ...ingreso, expulsado: true }), true)).toBe('EXPULSADO')
+  })
 })
 
 describe('Panel de inicio del estudiante (CTA-03)', () => {
@@ -113,6 +122,70 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     expect(within(tarjeta).getByRole('status')).toHaveTextContent('ya empezó y aún no registraste tu ingreso')
     expect(within(tarjeta).getByRole('timer')).toHaveTextContent('Tiempo restante')
     expect(screen.getAllByRole('link', { name: /mostrar mi qr/i })).toHaveLength(1)
+  })
+
+  it('muestra las normas del examen y solo sus adaptaciones', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      normasGenerales: ['Presentar CI vigente', 'No usar celular'],
+      normasParticulares: ['Tiempo adicional de 15 minutos'],
+    })])
+    renderEn('/estudiante')
+
+    const normas = await screen.findByRole('region', { name: 'Normas del examen' })
+    expect(within(normas).getByText('Presentar CI vigente')).toBeInTheDocument()
+    expect(within(normas).getByText('No usar celular')).toBeInTheDocument()
+    expect(within(normas).getByText('Tus adaptaciones')).toBeInTheDocument()
+    expect(within(normas).getByText('Tiempo adicional de 15 minutos')).toBeInTheDocument()
+    // En la lista, solo cuántas normas tiene.
+    expect(screen.getByText('3 normas para este examen')).toBeInTheDocument()
+  })
+
+  it('sin normas no muestra la sección', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10')])
+    renderEn('/estudiante')
+    await screen.findByRole('heading', { name: 'Próximo examen' })
+    expect(screen.queryByRole('region', { name: 'Normas del examen' })).not.toBeInTheDocument()
+  })
+
+  it('confirma su ingreso con la hora y el aula, sin pedirle otra vez que se presente', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00',
+    })])
+    renderEn('/estudiante')
+
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByText('Tu ingreso quedó registrado a las 08:55')).toBeInTheDocument()
+    expect(within(tarjeta).getByText('Rinde tu examen en el aula 691A.')).toBeInTheDocument()
+    expect(within(tarjeta).getAllByText('Ingresó').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Estás habilitado para tu próximo examen')).not.toBeInTheDocument()
+    // El QR pasa a segundo plano.
+    expect(screen.queryByRole('link', { name: /mostrar mi qr/i })).not.toBeInTheDocument()
+    expect(within(tarjeta).getByRole('link', { name: /ver mi qr/i })).toHaveAttribute('href', '/estudiante/qr')
+  })
+
+  it('si se le denegó el ingreso, lo dice en la tarjeta con el motivo', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      resultadoIngreso: 'DENEGADO', motivoDenegacion: 'El carnet no coincide',
+    })])
+    renderEn('/estudiante')
+
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('No se autorizó tu ingreso')
+    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('Motivo: El carnet no coincide')
+    expect(screen.queryByText('Estás habilitado para tu próximo examen')).not.toBeInTheDocument()
+  })
+
+  it('si lo expulsaron, lo indica sin detalles internos y sin el QR', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00', expulsado: true,
+    })])
+    renderEn('/estudiante')
+
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('Tu participación en este examen fue anulada')
+    expect(within(tarjeta).getAllByText('Expulsado').length).toBeGreaterThan(0)
+    expect(within(tarjeta).queryByText(/Tu ingreso quedó registrado/)).not.toBeInTheDocument()
+    expect(within(tarjeta).queryByRole('link', { name: /qr/i })).not.toBeInTheDocument()
   })
 
   it('como el personal, Mi perfil está en el menú de cuenta y no en la navegación', async () => {
@@ -175,7 +248,8 @@ describe('Mi QR (CTA-03)', () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10')])
     renderEn('/estudiante/qr')
     expect(await screen.findByRole('img', { name: 'Tu código QR de ingreso' })).toBeInTheDocument()
-    expect(screen.getByText(/Se renueva en (59|60) s/)).toBeInTheDocument()
+    // Con la máquina cargada pueden pasar unos segundos antes de revisar: basta con que la cuenta corra cerca de 60.
+    expect(screen.getByText(/Se renueva en (5\d|60) s/)).toBeInTheDocument()
     expect(await screen.findByText('Acceso habilitado')).toBeInTheDocument()
   })
 

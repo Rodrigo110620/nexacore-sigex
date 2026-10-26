@@ -15,6 +15,7 @@ import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import com.nexacore.examenes.repositories.ExpulsionRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,6 +47,8 @@ public class PanelEstudianteService {
     private final QrEstudianteService qrService;
     private final PasswordEncoder passwordEncoder;
     private final SesionExamenService sesionExamenService;
+    private final NormasExamenService normasExamenService;
+    private final ExpulsionRepository expulsionRepository;
 
     public PanelEstudianteService(UsuarioRepository usuarioRepository,
                                   EstudianteRepository estudianteRepository,
@@ -56,8 +59,12 @@ public class PanelEstudianteService {
                                   EstudianteFotoService fotoService,
                                   QrEstudianteService qrService,
                                   PasswordEncoder passwordEncoder,
-                                  SesionExamenService sesionExamenService) {
+                                  SesionExamenService sesionExamenService,
+                                  NormasExamenService normasExamenService,
+                                  ExpulsionRepository expulsionRepository) {
         this.sesionExamenService = sesionExamenService;
+        this.normasExamenService = normasExamenService;
+        this.expulsionRepository = expulsionRepository;
         this.usuarioRepository = usuarioRepository;
         this.estudianteRepository = estudianteRepository;
         this.estudianteCarreraRepository = estudianteCarreraRepository;
@@ -114,8 +121,9 @@ public class PanelEstudianteService {
     @Transactional(readOnly = true)
     public List<MiExamenResponse> examenes(String email) {
         Estudiante e = estudianteDe(email);
+        String nombreCompleto = (e.getNombre() + " " + e.getApellidos()).trim();
         return asistenciaRepository.listarDelEstudiante(e.getId()).stream()
-                .map(a -> aExamen(e.getId(), a))
+                .map(a -> aExamen(e.getId(), nombreCompleto, a))
                 .toList();
     }
 
@@ -126,7 +134,7 @@ public class PanelEstudianteService {
                 QrEstudianteService.SEGUNDOS_QR_TEMPORAL);
     }
 
-    private MiExamenResponse aExamen(Integer idEstudiante, AsistenciaExamen a) {
+    private MiExamenResponse aExamen(Integer idEstudiante, String nombreCompleto, AsistenciaExamen a) {
         Examen ex = a.getExamen();
         Integer idExamen = a.getId().getIdExamen();
         // Solo el resultado de la sesión actual: si el examen se reprogramó, lo anterior es historial.
@@ -136,6 +144,8 @@ public class PanelEstudianteService {
                 .stream()
                 .filter(r -> cierre == null || r.getFechaHora() == null || r.getFechaHora().isAfter(cierre))
                 .findFirst();
+        NormasExamenService.NormasDeEstudiante normas =
+                normasExamenService.leerParaEstudiante(idExamen, idEstudiante, nombreCompleto);
         return new MiExamenResponse(
                 idExamen,
                 ex.getParalelo().getMateria().getNombre(),
@@ -147,7 +157,10 @@ public class PanelEstudianteService {
                 Boolean.FALSE.equals(a.getHabilitado()) ? a.getMotivoInhabilitacion() : null,
                 registro.map(RegistroControlIngreso::getResultadoAutorizacion).orElse(null),
                 registro.map(RegistroControlIngreso::getMotivoDenegacion).orElse(null),
-                a.getFechaHoraIngreso());
+                a.getFechaHoraIngreso(),
+                expulsionRepository.expulsadoEnSesionActual(idEstudiante, idExamen, cierre),
+                normas.generales(),
+                normas.particulares());
     }
 
     /**

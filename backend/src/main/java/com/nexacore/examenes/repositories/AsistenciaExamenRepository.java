@@ -16,6 +16,12 @@ import java.util.Optional;
 
 public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExamen, AsistenciaExamenId> {
 
+    /** Sin JOIN FETCH: bloquea solamente la asistencia después del examen y sus ambientes. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM AsistenciaExamen a WHERE a.id.idEstudiante = :idEstudiante AND a.id.idExamen = :idExamen")
+    Optional<AsistenciaExamen> bloquearParaExpulsar(@Param("idEstudiante") Integer idEstudiante,
+                                                @Param("idExamen") Integer idExamen);
+
     /** El estudiante está asociado al examen (para enviarle en vivo los cambios de ese examen). */
     boolean existsByIdIdEstudianteAndIdIdExamen(Integer idEstudiante, Integer idExamen);
     String CONSULTA_CONTEXTO = """
@@ -62,7 +68,7 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     @Deprecated
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-            UPDATE asistencia_examen SET fecha_hora_ingreso = NOW(), id_ambiente_ingreso = :idAmbiente,
+            UPDATE asistencia_examen SET fecha_hora_ingreso = CAST(clock_timestamp() AS timestamp), id_ambiente_ingreso = :idAmbiente,
                 id_usuario_control = :idUsuarioControl, observaciones_control = :observaciones
             WHERE id_estudiante = :idEstudiante AND id_examen = :idExamen AND fecha_hora_ingreso IS NULL
             """, nativeQuery = true)
@@ -141,6 +147,7 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
             """)
     List<AsistenciaExamen> listarDelEstudiante(@Param("idEstudiante") Integer idEstudiante);
 
-    @Query(value = "SELECT LOCALTIMESTAMP", nativeQuery = true)
+    /** Hora real del servidor (no la del inicio de la transacción): ver V45. */
+    @Query(value = "SELECT CAST(clock_timestamp() AS timestamp)", nativeQuery = true)
     LocalDateTime obtenerFechaHoraServidor();
 }

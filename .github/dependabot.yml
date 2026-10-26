@@ -1,0 +1,36 @@
+# Dependabot: solo actualizaciones de seguridad (las alertas), agrupadas para que no abra un PR
+# por paquete. Vite y Vitest dependen uno del otro: actualizar solo Vitest rompe las pruebas
+# (pasó con el PR #240), por eso siempre van juntos.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    # 0 = sin PRs de "versión nueva"; los de seguridad siguen llegando.
+    open-pull-requests-limit: 0
+    target-branch: develop
+    groups:
+      vite-y-vitest:
+        applies-to: security-updates
+        patterns:
+          - vite
+          - vitest
+          - "@vitest/*"
+          - "@vitejs/*"
+          - esbuild
+          - tinypool
+    ignore:
+      # Saltos de versión mayor: se hacen a mano, probando todo (ver PR #240).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    target-branch: develop
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

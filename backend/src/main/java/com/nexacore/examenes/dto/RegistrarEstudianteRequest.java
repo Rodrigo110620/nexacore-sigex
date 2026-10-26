@@ -20,7 +20,6 @@ public record RegistrarEstudianteRequest(
         String apellidos,
         
         @NotBlank(message = "El CI es obligatorio")
-        @Size(min = 7, max = 8, message = "El CI debe tener 7 u 8 digitos")
         @Pattern(regexp = ReglasEstudiante.CI, message = ReglasEstudiante.MSG_CI)
         String ci,
 
@@ -35,7 +34,6 @@ public record RegistrarEstudianteRequest(
         String email,
         
         @NotBlank(message = "El código SIS es obligatorio")
-        @Size(min = 9, max = 9, message = "El código SIS debe tener 9 digitos")
         @Pattern(regexp = ReglasEstudiante.CODIGO_SIS, message = ReglasEstudiante.MSG_CODIGO_SIS)
         String codigoSis,
         

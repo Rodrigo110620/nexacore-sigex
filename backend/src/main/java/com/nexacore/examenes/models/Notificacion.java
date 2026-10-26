@@ -23,8 +23,12 @@ public class Notificacion {
     public static final String QR_DUPLICADO = "QR_DUPLICADO";
     public static final String INTENTO_INGRESO = "INTENTO_INGRESO";
     public static final String AULA_INCORRECTA = "AULA_INCORRECTA";
-    /** INCI-04: lo publicará el registro de excepciones de no habilitados. */
+    /** INCI-04: excepción registrada para un estudiante no habilitado. */
     public static final String EXCEPCION_NO_HABILITADO = "EXCEPCION_NO_HABILITADO";
+    /** INCI-01: expulsión de un estudiante durante el examen. */
+    public static final String EXPULSION = "EXPULSION";
+    /** INCI-02: ingreso manual por excepción. */
+    public static final String INGRESO_MANUAL = "INGRESO_MANUAL";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
