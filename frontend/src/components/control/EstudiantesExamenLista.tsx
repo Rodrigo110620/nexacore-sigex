@@ -121,7 +121,6 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
-  const [cargandoAulas, setCargandoAulas] = useState(true)
   const [traslados, setTraslados] = useState<Map<number, string>>(new Map())
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
@@ -135,7 +134,6 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
         setAulasExamen(Array.isArray(data) ? data : [])
       })
       .catch(() => setAulasExamen([]))
-      .finally(() => setCargandoAulas(false))
   }, [])
 
   return (

@@ -487,10 +487,14 @@ public class ControlIngresoService {
                 : cierre;
 
         // Traslados de la sesión actual, por estudiante (el último vale como el aula actual).
+        // Nota: trasladoAmbienteRepository puede ser null si se usa el constructor de compatibilidad
+        // de tests antiguos; en ese caso no hay historial de traslados que consultar.
         Map<Integer, TrasladoAmbiente> trasladosPorEstudiante = new HashMap<>();
-        for (TrasladoAmbiente t : trasladoAmbienteRepository
-                .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
-            trasladosPorEstudiante.put(t.getIdEstudiante(), t);
+        if (trasladoAmbienteRepository != null) {
+            for (TrasladoAmbiente t : trasladoAmbienteRepository
+                    .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
+                trasladosPorEstudiante.put(t.getIdEstudiante(), t);
+            }
         }
 
         return registroRepository.listarPorExamen(idExamen).stream()
@@ -506,7 +510,7 @@ public class ControlIngresoService {
                     asistenciaId.setIdEstudiante(registro.getId().getIdEstudiante());
                     asistenciaId.setIdExamen(idExamen);
                     var asistencia = asistenciaRepository.findById(asistenciaId).orElse(null);
-                    if (asistencia != null && asistencia.getIdAmbienteIngreso() != null) {
+                    if (asistencia != null && asistencia.getIdAmbienteIngreso() != null && ambienteRepository != null) {
                         var ambiente = ambienteRepository.findById(asistencia.getIdAmbienteIngreso());
                         ambienteNombre = ambiente.map(Ambiente::getNombre).orElse(null);
                         reasignado = trasladosPorEstudiante.containsKey(registro.getId().getIdEstudiante());
