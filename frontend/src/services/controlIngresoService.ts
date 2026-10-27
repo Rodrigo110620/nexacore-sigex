@@ -60,6 +60,8 @@ export interface RegistroControlIngresoExamen extends RegistroControlIngreso {
   ambienteIngreso?: string | null
   /** true si el estudiante fue reasignado a otro ambiente durante el examen. */
   reasignado?: boolean
+  /** INCI-03: aula original si lo trasladaron (observación del reporte final). */
+  trasladadoDesde?: string | null
 }
 
 export async function listarRegistrosControlExamen(idExamen: number): Promise<RegistroControlIngresoExamen[]> {

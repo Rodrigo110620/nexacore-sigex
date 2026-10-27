@@ -109,6 +109,15 @@ public class ControlIngresoController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Reporte de excepciones de no habilitado",
+               description = "Excepciones registradas en la sesión actual del examen, de la más reciente a la más antigua.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @GetMapping("/examen/{idExamen}/excepciones-no-habilitado")
+    public ResponseEntity<List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse>> listarExcepciones(
+            @PathVariable Integer idExamen) {
+        return ResponseEntity.ok(excepcionService.listar(idExamen));
+    }
+
     // INCI-04 (Lia): se había borrado al resolver un conflicto con INCI-03 (commit ea64843).
     // ControlIngresoControllerTests la llama para que no vuelva a desaparecer sin que fallen las pruebas.
     @Operation(summary = "Registrar excepción de no habilitado",

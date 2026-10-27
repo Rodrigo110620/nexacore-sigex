@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
@@ -54,6 +55,25 @@ class ControlIngresoControllerTests {
                 org.mockito.ArgumentMatchers.argThat(r -> r.idEstudiante() == 10 && r.idExamen() == 20
                         && "Se le indicó acudir a administración".equals(r.accionTomada())),
                 org.mockito.ArgumentMatchers.eq("control@sigex.test"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void elReporteDeExcepcionesListaLasDelExamen() throws Exception {
+        org.mockito.Mockito.when(excepcionService.listar(20)).thenReturn(List.of(new com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse(
+                1, 10, "Carla Prueba", "202000093", "Deuda en biblioteca", "Se le indicó acudir a administración", null,
+                "Aula 691A", "Luis Paz", java.time.LocalDateTime.parse("2026-10-27T08:05:00"))));
+        mockMvc.perform(get("/control-ingresos/examen/20/excepciones-no-habilitado"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].estudiante").value("Carla Prueba"))
+                .andExpect(jsonPath("$[0].accionTomada").value("Se le indicó acudir a administración"));
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void elReporteDeExcepcionesNoLoVeUnDocenteDeOtroExamen() throws Exception {
+        mockMvc.perform(get("/control-ingresos/examen/20/excepciones-no-habilitado"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

@@ -18,6 +18,8 @@ export interface EstudianteAsignado {
   fotoUrl?: string | null
   /** ID del aula donde está asignado el estudiante (para saber el aula actual al reasignar). */
   idAmbienteIngreso?: number | null
+  /** INCI-03: aula original si lo trasladaron en la sesión actual ("Trasladado desde ..."). */
+  trasladadoDesde?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse

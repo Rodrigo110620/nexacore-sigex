@@ -8,7 +8,9 @@ import com.nexacore.examenes.dto.ResumenEstudiantesResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
 import com.nexacore.examenes.repositories.EstudianteRepository;
+import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
+import com.nexacore.examenes.repositories.TrasladoAmbienteRepository;
 import com.nexacore.examenes.utils.ValidacionIdentificador;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -41,8 +44,16 @@ public class IdentificacionService {
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
     private final QrEstudianteService qrEstudianteService;
+    private final TrasladoAmbienteRepository trasladoRepository;
+    private final AmbienteRepository ambienteRepository;
+    private final SesionExamenService sesionExamenService;
 
-    public IdentificacionService(EstudianteRepository estudianteRepository, ExamenRepository examenRepository, QrEstudianteService qrEstudianteService) {
+    public IdentificacionService(EstudianteRepository estudianteRepository, ExamenRepository examenRepository,
+                                 QrEstudianteService qrEstudianteService, TrasladoAmbienteRepository trasladoRepository,
+                                 AmbienteRepository ambienteRepository, SesionExamenService sesionExamenService) {
+        this.trasladoRepository = trasladoRepository;
+        this.ambienteRepository = ambienteRepository;
+        this.sesionExamenService = sesionExamenService;
         this.estudianteRepository = estudianteRepository;
         this.examenRepository = examenRepository;
         this.qrEstudianteService = qrEstudianteService;
@@ -89,7 +100,27 @@ public class IdentificacionService {
         }
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
-        return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina).map(this::aAsignado));
+        Map<Integer, String> trasladadoDesde = aulasDeOrigen(idExamen);
+        return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina)
+                .map(fila -> aAsignado(fila, trasladadoDesde.get(fila.idEstudiante()))));
+    }
+
+    /**
+     * INCI-03: aula original de cada estudiante trasladado en la sesión actual. Se toma el primer
+     * traslado (puede haber varios); así todo el personal ve "Trasladado desde ...", también al recargar.
+     */
+    private Map<Integer, String> aulasDeOrigen(Integer idExamen) {
+        Map<Integer, Integer> origen = new java.util.HashMap<>();
+        for (var t : trasladoRepository.deSesionActual(idExamen, sesionExamenService.ultimoCierre(idExamen))) {
+            origen.putIfAbsent(t.getIdEstudiante(), t.getIdAmbienteOrigen());
+        }
+        if (origen.isEmpty()) return Map.of();
+        Map<Integer, String> nombres = new java.util.HashMap<>();
+        ambienteRepository.findAllById(new java.util.HashSet<>(origen.values()))
+                .forEach(a -> nombres.put(a.getId(), a.getNombre()));
+        Map<Integer, String> resultado = new java.util.HashMap<>();
+        origen.forEach((idEstudiante, idAula) -> resultado.put(idEstudiante, nombres.get(idAula)));
+        return resultado;
     }
 
     /** @throws ControlIngresoException si el examen no existe (404) */
@@ -113,12 +144,12 @@ public class IdentificacionService {
                 motivoDe(fila, estado), fila.condicion());
     }
 
-    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila) {
+    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String trasladadoDesde) {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
                 fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
                 fila.idAmbienteIngreso(),
-                EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()));
+                EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()), trasladadoDesde);
     }
 
     private IdentificacionResponse.Estado estadoDe(EstudianteExamenFila fila) {

@@ -493,7 +493,8 @@ public class ControlIngresoService {
         if (trasladoAmbienteRepository != null) {
             for (TrasladoAmbiente t : trasladoAmbienteRepository
                     .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
-                trasladosPorEstudiante.put(t.getIdEstudiante(), t);
+                // El primero (orden ascendente) tiene el aula original: "trasladado desde ...".
+                trasladosPorEstudiante.putIfAbsent(t.getIdEstudiante(), t);
             }
         }
 
@@ -506,6 +507,7 @@ public class ControlIngresoService {
                     // Aula donde está el estudiante ahora (puede haber cambiado por reasignación).
                     String ambienteNombre = null;
                     Boolean reasignado = false;
+                    String trasladadoDesde = null;
                     AsistenciaExamenId asistenciaId = new AsistenciaExamenId();
                     asistenciaId.setIdEstudiante(registro.getId().getIdEstudiante());
                     asistenciaId.setIdExamen(idExamen);
@@ -514,6 +516,11 @@ public class ControlIngresoService {
                         var ambiente = ambienteRepository.findById(asistencia.getIdAmbienteIngreso());
                         ambienteNombre = ambiente.map(Ambiente::getNombre).orElse(null);
                         reasignado = trasladosPorEstudiante.containsKey(registro.getId().getIdEstudiante());
+                        if (reasignado) {
+                            trasladadoDesde = ambienteRepository
+                                    .findById(trasladosPorEstudiante.get(registro.getId().getIdEstudiante()).getIdAmbienteOrigen())
+                                    .map(Ambiente::getNombre).orElse(null);
+                        }
                     }
 
                     return new RegistroControlIngresoExamenResponse(
@@ -527,7 +534,7 @@ public class ControlIngresoService {
                             leerVerificaciones(registro.getVerificacionesAdicionales()),
                             (control.getNombre() + " " + control.getApellidos()).trim(),
                             registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual(),
-                            ambienteNombre, reasignado);
+                            ambienteNombre, reasignado, trasladadoDesde);
                 })
                 .toList();
     }

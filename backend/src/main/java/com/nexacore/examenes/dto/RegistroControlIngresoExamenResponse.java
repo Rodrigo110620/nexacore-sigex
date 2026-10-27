@@ -18,5 +18,7 @@ public record RegistroControlIngresoExamenResponse(
         String tipoIngreso,
         String justificacionManual,
         String ambienteIngreso,
-        Boolean reasignado
+        Boolean reasignado,
+        /** INCI-03: aula original si lo trasladaron (observación del reporte final); null si no. */
+        String trasladadoDesde
 ) {}

@@ -75,6 +75,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
+    @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -332,6 +333,12 @@ class PostgresIntegracionTests {
                 .singleElement().satisfies(t -> assertThat(t.getIdAmbienteOrigen()).isEqualTo(idAmbiente));
         assertThat(trasladoRepository.deSesionActual(idExamen, null)).hasSize(1);
 
+        // La lista del control muestra "Trasladado desde [aula original]" a todo el personal (viene del servidor).
+        String aulaOriginal = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, idAmbiente);
+        assertThat(identificacionService.listarAsignados(idExamen, "TODOS", 0, 10).contenido())
+                .filteredOn(e -> e.idEstudiante() == trasladado).singleElement()
+                .satisfies(e -> assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal));
+
         // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
         String insertar = "INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, motivo, id_usuario_admin) VALUES (";
         assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + idAmbiente + ", " + aulaNueva + ", '  ', " + idDocente + ")"))
@@ -520,6 +527,16 @@ class PostgresIntegracionTests {
         excepcionService.registrarExcepcion(new com.nexacore.examenes.dto.RegistrarExceptionRequest(carla, idExamen, idAmbiente,
                 "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
         sincronizar();
+
+        // INCI-04: el reporte de excepciones del examen, con nombres y la sesión actual.
+        assertThat(excepcionService.listar(idExamen)).singleElement().satisfies(x -> {
+            assertThat(x.estudiante()).isEqualTo("Carla Prueba");
+            assertThat(x.codigoSis()).isEqualTo("202000093");
+            assertThat(x.accionTomada()).isEqualTo("Se le permitió esperar afuera");
+            assertThat(x.registradoPor()).isEqualTo("Luis Paz");
+            assertThat(x.ambiente()).isNotBlank();
+            assertThat(x.fechaHora()).isNotNull();
+        });
 
         var avisos = jdbc.queryForList("SELECT tipo, titulo, detalle, id_estudiante, enlace FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion", idExamen);
         assertThat(avisos).extracting(a -> a.get("tipo"))
