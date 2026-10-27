@@ -16,6 +16,8 @@ export interface EstudianteAsignado {
   ingresado: boolean
   /** Ruta de la foto; null si no tiene (no se podrá autorizar su ingreso). */
   fotoUrl?: string | null
+  /** ID del aula donde está asignado el estudiante (para saber el aula actual al reasignar). */
+  idAmbienteIngreso?: number | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse

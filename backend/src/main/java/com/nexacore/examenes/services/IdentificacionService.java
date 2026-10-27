@@ -117,6 +117,7 @@ public class IdentificacionService {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
                 fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
+                fila.idAmbienteIngreso(),
                 EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()));
     }
 

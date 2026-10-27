@@ -23,7 +23,9 @@ import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.AsistenciaExamenId;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.Examen;
@@ -480,11 +482,40 @@ public class ControlIngresoService {
     public List<RegistroControlIngresoExamenResponse> consultarRegistrosExamen(Integer idExamen) {
         // Solo la sesión actual: si el examen se reprogramó, lo anterior está en el historial de sesiones.
         java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        LocalDateTime desde = cierre == null
+                ? TrasladoAmbienteRepository.DESDE_SIEMPRE
+                : cierre;
+
+        // Traslados de la sesión actual, por estudiante (el último vale como el aula actual).
+        // Nota: trasladoAmbienteRepository puede ser null si se usa el constructor de compatibilidad
+        // de tests antiguos; en ese caso no hay historial de traslados que consultar.
+        Map<Integer, TrasladoAmbiente> trasladosPorEstudiante = new HashMap<>();
+        if (trasladoAmbienteRepository != null) {
+            for (TrasladoAmbiente t : trasladoAmbienteRepository
+                    .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
+                trasladosPorEstudiante.put(t.getIdEstudiante(), t);
+            }
+        }
+
         return registroRepository.listarPorExamen(idExamen).stream()
                 .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
                     var estudiante = registro.getEstudiante();
                     var control = registro.getUsuarioControl();
+
+                    // Aula donde está el estudiante ahora (puede haber cambiado por reasignación).
+                    String ambienteNombre = null;
+                    Boolean reasignado = false;
+                    AsistenciaExamenId asistenciaId = new AsistenciaExamenId();
+                    asistenciaId.setIdEstudiante(registro.getId().getIdEstudiante());
+                    asistenciaId.setIdExamen(idExamen);
+                    var asistencia = asistenciaRepository.findById(asistenciaId).orElse(null);
+                    if (asistencia != null && asistencia.getIdAmbienteIngreso() != null && ambienteRepository != null) {
+                        var ambiente = ambienteRepository.findById(asistencia.getIdAmbienteIngreso());
+                        ambienteNombre = ambiente.map(Ambiente::getNombre).orElse(null);
+                        reasignado = trasladosPorEstudiante.containsKey(registro.getId().getIdEstudiante());
+                    }
+
                     return new RegistroControlIngresoExamenResponse(
                             registro.getId().getIdControl(),
                             registro.getId().getIdEstudiante(),
@@ -495,7 +526,8 @@ public class ControlIngresoService {
                             registro.getObservaciones(),
                             leerVerificaciones(registro.getVerificacionesAdicionales()),
                             (control.getNombre() + " " + control.getApellidos()).trim(),
-                            registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual());
+                            registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual(),
+                            ambienteNombre, reasignado);
                 })
                 .toList();
     }
@@ -757,7 +789,8 @@ traslado.setIdEstudiante(idEstudiante);
 traslado.setIdExamen(idExamen);
 traslado.setIdAmbienteOrigen(ambienteOrigenId);
 traslado.setIdAmbienteDestino(request.idAmbienteDestino()); 
-traslado.setMotivo(limpiar(request.motivo()));               
+traslado.setMotivo(limpiar(request.motivo()));
+traslado.setObservacion(limpiar(request.observacion()));               
 traslado.setIdUsuarioAdmin(control.getId());
 traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
 trasladoAmbienteRepository.save(traslado);
@@ -770,7 +803,7 @@ trasladoAmbienteRepository.save(traslado);
                 request.idAmbienteDestino(),
                 aulaDestinoNombre,
                 asistencia.getFechaHoraIngreso(), // La fecha original no cambia
-                limpiar(request.motivo()),
+                limpiar(request.observacion()),
                 true
         );
     }

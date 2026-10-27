@@ -56,6 +56,10 @@ export async function obtenerHistorialControl(idEstudiante: number, idExamen: nu
 export interface RegistroControlIngresoExamen extends RegistroControlIngreso {
   estudiante: string
   codigoSis: string | null
+  /** Aula donde está el estudiante ahora (puede haber cambiado por reasignación). */
+  ambienteIngreso?: string | null
+  /** true si el estudiante fue reasignado a otro ambiente durante el examen. */
+  reasignado?: boolean
 }
 
 export async function listarRegistrosControlExamen(idExamen: number): Promise<RegistroControlIngresoExamen[]> {

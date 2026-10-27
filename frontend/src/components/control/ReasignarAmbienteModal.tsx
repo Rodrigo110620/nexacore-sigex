@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { reasignarAmbiente } from '../../services/controlExamenService'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
-import type { AulaExamenDto } from '../../services/examenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 
 interface Props {
   idExamen: number
   examenNombre?: string
   estudiante: EstudianteAsignado
-  aulas?: AulaExamenDto[]
+  aulas?: AmbienteDto[]
   aulaActualId?: number | null
   onClose: () => void
   onSuccess: () => void
@@ -23,6 +22,14 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   const [error, setError] = useState<string | null>(null)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
   const [cargandoAmbientes, setCargandoAmbientes] = useState(true)
+
+  const aulaActualNombre = useMemo(() => {
+    if (!aulaActualId) return '—'
+    const a = [...(aulas ?? []), ...ambientes].find(
+      (a: AmbienteDto) => a.id === aulaActualId
+    )
+    return a ? a.nombre : '—'
+  }, [aulas, ambientes, aulaActualId])
 
   useEffect(() => {
     let vigente = true
@@ -43,37 +50,14 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   }, [])
 
   const opciones = useMemo(() => {
-    if (ambientes.length > 0) {
-      return ambientes
-        .map((a: any) => {
-          const id = a?.idAmbiente ?? a?.id ?? a?.ambienteId
-          if (typeof id !== 'number') return null
-          const nombre = a?.nombre ?? a?.nombreAmbiente ?? `Aula ${id}`
-          const ubicacion = a?.ubicacion ?? null
-          return { id, nombre, ubicacion }
-        })
-        .filter((a): a is { id: number; nombre: string; ubicacion: string | null } => {
-          if (!a) return false
-          if (aulaActualId && a.id === aulaActualId) return false
-          return true
-        })
-        .sort((a, b) => a.nombre.localeCompare(b.nombre))
-    }
-
-    const lista = Array.isArray(aulas) ? aulas : []
+    const lista = Array.isArray(aulas) ? aulas : ambientes
     return lista
-      .map((a: any) => {
-        const id = a?.idAmbiente ?? a?.id ?? a?.ambienteId ?? a?.idAmbienteExamen
-        if (typeof id !== 'number') return null
-        const nombre = a?.nombre ?? a?.nombreAmbiente ?? a?.ambienteNombre ?? `Aula ${id}`
-        const ubicacion = a?.ubicacion ?? a?.ambienteUbicacion ?? null
-        return { id, nombre, ubicacion }
+      .map((a: AmbienteDto) => {
+        if (aulaActualId && a.id === aulaActualId) return null
+        return { id: a.id, nombre: a.nombre, ubicacion: a.ubicacion }
       })
-      .filter((a): a is { id: number; nombre: string; ubicacion: string | null } => {
-        if (!a) return false
-        if (aulaActualId && a.id === aulaActualId) return false
-        return true
-      })
+      .filter((a): a is { id: number; nombre: string; ubicacion: string | null } => a !== null)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
   }, [ambientes, aulas, aulaActualId])
 
   const enviar = async (e: React.FormEvent) => {
@@ -81,6 +65,10 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     setError(null)
     if (idAmbienteDestino === '' || Number(idAmbienteDestino) <= 0) {
       setError('Selecciona un aula destino')
+      return
+    }
+    if (aulaActualId && Number(idAmbienteDestino) === aulaActualId) {
+      setError('Selecciona un aula distinta a la actual')
       return
     }
     if (!motivo.trim()) {
@@ -124,6 +112,12 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
           </button>
         </div>
         <form onSubmit={enviar} className="flex flex-col gap-3 px-4 py-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#011140]">Aula actual</label>
+            <p className="text-sm text-[#627A9B] bg-[#F1F6FF] rounded-lg px-3 py-2 border border-[#D8E3F5]">
+              {aulaActualNombre}
+            </p>
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-[#011140]">Aula destino</label>
             <select
