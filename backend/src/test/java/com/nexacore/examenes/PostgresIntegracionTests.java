@@ -75,6 +75,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
+    @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -332,6 +333,15 @@ class PostgresIntegracionTests {
                 .singleElement().satisfies(t -> assertThat(t.getIdAmbienteOrigen()).isEqualTo(idAmbiente));
         assertThat(trasladoRepository.deSesionActual(idExamen, null)).hasSize(1);
 
+        // La lista del control muestra "Trasladado desde [aula original]" a todo el personal (viene del servidor).
+        String aulaOriginal = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, idAmbiente);
+        assertThat(identificacionService.listarAsignados(idExamen, "TODOS", 0, 10).contenido())
+                .filteredOn(e -> e.idEstudiante() == trasladado).singleElement()
+                .satisfies(e -> {
+                    assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
+                    assertThat(e.trasladadoA()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
+                });
+
         // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
         String insertar = "INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, motivo, id_usuario_admin) VALUES (";
         assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + idAmbiente + ", " + aulaNueva + ", '  ', " + idDocente + ")"))
@@ -514,6 +524,19 @@ class PostgresIntegracionTests {
         var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
                 List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
 
+        // INCI-03: el control traslada a Ana; avisa al personal y su portal muestra el aula nueva y la original.
+        String correoAna = cuentaDeEstudiante(ana, "202000091@est.umss.edu");
+        int aulaNueva = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        controlIngresoService.reasignarAmbiente(idExamen, ana,
+                new com.nexacore.examenes.dto.ReasignarAmbienteRequest(aulaNueva, "Computadora dañada", null), "luis.paz@umss.edu");
+        sincronizar();
+        String aulaOriginal = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, idAmbiente);
+        String aulaDestino = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva);
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> {
+            assertThat(e.aula()).isEqualTo(aulaDestino);
+            assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
+        });
+
         controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
         controlIngresoService.autorizar(new com.nexacore.examenes.dto.AutorizarIngresoRequest(beto, idExamen, null, true,
                 List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR"), "luis.paz@umss.edu");
@@ -521,14 +544,28 @@ class PostgresIntegracionTests {
                 "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
         sincronizar();
 
+        // INCI-04: el reporte de excepciones del examen, con nombres y la sesión actual.
+        assertThat(excepcionService.listar(idExamen)).singleElement().satisfies(x -> {
+            assertThat(x.estudiante()).isEqualTo("Carla Prueba");
+            assertThat(x.codigoSis()).isEqualTo("202000093");
+            assertThat(x.accionTomada()).isEqualTo("Se le permitió esperar afuera");
+            assertThat(x.registradoPor()).isEqualTo("Luis Paz");
+            assertThat(x.ambiente()).isNotBlank();
+            assertThat(x.fechaHora()).isNotNull();
+        });
+
         var avisos = jdbc.queryForList("SELECT tipo, titulo, detalle, id_estudiante, enlace FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion", idExamen);
         assertThat(avisos).extracting(a -> a.get("tipo"))
-                .containsExactly("EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
-        assertThat(avisos.get(0)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsExactly("TRASLADO_AMBIENTE", "EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
+        assertThat(avisos.get(0)).containsEntry("titulo", "Traslado: Ana Prueba").containsEntry("id_estudiante", ana)
                 .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
-        assertThat((String) avisos.get(0).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
-        assertThat((String) avisos.get(1).get("detalle")).contains("Celular apagado, no presenta QR");
-        assertThat((String) avisos.get(2).get("detalle")).contains("Se le permitió esperar afuera");
+        assertThat((String) avisos.get(0).get("detalle"))
+                .contains("De " + aulaOriginal + " a " + aulaDestino).contains("Computadora dañada").contains("Luis Paz");
+        assertThat(avisos.get(1)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
+        assertThat((String) avisos.get(1).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
+        assertThat((String) avisos.get(2).get("detalle")).contains("Celular apagado, no presenta QR");
+        assertThat((String) avisos.get(3).get("detalle")).contains("Se le permitió esperar afuera");
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

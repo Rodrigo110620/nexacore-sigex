@@ -33,6 +33,7 @@ import {
 } from "../../services/reporteQrDuplicadoConsultaService";
 import useEnVivo from "../../hooks/useEnVivo";
 import ExpulsionesReporte from "../../components/control/ExpulsionesReporte";
+import ExcepcionesNoHabilitadoReporte from "../../components/control/ExcepcionesNoHabilitadoReporte";
 
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
@@ -240,6 +241,7 @@ export default function InformacionIngresoPage() {
             {pestaña === "excepciones" && <>
               {idValido && <ExpulsionesReporte idExamen={idExamen} controles={registros ?? []}
                 examen={examen?.idExamen === idExamen ? examen.asignatura : undefined} />}
+              {idValido && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} />}
               <h3 className="mt-4 font-semibold text-[#011140]">Ingresos manuales autorizados</h3>
               <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>
             </>}
@@ -422,7 +424,7 @@ export default function InformacionIngresoPage() {
                       <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
                       {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
-                      {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? ' (Reasignado)' : ''}</p>}
+                      {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? (registro.trasladadoDesde ? ` · trasladado desde ${registro.trasladadoDesde}` : ' (Reasignado)') : ''}</p>}
                     </div>}
                   </li>
                 ))}

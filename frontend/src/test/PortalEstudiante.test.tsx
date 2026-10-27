@@ -147,6 +147,15 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     expect(screen.queryByRole('region', { name: 'Normas del examen' })).not.toBeInTheDocument()
   })
 
+  it('si lo trasladaron, muestra el aula nueva y desde cuál (INCI-03)', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      aula: '692B', trasladadoDesde: '691A', resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00',
+    })])
+    renderEn('/estudiante')
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByText('(te trasladaron desde 691A)')).toBeInTheDocument()
+  })
+
   it('confirma su ingreso con la hora y el aula, sin pedirle otra vez que se presente', async () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
       resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00',

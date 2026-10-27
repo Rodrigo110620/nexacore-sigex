@@ -52,8 +52,9 @@ public class ExamenController {
         return ResponseEntity.status(HttpStatus.CREATED).body(examenService.crear(request));
     }
 
-    @Operation(summary = "Actualizar examen", description = "Modifica datos del examen (fecha, hora, ambiente y normas). Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Actualizar examen", description = "Modifica datos del examen (fecha, hora, ambiente y normas). "
+            + "ADMIN cualquiera; DOCENTE solo los suyos, y el examen sigue a su nombre.")
+    @PreAuthorize("@examenAccesoService.puedeEditar(#idExamen, authentication)")
     @PutMapping("/{idExamen}/{idParalelo}")
     public ResponseEntity<ExamenResponse> actualizar(
             @PathVariable Integer idExamen,

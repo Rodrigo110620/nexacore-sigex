@@ -28,5 +28,7 @@ public record MiExamenResponse(
         /** Normas del examen que valen para todos. */
         List<String> normasGenerales,
         /** Normas particulares (adaptaciones) de este estudiante; nunca las de otros. */
-        List<String> normasParticulares
+        List<String> normasParticulares,
+        /** INCI-03: aula original si lo trasladaron en la sesión actual; null si no. */
+        String trasladadoDesde
 ) {}

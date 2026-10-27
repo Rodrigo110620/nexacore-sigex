@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { CalendarClock, X } from 'lucide-react'
 import axios from 'axios'
 import { reprogramarExamen, type ExamenDto } from '../../services/examenService'
-import { formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, formatFecha, horaCorta } from '../../utils/examenFormat'
+import { minutesBetween, todayISO } from '../../utils/examFormUtils'
+import FechaInput from './FechaInput'
+import HoraSelector from './HoraSelector'
 
 interface Props {
   examen: ExamenDto
@@ -11,10 +14,6 @@ interface Props {
 }
 
 const MOTIVO_MAX = 200
-const hoy = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 /**
  * Reprogramar un examen que ya finalizó, para repetirlo: la sesión anterior queda en el historial y
@@ -22,16 +21,19 @@ const hoy = () => {
  */
 export default function ReprogramarExamenModal({ examen, onClose, onReprogramado }: Props) {
   const [fecha, setFecha] = useState('')
+  // Mismo formato que crear y editar: hora de inicio y de fin con el selector; la duración se calcula.
   const [hora, setHora] = useState(horaCorta(examen.horaInicio))
-  const [duracion, setDuracion] = useState(String(examen.duracionMinutos))
+  const [horaFin, setHoraFin] = useState(horaCorta(addMinutes(examen.horaInicio, examen.duracionMinutos)))
+  const duracion = minutesBetween(hora, horaFin)
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   const enviar = async () => {
-    const minutos = Number(duracion)
-    if (!fecha || !hora) return setError('Indica la nueva fecha y la hora de inicio.')
-    if (!Number.isInteger(minutos) || minutos < 1) return setError('La duración debe ser de al menos 1 minuto.')
+    if (!fecha || !hora) return setError('Indica la nueva fecha (dd/mm/aaaa) y la hora de inicio.')
+    if (fecha < todayISO()) return setError('La nueva fecha no puede ser anterior a hoy.')
+    if (!horaFin || duracion === null) return setError('La hora de fin debe ser posterior a la hora de inicio.')
+    const minutos = duracion
     if (motivo.trim().length < 5) return setError('Indica el motivo de la reprogramación (al menos 5 caracteres).')
     setGuardando(true)
     setError('')
@@ -74,21 +76,30 @@ export default function ReprogramarExamenModal({ examen, onClose, onReprogramado
             <strong> no ingresado</strong> y se mantienen la lista y su habilitación. Quienes fueron denegados por el
             control quedan <strong>pendientes</strong> de revisión.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs font-semibold text-[#011140]">
-              Nueva fecha
-              <input type="date" min={hoy()} value={fecha} onChange={(e) => { setFecha(e.target.value); setError('') }} className={campo} />
+          <div className="min-w-0">
+            <label htmlFor="reprogramar-fecha" className="mb-1 block text-xs font-medium text-[#011140]">
+              Nueva fecha <span className="text-red-500">*</span>
             </label>
-            <label className="text-xs font-semibold text-[#011140]">
-              Hora de inicio
-              <input type="time" value={hora} onChange={(e) => { setHora(e.target.value); setError('') }} className={campo} />
-            </label>
+            <FechaInput id="reprogramar-fecha" label="Nueva fecha" min={todayISO()} value={fecha}
+              onChange={(v) => { setFecha(v); setError('') }} />
           </div>
-          <label className="text-xs font-semibold text-[#011140]">
-            Duración (minutos)
-            <input type="text" inputMode="numeric" maxLength={4} value={duracion}
-              onChange={(e) => { setDuracion(e.target.value.replace(/\D/g, '')); setError('') }} className={campo} />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <label htmlFor="reprogramar-hora-inicio" className="mb-1 block text-xs font-medium text-[#011140]">
+                Hora de Inicio <span className="text-red-500">*</span>
+              </label>
+              <HoraSelector id="reprogramar-hora-inicio" label="Hora de inicio" value={hora}
+                onChange={(v) => { setHora(v); setError('') }} />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="reprogramar-hora-fin" className="mb-1 block text-xs font-medium text-[#011140]">
+                Hora de Fin / Duración <span className="text-red-500">*</span>
+              </label>
+              <HoraSelector id="reprogramar-hora-fin" label="Hora de fin" value={horaFin}
+                onChange={(v) => { setHoraFin(v); setError('') }} />
+              {duracion !== null && <p className="mt-1 text-[10px] text-gray-500">{duracion} minutos</p>}
+            </div>
+          </div>
           <label className="text-xs font-semibold text-[#011140]">
             Motivo
             <textarea rows={3} maxLength={MOTIVO_MAX} value={motivo} placeholder="Ej.: se repite por un corte de luz"

@@ -88,7 +88,10 @@ function calcHoraFin(horaInicio: string, duracionMinutos: number): string {
 
 export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: EditExamenModalProps) {
   // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
-  const esAdmin = useAuth().roles.includes('ADMIN')
+  const { roles: rolesSesion } = useAuth()
+  const esAdmin = rolesSesion.includes('ADMIN')
+  // Como al crear: el DOCENTE edita su examen, pero no se lo puede pasar a otro docente.
+  const esSoloDocente = rolesSesion.includes('DOCENTE') && !esAdmin
   const [form, setForm] = useState<RegisterExamenFormState>({
     asignatura: '',
     docente: '',
@@ -551,6 +554,15 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   <label htmlFor="editar-docente" className="mb-1 block text-xs font-medium text-[#011140]">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
+                  {esSoloDocente ? (
+                    <input
+                      id="editar-docente"
+                      value={form.docente}
+                      readOnly
+                      aria-label="Docente Responsable"
+                      className="h-9 w-full cursor-not-allowed rounded-lg border border-[#D8E3F5] bg-gray-100 px-3 text-sm text-gray-600"
+                    />
+                  ) : (
                   <DocenteAutocomplete
                     id="editar-docente"
                     value={form.docente}
@@ -562,6 +574,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                       setIdDocente(docente.id)
                     }}
                   />
+                  )}
                   {errors.docente && <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>}
                 </div>
               </div>

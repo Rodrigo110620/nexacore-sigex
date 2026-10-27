@@ -71,6 +71,13 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
   )
 }
 
+/** INCI-03: "Trasladado de 691A a 692B" (o solo el origen si no se conoce el aula actual). */
+function textoTraslado(estudiante: EstudianteAsignado) {
+  return estudiante.trasladadoA
+    ? `Trasladado de ${estudiante.trasladadoDesde} a ${estudiante.trasladadoA}`
+    : `Trasladado desde ${estudiante.trasladadoDesde}`
+}
+
 function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -121,7 +128,6 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
-  const [traslados, setTraslados] = useState<Map<number, string>>(new Map())
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
     setEstudianteSeleccionado(estudiante)
@@ -166,8 +172,8 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
                 <td className="px-4 py-3">
                   <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
-                  {estudiante.ingresado && traslados.get(estudiante.idEstudiante) && (
-                    <p className="text-[10px] text-[#627A9B] mt-1">{traslados.get(estudiante.idEstudiante)}</p>
+                  {estudiante.ingresado && estudiante.trasladadoDesde && (
+                    <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
@@ -195,6 +201,9 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                       {estudiante.nombre} {estudiante.apellidos}
                     </p>
                     <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                    {estudiante.ingresado && estudiante.trasladadoDesde && (
+                      <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
+                    )}
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
                   <SinFoto estudiante={estudiante} />
@@ -224,14 +233,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
             setEstudianteSeleccionado(null)
           }}
           onSuccess={() => {
-            if (estudianteSeleccionado) {
-              const idAulaOrigen = (estudianteSeleccionado as any)?.idAmbienteIngreso
-              const aulaOrigen = aulasExamen.find((a) => a.id === idAulaOrigen)
-              const nombreOrigen = aulaOrigen?.nombre || 'aula anterior'
-              setTraslados((prev) =>
-                new Map(prev).set(estudianteSeleccionado.idEstudiante, `Trasladado desde ${nombreOrigen}`)
-              )
-            }
+            // La nota "Trasladado desde ..." llega del servidor al recargar la lista (en vivo).
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
           }}

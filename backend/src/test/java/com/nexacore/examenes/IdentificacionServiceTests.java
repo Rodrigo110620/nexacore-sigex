@@ -53,6 +53,16 @@ class IdentificacionServiceTests {
     @Mock
     private QrEstudianteService qrEstudianteService;
 
+    // INCI-03: aula de origen de los trasladados ("Trasladado desde ..."); sin traslados, lista vacía.
+    @Mock
+    private com.nexacore.examenes.repositories.TrasladoAmbienteRepository trasladoRepository;
+
+    @Mock
+    private com.nexacore.examenes.repositories.AmbienteRepository ambienteRepository;
+
+    @Mock
+    private com.nexacore.examenes.services.SesionExamenService sesionExamenService;
+
     @InjectMocks
     private IdentificacionService identificacionService;
 
