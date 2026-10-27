@@ -801,6 +801,12 @@ traslado.setObservacion(limpiar(request.observacion()));
 traslado.setIdUsuarioAdmin(control.getId());
 traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
 trasladoAmbienteRepository.save(traslado);
+        Estudiante trasladado = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.TRASLADO_AMBIENTE,
+                "Traslado: " + trasladado.getNombre() + " " + trasladado.getApellidos(),
+                notificacionService.materia(idExamen) + " · De " + aulaOrigenNombre + " a " + aulaDestinoNombre
+                        + " · " + traslado.getMotivo() + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
+                idExamen, idEstudiante, enlaceInformacion(idExamen), emailControl);
         
         return new ReasignarAmbienteResponse(
                 idEstudiante,

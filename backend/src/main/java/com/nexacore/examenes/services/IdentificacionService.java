@@ -100,26 +100,28 @@ public class IdentificacionService {
         }
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
-        Map<Integer, String> trasladadoDesde = aulasDeOrigen(idExamen);
+        Map<Integer, String[]> traslados = trasladosDeLaSesion(idExamen);
         return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina)
-                .map(fila -> aAsignado(fila, trasladadoDesde.get(fila.idEstudiante()))));
+                .map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()))));
     }
 
     /**
-     * INCI-03: aula original de cada estudiante trasladado en la sesión actual. Se toma el primer
-     * traslado (puede haber varios); así todo el personal ve "Trasladado desde ...", también al recargar.
+     * INCI-03: por estudiante trasladado en la sesión actual, {aula original, aula actual}: el origen del
+     * primer traslado y el destino del último (puede haber varios). Así todo el personal ve
+     * "Trasladado de 691A a 692B", también al recargar.
      */
-    private Map<Integer, String> aulasDeOrigen(Integer idExamen) {
-        Map<Integer, Integer> origen = new java.util.HashMap<>();
+    private Map<Integer, String[]> trasladosDeLaSesion(Integer idExamen) {
+        Map<Integer, Integer[]> ids = new java.util.HashMap<>();
         for (var t : trasladoRepository.deSesionActual(idExamen, sesionExamenService.ultimoCierre(idExamen))) {
-            origen.putIfAbsent(t.getIdEstudiante(), t.getIdAmbienteOrigen());
+            ids.computeIfAbsent(t.getIdEstudiante(), k -> new Integer[]{t.getIdAmbienteOrigen(), null})[1] = t.getIdAmbienteDestino();
         }
-        if (origen.isEmpty()) return Map.of();
+        if (ids.isEmpty()) return Map.of();
+        Set<Integer> aulas = new java.util.HashSet<>();
+        ids.values().forEach(par -> aulas.addAll(java.util.Arrays.asList(par)));
         Map<Integer, String> nombres = new java.util.HashMap<>();
-        ambienteRepository.findAllById(new java.util.HashSet<>(origen.values()))
-                .forEach(a -> nombres.put(a.getId(), a.getNombre()));
-        Map<Integer, String> resultado = new java.util.HashMap<>();
-        origen.forEach((idEstudiante, idAula) -> resultado.put(idEstudiante, nombres.get(idAula)));
+        ambienteRepository.findAllById(aulas).forEach(a -> nombres.put(a.getId(), a.getNombre()));
+        Map<Integer, String[]> resultado = new java.util.HashMap<>();
+        ids.forEach((idEstudiante, par) -> resultado.put(idEstudiante, new String[]{nombres.get(par[0]), nombres.get(par[1])}));
         return resultado;
     }
 
@@ -144,12 +146,13 @@ public class IdentificacionService {
                 motivoDe(fila, estado), fila.condicion());
     }
 
-    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String trasladadoDesde) {
+    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String[] traslado) {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
                 fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
                 fila.idAmbienteIngreso(),
-                EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()), trasladadoDesde);
+                EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()),
+                traslado == null ? null : traslado[0], traslado == null ? null : traslado[1]);
     }
 
     private IdentificacionResponse.Estado estadoDe(EstudianteExamenFila fila) {

@@ -20,6 +20,8 @@ export interface EstudianteAsignado {
   idAmbienteIngreso?: number | null
   /** INCI-03: aula original si lo trasladaron en la sesión actual ("Trasladado desde ..."). */
   trasladadoDesde?: string | null
+  /** Aula actual tras el traslado. */
+  trasladadoA?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse

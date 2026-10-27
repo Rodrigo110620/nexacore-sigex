@@ -5,6 +5,7 @@ import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.dto.MiExamenResponse;
 import com.nexacore.examenes.dto.MiPerfilResponse;
 import com.nexacore.examenes.dto.MiQrResponse;
+import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteFoto;
@@ -12,11 +13,13 @@ import com.nexacore.examenes.models.EstudianteFotoSolicitud;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.RegistroControlIngreso;
 import com.nexacore.examenes.models.Usuario;
+import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.ExpulsionRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
+import com.nexacore.examenes.repositories.TrasladoAmbienteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -49,6 +52,8 @@ public class PanelEstudianteService {
     private final SesionExamenService sesionExamenService;
     private final NormasExamenService normasExamenService;
     private final ExpulsionRepository expulsionRepository;
+    private final TrasladoAmbienteRepository trasladoRepository;
+    private final AmbienteRepository ambienteRepository;
 
     public PanelEstudianteService(UsuarioRepository usuarioRepository,
                                   EstudianteRepository estudianteRepository,
@@ -61,7 +66,11 @@ public class PanelEstudianteService {
                                   PasswordEncoder passwordEncoder,
                                   SesionExamenService sesionExamenService,
                                   NormasExamenService normasExamenService,
-                                  ExpulsionRepository expulsionRepository) {
+                                  ExpulsionRepository expulsionRepository,
+                                  TrasladoAmbienteRepository trasladoRepository,
+                                  AmbienteRepository ambienteRepository) {
+        this.trasladoRepository = trasladoRepository;
+        this.ambienteRepository = ambienteRepository;
         this.sesionExamenService = sesionExamenService;
         this.normasExamenService = normasExamenService;
         this.expulsionRepository = expulsionRepository;
@@ -162,7 +171,16 @@ public class PanelEstudianteService {
                 expulsion.isPresent(),
                 expulsion.orElse(null),
                 normas.generales(),
-                normas.particulares());
+                normas.particulares(),
+                aulaDeOrigen(idExamen, idEstudiante, cierre));
+    }
+
+    /** INCI-03: aula donde estaba antes del primer traslado de la sesión actual (null si no lo trasladaron). */
+    private String aulaDeOrigen(Integer idExamen, Integer idEstudiante, LocalDateTime cierre) {
+        return trasladoRepository.delEstudianteEnSesionActual(idExamen, idEstudiante, cierre).stream().findFirst()
+                .flatMap(t -> ambienteRepository.findById(t.getIdAmbienteOrigen()))
+                .map(Ambiente::getNombre)
+                .orElse(null);
     }
 
     /**

@@ -71,6 +71,13 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
   )
 }
 
+/** INCI-03: "Trasladado de 691A a 692B" (o solo el origen si no se conoce el aula actual). */
+function textoTraslado(estudiante: EstudianteAsignado) {
+  return estudiante.trasladadoA
+    ? `Trasladado de ${estudiante.trasladadoDesde} a ${estudiante.trasladadoA}`
+    : `Trasladado desde ${estudiante.trasladadoDesde}`
+}
+
 function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -166,7 +173,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                 <td className="px-4 py-3">
                   <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
                   {estudiante.ingresado && estudiante.trasladadoDesde && (
-                    <p className="mt-1 text-[10px] text-[#627A9B]">Trasladado desde {estudiante.trasladadoDesde}</p>
+                    <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
@@ -195,7 +202,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                     </p>
                     <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
                     {estudiante.ingresado && estudiante.trasladadoDesde && (
-                      <p className="mt-1 text-[10px] text-[#627A9B]">Trasladado desde {estudiante.trasladadoDesde}</p>
+                      <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                     )}
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
