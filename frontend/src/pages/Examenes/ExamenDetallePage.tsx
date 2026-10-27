@@ -146,6 +146,8 @@ export default function ExamenDetallePage() {
   // Un examen finalizado no se edita: se reprograma (ADMIN, o el DOCENTE de sus exámenes).
   const finalizado = faseExamen === 'finalizado'
   const puedeReprogramar = finalizado && (isAdmin || roles.includes('DOCENTE'))
+  // El DOCENTE crea y edita sus exámenes igual que el ADMIN (el backend verifica que sea suyo).
+  const puedeEditar = isAdmin || roles.includes('DOCENTE')
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
@@ -197,7 +199,7 @@ export default function ExamenDetallePage() {
                       <EstadoExamenBadge examen={examen} variante="pastilla" />
                     </div>
                   </div>
-                  {(isAdmin || puedeReprogramar) && (
+                  {(puedeEditar || puedeReprogramar) && (
                     <div className="hidden shrink-0 items-center gap-2 min-[960px]:flex">
                       {puedeReprogramar ? (
                         <button
@@ -237,7 +239,7 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
-                {(isAdmin || puedeReprogramar) && (
+                {(puedeEditar || puedeReprogramar) && (
                   <div className="mt-3 grid grid-cols-2 gap-2 min-[960px]:hidden">
                     {puedeReprogramar ? (
                       <button
@@ -252,7 +254,7 @@ export default function ExamenDetallePage() {
                       <button
                         type="button"
                         onClick={() => setEditOpen(true)}
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado ? 'col-span-2' : ''}`}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
                       >
                         <Pencil size={15} aria-hidden="true" />
                         Editar Examen

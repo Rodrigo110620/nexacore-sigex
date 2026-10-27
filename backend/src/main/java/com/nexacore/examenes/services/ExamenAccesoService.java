@@ -28,6 +28,14 @@ public class ExamenAccesoService {
     }
 
     /**
+     * Editar un examen: el ADMIN cualquiera; el DOCENTE solo los suyos, igual que crearlos. Para todos
+     * vale la misma regla: un examen finalizado no se edita, se reprograma.
+     */
+    public boolean puedeEditar(Integer idExamen, Authentication authentication) {
+        return puedeReprogramar(idExamen, authentication);
+    }
+
+    /**
      * Expulsar (INCI-01): el ADMIN en cualquier examen; el DOCENTE solo en los suyos. El personal de
      * control no expulsa: reporta el incidente y la notificación le llega al docente y al ADMIN.
      */
