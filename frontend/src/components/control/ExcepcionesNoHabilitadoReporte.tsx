@@ -24,7 +24,7 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
 
   const actual = resultado?.clave === clave ? resultado : undefined
   return (
-    <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] p-3">
+    <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
       <h3 className="font-semibold text-[#92400E]">No habilitados que intentaron ingresar ({actual?.registros?.length ?? '…'})</h3>
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando excepciones…</p>}
       {actual?.error && (
