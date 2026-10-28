@@ -6,6 +6,27 @@ export function formatFecha(iso: string): string {
   return `${day}/${month}/${year}`
 }
 
+/**
+ * Fecha y hora en dd/mm/aaaa HH:MM (o HH:MM:SS). Las horas del servidor llegan sin zona
+ * ("2026-10-28T08:05:00", hora de Bolivia) y se muestran tal cual; las que traen zona se pasan a Bolivia.
+ */
+export function fechaHoraNumerica(valor?: string | null, segundos = false): string {
+  if (!valor) return '—'
+  const partes = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(valor)
+  if (partes && !/(Z|[+-]\d{2}:?\d{2})$/i.test(valor)) {
+    const [, a, m, d, h, mi, s] = partes
+    return `${d}/${m}/${a} ${h}:${mi}${segundos ? `:${s ?? '00'}` : ''}`
+  }
+  const fecha = new Date(valor)
+  if (Number.isNaN(fecha.getTime())) return valor
+  const p = new Intl.DateTimeFormat('es-BO', {
+    timeZone: 'America/La_Paz', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: segundos ? '2-digit' : undefined, hour12: false,
+  }).formatToParts(fecha)
+  const v = (t: string) => p.find((x) => x.type === t)?.value ?? ''
+  return `${v('day')}/${v('month')}/${v('year')} ${v('hour')}:${v('minute')}${segundos ? `:${v('second')}` : ''}`
+}
+
 export function addMinutes(horaInicio: string, duracionMinutos: number): string {
   const [hours, minutes] = (horaInicio ?? '00:00').slice(0, 5).split(':').map(Number)
   const total = (hours || 0) * 60 + (minutes || 0) + duracionMinutos

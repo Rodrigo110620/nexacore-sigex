@@ -3,6 +3,7 @@ import { CalendarDays, ChevronDown, Search } from 'lucide-react'
 import type { ExamenDto } from '../../services/examenService'
 import { estadoDelExamen, fechaLocal, type FaseExamen } from '../../utils/examenFormat'
 import ExamenDelDiaFila from './ExamenDelDiaFila'
+import FechaInput from '../examenes/FechaInput'
 
 const normalizar = (texto: string) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -54,7 +55,7 @@ export default function ExamenesDelDia({ examenes, ahora }: { examenes: ExamenDt
           </div>
           <label className="hidden items-center gap-2 text-xs font-semibold text-[#627A9B] sm:flex">
             Fecha:
-            <input type="date" value={fecha} onChange={(event) => setFecha(event.target.value || hoy)} className={`${CAMPO} flex-1 px-3`} />
+            <span className="w-44"><FechaInput id="examenes-del-dia-fecha" label="Fecha de los exámenes" value={fecha} onChange={(v) => { if (v) setFecha(v) }} /></span>
           </label>
         </div>
       </div>

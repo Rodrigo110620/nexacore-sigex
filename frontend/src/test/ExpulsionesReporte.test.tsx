@@ -53,7 +53,7 @@ it('incluye auditoría sin duplicados y conserva ingresos manuales y no autoriza
   fireEvent.click(reporte.getByText('Ver registro de expulsión'))
   expect(reporte.getByText('Uso de celular')).toBeVisible()
   expect(reporte.getByText('Ana Rojas')).toBeVisible()
-  expect(reporte.getByText('2026-10-24 14:00:00.123456')).toBeVisible()
+  expect(reporte.getByText('24/10/2026 14:00:00')).toBeVisible()
   expect(reporte.queryByRole('textbox')).not.toBeInTheDocument()
   expect(screen.getByRole('tab', { name: /Excepciones/ })).toHaveTextContent('1 manual')
   fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
