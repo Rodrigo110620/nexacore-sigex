@@ -88,6 +88,14 @@ class PostgresIntegracionTests {
     @MockitoBean EmailService emailService;
 
     @Test
+    void controlUsaHoraBolivianaInclusoConSesionPostgresEnUtc() {
+        jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
+        var hora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        var bolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        assertThat(Math.abs(java.time.Duration.between(hora, bolivia).toMillis())).isLessThan(2000);
+    }
+
+    @Test
     void flywayAplicaTodasLasMigracionesYHibernateValidaElEsquema() throws IOException {
         // Si el contexto arrancó, Hibernate ya validó el esquema (ddl-auto=validate).
         int ultima = Arrays.stream(new PathMatchingResourcePatternResolver()
@@ -401,8 +409,9 @@ class PostgresIntegracionTests {
         idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
     }
 
-    @Test
-    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"UTC", "America/La_Paz"})
+    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion(String zonaBase) {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-MANUAL");
         int examen = examenPorEmpezar(paralelo, 90);
@@ -413,10 +422,19 @@ class PostgresIntegracionTests {
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
                 + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
+        // Caso de la captura: empezó hace 40 minutos y dura 190; sigue en curso hasta dentro de 150.
+        var ahoraBolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        var inicio = ahoraBolivia.minusMinutes(40);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ?, duracion_minutos = 190 WHERE id_examen = ?",
+                inicio.toLocalDate(), inicio.toLocalTime(), examen);
+        sincronizar();
+        jdbc.execute("SET LOCAL TIME ZONE '" + zonaBase + "'");
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
                 List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr");
         assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
         sincronizar();
+        var horaGuardada = asistenciaExamenRepository.obtenerFechaHoraIngreso(estudiante, examen);
+        assertThat(Math.abs(java.time.Duration.between(ahoraBolivia, horaGuardada).toMillis())).isLessThan(5000);
         assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
             assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
             assertThat(registro.justificacionManual()).isEqualTo("Celular apagado no presenta qr");
