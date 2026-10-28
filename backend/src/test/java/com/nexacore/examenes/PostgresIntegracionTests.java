@@ -77,6 +77,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
     @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
+    @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -503,6 +504,60 @@ class PostgresIntegracionTests {
         sincronizar();
         assertThat(panelEstudianteService.examenes(correoAna)).singleElement()
                 .satisfies(e -> assertThat(e.expulsado()).isFalse());
+    }
+
+    @Test
+    void unaExpulsionPorErrorSeAnulaSinBorrarseYElEstudianteSigueConSuExamen() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-941");
+        int idExamen = examenPorEmpezar(paralelo, 90);
+        int ana = estudiante("202000141", "Ana");
+        String correoAna = cuentaDeEstudiante(ana, "202000141@est.umss.edu");
+        habilitacionService.asociar(idExamen, paralelo, "202000141");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE, fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                idAmbiente, ana, idExamen);
+        sincronizar();
+        var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        var expulsion = controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Uso de celular"), admin);
+        sincronizar();
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> assertThat(e.expulsado()).isTrue());
+
+        var anulada = controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "Error del control, era otro estudiante", admin);
+        sincronizar();
+        assertThat(anulada.anuladaEn()).isNotNull();
+        assertThat(anulada.anuladaPor()).isEqualTo("Luis Paz");
+        // Sigue con su examen: el portal ya no lo muestra expulsado y se lo puede trasladar.
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> {
+            assertThat(e.expulsado()).isFalse();
+            assertThat(e.fechaHoraExpulsion()).isNull();
+        });
+        assertThat(expulsionRepository.expulsadoEnSesionActual(ana, idExamen, null)).isFalse();
+        // El registro no se borra: queda en el reporte como anulado.
+        assertThat(expulsionConsultaService.listar(idExamen)).singleElement().satisfies(x -> {
+            assertThat(x.motivo()).isEqualTo("Uso de celular");
+            assertThat(x.motivoAnulacion()).isEqualTo("Error del control, era otro estudiante");
+        });
+        assertThat(jdbc.queryForObject("SELECT tipo FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion DESC LIMIT 1", String.class, idExamen))
+                .isEqualTo("EXPULSION_ANULADA");
+
+        // No se anula dos veces, ni con un motivo corto, ni la expulsión de otro examen.
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "Otra vez por error", admin))
+                .hasMessageContaining("ya fue anulada");
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "corto", admin))
+                .hasMessageContaining("al menos 10 caracteres");
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen + 1000, expulsion.idExpulsion(), "Error del control", admin))
+                .hasMessageContaining("No se encontró la expulsión");
+        // La base impide cambiar la anulación o la expulsión registrada.
+        assertThat(errorSql("UPDATE expulsion SET motivo_anulacion = 'Cambiado' WHERE id_expulsion = " + expulsion.idExpulsion()))
+                .contains("La anulación de la expulsión no se puede modificar");
+        assertThat(errorSql("UPDATE expulsion SET anulada_en = NULL, id_usuario_anula = NULL WHERE id_expulsion = " + expulsion.idExpulsion()))
+                .contains("no se puede modificar");
+
+        // Si de verdad corresponde, se lo puede volver a expulsar.
+        controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
+        assertThat(expulsionRepository.expulsadoEnSesionActual(ana, idExamen, null)).isTrue();
     }
 
     @Test

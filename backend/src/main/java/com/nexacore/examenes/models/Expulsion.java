@@ -45,4 +45,14 @@ public class Expulsion {
     @Column(name = "fecha_hora", nullable = false, insertable = false, updatable = false)
     @Generated(event = EventType.INSERT, sql = "clock_timestamp()")
     private LocalDateTime fechaHora;
+
+    /** Hora del servidor en que se anuló (expulsión registrada por error); null si sigue vigente. */
+    @Column(name = "anulada_en")
+    private LocalDateTime anuladaEn;
+
+    @Column(name = "id_usuario_anula")
+    private Integer idUsuarioAnula;
+
+    @Column(name = "motivo_anulacion", length = 200)
+    private String motivoAnulacion;
 }

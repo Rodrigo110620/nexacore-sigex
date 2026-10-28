@@ -45,7 +45,8 @@ export async function listarEstudiantesExamen(
     api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, { params: { estado, page, size } }),
     listarExpulsionesExamen(idExamen),
   ])
-  const porEstudiante = new Map([...expulsiones].reverse().map((registro) => [registro.idEstudiante, registro]))
+  // Una expulsión anulada (por error) no cuenta: el estudiante sigue con su examen.
+  const porEstudiante = new Map([...expulsiones].filter((r) => !r.anuladaEn).reverse().map((registro) => [registro.idEstudiante, registro]))
   return { ...data, contenido: data.contenido.map((estudiante) => ({
     ...estudiante, expulsado: porEstudiante.has(estudiante.idEstudiante), expulsion: porEstudiante.get(estudiante.idEstudiante),
   })) }

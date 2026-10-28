@@ -181,6 +181,50 @@ public class ControlIngresoService {
                 (expulsado.getNombre() + " " + expulsado.getApellidos()).trim(), expulsado.getCodigoSis());
     }
 
+    /**
+     * Anula una expulsión registrada por error (ADMIN o docente del examen). No se borra: queda en el
+     * historial como anulada, con quién, cuándo (hora del servidor) y por qué. El estudiante vuelve a
+     * figurar como ingresado y su cronómetro sigue con el horario del examen.
+     */
+    @Transactional
+    public ExpulsionResponse anularExpulsion(Integer idExamen, Integer idExpulsion, String motivoAnulacion,
+                                             Authentication authentication) {
+        String email = ExpulsionValidaciones.responsableAutenticado(authentication);
+        String motivo = ExpulsionValidaciones.motivoAnulacion(motivoAnulacion);
+        sesionExamenService.bloquearContexto(idExamen);
+        Usuario quien = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        Expulsion expulsion = expulsionRepository.findById(idExpulsion)
+                .filter(e -> idExamen.equals(e.getIdExamen()))
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró la expulsión en este examen"));
+        if (expulsion.getAnuladaEn() != null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La expulsión ya fue anulada");
+        }
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        if (cierre != null && expulsion.getFechaHora() != null && !expulsion.getFechaHora().isAfter(cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "La expulsión es de una sesión anterior del examen; queda en el historial");
+        }
+        expulsion.setAnuladaEn(asistenciaRepository.obtenerFechaHoraServidor());
+        expulsion.setIdUsuarioAnula(quien.getId());
+        expulsion.setMotivoAnulacion(motivo);
+        expulsionRepository.saveAndFlush(expulsion);
+
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, expulsion.getIdEstudiante());
+        Estudiante est = estudianteRepository.findById(expulsion.getIdEstudiante()).orElse(null);
+        String nombre = est == null ? "Estudiante #" + expulsion.getIdEstudiante() : (est.getNombre() + " " + est.getApellidos()).trim();
+        String anulo = quien.getNombre() + " " + quien.getApellidos();
+        notificacionService.publicar(Notificacion.EXPULSION_ANULADA, "Expulsión anulada: " + nombre,
+                notificacionService.materia(idExamen) + " · " + motivo + " · Anulada por " + anulo,
+                idExamen, expulsion.getIdEstudiante(), enlaceInformacion(idExamen), email);
+        Usuario responsable = usuarioRepository.findById(expulsion.getIdUsuarioResponsable()).orElse(null);
+        return new ExpulsionResponse(expulsion.getId(), expulsion.getIdEstudiante(), idExamen, expulsion.getMotivo(),
+                expulsion.getIdUsuarioResponsable(),
+                responsable == null ? null : responsable.getNombre() + " " + responsable.getApellidos(),
+                expulsion.getFechaHora(), est == null ? null : nombre, est == null ? null : est.getCodigoSis(),
+                expulsion.getAnuladaEn(), anulo, motivo);
+    }
+
     @Transactional
     public AutorizarIngresoResponse autorizar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());

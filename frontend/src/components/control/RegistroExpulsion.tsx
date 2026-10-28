@@ -9,6 +9,13 @@ export default function RegistroExpulsion({ registro }: { registro: ExpulsionRes
         <dt className="font-semibold">Motivo</dt><dd>{registro.motivo}</dd>
         <dt className="font-semibold">Responsable</dt><dd>{registro.responsable}</dd>
         <dt className="font-semibold">Fecha y hora oficial (Bolivia)</dt><dd>{fechaHoraNumerica(registro.fechaHora, true)}</dd>
+        {registro.anuladaEn && (
+          <>
+            <dt className="font-semibold text-[#15803D]">Anulada</dt>
+            <dd>{fechaHoraNumerica(registro.anuladaEn, true)} · {registro.anuladaPor ?? '—'}</dd>
+            <dt className="font-semibold text-[#15803D]">Motivo de la anulación</dt><dd>{registro.motivoAnulacion}</dd>
+          </>
+        )}
       </dl>
       <p className="mt-2 text-[#627A9B]">Registro #{registro.idExpulsion} · Solo lectura</p>
     </details>
