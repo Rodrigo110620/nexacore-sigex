@@ -40,4 +40,16 @@ public final class ReglasEstudiante {
 
     private ReglasEstudiante() {
     }
+
+    public static final String MSG_SIS_IGUAL_CI = "El C.I. no puede ser igual al código SIS ni estar contenido en él";
+
+    /**
+     * El código SIS (9 dígitos) y el C.I. (7 u 8) son datos distintos: si el C.I. es igual al SIS o está
+     * dentro de él (p. ej. SIS 202104010 y C.I. 20210401), casi seguro se copió uno en el otro.
+     * @throws IllegalArgumentException con el motivo (400)
+     */
+    public static void validarSisDistintoDeCi(String codigoSis, String ci) {
+        if (codigoSis == null || ci == null || codigoSis.isBlank() || ci.isBlank()) return;
+        if (codigoSis.strip().contains(ci.strip())) throw new IllegalArgumentException(MSG_SIS_IGUAL_CI);
+    }
 }
