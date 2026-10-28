@@ -68,7 +68,7 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     @Deprecated
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-            UPDATE asistencia_examen SET fecha_hora_ingreso = CAST(clock_timestamp() AS timestamp), id_ambiente_ingreso = :idAmbiente,
+            UPDATE asistencia_examen SET fecha_hora_ingreso = timezone('America/La_Paz', clock_timestamp()), id_ambiente_ingreso = :idAmbiente,
                 id_usuario_control = :idUsuarioControl, observaciones_control = :observaciones
             WHERE id_estudiante = :idEstudiante AND id_examen = :idExamen AND fecha_hora_ingreso IS NULL
             """, nativeQuery = true)
@@ -147,7 +147,7 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
             """)
     List<AsistenciaExamen> listarDelEstudiante(@Param("idEstudiante") Integer idEstudiante);
 
-    /** Hora real del servidor (no la del inicio de la transacción): ver V45. */
-    @Query(value = "SELECT CAST(clock_timestamp() AS timestamp)", nativeQuery = true)
+    /** Hora real en Bolivia (ver V45), independiente de la zona de la sesión del pool. */
+    @Query(value = "SELECT timezone('America/La_Paz', clock_timestamp())", nativeQuery = true)
     LocalDateTime obtenerFechaHoraServidor();
 }

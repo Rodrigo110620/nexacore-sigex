@@ -90,6 +90,14 @@ class PostgresIntegracionTests {
     @MockitoBean EmailService emailService;
 
     @Test
+    void controlUsaHoraBolivianaInclusoConSesionPostgresEnUtc() {
+        jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
+        var hora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        var bolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        assertThat(Math.abs(java.time.Duration.between(hora, bolivia).toMillis())).isLessThan(2000);
+    }
+
+    @Test
     void flywayAplicaTodasLasMigracionesYHibernateValidaElEsquema() throws IOException {
         // Si el contexto arrancó, Hibernate ya validó el esquema (ddl-auto=validate).
         int ultima = Arrays.stream(new PathMatchingResourcePatternResolver()
@@ -360,6 +368,8 @@ class PostgresIntegracionTests {
 
     @Test
     void losRegistrosGuardanLaHoraRealYNoLaDelInicioDeLaTransaccion() {
+        // Los defaults timestamp y la consulta de control se comparan en la misma zona de negocio.
+        jdbc.execute("SET LOCAL TIME ZONE 'America/La_Paz'");
         // V45: con NOW() todo lo guardado en una transacción tenía la misma hora (la de su inicio).
         var columnas = jdbc.queryForList("""
                 SELECT table_name || '.' || column_name AS columna, column_default FROM information_schema.columns
@@ -403,11 +413,12 @@ class PostgresIntegracionTests {
         idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
     }
 
-    @Test
-    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"UTC", "America/La_Paz"})
+    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion(String zonaBase) {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-MANUAL");
-        int examen = examenPorEmpezar(paralelo, 90);
+        int examen = examen(paralelo, "08:00", 90);
         int estudiante = estudiante("202104099", "Ana");
         habilitacionService.asociar(examen, paralelo, "202104099");
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ? AND id_examen = ?", estudiante, examen);
@@ -415,10 +426,19 @@ class PostgresIntegracionTests {
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
                 + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
+        // Caso de la captura: empezó hace 40 minutos y dura 190; sigue en curso hasta dentro de 150.
+        var ahoraBolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        var inicio = ahoraBolivia.minusMinutes(40);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ?, duracion_minutos = 190 WHERE id_examen = ?",
+                inicio.toLocalDate(), inicio.toLocalTime(), examen);
+        sincronizar();
+        jdbc.execute("SET LOCAL TIME ZONE '" + zonaBase + "'");
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
                 List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr");
         assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
         sincronizar();
+        var horaGuardada = asistenciaExamenRepository.obtenerFechaHoraIngreso(estudiante, examen);
+        assertThat(Math.abs(java.time.Duration.between(ahoraBolivia, horaGuardada).toMillis())).isLessThan(5000);
         assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
             assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
             assertThat(registro.justificacionManual()).isEqualTo("Celular apagado no presenta qr");
@@ -444,15 +464,14 @@ class PostgresIntegracionTests {
                 """, Integer.class, paralelo, hora, duracion, idMateria, idDocente, idAmbiente);
     }
 
-    /** Examen que empieza en 5 minutos (hora de la base): el control de ingreso ya está abierto. */
-    private int examenPorEmpezar(int paralelo, int duracion) {
-        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
-        return jdbc.queryForObject("""
-                INSERT INTO examen (id_paralelo, fecha, hora_inicio, duracion_minutos, id_materia, id_docente, id_ambiente)
-                SELECT ?, CAST(t AS date), CAST(t AS time(0)), ?, ?, ?, ?
-                FROM (SELECT CAST(clock_timestamp() AS timestamp) + INTERVAL '5 minutes' AS t) ahora
-                RETURNING id_examen
-                """, Integer.class, paralelo, duracion, idMateria, idDocente, idAmbiente);
+    /** Tras asociar estudiantes al examen futuro, abre el control con un horario boliviano. */
+    private void abrirControl(int idExamen) {
+        jdbc.update("""
+                UPDATE examen SET fecha = CAST(t AS date), hora_inicio = CAST(t AS time(0))
+                FROM (SELECT timezone('America/La_Paz', clock_timestamp()) + INTERVAL '5 minutes' AS t) ahora
+                WHERE id_examen = ?
+                """, idExamen);
+        sincronizar();
     }
 
     private int estudiante(String sis, String nombre) {
@@ -510,10 +529,11 @@ class PostgresIntegracionTests {
     void unaExpulsionPorErrorSeAnulaSinBorrarseYElEstudianteSigueConSuExamen() {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-941");
-        int idExamen = examenPorEmpezar(paralelo, 90);
+        int idExamen = examen(paralelo, "08:00", 90);
         int ana = estudiante("202000141", "Ana");
         String correoAna = cuentaDeEstudiante(ana, "202000141@est.umss.edu");
         habilitacionService.asociar(idExamen, paralelo, "202000141");
+        abrirControl(idExamen);
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE, fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
                 idAmbiente, ana, idExamen);
         sincronizar();
@@ -564,13 +584,14 @@ class PostgresIntegracionTests {
     void laExpulsionElIngresoManualYLaExcepcionNotificanAlPersonal() {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-909");
-        int idExamen = examenPorEmpezar(paralelo, 90);
+        int idExamen = examen(paralelo, "08:00", 90);
         int ana = estudiante("202000091", "Ana");
         int beto = estudiante("202000092", "Beto");
         int carla = estudiante("202000093", "Carla");
         habilitacionService.asociar(idExamen, paralelo, "202000091");
         habilitacionService.asociar(idExamen, paralelo, "202000092");
         habilitacionService.asociar(idExamen, paralelo, "202000093");
+        abrirControl(idExamen);
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_examen = ? AND id_estudiante IN (?, ?)", idExamen, ana, beto);
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) VALUES (?, ?, 'image/jpeg', NOW())",
                 beto, new byte[]{(byte) 0xFF, (byte) 0xD8});
