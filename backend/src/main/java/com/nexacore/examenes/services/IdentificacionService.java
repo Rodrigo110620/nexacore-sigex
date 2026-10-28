@@ -129,7 +129,11 @@ public class IdentificacionService {
     @Transactional(readOnly = true)
     public ResumenEstudiantesResponse resumir(Integer idExamen) {
         verificarExamen(idExamen);
-        return estudianteRepository.resumirAsignadosAlExamen(idExamen);
+        ResumenEstudiantesResponse r = estudianteRepository.resumirAsignadosAlExamen(idExamen);
+        java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        long incidencias = estudianteRepository.contarIncidencias(idExamen,
+                cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre);
+        return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias);
     }
 
     private void verificarExamen(Integer idExamen) {

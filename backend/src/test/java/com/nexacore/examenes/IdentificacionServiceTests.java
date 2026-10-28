@@ -158,8 +158,13 @@ class IdentificacionServiceTests {
         ResumenEstudiantesResponse resumen = new ResumenEstudiantesResponse(3, 2, 1, 1);
         when(examenRepository.existsByIdIdExamen(ID_EXAMEN)).thenReturn(true);
         when(estudianteRepository.resumirAsignadosAlExamen(ID_EXAMEN)).thenReturn(resumen);
+        when(estudianteRepository.contarIncidencias(org.mockito.ArgumentMatchers.eq(ID_EXAMEN), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(4L);
 
-        assertEquals(resumen, identificacionService.resumir(ID_EXAMEN));
+        // DASH-01: habilitados, ingresados, ausentes (habilitados que no ingresaron) e incidencias.
+        ResumenEstudiantesResponse total = identificacionService.resumir(ID_EXAMEN);
+        assertEquals(new ResumenEstudiantesResponse(3, 2, 1, 1, 4), total);
+        assertEquals(1, total.ausentes());
     }
 
     @Test

@@ -54,7 +54,7 @@ describe('ControlExamenPage', () => {
     vi.clearAllMocks()
     localStorage.setItem('token', 'token-control')
     localStorage.setItem('roles', JSON.stringify(['CONTROL']))
-    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 10 })
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 10, incidencias: 2 })
     vi.mocked(listarEstudiantesExamen).mockResolvedValue({
       contenido: [estudiante(1, 'María', 'HABILITADO', true), estudiante(2, 'Luis', 'DESHABILITADO')],
       pagina: 0,
@@ -68,9 +68,15 @@ describe('ControlExamenPage', () => {
     renderPage()
     const filas = within(await screen.findByRole('table')).getAllByRole('row')
 
-    expect(within(await screen.findByRole('region', { name: 'Total asignados' })).getByText('45')).toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Habilitados' })).getByText('93.3%')).toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Con observación' })).getByText('3')).toBeInTheDocument()
+    // DASH-01: habilitados, ingresados, ausentes (habilitados que aún no ingresan) e incidencias.
+    const habilitados = within(await screen.findByRole('region', { name: 'Habilitados' }))
+    expect(habilitados.getByText('42')).toBeInTheDocument()
+    expect(habilitados.getByText('de 45 asignados · 3 con observación')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Ingresados' })).getByText('24 % de habilitados')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Ausentes' })).getByText('32')).toBeInTheDocument()
+    const incidencias = within(screen.getByRole('region', { name: 'Incidencias' }))
+    expect(incidencias.getByText('2')).toBeInTheDocument()
+    expect(incidencias.getByRole('link', { name: /Ver detalle/ })).toHaveAttribute('href', '/dashboard/control/7/informacion')
     expect(within(filas[1]).getByText('María Flores')).toBeInTheDocument()
     expect(within(filas[1]).getByText('INGRESÓ')).toBeInTheDocument()
     expect(within(filas[2]).getByText('NO INGRESÓ')).toBeInTheDocument()

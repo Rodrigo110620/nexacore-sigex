@@ -32,6 +32,8 @@ export interface ResumenEstudiantes {
   habilitados: number
   noHabilitados: number
   ingresados: number
+  /** DASH-01: incidencias de la sesión actual (expulsiones, intentos, excepciones, manuales, traslados, QR duplicados). */
+  incidencias?: number
 }
 
 /** Estudiantes asignados al examen, ordenados por apellidos y nombre. */
