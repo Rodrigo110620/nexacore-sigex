@@ -34,7 +34,7 @@ function renderNav(path: string, roles: string[], variant: 'default' | 'controlH
 describe('MobileBottomNav', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('ADMIN: Inicio, Exámenes, Control, Estudiantes y Usuarios', () => {
+  it('ADMIN: Inicio, Exámenes, Control, Reportes, Estudiantes y Usuarios', () => {
     renderNav('/dashboard/usuarios', ['ADMIN'])
 
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
@@ -47,7 +47,8 @@ describe('MobileBottomNav', () => {
     expect(within(navigation).getByRole('link', { name: 'Control' })).toHaveAttribute('href', '/dashboard/control')
     expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
-    expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
+    expect(within(navigation).getByRole('link', { name: 'Reportes' })).toHaveAttribute('href', '/dashboard/reportes')
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(6)
   })
 
   it('DOCENTE: Inicio, Exámenes, Control y Estudiantes, sin Usuarios', () => {
@@ -61,6 +62,7 @@ describe('MobileBottomNav', () => {
       '/dashboard/estudiantes',
     )
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
+    expect(screen.queryByText('Reportes')).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(4)
   })
 
@@ -95,10 +97,11 @@ describe('MobileBottomNav', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
-  it('en Control conserva las cinco opciones globales y no muestra Ajustes', () => {
+  it('en Control conserva las seis opciones globales del ADMIN y no muestra Ajustes', () => {
     renderNav('/dashboard/control/7', ['ADMIN'], 'controlDetail')
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
-    expect(within(navigation).getAllByRole('listitem')).toHaveLength(5)
+    expect(within(navigation).getAllByRole('listitem')).toHaveLength(6)
+    expect(within(navigation).getByRole('link', { name: 'Reportes' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Exámenes' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()

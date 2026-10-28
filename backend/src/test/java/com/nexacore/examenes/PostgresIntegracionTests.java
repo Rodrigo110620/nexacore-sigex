@@ -76,6 +76,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
+    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -566,6 +567,50 @@ class PostgresIntegracionTests {
         assertThat((String) avisos.get(1).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
         assertThat((String) avisos.get(2).get("detalle")).contains("Celular apagado no presenta qr");
         assertThat((String) avisos.get(3).get("detalle")).contains("Se le permitió esperar afuera");
+    }
+
+    @Test
+    void elReporteDeIntentosIncorrectosListaTodosLosExamenesYFiltraPorUno() {
+        // DASH-06 / HU#7.
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-931");
+        int p2 = materiaYParalelo("TST-932");
+        int examen1 = examen(p1, "08:00", 90);
+        int examen2 = examen(p2, "10:00", 90);
+        int ana = estudiante("202000131", "Ana");
+        String insertar = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, id_estudiante, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        jdbc.update(insertar, examen1, p1, idDocente, "202000131", ana, "No está inscrito en la materia",
+                java.sql.Timestamp.valueOf("2026-10-28 08:05:00"));
+        jdbc.update(insertar, examen2, p2, idDocente, "202000131", ana, "Ambiente incorrecto: se presentó en el aula 691B",
+                java.sql.Timestamp.valueOf("2026-10-28 10:07:00"));
+        jdbc.update(insertar, examen1, p1, idDocente, "9999999", null, "QR de otra persona",
+                java.sql.Timestamp.valueOf("2026-10-28 08:09:00"));
+        sincronizar();
+
+        var todos = intentoIngresoService.reporte(null, 0, 20);
+        assertThat(todos.totalRegistros()).isGreaterThanOrEqualTo(3);
+        var mios = todos.contenido().stream().filter(i -> i.idExamen() == examen1 || i.idExamen() == examen2).toList();
+        assertThat(mios).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("10:07", "08:09", "08:05");
+        assertThat(mios.get(0)).satisfies(i -> {
+            assertThat(i.tipo()).isEqualTo("AULA_INCORRECTA");
+            assertThat(i.examen()).isEqualTo("Materia TST-932");
+            assertThat(i.estudiante()).isEqualTo("Ana Prueba");
+            assertThat(i.personalControl()).isNotBlank();
+            assertThat(i.horaExamen()).hasToString("10:00");
+        });
+        // Sin estudiante identificado: queda el identificador que se escaneó.
+        assertThat(mios.get(1)).satisfies(i -> {
+            assertThat(i.estudiante()).isNull();
+            assertThat(i.identificador()).isEqualTo("9999999");
+            assertThat(i.tipo()).isEqualTo("NO_CORRESPONDE");
+        });
+
+        var soloExamen1 = intentoIngresoService.reporte(examen1, 0, 20);
+        assertThat(soloExamen1.totalRegistros()).isEqualTo(2);
+        assertThat(soloExamen1.contenido()).allSatisfy(i -> assertThat(i.idExamen()).isEqualTo(examen1));
+        assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
+        assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
+        assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */
