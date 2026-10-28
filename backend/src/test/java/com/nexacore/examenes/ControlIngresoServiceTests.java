@@ -109,13 +109,38 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void justificacionInvalidaNoCreaIngresoNiCambiaAsistencia() {
+        for (String texto : new String[] {"a".repeat(66), "12345678901", "????????????", "Celular  apagado", " Celular apagado", "Celular apagado ", "Celular\tact ivo", "Celular\napagado"}) {
+            var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null, null, true, texto);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ControlIngresoException.class,
+                    () -> service.autorizar(request, "control@umss.edu.bo")).getStatus());
+        }
+        assertNull(asistencia.getFechaHoraIngreso());
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+        verifyNoInteractions(registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void ingresoManualRespetaAperturaYAutorizaEnElLimite() {
+        asistencia.getExamen().setIdAmbiente(5);
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null, null, true, "celular apagado");
+        horario("16:16", 90);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo")).getStatus());
+        verifyNoInteractions(registroRepository);
+        horario("16:15", 90);
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado");
+    }
+
+    @Test
     void ingresoManualGuardaMotivoYUsaHoraServidorAunqueElClienteEnvieOtra() {
         var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
-                "2026-09-25T09:00:00-04:00", true, "  Celular apagado, no presenta QR  ");
+                "2026-09-25T09:00:00-04:00", true, "CELULAR APAGADO NO PRESENTA QR");
         assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
         verify(asistenciaRepository, never()).autorizarConHoraDispositivo(any(), any(), any(), any(), any(), any());
-        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado, no presenta QR");
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado no presenta qr");
     }
 
     @Test

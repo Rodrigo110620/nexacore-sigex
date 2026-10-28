@@ -2,6 +2,7 @@ package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import com.nexacore.examenes.utils.EstadoExamen;
+import com.nexacore.examenes.utils.JustificacionManual;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -194,6 +195,12 @@ public class ControlIngresoService {
                         "El estudiante no está asociado al examen seleccionado"));
         verificarIngresoAbierto(asistencia);
 
+        String justificacionManual = null;
+        if (request.ingresoManual()) {
+            justificacionManual = JustificacionManual.validarYNormalizar(request.justificacionManual());
+        }
+
+
         if (!Boolean.TRUE.equals(asistencia.getHabilitado())) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String motivo = asistencia.getMotivoInhabilitacion();
@@ -224,15 +231,6 @@ public class ControlIngresoService {
         if (!request.identidadVerificada()) {
             throw new ControlIngresoException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Confirma la verificación de identidad antes de autorizar");
-        }
-
-        String justificacionManual = null;
-        if (request.ingresoManual()) {
-            justificacionManual = request.justificacionManual() == null ? "" : request.justificacionManual().strip();
-            if (justificacionManual.length() < 10 || justificacionManual.length() > 1000) {
-                throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
-                        "La justificación del ingreso manual debe tener entre 10 y 1000 caracteres");
-            }
         }
 
         RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);

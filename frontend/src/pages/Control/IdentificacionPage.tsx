@@ -26,7 +26,7 @@ const SIN_CONEXION_CONTINUAR =
 export default function IdentificacionPage() {
   const { roles } = useAuth()
   const navigate = useNavigate()
-  const puedeContinuar = roles.some((role) => role === 'ADMIN' || role === 'CONTROL')
+  const puedeContinuar = roles.some((role) => role === 'ADMIN' || role === 'CONTROL' || role === 'DOCENTE')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
@@ -198,7 +198,7 @@ export default function IdentificacionPage() {
                   disabled={!estudiante || !puedeContinuar || verificando}
                   aria-busy={verificando}
                   onClick={() => void manejarContinuar()}
-                  title={!puedeContinuar ? 'Se requiere el rol ADMIN o CONTROL para continuar' : undefined}
+                  title={!puedeContinuar ? 'Se requiere el rol ADMIN, CONTROL o DOCENTE para continuar' : undefined}
                   className="inline-flex h-9 items-center gap-2 rounded-md bg-[#0439D9] px-3.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:px-4"
                 >
                   Continuar
