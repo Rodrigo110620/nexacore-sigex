@@ -42,6 +42,18 @@ function motivoCodigoFicticio(digitos: string, campo: string): string | null {
   return null
 }
 
+/**
+ * Código SIS o C.I. ficticio en la activación de cuenta (BUG-E01/E02 de HU#5): un mismo dígito o una
+ * secuencia; el código SIS tampoco puede ser un patrón repetido. Misma regla que el backend.
+ */
+export function motivoIdentificadorFicticio(tipo: TipoIdentificacion, digitos: string): string | null {
+  if (!/^\d{2,}$/.test(digitos)) return null
+  if (tipo === 'codigo') return motivoCodigoFicticio(digitos, 'El código SIS')
+  if (/^(\d)\1+$/.test(digitos)) return 'El C.I. no puede ser un mismo dígito repetido'
+  if (esSecuencia(digitos)) return 'El C.I. no puede ser una secuencia ascendente o descendente'
+  return null
+}
+
 /** Motivo por el que no se puede buscar con ese valor, o null si es válido. */
 export function validarIdentificador(tipo: TipoIdentificacion, valor: string): string | null {
   const campo = CAMPO[tipo]

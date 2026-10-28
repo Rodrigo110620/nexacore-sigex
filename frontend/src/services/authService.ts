@@ -66,6 +66,15 @@ export async function solicitarActivacionEstudiante(payload: {
 }
 
 /** Paso final de la activación: confirma el código recibido por correo y crea la contraseña. */
+/** Paso 2 (BUG-E03 de HU#5): comprueba el código antes de pedir la contraseña. */
+export async function verificarCodigoActivacionEstudiante(payload: { codigoSis: string; codigo: string }): Promise<void> {
+  try {
+    await api.post('/auth/estudiante/activacion/verificar', payload)
+  } catch (error: unknown) {
+    throw new Error(extractFieldErrorMessage(error, 'No se pudo verificar el código. Intenta más tarde.'))
+  }
+}
+
 export async function confirmarActivacionEstudiante(payload: {
   codigoSis: string
   codigo: string

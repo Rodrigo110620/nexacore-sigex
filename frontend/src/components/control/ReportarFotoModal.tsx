@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Flag, Info, X } from 'lucide-react'
 import { MOTIVOS_REPORTE, mensajeDeError, reportarFoto, type MotivoReporteFoto } from '../../services/fotoRevisionService'
 import { isOffline } from '../../utils/examFormUtils'
+import { DETALLE_REPORTE_MAX, aOracion, validarDetalleReporte } from '../../utils/textoFotoValidators'
 
-const DETALLE_MAX = 200
+const DETALLE_MAX = DETALLE_REPORTE_MAX
 
 interface ReportarFotoModalProps {
   idEstudiante: number
@@ -25,6 +26,11 @@ export default function ReportarFotoModal({
   const [error, setError] = useState('')
 
   const enviar = async () => {
+    const invalido = validarDetalleReporte(detalle)
+    if (invalido) {
+      setError(invalido)
+      return
+    }
     if (isOffline()) {
       setError('No hay conexión a Internet. No se reportó la foto; inténtalo de nuevo.')
       return
@@ -32,7 +38,7 @@ export default function ReportarFotoModal({
     setSaving(true)
     setError('')
     try {
-      await reportarFoto(idEstudiante, { motivo, detalle: detalle.trim() || undefined, idExamen })
+      await reportarFoto(idEstudiante, { motivo, detalle: detalle.trim() ? aOracion(detalle) : undefined, idExamen })
       onReportada(`Se reportó la foto de ${estudiante}. Deberá volver a escanear su rostro y la administración revisará la nueva foto.`)
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo reportar la foto. Intenta más tarde.'))
@@ -101,11 +107,14 @@ export default function ReportarFotoModal({
           value={detalle}
           maxLength={DETALLE_MAX}
           rows={2}
-          onChange={(e) => setDetalle(e.target.value)}
-          placeholder="Ej. La persona que se presentó no se parece a la foto registrada."
+          onChange={(e) => { setDetalle(e.target.value); setError('') }}
+          placeholder="Ej. No se parece a la foto registrada"
           className="mt-1 w-full resize-none rounded-lg border border-[#B8CBEF] px-3 py-2 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25"
         />
-        <p className="mt-0.5 text-right text-[10px] text-gray-400">{detalle.length}/{DETALLE_MAX}</p>
+        <p className="mt-0.5 flex justify-between gap-2 text-[10px] text-gray-400">
+          <span>Solo letras y espacios, de 10 a {DETALLE_MAX} caracteres.</span>
+          <span className="shrink-0">{detalle.length}/{DETALLE_MAX}</span>
+        </p>
 
         <p className="mt-2 flex gap-2 rounded-lg bg-[#EFF6FF] p-3 text-[11px] leading-relaxed text-[#334E7A]">
           <Info size={14} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />

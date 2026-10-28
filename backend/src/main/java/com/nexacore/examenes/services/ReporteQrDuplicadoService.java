@@ -67,6 +67,9 @@ public class ReporteQrDuplicadoService {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Ingresa el CI del carnet presentado.");
         if (!nombres.strip().matches(ReglasEstudiante.NOMBRE) || nombres.strip().length() > 160)
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres solo pueden contener letras; cada palabra debe tener al menos 2 letras.");
+        // Ningún nombre real repite una letra 3 veces seguidas ("Aaaaaaaa" desbordaba las notificaciones).
+        if (java.util.regex.Pattern.compile("(?iu)(\\p{L})\\1\\1").matcher(nombres).find())
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres no pueden repetir una letra 3 veces seguidas.");
         if (presentoCarnet && !ci.strip().matches(ReglasEstudiante.CI))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, ReglasEstudiante.MSG_CI);
         if (codigoSis != null && !codigoSis.isBlank() && !codigoSis.strip().matches(ReglasEstudiante.CODIGO_SIS))

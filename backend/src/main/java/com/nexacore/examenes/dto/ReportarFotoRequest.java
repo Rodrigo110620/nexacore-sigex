@@ -9,7 +9,7 @@ public record ReportarFotoRequest(
         @NotNull(message = "Indica qué pasa con la foto")
         ReporteFoto.Motivo motivo,
 
-        @Size(max = 200, message = "El detalle no puede superar los 200 caracteres")
+        @Size(max = 65, message = "El detalle no puede superar 65 caracteres")
         String detalle,
 
         /** Examen en cuyo control de ingreso se reporta; opcional. */

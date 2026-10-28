@@ -55,7 +55,7 @@ class ReporteFotoFlujoTests {
     private static final String ADMIN = "admin.reporte@umss.edu";
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10};
     private static final String REPORTE = """
-            {"motivo":"NO_SE_PARECE","detalle":"La persona que se presentó no se parece a la foto registrada."}
+            {"motivo":"NO_SE_PARECE","detalle":"La persona no se parece a la foto registrada"}
             """;
 
     @Autowired MockMvc mockMvc;
@@ -191,6 +191,30 @@ class ReporteFotoFlujoTests {
                 .andExpect(jsonPath("$.fotoReportada").value(true))
                 .andExpect(jsonPath("$.solicitudFoto.estado").value("RECHAZADA"));
         assertThat(fotoService.reporteAbierto(idEstudiante)).isPresent();
+    }
+
+    @Test
+    void elDetalleYElMotivoDelRechazoSeValidanYSeGuardanEnFormatoOracion() throws Exception {
+        // HU#6, BUG-E01 a E10 de QA.
+        fotoAprobada();
+        mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto/reportes").with(control())
+                        .contentType("application/json").content("{\"motivo\":\"NO_SE_PARECE\",\"detalle\":\"11111111111\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto/reportes").with(control())
+                        .contentType("application/json").content("{\"motivo\":\"NO_SE_PARECE\",\"detalle\":\"NO SE PARECE A LA FOTO\"}"))
+                .andExpect(status().isCreated());
+        assertThat(fotoService.reporteAbierto(idEstudiante)).get()
+                .satisfies(r -> assertThat(r.getDetalle()).isEqualTo("No se parece a la foto"));
+        enviarFotoNueva();
+
+        mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto-solicitud/rechazar").with(admin())
+                        .contentType("application/json").content("{\"motivo\":\"??????????\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto-solicitud/rechazar").with(admin())
+                        .contentType("application/json").content("{\"motivo\":\"la foto está borrosa\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/mi/perfil").with(estudiante()))
+                .andExpect(jsonPath("$.solicitudFoto.motivoRechazo").value("La foto está borrosa"));
     }
 
     @Test

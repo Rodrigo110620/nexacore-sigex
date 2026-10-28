@@ -159,7 +159,7 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
               )}
             </div>
           </div>
-          <ul className="max-h-[calc(70dvh-3rem)] overflow-y-auto">
+          <ul className="max-h-[calc(70dvh-3rem)] overflow-y-auto overflow-x-hidden">
             {lista.length === 0 && (
               <li className="px-4 py-8 text-center text-xs text-[#627A9B]">No hay reportes por ahora.</li>
             )}
@@ -175,8 +175,13 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
                     <span className="block text-[10px] font-bold uppercase tracking-wide text-[#B45309]">
                       {ETIQUETA[n.tipo] ?? 'Reporte'} · {hace(n.creadaEn)}
                     </span>
-                    <span className="block text-[13px] font-semibold text-[#011140]">{n.titulo}</span>
-                    {n.detalle && <span className="mt-0.5 block text-xs text-[#45628D]">{n.detalle}</span>}
+                    {/* Una palabra larga sin espacios no debe ensanchar el panel: se corta y el detalle va en 3 líneas. */}
+                    <span className="block break-words text-[13px] font-semibold text-[#011140] [overflow-wrap:anywhere]">{n.titulo}</span>
+                    {n.detalle && (
+                      <span className="mt-0.5 line-clamp-3 block break-words text-xs text-[#45628D] [overflow-wrap:anywhere]" title={n.detalle}>
+                        {n.detalle}
+                      </span>
+                    )}
                   </span>
                 </button>
                 <button
@@ -205,8 +210,8 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
               <span className="block text-[10px] font-bold uppercase tracking-wide text-[#B45309]">
                 Nuevo reporte · {ETIQUETA[emergente.tipo] ?? 'Reporte'}
               </span>
-              <span className="block text-[13px] font-semibold text-[#011140]">{emergente.titulo}</span>
-              {emergente.detalle && <span className="mt-0.5 line-clamp-2 block text-xs text-[#45628D]">{emergente.detalle}</span>}
+              <span className="block break-words text-[13px] font-semibold text-[#011140] [overflow-wrap:anywhere]">{emergente.titulo}</span>
+              {emergente.detalle && <span className="mt-0.5 line-clamp-2 block break-words text-xs text-[#45628D] [overflow-wrap:anywhere]">{emergente.detalle}</span>}
             </button>
             <button type="button" onClick={() => setEmergente(null)} aria-label="Cerrar aviso" className="shrink-0 rounded p-1 text-[#627A9B] hover:bg-[#F1F6FF]">
               <X size={14} />
