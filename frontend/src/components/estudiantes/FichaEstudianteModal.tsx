@@ -6,6 +6,7 @@ import FotoEstudiante from './FotoEstudiante'
 import { AvisoFotoReportadaDe } from './AvisoFotoReportada'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import RegenerarQrModal from './RegenerarQrModal'
+import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface Props {
   open: boolean
@@ -176,6 +177,18 @@ export default function FichaEstudianteModal({ open, estudiante, onClose, puedeR
                 estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'text-red-900' : 'text-emerald-800'
               }`}>
                 {estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'NO MATRICULADO' : 'MATRICULADO'}
+              </dd>
+            </div>
+
+            <div className="mb-3 rounded-lg border border-[#E8EEF7] bg-white p-3">
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Cuenta del estudiante</dt>
+              <dd className="mt-1 text-[12px] text-[#45628D] sm:text-sm">
+                <EstadoCuentaBadge tieneCuenta={estudiante.tieneCuenta} />
+                <span className="mt-1 block">
+                  {estudiante.tieneCuenta
+                    ? 'Ya activó su cuenta: ve su QR, sus exámenes y sus normas en su portal.'
+                    : 'Aún no activó su cuenta. Le llegará su código QR al correo cuando la active.'}
+                </span>
               </dd>
             </div>
             

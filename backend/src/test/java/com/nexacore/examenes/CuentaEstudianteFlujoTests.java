@@ -117,6 +117,8 @@ class CuentaEstudianteFlujoTests {
         assertThat(e.getIdUsuario()).isNotNull();
         var login = authService.login(new LoginRequest(EMAIL, PASSWORD));
         assertThat(login.roles()).containsExactly(Rol.ESTUDIANTE);
+        // El QR le llega recién al activar su cuenta (no al registrarlo).
+        verify(emailService).enviarQrEstudiante(eq(EMAIL), anyString(), eq(SIS), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

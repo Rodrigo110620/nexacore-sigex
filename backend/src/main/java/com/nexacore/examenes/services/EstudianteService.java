@@ -157,8 +157,7 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
-        
-        enviarQrSiCorresponde(estudiante);
+        // El QR ya no se envía al registrar: queda "Pendiente de activación" y le llega al activar su cuenta.
 
         return new EstudianteListResponse(
                 estudiante.getId(), estudiante.getCodigoSis(), estudiante.getNombre(), estudiante.getApellidos(),
@@ -175,11 +174,6 @@ public class EstudianteService {
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con id: " + id));
         var qr = qrEstudianteService.regenerar(estudiante);
         emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
-    }
-
-    private void enviarQrSiCorresponde(Estudiante estudiante) {
-        var qr = qrEstudianteService.crearSiNoExiste(estudiante);
-        if (qr != null) emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
     }
 
     public java.util.Optional<Estudiante> obtenerEntidad(Integer id) {

@@ -51,6 +51,7 @@ public class CuentaEstudianteService {
     private final UsuarioRolRepository usuarioRolRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final QrEstudianteService qrEstudianteService;
 
     public CuentaEstudianteService(EstudianteRepository estudianteRepository,
                                    EstudianteActivacionRepository activacionRepository,
@@ -58,7 +59,9 @@ public class CuentaEstudianteService {
                                    RolRepository rolRepository,
                                    UsuarioRolRepository usuarioRolRepository,
                                    PasswordEncoder passwordEncoder,
-                                   EmailService emailService) {
+                                   EmailService emailService,
+                                   QrEstudianteService qrEstudianteService) {
+        this.qrEstudianteService = qrEstudianteService;
         this.estudianteRepository = estudianteRepository;
         this.activacionRepository = activacionRepository;
         this.usuarioRepository = usuarioRepository;
@@ -164,6 +167,14 @@ public class CuentaEstudianteService {
         usuarioRolRepository.save(usuarioRol);
 
         activacionRepository.delete(activacion);
+
+        // El QR se envía al activar la cuenta (no al registrarlo): recién ahí el estudiante está activo.
+        // Si ya tenía uno (registrado antes de este cambio), ya le llegó y no se reenvía.
+        var qr = qrEstudianteService.crearSiNoExiste(estudiante);
+        if (qr != null) {
+            emailService.enviarQrEstudiante(estudiante.getEmail(),
+                    estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+        }
     }
 
     /**
