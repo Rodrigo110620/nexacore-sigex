@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
 import { listarExcepcionesNoHabilitado, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
+import { fechaHoraNumerica } from '../../utils/examenFormat'
 
 /**
  * INCI-04: reporte de excepciones de estudiantes no habilitados que intentaron ingresar (sesión
@@ -48,7 +49,7 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
                 {x.observaciones && <><dt className="font-semibold">Observaciones</dt><dd>{x.observaciones}</dd></>}
                 {x.ambiente && <><dt className="font-semibold">Aula</dt><dd>{x.ambiente}</dd></>}
                 <dt className="font-semibold">Registró</dt><dd>{x.registradoPor ?? '—'}</dd>
-                <dt className="font-semibold">Fecha y hora (Bolivia)</dt><dd>{x.fechaHora.replace('T', ' ').slice(0, 16)}</dd>
+                <dt className="font-semibold">Fecha y hora (Bolivia)</dt><dd>{fechaHoraNumerica(x.fechaHora)}</dd>
               </dl>
             </li>
           ))}

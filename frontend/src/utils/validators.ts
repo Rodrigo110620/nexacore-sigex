@@ -302,3 +302,14 @@ export const validateTelefono = (value: string): string => {
 
   return ''
 }
+
+/**
+ * El C.I. no puede ser igual al código SIS ni estar contenido en él (p. ej. SIS 202104010 y C.I. 20210401):
+ * casi seguro se copió uno en el otro. Misma regla que ReglasEstudiante.validarSisDistintoDeCi.
+ */
+export function validateSisDistintoDeCi(codigoSis: string, ci: string): string | null {
+  const sis = (codigoSis ?? '').trim()
+  const doc = (ci ?? '').trim()
+  if (!sis || !doc) return null
+  return sis.includes(doc) ? 'El C.I. no puede ser igual al código SIS ni estar contenido en él' : null
+}

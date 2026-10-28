@@ -1,4 +1,4 @@
-import { BookCheck, ClipboardCheck, GraduationCap, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookCheck, ClipboardCheck, GraduationCap, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -12,7 +12,7 @@ const ESTUDIANTES_ROLES = ['ADMIN', 'DOCENTE', 'CONTROL']
 
 /**
  * Menú por rol (sidebar y barra inferior móvil):
- * - ADMIN: Inicio, Exámenes, Control, Estudiantes, Usuarios.
+ * - ADMIN: Inicio, Exámenes, Control, Reportes, Estudiantes, Usuarios.
  * - DOCENTE: Inicio, Exámenes, Control y Estudiantes (sin Usuarios).
  * - CONTROL: Inicio, Control y Estudiantes.
  */
@@ -37,6 +37,11 @@ export function navItemsFor(roles: string[]): NavItem[] {
 
   if (isAdmin || isDocente || isControl) {
     items.push({ label: 'Control', to: '/dashboard/control', icon: ClipboardCheck })
+  }
+
+  // Reportes (Épica 5): solo ADMIN
+  if (isAdmin) {
+    items.push({ label: 'Reportes', to: '/dashboard/reportes', icon: BarChart3 })
   }
 
   // Estudiantes: ADMIN, DOCENTE y CONTROL

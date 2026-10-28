@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, TriangleAlert } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import { listarIntentosIngreso, registrarIntentoIngreso, type IntentoIngreso } from '../../services/intentoIngresoService'
+import { fechaHoraNumerica } from '../../utils/examenFormat'
 
 interface EstudianteNoVinculadoModalProps {
   estudiante: EstudianteIdentificado
@@ -125,7 +126,7 @@ export default function EstudianteNoVinculadoModal({
           <h3 className="text-xs font-bold uppercase text-[#011140]">Historial de intentos ({historial.length})</h3>
           {historial.length === 0 ? <p className="mt-1 text-xs text-[#627A9B]">Sin intentos registrados en este examen.</p> : (
             <ul className="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs text-[#45628D]">
-              {historial.map((intento) => <li key={intento.idIntento} className="rounded bg-[#F6F9FE] p-2">{intento.motivo} · {new Date(intento.fechaHora).toLocaleString()}</li>)}
+              {historial.map((intento) => <li key={intento.idIntento} className="rounded bg-[#F6F9FE] p-2">{intento.motivo} · {fechaHoraNumerica(intento.fechaHora)}</li>)}
             </ul>
           )}
         </section>}

@@ -22,7 +22,7 @@ describe('reporte de excepciones de no habilitados (INCI-04)', () => {
     expect(within(reporte).getByText('Se le indicó acudir a administración')).toBeInTheDocument()
     expect(within(reporte).getByText('Aula 691A')).toBeInTheDocument()
     expect(within(reporte).getByText('Luis Paz')).toBeInTheDocument()
-    expect(within(reporte).getByText('2026-10-27 08:05')).toBeInTheDocument()
+    expect(within(reporte).getByText('27/10/2026 08:05')).toBeInTheDocument()
     expect(servicio.listarExcepcionesNoHabilitado).toHaveBeenCalledWith(20)
   })
 

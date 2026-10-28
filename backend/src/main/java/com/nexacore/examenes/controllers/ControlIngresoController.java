@@ -42,6 +42,16 @@ public class ControlIngresoController {
         return ResponseEntity.ok(service.expulsar(request, authentication));
     }
 
+    @Operation(summary = "Anular una expulsión registrada por error",
+               description = "No se borra: queda en el historial como anulada, con quién, cuándo y por qué.")
+    @PreAuthorize("@examenAccesoService.puedeExpulsar(#idExamen, authentication)")
+    @PostMapping("/examen/{idExamen}/expulsiones/{idExpulsion}/anular")
+    public ResponseEntity<ExpulsionResponse> anularExpulsion(
+            @PathVariable Integer idExamen, @PathVariable Integer idExpulsion,
+            @Valid @RequestBody com.nexacore.examenes.dto.AnularExpulsionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(service.anularExpulsion(idExamen, idExpulsion, request.motivo(), authentication));
+    }
+
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
     @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping("/autorizar")

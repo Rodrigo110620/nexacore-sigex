@@ -101,7 +101,7 @@ describe('ControlInicioPage', () => {
     expect(within(fila('Física I')).getAllByText('Lab 115 · 14:00 - 16:00')).toHaveLength(2)
     expect(within(fila('Biología')).getByText('Finalizado')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Fecha:'), { target: { value: '2026-10-16' } })
+    fireEvent.change(screen.getByLabelText('Fecha de los exámenes'), { target: { value: '16102026' } })
     expect(grupos()).toEqual(['Exámenes próximos'])
     expect(within(fila('Álgebra')).getByText('Programado')).not.toHaveClass('text-[#B45309]')
     expect(within(delDia()).getByText('1 evaluación restante')).toBeInTheDocument()

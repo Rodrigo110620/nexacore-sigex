@@ -3,7 +3,7 @@ import { Check, ChevronDown, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
-import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 
@@ -107,7 +107,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   const submit = async () => {
     const next: Record<string, string> = {}
-    const sisErr = validateCodigoSis(form.codigoSis)
+    const sisErr = validateCodigoSis(form.codigoSis) || validateSisDistintoDeCi(form.codigoSis, form.ci)
     if (sisErr) next.codigoSis = sisErr
     if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'
     if (!form.idCarrera) next.idCarrera = 'Selecciona una carrera.'

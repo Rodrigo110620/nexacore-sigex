@@ -36,6 +36,14 @@ public final class ExpulsionValidaciones {
                 motivo, "El motivo de expulsión", 1, ExpulsarEstudianteRequest.MOTIVO_MAX);
     }
 
+    /** Motivo de la anulación (expulsión registrada por error): obligatorio, de 10 a 200 caracteres. */
+    public static String motivoAnulacion(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("Indica por qué se anula la expulsión");
+        }
+        return ValidacionTextoLibre.validarOpcional(motivo, "El motivo de la anulación", 10, 200);
+    }
+
     public static void asistencia(ExpulsarEstudianteRequest request, AsistenciaExamen asistencia) {
         if (asistencia == null || asistencia.getId() == null
                 || !Objects.equals(request.idEstudiante(), asistencia.getId().getIdEstudiante())

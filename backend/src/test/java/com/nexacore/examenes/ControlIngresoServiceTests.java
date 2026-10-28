@@ -776,7 +776,7 @@ class ControlIngresoServiceTests {
             return expulsion;
         });
         when(expulsiones.fechaHoraRegistrada(99)).thenReturn(fecha);
-        assertEquals(new ExpulsionResponse(99, 10, 20, "Uso de celular", 7, "Carla Control", fecha),
+        assertEquals(new ExpulsionResponse(99, 10, 20, "Uso de celular", 7, "Carla Control", fecha, "Laura Paredes", "20261234"),
                 service.expulsar(request, admin));
         verify(expulsiones).saveAndFlush(argThat(e -> e.getIdEstudiante() == 10 && e.getIdExamen() == 20
                 && e.getIdUsuarioResponsable() == 7 && e.getMotivo().equals("Uso de celular")));

@@ -106,6 +106,7 @@ public class EstudianteService {
         String codigoSis = limpiar(request.codigoSis());
         String ci = limpiar(request.ci());
         String email = limpiar(request.email()).toLowerCase();
+        com.nexacore.examenes.dto.ReglasEstudiante.validarSisDistintoDeCi(codigoSis, ci);
 
         // BUG-A03: Validar duplicados en ESTUDIANTES
         if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
@@ -199,6 +200,7 @@ public class EstudianteService {
         String nuevoCodigo = limpiar(request.codigoSis());
         String nuevoCi = limpiar(request.ci());
         String nuevoEmail = limpiar(request.email()).toLowerCase();
+        com.nexacore.examenes.dto.ReglasEstudiante.validarSisDistintoDeCi(nuevoCodigo, nuevoCi);
 
         // Validar duplicados en ESTUDIANTES
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)

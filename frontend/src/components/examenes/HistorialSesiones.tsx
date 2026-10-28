@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, History } from 'lucide-react'
 import { listarSesionesExamen, type SesionExamen } from '../../services/examenService'
 import { formatFecha, horaCorta } from '../../utils/examenFormat'
+import { fechaHoraNumerica } from '../../utils/examenFormat'
 
 interface Props {
   idExamen: number
@@ -10,8 +11,7 @@ interface Props {
   recarga?: number
 }
 
-const fechaHora = (iso: string) =>
-  new Date(iso).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })
+const fechaHora = (iso: string) => fechaHoraNumerica(iso)
 
 /** Sesiones anteriores de un examen reprogramado. No muestra nada si nunca se reprogramó. */
 export default function HistorialSesiones({ idExamen, idParalelo, recarga = 0 }: Props) {

@@ -34,14 +34,11 @@ import {
 import useEnVivo from "../../hooks/useEnVivo";
 import ExpulsionesReporte from "../../components/control/ExpulsionesReporte";
 import ExcepcionesNoHabilitadoReporte from "../../components/control/ExcepcionesNoHabilitadoReporte";
+import { fechaHoraNumerica, formatFecha } from "../../utils/examenFormat";
 
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
-const fechaHora = (valor: string) =>
-  new Date(valor).toLocaleString("es-BO", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+const fechaHora = (valor: string) => fechaHoraNumerica(valor);
 
 export default function InformacionIngresoPage() {
   const idExamen = Number(useParams().idExamen);
@@ -178,7 +175,7 @@ export default function InformacionIngresoPage() {
               </h1>
               <p className="mt-1 text-xs text-[#627A9B]">
                 {examen
-                  ? `${examen.fecha} · ${examen.horaInicio} · ${examen.asignatura} · ${examen.ambienteNombre}${examen.docente ? ` · Docente: ${examen.docente}` : ""}`
+                  ? `${formatFecha(examen.fecha)} · ${examen.horaInicio.slice(0, 5)} · ${examen.asignatura} · ${examen.ambienteNombre}${examen.docente ? ` · Docente: ${examen.docente}` : ""}`
                   : "Registros de control e intentos de ingreso del examen."}
               </p>
             </div>
