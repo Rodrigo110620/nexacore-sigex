@@ -18,7 +18,7 @@ public class ExpulsionConsultaController {
     private final ExpulsionConsultaService service;
 
     @GetMapping("/examen/{idExamen}/expulsiones")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerReportes(#idExamen, authentication)")
     public List<ExpulsionResponse> listar(@PathVariable Integer idExamen) {
         return service.listar(idExamen);
     }

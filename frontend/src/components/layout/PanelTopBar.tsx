@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, BarChart3 } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, BarChart3, Settings } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
+import { tienePermiso } from '../../utils/permisos'
 
 function getInitials(nombre: string | null): string {
   if (!nombre?.trim()) return 'U'
@@ -29,26 +30,32 @@ export default function PanelTopBar({
   locationLabel,
   variant = 'default',
 }: PanelTopBarProps) {
-  const { nombre, roles, logout } = useAuth()
+  const auth = useAuth()
+  const { nombre, roles, logout } = auth
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const isExamenes = pathname.startsWith('/dashboard/examenes')
   const isEstudiantes = pathname.startsWith('/dashboard/estudiantes')
   const isReportes = pathname.startsWith('/dashboard/reportes')
+  const isConfiguracion = pathname.startsWith('/dashboard/configuracion')
   const pageTitle = isExamenes
     ? 'GESTIÓN DE EXÁMENES'
     : isEstudiantes
       ? 'GESTIÓN DE ESTUDIANTES'
       : isReportes
         ? 'REPORTES'
-        : 'GESTIÓN DE USUARIOS'
+        : isConfiguracion
+          ? 'CONFIGURACIÓN'
+          : 'GESTIÓN DE USUARIOS'
   const pageSubtitle = isExamenes
     ? 'Administra los exámenes programados y su habilitación.'
     : isEstudiantes
       ? 'Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados.'
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
-        : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
+        : isConfiguracion
+          ? 'Roles del sistema y roles extra con sus permisos.'
+          : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
   const minimalControlHeader = variant === 'controlMinimal'
@@ -113,6 +120,10 @@ export default function PanelTopBar({
               <span className={ICON_TILE}>
                 <BarChart3 size={24} aria-hidden="true" />
               </span>
+            ) : isConfiguracion ? (
+              <span className={ICON_TILE}>
+                <Settings size={24} aria-hidden="true" />
+              </span>
             ) : (
               <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
             )}
@@ -124,7 +135,7 @@ export default function PanelTopBar({
         </div>
 
         <div className="relative flex shrink-0 items-center gap-2" ref={menuRef}>
-          {roles.some((r) => r === 'ADMIN' || r === 'DOCENTE' || r === 'CONTROL') && (
+          {tienePermiso(auth, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'NOTIFICACIONES_TODAS') && (
             <CampanaNotificaciones roles={roles} compacta={minimalControlHeader} />
           )}
           <button
@@ -181,6 +192,17 @@ export default function PanelTopBar({
                 <UserRound size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
                 <span className="truncate">Mi perfil</span>
               </Link>
+              {tienePermiso(auth, 'ROLES_GESTIONAR') && (
+                <Link
+                  role="menuitem"
+                  to="/dashboard/configuracion"
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-11 w-full items-center gap-2.5 px-3 text-sm font-medium text-[#011140] hover:bg-[#F1F6FF] focus-visible:bg-[#F1F6FF] focus-visible:outline-none"
+                >
+                  <Settings size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                  <span className="truncate">Configuración</span>
+                </Link>
+              )}
               <button
                 type="button"
                 role="menuitem"

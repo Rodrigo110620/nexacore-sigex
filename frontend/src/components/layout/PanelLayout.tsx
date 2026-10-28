@@ -23,7 +23,7 @@ export default function PanelLayout({
   locationLabel,
   topBarVariant = 'default',
 }: PanelLayoutProps) {
-  const { logout, roles } = useAuth()
+  const { logout, roles, permisos } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -31,7 +31,7 @@ export default function PanelLayout({
     navigate('/login', { replace: true })
   }
 
-  const navItems = navItemsFor(roles)
+  const navItems = navItemsFor(roles, permisos)
 
   return (
     <div className="flex h-dvh overflow-hidden">

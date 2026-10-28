@@ -7,4 +7,6 @@ export interface AuthResponse {
   token: string
   nombre: string
   roles: string[]
+  /** Permisos según sus roles (ver utils/permisos.ts). */
+  permisos?: string[]
 }

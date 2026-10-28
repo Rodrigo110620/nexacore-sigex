@@ -54,6 +54,7 @@ import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './Estudiante
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import FechaInput from './FechaInput'
+import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
 
 interface EditExamenModalProps {
   isOpen: boolean
@@ -88,10 +89,10 @@ function calcHoraFin(horaInicio: string, duracionMinutos: number): string {
 
 export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: EditExamenModalProps) {
   // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
-  const { roles: rolesSesion } = useAuth()
-  const esAdmin = rolesSesion.includes('ADMIN')
+  const auth = useAuth()
+  const esAdmin = tienePermiso(auth, 'AMBIENTES_GESTIONAR')
   // Como al crear: el DOCENTE edita su examen, pero no se lo puede pasar a otro docente.
-  const esSoloDocente = rolesSesion.includes('DOCENTE') && !esAdmin
+  const esSoloDocente = gestionaSoloPropios(auth)
   const [form, setForm] = useState<RegisterExamenFormState>({
     asignatura: '',
     docente: '',

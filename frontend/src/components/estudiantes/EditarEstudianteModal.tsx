@@ -30,6 +30,7 @@ import {
     validateNombre,
     validateTelefono,
 } from '../../utils/validators'
+import { tienePermiso } from '../../utils/permisos'
 
 interface Props {
     open: boolean
@@ -83,7 +84,7 @@ function FieldError({ children }: { children?: string }) {
 
 export default function EditarEstudianteModal({ open, estudianteId, onClose, onSaved }: Props) {
     // La foto subida aquí queda oficial sin revisión: solo el ADMIN la cambia o la quita.
-    const { isAdmin } = useAuth()
+    const isAdmin = tienePermiso(useAuth(), 'FOTOS_REVISAR')
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [success, setSuccess] = useState(false)

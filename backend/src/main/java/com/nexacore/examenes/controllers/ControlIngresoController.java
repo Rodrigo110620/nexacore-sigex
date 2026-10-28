@@ -101,7 +101,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Listar tipos de incidencia", description = "Devuelve el catálogo disponible para registrar incidencias durante el control.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL', 'DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')")
     @GetMapping("/tipos-incidencia")
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());
@@ -121,7 +121,7 @@ public class ControlIngresoController {
 
     @Operation(summary = "Reporte de excepciones de no habilitado",
                description = "Excepciones registradas en la sesión actual del examen, de la más reciente a la más antigua.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerReportes(#idExamen, authentication)")
     @GetMapping("/examen/{idExamen}/excepciones-no-habilitado")
     public ResponseEntity<List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse>> listarExcepciones(
             @PathVariable Integer idExamen) {

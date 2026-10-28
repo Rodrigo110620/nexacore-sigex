@@ -1,7 +1,6 @@
 package com.nexacore.examenes.security;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /** Consultas sobre el usuario autenticado en la petición actual. */
@@ -17,23 +16,17 @@ public final class SesionActual {
     }
 
     /**
-     * true si el usuario es DOCENTE sin ser ADMIN ni CONTROL: solo puede ver los
-     * exámenes que tiene asignados.
+     * true si solo ve los exámenes que tiene asignados como docente (EXAMENES_VER_PROPIOS sin poder ver
+     * todos). El DOCENTE, sí; quien además es ADMIN o CONTROL, no.
      */
     public static boolean esSoloDocente() {
-        return tieneRol("ROLE_DOCENTE") && !tieneRol("ROLE_ADMIN") && !tieneRol("ROLE_CONTROL");
+        return Permisos.tiene(Permiso.EXAMENES_VER_PROPIOS)
+                && !Permisos.tiene(Permiso.EXAMENES_VER_TODOS) && !Permisos.tiene(Permiso.REPORTES_VER);
     }
 
-    private static boolean tieneRol(String rol) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
-            return false;
-        }
-        for (GrantedAuthority authority : auth.getAuthorities()) {
-            if (rol.equals(authority.getAuthority())) {
-                return true;
-            }
-        }
-        return false;
+    /** true si solo gestiona sus propios exámenes (no puede crearlos ni pasarlos a nombre de otro docente). */
+    public static boolean gestionaSoloPropios() {
+        return Permisos.tiene(Permiso.EXAMENES_GESTIONAR_PROPIOS) && !Permisos.tiene(Permiso.EXAMENES_GESTIONAR_TODOS);
     }
+
 }

@@ -19,6 +19,7 @@ import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
 import ReportesPage from '../pages/panel_admin/ReportesPage'
+import ConfiguracionPage from '../pages/panel_admin/ConfiguracionPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
 import ExamenDetallePage from '../pages/Examenes/ExamenDetallePage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
@@ -32,6 +33,7 @@ import RevisionFotosPage from '../pages/panel_admin/RevisionFotosPage'
 import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
 import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
+import { tienePermiso } from '../utils/permisos'
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth()
@@ -49,9 +51,14 @@ function NavigateRegistrar() {
 
 /** Cada rol tiene un inicio adaptado a su tarea principal. */
 function InicioRoute() {
-  const { roles } = useAuth()
+  const auth = useAuth()
+  const { roles } = auth
   if (roles.includes('CONTROL')) return <ControlInicioPage />
   if (roles.includes('DOCENTE')) return <InicioDocentePage />
+  if (roles.includes('ADMIN')) return <InicioEnDesarrollo />
+  // Rol extra: según su tarea principal (controlar todos los exámenes o los propios como docente).
+  if (tienePermiso(auth, 'CONTROL_INGRESO_TODOS')) return <ControlInicioPage />
+  if (tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS', 'CONTROL_INGRESO_PROPIOS')) return <InicioDocentePage />
   return <InicioEnDesarrollo />
 }
 
@@ -137,8 +144,18 @@ export default function AppRouter() {
         <Route
           path="/dashboard/reportes"
           element={
-            <AdminRoute>
+            <AdminRoute permiso="REPORTES_VER">
               <ReportesPage />
+            </AdminRoute>
+          }
+        />
+
+        {/* Configuración: roles y permisos (ROLES_GESTIONAR, solo el ADMIN) */}
+        <Route
+          path="/dashboard/configuracion"
+          element={
+            <AdminRoute permiso="ROLES_GESTIONAR">
+              <ConfiguracionPage />
             </AdminRoute>
           }
         />
@@ -165,7 +182,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard/estudiantes/fotos"
           element={
-            <AdminRoute>
+            <AdminRoute permiso="FOTOS_REVISAR">
               <RevisionFotosPage />
             </AdminRoute>
           }

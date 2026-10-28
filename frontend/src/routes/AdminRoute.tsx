@@ -1,20 +1,20 @@
 import { Navigate } from 'react-router-dom'
 import { ReactNode } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { tienePermiso, type Permiso } from '../utils/permisos'
 
 /**
- * Envuelve rutas exclusivas de ADMIN.
- * Sin sesión → /login
- * Con sesión pero sin rol ADMIN → /dashboard
+ * Envuelve rutas del personal que piden un permiso (por defecto, gestionar usuarios: el ADMIN).
+ * Sin sesión → /login · Sin el permiso → /dashboard
  */
-export default function AdminRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isAdmin } = useAuth()
+export default function AdminRoute({ children, permiso = 'USUARIOS_GESTIONAR' }: { children: ReactNode; permiso?: Permiso }) {
+  const auth = useAuth()
 
-  if (!isAuthenticated) {
+  if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
-  if (!isAdmin) {
+  if (!tienePermiso(auth, permiso)) {
     return <Navigate to="/dashboard" replace />
   }
 

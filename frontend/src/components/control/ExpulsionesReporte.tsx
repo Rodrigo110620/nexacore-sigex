@@ -6,6 +6,7 @@ import useEnVivo from '../../hooks/useEnVivo'
 import { useAuth } from '../../context/AuthContext'
 import { validarTextoLibre } from '../../utils/textoLibreValidators'
 import RegistroExpulsion from './RegistroExpulsion'
+import { tienePermiso } from '../../utils/permisos'
 
 const MOTIVO_ANULACION = { campo: 'El motivo de la anulación', min: 10, max: 200 }
 
@@ -73,8 +74,8 @@ interface Props {
 
 export default function ExpulsionesReporte({ idExamen, examen, controles }: Props) {
   // Anulan los mismos que pueden expulsar: ADMIN o el docente del examen (el servidor lo verifica).
-  const { roles } = useAuth()
-  const puedeAnular = roles.includes('ADMIN') || roles.includes('DOCENTE')
+  const auth = useAuth()
+  const puedeAnular = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const [recarga, setRecarga] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExpulsionResponse[]; error?: string }>()
   const clave = `${idExamen}|${recarga}`

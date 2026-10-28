@@ -37,14 +37,14 @@ public class AmbienteController {
     }
 
     @Operation(summary = "Listar ambientes", description = "Catálogo ordenado por nombre. ADMIN o DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @GetMapping
     public ResponseEntity<List<AmbienteResponse>> listar() {
         return ResponseEntity.ok(ambienteService.listar());
     }
 
     @Operation(summary = "Crear ambiente", description = "Alta de aula/ambiente. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'AMBIENTES_GESTIONAR')")
     @PostMapping
     public ResponseEntity<AmbienteResponse> crear(@Valid @RequestBody CrearAmbienteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ambienteService.crear(request));
@@ -52,7 +52,7 @@ public class AmbienteController {
 
     @Operation(summary = "Registrar el aforo de un ambiente",
             description = "Necesario para repartir a los estudiantes de un examen en varias aulas. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'AMBIENTES_GESTIONAR')")
     @PatchMapping("/{id}/aforo")
     public ResponseEntity<AmbienteResponse> actualizarAforo(
             @PathVariable Integer id, @Valid @RequestBody ActualizarAforoRequest request) {
@@ -61,7 +61,7 @@ public class AmbienteController {
 
     @Operation(summary = "Disponibilidad de ambientes",
                description = "Devuelve todos los ambientes con disponible=true/false para la fecha y horario indicados. Excluye el examen con idExamenExcluido si se edita.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @GetMapping("/disponibilidad")
     public ResponseEntity<List<AmbienteDisponibilidadResponse>> disponibilidad(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,

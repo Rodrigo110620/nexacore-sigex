@@ -13,11 +13,11 @@ const GRID_COLS: Record<number, string> = {
 }
 
 export default function MobileBottomNav({ variant = 'default' }: { variant?: 'default' | 'controlHome' | 'controlDetail' }) {
-  const { roles } = useAuth()
+  const { roles, permisos } = useAuth()
   // El flujo de Control conserva la misma navegación global que el resto del panel.
   // `variant` se mantiene por compatibilidad con las páginas que ya lo usan.
   void variant
-  const items = navItemsFor(roles)
+  const items = navItemsFor(roles, permisos).filter((item) => !item.soloEscritorio)
 
   return (
     <nav

@@ -340,10 +340,9 @@ public class NotificacionService {
                 .orElseThrow(() -> new AccessDeniedException("Sesión no válida"));
     }
 
-    /** ADMIN y CONTROL ven todos los reportes; el DOCENTE solo los de sus exámenes. */
+    /** Con NOTIFICACIONES_TODAS (ADMIN y CONTROL) ve los avisos de todos los exámenes; si no, solo de los suyos. */
     private static boolean veTodo(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_CONTROL".equals(a.getAuthority()));
+        return com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.NOTIFICACIONES_TODAS);
     }
 
     private static NotificacionResponse respuesta(Notificacion n, boolean leida) {

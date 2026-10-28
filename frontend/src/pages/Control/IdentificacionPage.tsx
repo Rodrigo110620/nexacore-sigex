@@ -16,6 +16,7 @@ import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
 import { identificarEstudiante, type EstudianteIdentificado } from '../../services/identificacionService'
 import { isNetworkError, isOffline } from '../../utils/examFormUtils'
+import { tienePermiso } from '../../utils/permisos'
 
 const SIN_CONEXION_VERIFICAR =
   'Sin conexión a Internet: no se pudo verificar la habilitación del estudiante. No se confirma ningún estado; vuelve a presionar Continuar cuando recuperes la conexión.'
@@ -24,9 +25,9 @@ const SIN_CONEXION_CONTINUAR =
 
 /** Control de ingreso: identificar al estudiante por código universitario, CI o QR dentro de un examen. */
 export default function IdentificacionPage() {
-  const { roles } = useAuth()
+  const auth = useAuth()
   const navigate = useNavigate()
-  const puedeContinuar = roles.some((role) => role === 'ADMIN' || role === 'CONTROL' || role === 'DOCENTE')
+  const puedeContinuar = tienePermiso(auth, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
