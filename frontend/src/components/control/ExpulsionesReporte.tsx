@@ -29,10 +29,12 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
   const actual = resultado?.clave === clave ? resultado : undefined
   // Nombre y código SIS desde los registros del control; sin ellos se muestra el identificador real.
   const nombres = new Map(controles.filter((r) => r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
-  const titulo = (idEstudiante: number) => {
-    const r = nombres.get(idEstudiante)
-    if (!r?.estudiante) return `Estudiante #${idEstudiante}`
-    return r.codigoSis ? `${r.estudiante} · SIS ${r.codigoSis}` : r.estudiante
+  const titulo = (e: ExpulsionResponse) => {
+    const r = nombres.get(e.idEstudiante)
+    const nombre = e.estudiante || r?.estudiante
+    const sis = e.codigoSis || r?.codigoSis
+    if (!nombre) return `Estudiante #${e.idEstudiante}`
+    return sis ? `${nombre} · SIS ${sis}` : nombre
   }
   return (
     <section aria-label="Expulsiones de la sesión actual" className="my-4 rounded-xl border border-[#D8E3F5] p-3">
@@ -52,7 +54,7 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
           {actual.registros.map((registro) => (
             <li key={registro.idExpulsion} className="rounded-lg border border-[#F1C4C9] bg-[#FFF8F8] p-3">
               <h4 className="text-sm font-semibold text-[#011140]">
-                {titulo(registro.idEstudiante)}
+                {titulo(registro)}
               </h4>
               <p className="mt-1 text-xs text-[#627A9B]">{examen ?? `Examen #${registro.idExamen}`}</p>
               <RegistroExpulsion registro={registro} />

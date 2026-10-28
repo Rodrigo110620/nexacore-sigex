@@ -38,6 +38,7 @@ class ExpulsionConsultaTests {
     @MockitoBean UsuarioRepository usuarios;
     @MockitoBean ExamenRepository examenes;
     @MockitoBean SesionExamenService sesiones;
+    @MockitoBean com.nexacore.examenes.repositories.EstudianteRepository estudiantes;
     private final LocalDateTime fecha = LocalDateTime.of(2026, 10, 24, 14, 0);
 
     @BeforeEach
@@ -50,6 +51,12 @@ class ExpulsionConsultaTests {
         when(usuarios.findByEmail("docente@sigex.test")).thenReturn(Optional.of(responsable));
         when(sesiones.ultimoCierre(20)).thenReturn(fecha.minusDays(1));
         when(expulsiones.deSesionActual(20, fecha.minusDays(1))).thenReturn(List.of(registro(90, 10), registro(91, 11)));
+        var luis = new com.nexacore.examenes.models.Estudiante();
+        luis.setId(10);
+        luis.setNombre("Luis");
+        luis.setApellidos("Flores");
+        luis.setCodigoSis("202104010");
+        when(estudiantes.findAllById(List.of(10, 11))).thenReturn(List.of(luis));
     }
 
     @ParameterizedTest
@@ -75,6 +82,10 @@ class ExpulsionConsultaTests {
         assertEquals(2, registros.size());
         assertEquals("Uso de celular", registros.getFirst().motivo());
         assertEquals(fecha, registros.getFirst().fechaHora());
+        // El reporte muestra el nombre y el código SIS del expulsado; sin datos, quedan vacíos.
+        assertEquals("Luis Flores", registros.getFirst().estudiante());
+        assertEquals("202104010", registros.getFirst().codigoSis());
+        org.junit.jupiter.api.Assertions.assertNull(registros.get(1).estudiante());
         when(sesiones.ultimoCierre(20)).thenReturn(fecha.plusSeconds(1));
         when(expulsiones.deSesionActual(20, fecha.plusSeconds(1))).thenReturn(List.of());
         assertTrue(service.listar(20).isEmpty());

@@ -177,7 +177,8 @@ public class ControlIngresoService {
                         + " · Registrada por " + admin.getNombre() + " " + admin.getApellidos(),
                 request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), email);
         return new ExpulsionResponse(expulsion.getId(), request.idEstudiante(), request.idExamen(), motivo,
-                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora);
+                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora,
+                (expulsado.getNombre() + " " + expulsado.getApellidos()).trim(), expulsado.getCodigoSis());
     }
 
     @Transactional

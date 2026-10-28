@@ -8,6 +8,9 @@ export interface ExpulsionResponse {
   idResponsable: number
   responsable: string
   fechaHora: string
+  /** Nombre completo y código SIS del expulsado (los manda el servidor). */
+  estudiante?: string | null
+  codigoSis?: string | null
 }
 
 export function esExpulsionConfirmada(data: unknown): data is ExpulsionResponse {

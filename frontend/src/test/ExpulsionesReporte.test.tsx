@@ -108,3 +108,10 @@ it('ignora una respuesta pendiente de otro examen al cambiar de contexto', async
   expect(screen.queryByText('Estudiante #24')).not.toBeInTheDocument()
   expect(listarExpulsionesExamen).toHaveBeenLastCalledWith(8)
 })
+
+it('muestra el nombre y el código SIS que manda el servidor aunque no esté en los registros del control', async () => {
+  vi.mocked(listarExpulsionesExamen).mockResolvedValue([{ ...expulsion, estudiante: 'Marco Rocha Paz', codigoSis: '202101987' }])
+  render(<ExpulsionesReporte idExamen={7} examen="Redes de Computadoras · 28/10/2026 · 15:25" controles={[]} />)
+  expect(await screen.findByRole('heading', { name: 'Marco Rocha Paz · SIS 202101987' })).toBeInTheDocument()
+  expect(screen.getByText('Redes de Computadoras · 28/10/2026 · 15:25')).toBeInTheDocument()
+})
