@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -30,6 +30,16 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const asignables = catalogo.filter((p) => !p.soloAdmin)
+  const seccion = useRef<HTMLElement>(null)
+
+  // Al abrirse, se muestra y enfoca en su lugar (dentro de la tarjeta del rol que se edita).
+  useEffect(() => {
+    const el = seccion.current
+    if (!el) return
+    const suave = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView?.({ behavior: suave ? 'smooth' : 'auto', block: 'start' })
+    el.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus({ preventScroll: true })
+  }, [])
 
   const alternar = (codigo: string) => setElegidos((prev) => {
     const nuevo = new Set(prev)
@@ -58,7 +68,8 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
   }
 
   return (
-    <section aria-label={rol ? `Editar el rol ${rol.nombre}` : 'Nuevo rol'} className="rounded-xl border border-[#B8CBEF] bg-white p-4 sm:p-5">
+    <section ref={seccion} aria-label={rol ? `Editar el rol ${rol.nombre}` : 'Nuevo rol'}
+      className="scroll-mt-4 rounded-xl border border-[#B8CBEF] bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-bold text-[#011140]">{rol ? `Editar ${rol.nombre}` : 'Nuevo rol'}</h2>
         <button type="button" onClick={onCancelar} aria-label="Cerrar formulario" className="rounded-full p-1.5 text-[#627A9B] hover:bg-[#F1F6FF]"><X size={16} /></button>
@@ -68,13 +79,13 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
           Nombre del rol
           <input value={nombre} disabled={!!rol} maxLength={30} placeholder="Ej.: AUXILIAR"
             onChange={(e) => { setNombre(e.target.value.toUpperCase().replace(/[^A-Z_]/g, '')); setError('') }}
-            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm uppercase text-[#011140] disabled:bg-[#F1F5F9]" />
+            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/20 uppercase text-[#011140] disabled:bg-[#F1F5F9]" />
         </label>
         <label className="text-xs font-semibold text-[#011140]">
           Descripción
           <input value={descripcion} maxLength={200} placeholder="Ej.: apoya al control en la puerta del aula"
             onChange={(e) => { setDescripcion(e.target.value); setError('') }}
-            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm text-[#011140]" />
+            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/20 text-[#011140]" />
         </label>
       </div>
       <fieldset className="mt-4">
@@ -123,6 +134,8 @@ export default function ConfiguracionPage() {
   const [recarga, setRecarga] = useState(0)
   const [editando, setEditando] = useState<RolConPermisos | 'nuevo' | null>(null)
   const [aviso, setAviso] = useState('')
+  // Tras editar, el aviso "guardado" se muestra en la tarjeta del rol (ahí está mirando el admin).
+  const [guardadoId, setGuardadoId] = useState<number | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -168,11 +181,10 @@ export default function ConfiguracionPage() {
             </div>
 
             {aviso && <p role="status" className="mt-3 rounded-lg bg-[#EEF3FF] p-3 text-sm text-[#334E7A]">{aviso}</p>}
-            {editando !== null && (
+            {editando === 'nuevo' && (
               <div className="mt-4">
-                <FormularioRol key={editando === 'nuevo' ? 'nuevo' : editando.id} rol={editando === 'nuevo' ? null : editando}
-                  catalogo={catalogo} onCancelar={() => setEditando(null)}
-                  onGuardado={() => { setAviso(editando === 'nuevo' ? 'Rol creado. Ya puedes asignarlo en Usuarios.' : 'Cambios guardados.'); setEditando(null); setRecarga((n) => n + 1) }} />
+                <FormularioRol key="nuevo" rol={null} catalogo={catalogo} onCancelar={() => setEditando(null)}
+                  onGuardado={() => { setAviso('Rol creado. Ya puedes asignarlo en Usuarios.'); setEditando(null); setRecarga((n) => n + 1) }} />
               </div>
             )}
 
@@ -180,7 +192,12 @@ export default function ConfiguracionPage() {
             {!roles && !error && <p role="status" className="mt-4 text-sm text-[#627A9B]">Cargando roles…</p>}
             {roles && (
               <ul className="mt-4 grid gap-3 lg:grid-cols-2">
-                {roles.map((rol) => (
+                {roles.map((rol) => editando !== null && editando !== 'nuevo' && editando.id === rol.id ? (
+                  <li key={rol.id} className="lg:col-span-2">
+                    <FormularioRol rol={rol} catalogo={catalogo} onCancelar={() => setEditando(null)}
+                      onGuardado={() => { setAviso(''); setGuardadoId(rol.id); setEditando(null); setRecarga((n) => n + 1) }} />
+                  </li>
+                ) : (
                   <li key={rol.id} className="rounded-xl border border-[#D8E3F5] bg-white p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <ShieldCheck size={18} className={rol.delSistema ? 'text-[#0439D9]' : 'text-[#15803D]'} aria-hidden="true" />
@@ -188,6 +205,9 @@ export default function ConfiguracionPage() {
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${rol.delSistema ? 'bg-[#EEF3FF] text-[#0439D9]' : 'bg-[#ECFDF3] text-[#15803D]'}`}>
                         {rol.delSistema ? 'Del sistema' : 'Rol extra'}
                       </span>
+                      {guardadoId === rol.id && (
+                        <span role="status" className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-semibold text-[#15803D]">✓ Cambios guardados</span>
+                      )}
                       <span className="ml-auto text-xs text-[#627A9B]">{rol.usuarios} {rol.usuarios === 1 ? 'usuario' : 'usuarios'}</span>
                     </div>
                     {rol.descripcion && <p className="mt-1 text-xs text-[#45628D]">{rol.descripcion}</p>}
@@ -201,7 +221,7 @@ export default function ConfiguracionPage() {
                       <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#627A9B]"><Lock size={12} aria-hidden="true" /> Rol del sistema: sus permisos no se cambian.</p>
                     ) : (
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex">
-                        <button type="button" onClick={() => { setEditando(rol); setAviso('') }}
+                        <button type="button" onClick={() => { setEditando(rol); setAviso(''); setGuardadoId(null) }}
                           className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-[#B8CBEF] px-3 text-xs font-semibold text-[#0439D9]">
                           <Pencil size={14} aria-hidden="true" /> Editar permisos
                         </button>
