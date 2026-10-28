@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
@@ -11,10 +11,10 @@ import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../..
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones'
-const PESTANAS: { id: Pestana; texto: string }[] = [
-  { id: 'intentos', texto: 'Intentos incorrectos' },
-  { id: 'expulsiones', texto: 'Expulsiones' },
-  { id: 'excepciones', texto: 'Excepciones' },
+const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
+  { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
+  { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
+  { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
 ]
 const TAMANO = 20
 
@@ -50,7 +50,7 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
   const datos = actual?.datos
 
   return (
-    <section aria-label="Intentos de ingreso incorrectos" className="rounded-xl border border-[#D8E3F5] bg-white p-4 sm:p-5">
+    <section aria-label="Intentos de ingreso incorrectos" className="rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-bold text-[#011140]">Intentos de ingreso incorrectos</h2>
         {datos && <p className="text-sm font-semibold text-[#45628D]">{datos.totalRegistros} {datos.totalRegistros === 1 ? 'intento' : 'intentos'}</p>}
@@ -75,7 +75,7 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
       )}
       {datos && datos.contenido.length > 0 && (
         <>
-          <div className="mt-4 hidden overflow-x-auto md:block">
+          <div className="mt-4 hidden overflow-x-auto xl:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wide text-[#627A9B]">
                 <tr>
@@ -106,28 +106,38 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
               </tbody>
             </table>
           </div>
-          <ul className="mt-4 space-y-3 md:hidden">
+          <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:hidden">
             {datos.contenido.map((i) => (
-              <li key={i.idIntento} className="rounded-lg border border-[#E4E9F2] p-3">
+              <li key={i.idIntento} className="rounded-xl border border-[#E4E9F2] bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-[#011140]">{quien(i)}</p>
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold text-[#011140]">{i.estudiante ?? 'No identificado'}</p>
+                    <p className="text-xs text-[#627A9B]">{i.codigoSis ? `SIS ${i.codigoSis}` : `Identificador ${i.identificador}`}</p>
+                  </div>
                   <EtiquetaTipo tipo={i.tipo} />
                 </div>
-                <p className="mt-1 text-xs text-[#627A9B]">SIS {i.codigoSis ?? i.identificador} · {examenDe(i)}</p>
-                <p className="mt-1 break-words text-xs text-[#45628D] [overflow-wrap:anywhere]">{i.motivo}</p>
-                <p className="mt-1 text-xs text-[#627A9B]">{fechaHoraNumerica(i.fechaHora, true)} · Controló: {i.personalControl}</p>
+                <p className="mt-2 break-words rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-xs text-[#334E7A] [overflow-wrap:anywhere]">{i.motivo}</p>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-[#627A9B]">Examen</dt>
+                  <dd className="min-w-0 text-right">
+                    <span className="block break-words font-medium text-[#011140]">{i.examen ?? `Examen #${i.idExamen}`}</span>
+                    <span className="text-[#627A9B]">{formatFecha(i.fechaExamen)} · {i.horaExamen?.slice(0, 5)}</span>
+                  </dd>
+                  <dt className="text-[#627A9B]">Intento</dt><dd className="text-right font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</dd>
+                  <dt className="text-[#627A9B]">Controló</dt><dd className="text-right text-[#011140]">{i.personalControl}</dd>
+                </dl>
               </li>
             ))}
           </ul>
           {datos.totalPaginas > 1 && (
-            <nav aria-label="Páginas del reporte" className="mt-4 flex items-center justify-between gap-2 text-sm">
+            <nav aria-label="Páginas del reporte" className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
               <button type="button" disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-[#D8E3F5] px-3 py-2 font-semibold text-[#0439D9] disabled:opacity-40">
+                className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-[#D8E3F5] px-3 font-semibold text-[#0439D9] disabled:opacity-40 sm:justify-self-start">
                 <ChevronLeft size={16} aria-hidden="true" /> Anterior
               </button>
-              <span className="text-[#627A9B]">Página {pagina + 1} de {datos.totalPaginas}</span>
+              <span className="whitespace-nowrap text-xs text-[#627A9B] sm:text-sm">{pagina + 1} de {datos.totalPaginas}</span>
               <button type="button" disabled={pagina + 1 >= datos.totalPaginas} onClick={() => setPagina((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-[#D8E3F5] px-3 py-2 font-semibold text-[#0439D9] disabled:opacity-40">
+                className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-[#D8E3F5] px-3 font-semibold text-[#0439D9] disabled:opacity-40 sm:justify-self-end">
                 Siguiente <ChevronRight size={16} aria-hidden="true" />
               </button>
             </nav>
@@ -177,30 +187,31 @@ export default function ReportesPage() {
       >
         <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <BarChart3 size={22} className="text-[#0439D9]" aria-hidden="true" />
-              <h1 id="reportes-titulo" className="text-xl font-bold text-[#011140]">Reportes</h1>
-              <span className="rounded-full bg-[#EEF3FF] px-2 py-0.5 text-[11px] font-semibold text-[#0439D9]">Solo ADMIN</span>
-            </div>
+            {/* El título visible ya está en la barra superior ("REPORTES"); aquí queda para lectores de pantalla. */}
+            <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
               <label htmlFor="reportes-examen" className="text-xs font-semibold text-[#011140]">Examen</label>
               <select
                 id="reportes-examen"
                 value={idExamen ?? ''}
                 onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
-                className="h-10 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:max-w-md"
+                className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
               >
                 <option value="">Todos los exámenes</option>
                 {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
               </select>
             </div>
 
-            <div role="tablist" aria-label="Tipo de reporte" className="mt-4 flex gap-5 overflow-x-auto border-b border-[#D8E3F5]">
+            {/* En el celular: control segmentado de 3, con áreas táctiles de 44 px; en pantallas anchas, pestañas. */}
+            <div role="tablist" aria-label="Tipo de reporte"
+              className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
-                <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}
-                  className={`shrink-0 border-b-2 pb-2.5 text-sm ${pestana === p.id ? 'border-[#0439D9] font-semibold text-[#0439D9]' : 'border-transparent font-medium text-[#627A9B]'}`}>
-                  {p.texto}
+                <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} aria-label={p.texto} onClick={() => setPestana(p.id)}
+                  className={`min-h-11 rounded-lg px-1 text-[13px] transition-colors sm:min-h-0 sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
+                    ? 'bg-white font-semibold text-[#0439D9] shadow-sm sm:border-[#0439D9] sm:bg-transparent sm:shadow-none'
+                    : 'font-medium text-[#627A9B] sm:border-transparent'}`}>
+                  <span className="sm:hidden">{p.corto}</span><span className="hidden sm:inline">{p.texto}</span>
                 </button>
               ))}
             </div>

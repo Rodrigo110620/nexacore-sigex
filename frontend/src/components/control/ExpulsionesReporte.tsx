@@ -36,7 +36,7 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
   if (!abierto) {
     return (
       <button type="button" onClick={() => setAbierto(true)}
-        className="mt-2 rounded-lg border border-[#B8CBEF] bg-white px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
+        className="mt-2 min-h-10 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] sm:w-auto">
         Anular expulsión
       </button>
     )
@@ -52,12 +52,12 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
         onChange={(e) => { setMotivo(e.target.value); setError('') }} placeholder="Ej.: error del control, era otro estudiante"
         className="mt-1 w-full rounded-lg border border-[#B8CBEF] px-3 py-2 text-sm text-[#011140]" />
       {error && <p role="alert" className="mt-1 text-xs text-[#B91C1C]">{error}</p>}
-      <div className="mt-2 flex justify-end gap-2">
-        <button type="button" onClick={() => { setAbierto(false); setMotivo(''); setError('') }} className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-[#45628D]">
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+        <button type="button" onClick={() => { setAbierto(false); setMotivo(''); setError('') }} className="min-h-10 rounded-lg border px-3 text-xs font-semibold text-[#45628D]">
           Cancelar
         </button>
         <button type="button" disabled={guardando} onClick={() => void enviar()}
-          className="rounded-lg bg-[#0439D9] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+          className="min-h-10 rounded-lg bg-[#0439D9] px-3 text-xs font-semibold text-white disabled:opacity-50">
           {guardando ? 'Anulando…' : 'Confirmar anulación'}
         </button>
       </div>
@@ -101,7 +101,7 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
     return sis ? `${nombre} · SIS ${sis}` : nombre
   }
   return (
-    <section aria-label="Expulsiones de la sesión actual" className="my-4 rounded-xl border border-[#D8E3F5] p-3">
+    <section aria-label="Expulsiones de la sesión actual" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
       <h3 className="font-semibold text-[#B91C1C]">Expulsiones de la sesión actual ({actual?.registros?.length ?? '…'})</h3>
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando expulsiones…</p>}
       {actual?.error && (
