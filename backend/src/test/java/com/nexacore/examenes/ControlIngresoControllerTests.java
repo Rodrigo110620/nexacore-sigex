@@ -40,6 +40,51 @@ class ControlIngresoControllerTests {
     @MockitoBean
     private com.nexacore.examenes.services.ExcepcionService excepcionService;
 
+    @MockitoBean
+    private com.nexacore.examenes.repositories.UsuarioRepository usuarios;
+
+    @MockitoBean
+    private com.nexacore.examenes.repositories.ExamenRepository examenes;
+
+    @Test
+    @WithMockUser(username = "docente@sigex.test", roles = "DOCENTE")
+    void docenteControlaSuExamenSinNecesitarRolControl() throws Exception {
+        var docente = new com.nexacore.examenes.models.Usuario();
+        docente.setId(7);
+        when(usuarios.findByEmail("docente@sigex.test")).thenReturn(java.util.Optional.of(docente));
+        when(examenes.perteneceADocente(20, 7)).thenReturn(true);
+        when(service.autorizar(any(), anyString())).thenReturn(new com.nexacore.examenes.dto.AutorizarIngresoResponse(
+                true, "AUTORIZADO", null, 10, 20, "Estudiante", "202104010", "Examen", "Aula", null, "Docente", null, null, List.of(), 0));
+        for (String ruta : List.of("autorizar", "denegar")) {
+            mockMvc.perform(post("/control-ingresos/" + ruta).contentType(APPLICATION_JSON)
+                            .content("{\"idEstudiante\":10,\"idExamen\":20,\"identidadVerificada\":true,\"ingresoManual\":true,\"justificacionManual\":\"Celular apagado\"}"))
+                    .andExpect(status().isOk());
+        }
+        for (String ruta : List.of("/10/20/contexto", "/10/20", "/examen/20/registros")) {
+            mockMvc.perform(get("/control-ingresos" + ruta)).andExpect(status().isOk());
+        }
+        org.mockito.Mockito.verify(service).autorizar(any(), org.mockito.ArgumentMatchers.eq("docente@sigex.test"));
+        org.mockito.Mockito.verify(service).denegar(any(), org.mockito.ArgumentMatchers.eq("docente@sigex.test"));
+    }
+
+    @Test
+    @WithMockUser(username = "docente@sigex.test", roles = "DOCENTE")
+    void docenteNoControlaExamenAjeno() throws Exception {
+        var docente = new com.nexacore.examenes.models.Usuario();
+        docente.setId(7);
+        when(usuarios.findByEmail("docente@sigex.test")).thenReturn(java.util.Optional.of(docente));
+        when(examenes.perteneceADocente(20, 7)).thenReturn(false);
+        for (String ruta : List.of("autorizar", "denegar")) {
+            mockMvc.perform(post("/control-ingresos/" + ruta).contentType(APPLICATION_JSON)
+                            .content("{\"idEstudiante\":10,\"idExamen\":20,\"identidadVerificada\":true}"))
+                    .andExpect(status().isForbidden());
+        }
+        for (String ruta : List.of("/10/20/contexto", "/10/20", "/examen/20/registros")) {
+            mockMvc.perform(get("/control-ingresos" + ruta)).andExpect(status().isForbidden());
+        }
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
     private static final String EXCEPCION = "{\"idEstudiante\":10,\"idExamen\":20,\"idAmbiente\":0,"
             + "\"motivoInhabilitacion\":\"Deuda en biblioteca\",\"accionTomada\":\"Se le indicó acudir a administración\","
             + "\"observaciones\":\"Insistió en ingresar\"}";

@@ -1,3 +1,4 @@
+import { contarLetrasJustificacion, normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -141,8 +142,9 @@ export default function ControlIngresoPage() {
   })
 
   const submit = async (denegar = false) => {
-    if (!denegar && ingresoManual && (justificacionManual.trim().length < 10 || justificacionManual.trim().length > 1000)) {
-      setError('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')
+    const errorJustificacion = validarJustificacion(justificacionManual)
+    if (!denegar && ingresoManual && errorJustificacion) {
+      setError(errorJustificacion)
       return
     }
     if (denegar && detalleError) return
@@ -189,7 +191,7 @@ export default function ControlIngresoPage() {
           descripcion: incident.trim() || types.find(t => t.id === id)?.nombre || 'Incidencia detectada',
         })),
         fechaHoraDispositivo: horaLocalDelDispositivo(),
-        ...(!denegar && ingresoManual ? { ingresoManual: true, justificacionManual: justificacionManual.trim() } : {}),
+        ...(!denegar && ingresoManual ? { ingresoManual: true, justificacionManual: normalizarJustificacion(justificacionManual) } : {}),
       }
       const response = await (denegar ? denegarIngreso(payload) : autorizarIngreso(payload))
       setResult(response)
@@ -242,8 +244,8 @@ export default function ControlIngresoPage() {
             )}
             {ingresoManual && <div className="mt-3">
               <label htmlFor="justificacion-manual" className="block text-xs font-semibold">Justificación del ingreso manual (obligatoria)</label>
-              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{setJustificacionManual(e.target.value);setError('')}} minLength={10} maxLength={1000} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado y no puede presentar su QR."/>
-              <p className="mt-1 text-xs text-[#627A9B]">Mínimo 10 caracteres. Se guardará como excepción con el usuario y la hora del servidor.</p>
+              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{setJustificacionManual(normalizarJustificacion(e.target.value));setError('')}} aria-describedby="justificacion-ayuda" aria-invalid={!!justificacionManual && !!validarJustificacion(justificacionManual)} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado"/>
+              <p id="justificacion-ayuda" className="mt-1 text-xs text-[#627A9B]">{contarLetrasJustificacion(justificacionManual)}/65 letras. Mínimo 10 caracteres; solo letras y un espacio entre palabras. Se guardará con el usuario y la hora del servidor.</p>
             </div>}
           </div>
           <div className="control-fields">

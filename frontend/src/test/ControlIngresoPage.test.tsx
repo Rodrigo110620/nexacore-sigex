@@ -10,6 +10,7 @@ vi.mock('../components/layout/PanelLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }))
 vi.mock('../services/controlIngresoService')
+vi.mock('../services/estudianteService', () => ({ descargarFotoEstudiante: vi.fn().mockResolvedValue(new Blob()) }))
 // Sin esto la página pedía el reporte de foto al servidor de verdad: la petición fallaba después de
 // terminar la prueba y a veces rompía la corrida ("window is not defined").
 vi.mock('../services/fotoRevisionService', async (original) => ({
@@ -78,11 +79,21 @@ describe('ControlIngresoPage', () => {
     fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
     expect(service.autorizarIngreso).not.toHaveBeenCalled()
-    expect(screen.getByText('La justificación del ingreso manual debe tener entre 10 y 1000 caracteres.')).toBeInTheDocument()
+    expect(screen.getByText('La justificación del ingreso manual es obligatoria.')).toBeInTheDocument()
     vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-24T12:00:00', autorizadoPor: 'Carla Control' })
-    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: 'Celular apagado, no presenta QR' } })
+    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: 'CELULAR APAGADO NO PRESENTA QR' } })
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
-    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ ingresoManual: true, justificacionManual: 'Celular apagado, no presenta QR' })))
+    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ ingresoManual: true, justificacionManual: 'Celular apagado no presenta qr' })))
+  })
+  it.each(['a'.repeat(66), '11111111111', '????????????', 'Celular  apagado', ' Celular apagado', 'Celular apagado '])('no envía una justificación inválida: %s', async texto => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: texto } })
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    expect(service.autorizarIngreso).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Justificación del ingreso manual (obligatoria)')).toHaveAttribute('aria-invalid', 'true')
   })
   beforeEach(() => {
     vi.clearAllMocks()
