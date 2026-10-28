@@ -52,7 +52,7 @@ class ControlIngresoPorLlegadaTests {
         jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", DOCENTE);
         jdbc.update("INSERT INTO paralelo (id_paralelo, id_materia, id_docente, nombre_grupo) VALUES (?, ?, ?, 'G1')",
                 PARALELO, MATERIA, DOCENTE);
-        LocalDateTime inicio = LocalDateTime.now().minusMinutes(5);
+        LocalDateTime inicio = LocalDateTime.now(java.time.ZoneId.of("America/La_Paz")).minusMinutes(5);
         jdbc.update("""
                 INSERT INTO examen (id_examen, id_paralelo, id_materia, id_docente, fecha, hora_inicio,
                                     duracion_minutos, id_ambiente, estado, modo_reparto)
