@@ -142,6 +142,22 @@ describe('IdentificacionPage', () => {
     expect(screen.getByText('María José González Flores')).toBeInTheDocument()
   })
 
+  it('DOCENTE sin rol CONTROL identifica y continúa hasta el registro de ingreso', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage(['DOCENTE'])
+    await buscarEstudiante()
+    expect(continuar()).toBeEnabled()
+    fireEvent.click(within(await abrirVerificacion()).getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
+  })
+
+  it('ESTUDIANTE no puede continuar al control de ingreso', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
+    renderPage(['ESTUDIANTE'])
+    await buscarEstudiante()
+    expect(continuar()).toBeDisabled()
+  })
+
   it('ADMIN puede identificar y continuar a ACCS-02', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage(['ADMIN'])

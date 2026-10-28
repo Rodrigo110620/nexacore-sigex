@@ -414,12 +414,12 @@ class PostgresIntegracionTests {
                 + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
-                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr");
         assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
         sincronizar();
         assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
             assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
-            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado, no presenta QR");
+            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado no presenta qr");
             assertThat(registro.usuarioControl()).isEqualTo("Luis Paz");
             assertThat(registro.estudiante()).isEqualTo("Ana Prueba");
             assertThat(registro.fechaHora()).isNotNull();
@@ -539,7 +539,7 @@ class PostgresIntegracionTests {
 
         controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
         controlIngresoService.autorizar(new com.nexacore.examenes.dto.AutorizarIngresoRequest(beto, idExamen, null, true,
-                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR"), "luis.paz@umss.edu");
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr"), "luis.paz@umss.edu");
         excepcionService.registrarExcepcion(new com.nexacore.examenes.dto.RegistrarExceptionRequest(carla, idExamen, idAmbiente,
                 "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
         sincronizar();
@@ -564,7 +564,7 @@ class PostgresIntegracionTests {
         assertThat(avisos.get(1)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
                 .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
         assertThat((String) avisos.get(1).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
-        assertThat((String) avisos.get(2).get("detalle")).contains("Celular apagado, no presenta QR");
+        assertThat((String) avisos.get(2).get("detalle")).contains("Celular apagado no presenta qr");
         assertThat((String) avisos.get(3).get("detalle")).contains("Se le permitió esperar afuera");
     }
 
