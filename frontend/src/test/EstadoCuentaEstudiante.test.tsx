@@ -23,3 +23,14 @@ describe('estado de la cuenta del estudiante', () => {
     expect(screen.getByText('Pendiente de activación')).toBeInTheDocument()
   })
 })
+
+describe('regenerar el QR', () => {
+  it('no se puede regenerar mientras el estudiante no active su cuenta', async () => {
+    const { default: FichaEstudianteModal } = await import('../components/estudiantes/FichaEstudianteModal')
+    const { rerender } = render(<FichaEstudianteModal open estudiante={estudiante(2, false)} onClose={() => {}} puedeRegenerarQr />)
+    expect(screen.getByRole('button', { name: /Regenerar QR/ })).toBeDisabled()
+    expect(screen.getByText('El QR se envía cuando el estudiante active su cuenta')).toBeInTheDocument()
+    rerender(<FichaEstudianteModal open estudiante={estudiante(1, true)} onClose={() => {}} puedeRegenerarQr />)
+    expect(screen.getByRole('button', { name: /Regenerar QR/ })).toBeEnabled()
+  })
+})

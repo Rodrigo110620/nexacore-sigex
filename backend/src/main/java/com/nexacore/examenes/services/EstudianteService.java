@@ -172,6 +172,11 @@ public class EstudianteService {
     public void regenerarYEnviarQr(Integer id) {
         Estudiante estudiante = estudianteRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con id: " + id));
+        // Sin cuenta activa no se regenera: el QR le llega recién al activar su cuenta.
+        if (estudiante.getIdUsuario() == null) {
+            throw new com.nexacore.examenes.exceptions.ControlIngresoException(org.springframework.http.HttpStatus.CONFLICT,
+                    "El estudiante aún no activó su cuenta: el QR le llegará al correo cuando la active.");
+        }
         var qr = qrEstudianteService.regenerar(estudiante);
         emailService.enviarQrEstudiante(estudiante.getEmail(), estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
     }
