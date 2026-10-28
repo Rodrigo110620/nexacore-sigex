@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { MOTIVO_RECHAZO_MAX as MOTIVO_MAX, MOTIVO_RECHAZO_MIN as MOTIVO_MIN, aOracion, validarMotivoRechazo } from '../../utils/textoFotoValidators'
 import {
   ArrowLeft,
   Check,
@@ -31,8 +32,6 @@ import {
 import { fechaCorta } from '../../utils/fechaCorta'
 import useEnVivo from '../../hooks/useEnVivo'
 
-const MOTIVO_MIN = 5
-const MOTIVO_MAX = 200
 const MOTIVOS_FRECUENTES = ['Foto borrosa', 'Rostro no visible', 'No es la misma persona', 'No es una foto de frente']
 
 const nombreDe = (s: SolicitudRevisionFoto) => `${s.nombre} ${s.apellidos}`
@@ -67,12 +66,12 @@ function RechazarFotoModal({ solicitud, saving, onCancel, onConfirm }: {
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState('')
   const enviar = () => {
-    const texto = motivo.trim()
-    if (texto.length < MOTIVO_MIN || texto.length > MOTIVO_MAX) {
-      setError(`El motivo debe tener entre ${MOTIVO_MIN} y ${MOTIVO_MAX} caracteres.`)
+    const invalido = validarMotivoRechazo(motivo)
+    if (invalido) {
+      setError(invalido)
       return
     }
-    onConfirm(texto)
+    onConfirm(aOracion(motivo))
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -110,7 +109,7 @@ function RechazarFotoModal({ solicitud, saving, onCancel, onConfirm }: {
           className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${error ? 'border-red-400' : 'border-[#B8CBEF]'}`}
         />
         <div className="mt-0.5 flex justify-between gap-2 text-[10px]">
-          <span className={error ? 'text-red-600' : 'text-gray-400'}>{error || `Entre ${MOTIVO_MIN} y ${MOTIVO_MAX} caracteres.`}</span>
+          <span className={error ? 'text-red-600' : 'text-gray-400'}>{error || `Letras, coma y punto; entre ${MOTIVO_MIN} y ${MOTIVO_MAX} caracteres.`}</span>
           <span className="shrink-0 text-gray-400">{motivo.length} / {MOTIVO_MAX}</span>
         </div>
         <p className="mt-3 text-[11px] font-semibold text-[#627A9B]">Motivos frecuentes</p>
@@ -168,7 +167,7 @@ function Detalle({ solicitud, saving, onAprobar, onRechazar, onDescartar }: {
             Reporte de control
             {solicitud.reporte.reportadoPor ? ` · ${solicitud.reporte.reportadoPor}` : ''} · {fechaCorta(solicitud.reporte.reportadoEn)}
           </p>
-          <p className="mt-0.5">
+          <p className="mt-0.5 break-words [overflow-wrap:anywhere]">
             {textoMotivoReporte(solicitud.reporte.motivo)}
             {solicitud.reporte.detalle ? `: “${solicitud.reporte.detalle}”` : '.'}
             {' '}Se le pidió al estudiante volver a escanear su rostro.

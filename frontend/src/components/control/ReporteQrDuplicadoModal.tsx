@@ -132,6 +132,11 @@ export default function ReporteQrDuplicadoModal({
       setError("Escribe nombres válidos.");
       return;
     }
+    // Ningún nombre real repite una letra 3 veces seguidas ("Aaaaaaaa" desbordaba las notificaciones).
+    if (/(\p{L})\1\1/iu.test(nombres.trim())) {
+      setError("Los nombres no pueden repetir una letra 3 veces seguidas.");
+      return;
+    }
     const ciError = sinCarnet ? "" : validateDocumento(ci);
     if (ciError) {
       setError(ciError);
