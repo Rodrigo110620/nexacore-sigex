@@ -49,7 +49,7 @@ it('incluye auditoría sin duplicados y conserva ingresos manuales y no autoriza
   const reporte = within(await abrirReporte())
   expect(await reporte.findByRole('heading', { name: /Luis Flores/ })).toBeInTheDocument()
   expect(reporte.getAllByRole('listitem')).toHaveLength(1)
-  expect(reporte.getByText('Examen #7 · Cálculo I')).toBeInTheDocument()
+  expect(reporte.getByText('Cálculo I')).toBeInTheDocument()
   fireEvent.click(reporte.getByText('Ver registro de expulsión'))
   expect(reporte.getByText('Uso de celular')).toBeVisible()
   expect(reporte.getByText('Ana Rojas')).toBeVisible()

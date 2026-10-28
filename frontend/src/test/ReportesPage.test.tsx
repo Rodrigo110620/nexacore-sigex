@@ -11,6 +11,7 @@ vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null
 vi.mock('../hooks/useEnVivo', () => ({ default: () => undefined }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn() }))
 vi.mock('../services/intentoIngresoService', () => ({ reporteIntentos: vi.fn() }))
+vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn().mockResolvedValue([]) }))
 vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Expulsiones del examen {idExamen}</p> }))
 vi.mock('../components/control/ExcepcionesNoHabilitadoReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Excepciones del examen {idExamen}</p> }))
 

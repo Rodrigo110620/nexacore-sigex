@@ -6,6 +6,7 @@ import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
 import ExcepcionesNoHabilitadoReporte from '../../components/control/ExcepcionesNoHabilitadoReporte'
 import useEnVivo from '../../hooks/useEnVivo'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
 
@@ -154,6 +155,17 @@ export default function ReportesPage() {
     return () => { vigente = false }
   }, [])
 
+  // Registros del control del examen elegido: dan el nombre y el código SIS de los expulsados.
+  const [controles, setControles] = useState<{ idExamen: number; registros: RegistroControlIngresoExamen[] }>()
+  useEffect(() => {
+    if (idExamen == null || pestana !== 'expulsiones') return
+    let vigente = true
+    listarRegistrosControlExamen(idExamen)
+      .then((registros) => { if (vigente) setControles({ idExamen, registros }) })
+      .catch(() => { if (vigente) setControles({ idExamen, registros: [] }) })
+    return () => { vigente = false }
+  }, [idExamen, pestana])
+
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
@@ -170,7 +182,6 @@ export default function ReportesPage() {
               <h1 id="reportes-titulo" className="text-xl font-bold text-[#011140]">Reportes</h1>
               <span className="rounded-full bg-[#EEF3FF] px-2 py-0.5 text-[11px] font-semibold text-[#0439D9]">Solo ADMIN</span>
             </div>
-            <p className="mt-1 text-sm text-[#627A9B]">Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.</p>
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor="reportes-examen" className="text-xs font-semibold text-[#011140]">Examen</label>
@@ -201,7 +212,8 @@ export default function ReportesPage() {
                   Elige un examen para ver sus {pestana === 'expulsiones' ? 'expulsiones' : 'excepciones de no habilitados'}.
                 </p>
               )}
-              {pestana === 'expulsiones' && idExamen != null && <ExpulsionesReporte idExamen={idExamen} examen={examen?.asignatura} controles={[]} />}
+              {pestana === 'expulsiones' && idExamen != null && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta}
+                controles={controles?.idExamen === idExamen ? controles.registros : []} />}
               {pestana === 'excepciones' && idExamen != null && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} />}
             </div>
           </div>
