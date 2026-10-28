@@ -22,8 +22,8 @@ public final class ExpulsionValidaciones {
             throw new ControlIngresoException(UNAUTHORIZED, "Se requiere una sesión autenticada");
         }
         // Que el docente sea el de ese examen lo verifica la ruta (ExamenAccesoService.puedeExpulsar).
-        boolean puede = authentication.getAuthorities().stream()
-                .anyMatch(rol -> "ROLE_ADMIN".equals(rol.getAuthority()) || "ROLE_DOCENTE".equals(rol.getAuthority()));
+        boolean puede = com.nexacore.examenes.security.Permisos.alguno(authentication,
+                com.nexacore.examenes.security.Permiso.EXPULSAR_TODOS, com.nexacore.examenes.security.Permiso.EXPULSAR_PROPIOS);
         if (!puede) throw new ControlIngresoException(FORBIDDEN, "Solo el administrador o el docente del examen puede expulsar estudiantes");
         return authentication.getName();
     }

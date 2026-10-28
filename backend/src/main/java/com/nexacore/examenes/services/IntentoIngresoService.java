@@ -64,6 +64,7 @@ public class IntentoIngresoService {
                 request.identificador().trim(), request.motivo().trim());
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
         var estudiante = estudianteRepository.findById(request.idEstudiante()).orElseThrow();
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
         notificacionService.publicar(Notificacion.INTENTO_INGRESO,
                 "Intento de ingreso incorrecto: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
                 notificacionService.materia(request.idExamen()) + " · " + request.motivo().trim()
@@ -104,6 +105,7 @@ public class IntentoIngresoService {
                 asistencia.getEstudiante().getCodigoSis(), motivo);
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
         var estudiante = asistencia.getEstudiante();
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
         notificacionService.publicar(Notificacion.AULA_INCORRECTA,
                 "Estudiante en aula incorrecta: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
                 notificacionService.materia(request.idExamen()) + " · " + motivo

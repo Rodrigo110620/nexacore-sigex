@@ -89,6 +89,7 @@ public class ReporteQrDuplicadoService {
         reporte.setDetalle(detalle.strip()); reporte.setFotoContenido(imagen); reporte.setFotoTipoContenido(foto.getContentType());
         reporte.setFechaHoraDispositivo(hora); reporte.setFechaHoraServidor(asistenciaRepository.obtenerFechaHoraServidor());
         Integer id = repository.save(reporte).getId();
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudianteQr);
         var estudiante = asistencia.getEstudiante();
         notificacionService.publicar(Notificacion.QR_DUPLICADO,
                 "QR duplicado: " + estudiante.getNombre() + " " + estudiante.getApellidos(),

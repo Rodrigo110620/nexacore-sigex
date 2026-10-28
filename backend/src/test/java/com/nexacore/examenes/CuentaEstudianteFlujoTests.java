@@ -61,6 +61,7 @@ class CuentaEstudianteFlujoTests {
 
     @Autowired MockMvc mockMvc;
     @Autowired CuentaEstudianteService cuentaService;
+    @Autowired com.nexacore.examenes.services.EstudianteService estudianteService;
     @Autowired AuthService authService;
     @Autowired UsuarioService usuarioService;
     @Autowired QrEstudianteService qrService;
@@ -117,6 +118,18 @@ class CuentaEstudianteFlujoTests {
         assertThat(e.getIdUsuario()).isNotNull();
         var login = authService.login(new LoginRequest(EMAIL, PASSWORD));
         assertThat(login.roles()).containsExactly(Rol.ESTUDIANTE);
+        // El QR le llega recién al activar su cuenta (no al registrarlo).
+        verify(emailService).enviarQrEstudiante(eq(EMAIL), anyString(), eq(SIS), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void elQrSoloSeRegeneraCuandoElEstudianteYaActivoSuCuenta() {
+        Integer id = estudianteRepository.findByCodigoSis(SIS).orElseThrow().getId();
+        assertThatThrownBy(() -> estudianteService.regenerarYEnviarQr(id)).hasMessageContaining("aún no activó su cuenta");
+        activar();
+        estudianteService.regenerarYEnviarQr(id);
+        // Uno al activar la cuenta y otro al regenerarlo.
+        verify(emailService, org.mockito.Mockito.times(2)).enviarQrEstudiante(eq(EMAIL), anyString(), eq(SIS), org.mockito.ArgumentMatchers.any());
     }
 
     @Test

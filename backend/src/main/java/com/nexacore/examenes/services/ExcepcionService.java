@@ -107,6 +107,7 @@ public class ExcepcionService {
         );
 
         // 3. Avisar a ADMIN, CONTROL y al DOCENTE del examen (como los demás reportes del control).
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, req.idExamen(), req.idEstudiante());
         notificacionService.publicar(Notificacion.EXCEPCION_NO_HABILITADO,
                 "Excepción de no habilitado: " + est.getNombre() + " " + est.getApellidos(),
                 notificacionService.materia(req.idExamen()) + " · " + detalles

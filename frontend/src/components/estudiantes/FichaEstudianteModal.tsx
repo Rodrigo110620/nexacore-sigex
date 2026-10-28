@@ -6,6 +6,7 @@ import FotoEstudiante from './FotoEstudiante'
 import { AvisoFotoReportadaDe } from './AvisoFotoReportada'
 import { etiquetaCondicion } from '../../utils/condicionEstudiante'
 import RegenerarQrModal from './RegenerarQrModal'
+import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface Props {
   open: boolean
@@ -178,6 +179,18 @@ export default function FichaEstudianteModal({ open, estudiante, onClose, puedeR
                 {estudiante.estadoMatricula === 'NO_MATRICULADO' ? 'NO MATRICULADO' : 'MATRICULADO'}
               </dd>
             </div>
+
+            <div className="mb-3 rounded-lg border border-[#E8EEF7] bg-white p-3">
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Cuenta del estudiante</dt>
+              <dd className="mt-1 text-[12px] text-[#45628D] sm:text-sm">
+                <EstadoCuentaBadge tieneCuenta={estudiante.tieneCuenta} />
+                <span className="mt-1 block">
+                  {estudiante.tieneCuenta
+                    ? 'Ya activó su cuenta: ve su QR, sus exámenes y sus normas en su portal.'
+                    : 'Aún no activó su cuenta. Le llegará su código QR al correo cuando la active.'}
+                </span>
+              </dd>
+            </div>
             
             
 
@@ -214,12 +227,18 @@ export default function FichaEstudianteModal({ open, estudiante, onClose, puedeR
             {puedeRegenerarQr && (
               <>
                 <p className="flex items-center gap-1.5 text-[11px] text-[#627A9B] sm:mr-auto">
-                  <QrCode size={14} aria-hidden="true" /> QR de ingreso enviado al correo institucional
+                  <QrCode size={14} aria-hidden="true" />
+                  {estudiante.tieneCuenta
+                    ? 'QR de ingreso enviado al correo institucional'
+                    : 'El QR se envía cuando el estudiante active su cuenta'}
                 </p>
+                {/* Sin cuenta activa no hay QR que regenerar: le llega al activarla. */}
                 <button
                   type="button"
+                  disabled={!estudiante.tieneCuenta}
+                  title={estudiante.tieneCuenta ? undefined : 'Disponible cuando el estudiante active su cuenta'}
                   onClick={() => setRegenerarAbierto(true)}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#D8E3F5] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:text-sm"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#D8E3F5] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0439D9] hover:bg-[#E9F1FF] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white sm:w-auto sm:text-sm"
                 >
                   <QrCode size={16} aria-hidden="true" /> Regenerar QR
                 </button>

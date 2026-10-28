@@ -49,6 +49,6 @@ public class CuentaEstudianteController {
     @PostMapping("/confirmar")
     public ResponseEntity<Map<String, String>> confirmar(@Valid @RequestBody ConfirmarActivacionRequest request) {
         cuentaEstudianteService.confirmarActivacion(request);
-        return ResponseEntity.ok(Map.of("mensaje", "Tu cuenta quedó activada. Ya puedes iniciar sesión."));
+        return ResponseEntity.ok(Map.of("mensaje", "Tu cuenta quedó activada. Te enviamos tu código QR a tu correo institucional. Ya puedes iniciar sesión."));
     }
 }

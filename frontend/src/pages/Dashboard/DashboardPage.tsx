@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
+import { navItemsFor } from '../../components/navigation/navItems'
 
 /**
  * /dashboard:
@@ -11,15 +12,13 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
  * - Sin rol → aviso (evita bucle con AdminRoute)
  */
 export default function DashboardPage() {
-  const { isAdmin, nombre, roles } = useAuth()
+  const { isAdmin, nombre, roles, permisos } = useAuth()
 
   if (isAdmin) {
     return <Navigate to="/dashboard/examenes" replace />
   }
-  if (roles.includes('CONTROL')) {
-    return <Navigate to="/dashboard/inicio" replace />
-  }
-  if (roles.includes('DOCENTE')) {
+  // CONTROL, DOCENTE o un rol extra con algún permiso del personal: a su inicio.
+  if (navItemsFor(roles, permisos).length > 0) {
     return <Navigate to="/dashboard/inicio" replace />
   }
 

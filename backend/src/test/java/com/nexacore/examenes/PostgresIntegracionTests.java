@@ -621,6 +621,9 @@ class PostgresIntegracionTests {
                 "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
         sincronizar();
 
+        // DASH-01: el panel del examen cuenta traslado, expulsión, ingreso manual y excepción.
+        assertThat(identificacionService.resumir(idExamen).incidencias()).isEqualTo(4);
+
         // INCI-04: el reporte de excepciones del examen, con nombres y la sesión actual.
         assertThat(excepcionService.listar(idExamen)).singleElement().satisfies(x -> {
             assertThat(x.estudiante()).isEqualTo("Carla Prueba");

@@ -22,7 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/notificaciones")
 @Tag(name = "Notificaciones", description = "Avisos en vivo de los reportes del control de ingreso")
-@PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+@PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'NOTIFICACIONES_TODAS')")
 public class NotificacionController {
 
     private final NotificacionService notificacionService;

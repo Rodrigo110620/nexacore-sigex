@@ -38,6 +38,7 @@ import CronometroExamen from '../../components/examenes/CronometroExamen'
 import useTiempoExamen from '../../hooks/useTiempoExamen'
 import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
+import { tienePermiso } from '../../utils/permisos'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -76,7 +77,11 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 }
 
 export default function ExamenDetallePage() {
-  const { isAdmin, roles } = useAuth()
+  const auth = useAuth()
+  // Cancelar el examen y cambiar la habilitación: permisos del ADMIN (o de un rol extra que los tenga).
+  const isAdmin = tienePermiso(auth, 'EXAMENES_CANCELAR')
+  const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR')
+  const gestionaExamenes = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')
   const navigate = useNavigate()
   const idExamen = Number(useParams().idExamen)
   const idParalelo = Number(useParams().idParalelo)
@@ -145,9 +150,9 @@ export default function ExamenDetallePage() {
   const faseExamen = useTiempoExamen(examen, 15_000)?.fase
   // Un examen finalizado no se edita: se reprograma (ADMIN, o el DOCENTE de sus exámenes).
   const finalizado = faseExamen === 'finalizado'
-  const puedeReprogramar = finalizado && (isAdmin || roles.includes('DOCENTE'))
+  const puedeReprogramar = finalizado && gestionaExamenes
   // El DOCENTE crea y edita sus exámenes igual que el ADMIN (el backend verifica que sea suyo).
-  const puedeEditar = isAdmin || roles.includes('DOCENTE')
+  const puedeEditar = gestionaExamenes
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
@@ -446,7 +451,7 @@ export default function ExamenDetallePage() {
                 <EstudiantesHabilitadosTab
                   idExamen={examen.idExamen}
                   idParalelo={examen.idParalelo}
-                  isAdmin={isAdmin}
+                  isAdmin={gestionaHabilitacion}
                   soloLectura={soloLecturaHabilitacion}
                   examenResumen={`${examen.asignatura} · ${formatFecha(examen.fecha)} · ${examen.ambienteNombre}`}
                   onCountChange={setHabilitadosCount}

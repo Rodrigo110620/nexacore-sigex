@@ -1,5 +1,5 @@
-import { BookOpen, Eye, Plus, Loader2, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, Eye, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 import { useRoles } from '../../hooks/useRoles';
 
@@ -18,32 +18,9 @@ const ICONS: Record<string, typeof ShieldCheck> = {
 };
 
 export default function RoleSelector({ value, onChange, error }: RoleSelectorProps) {
-  const { roles, cargando, crearRol } = useRoles()
-  const [nuevoRol, setNuevoRol] = useState('')
-  const [guardando, setGuardando] = useState(false)
-  const [errorRol, setErrorRol] = useState('')
+  const { roles, cargando } = useRoles()
 
   const rolesExtra = roles.filter(r => !ROLES_PRINCIPALES.has(r.value))
-
-  const handleAgregarRol = async () => {
-    const nombre = nuevoRol.trim().toUpperCase()
-    if (!nombre) return
-    if (!/^[A-Z_]+$/.test(nombre)) {
-      setErrorRol('Solo letras mayúsculas y guiones bajos')
-      return
-    }
-    setGuardando(true)
-    setErrorRol('')
-    try {
-      await crearRol(nombre)
-      setNuevoRol('')
-      onChange(nombre)
-    } catch {
-      setErrorRol('Ese rol ya existe o hubo un error')
-    } finally {
-      setGuardando(false)
-    }
-  }
 
   if (cargando) {
     return (
@@ -123,34 +100,12 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
         </div>
       )}
 
-      {/* Agregar rol nuevo */}
-      <div className="flex flex-col gap-1 mt-1">
-        <p className="text-gray-400 text-xs font-medium tracking-wide">AGREGAR ROL</p>
-        <div className="flex gap-2 items-center">
-          <input
-            type="text"
-            value={nuevoRol}
-            onChange={e => { setNuevoRol(e.target.value.toUpperCase()); setErrorRol('') }}
-            onKeyDown={e => e.key === 'Enter' && handleAgregarRol()}
-            placeholder="Ej: SUPERVISOR"
-            maxLength={30}
-            className="flex-1 text-xs border border-gray-200 rounded-md py-1.5 px-2 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] uppercase"
-          />
-          <button
-            type="button"
-            onClick={handleAgregarRol}
-            disabled={guardando || !nuevoRol.trim()}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#0439D9] text-white text-xs font-semibold rounded-md hover:bg-[#0027a2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {guardando
-              ? <Loader2 size={12} className="animate-spin" />
-              : <Plus size={12} />
-            }
-            Agregar
-          </button>
-        </div>
-        {errorRol && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {errorRol}</p>}
-      </div>
+      {/* Los roles extra (con sus permisos) se crean en Configuración → Roles y permisos. */}
+      <p className="mt-1 text-[0.65rem] text-gray-500">
+        ¿Necesitas otro rol, como un auxiliar?{' '}
+        <Link to="/dashboard/configuracion" className="font-semibold text-[#0439D9] hover:underline">Créalo en Configuración</Link>{' '}
+        con sus permisos.
+      </p>
 
       {error && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {error}</p>}
     </div>

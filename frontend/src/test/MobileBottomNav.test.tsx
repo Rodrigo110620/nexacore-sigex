@@ -19,6 +19,7 @@ function renderNav(path: string, roles: string[], variant: 'default' | 'controlH
     isAdmin: roles.includes('ADMIN'),
     isAuthenticated: true,
     roles,
+    permisos: null,
     token: 'tok',
     nombre: 'Test',
     login: vi.fn(),

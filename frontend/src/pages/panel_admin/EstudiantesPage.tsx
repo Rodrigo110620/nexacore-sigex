@@ -18,14 +18,15 @@ import FichaEstudianteModal from '../../components/estudiantes/FichaEstudianteMo
 import EditarEstudianteModal from '../../components/estudiantes/EditarEstudianteModal'
 import { useAuth } from '../../context/AuthContext'
 import { listarRevisionFotos } from '../../services/fotoRevisionService'
+import { tienePermiso } from '../../utils/permisos'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
 export default function EstudiantesPage() {
-  const { roles } = useAuth()
-  // ADMIN y DOCENTE pueden editar/registrar/importar. CONTROL solo consulta.
-  const puedeEditar = roles.includes('ADMIN') || roles.includes('DOCENTE')
-  const esAdmin = roles.includes('ADMIN')
+  const auth = useAuth()
+  // Registrar, editar e importar: ESTUDIANTES_GESTIONAR (ADMIN y DOCENTE). CONTROL solo consulta.
+  const puedeEditar = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
+  const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
   const motivoBloqueo = 'No tienes permiso para realizar esta acción.'
 

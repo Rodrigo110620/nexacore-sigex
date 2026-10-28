@@ -44,7 +44,7 @@ public class IntentoIngresoController {
     }
 
     /** DASH-06 / HU#7: reporte de intentos incorrectos de todos los exámenes (o de uno). Solo ADMIN. */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'REPORTES_VER')")
     @GetMapping("/reporte")
     public ResponseEntity<com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse>> reporte(
             @RequestParam(required = false) Integer idExamen,

@@ -2,6 +2,7 @@ import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 import FotoEstudiante from './FotoEstudiante'
+import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
@@ -36,6 +37,7 @@ export default function EstudianteTable({
             <th scope="col" className="px-5 py-3 font-bold">Documento (DNI)</th>
             <th scope="col" className="px-5 py-3 font-bold">Carrera Profesional</th>
             <th scope="col" className="px-5 py-3 font-bold text-center">Matrícula</th>
+            <th scope="col" className="px-5 py-3 font-bold text-center">Cuenta</th>
             <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
           </tr>
         </thead>
@@ -68,9 +70,10 @@ export default function EstudianteTable({
                     ? 'bg-red-50 text-red-600' 
                     : 'bg-emerald-50 text-emerald-700'
                 }`}>
-                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'Inactivo' : 'Activo'}
+                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'No matriculado' : 'Matriculado'}
                 </span>
               </td>
+              <td className="px-5 py-3 text-center"><EstadoCuentaBadge tieneCuenta={e.tieneCuenta} /></td>
               <td className="px-5 py-3">
                 <div className="flex justify-center gap-2">
                   <button

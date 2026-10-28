@@ -25,7 +25,7 @@ public class FacultadController {
 
     @Operation(summary = "Listar facultades",
         description = "Devuelve todas las facultades ordenadas por nombre. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.alguno(authentication, 'ESTUDIANTES_VER', 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @GetMapping
     public ResponseEntity<List<Facultad>> listar() {
         return ResponseEntity.ok(facultadRepository.findAllByOrderByNombreAsc());

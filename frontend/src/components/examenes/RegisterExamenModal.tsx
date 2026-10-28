@@ -54,6 +54,7 @@ import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
 import FechaInput from './FechaInput'
+import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -76,10 +77,12 @@ const STEP_DESCRIPCION: Record<Step, string> = {
 }
 
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
-  const { nombre, roles } = useAuth()
-  const esDocente = roles.includes('DOCENTE') && !roles.includes('ADMIN')
-  // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
-  const esAdmin = roles.includes('ADMIN')
+  const auth = useAuth()
+  const { nombre } = auth
+  // Quien solo gestiona sus propios exámenes (DOCENTE) los crea a su nombre.
+  const esDocente = gestionaSoloPropios(auth)
+  // Solo quien gestiona ambientes (ADMIN) da de alta uno nuevo; el resto elige del catálogo.
+  const esAdmin = tienePermiso(auth, 'AMBIENTES_GESTIONAR')
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})

@@ -9,6 +9,7 @@ import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import ReasignarAmbienteModal from './ReasignarAmbienteModal'
+import { tienePermiso } from '../../utils/permisos'
 
 
 interface FilaProps {
@@ -118,10 +119,10 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
 export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string }) {
-  const { isAdmin, roles } = useAuth()
+  const auth = useAuth()
   // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
   // personal de control reporta el incidente y la notificación les llega a ellos.
-  const puedeExpulsar = isAdmin || roles.includes('DOCENTE')
+  const puedeExpulsar = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
     puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
@@ -221,7 +222,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
           )
         })}
       </ul>
-      {isAdmin && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
+      {puedeExpulsar && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
         {modalReasignarAbierto && estudianteSeleccionado && (
         <ReasignarAmbienteModal
           idExamen={idExamen}

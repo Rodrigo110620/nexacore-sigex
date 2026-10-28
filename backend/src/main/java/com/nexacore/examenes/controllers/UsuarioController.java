@@ -56,7 +56,7 @@ public class UsuarioController {
      * @return 201 Created con los datos del usuario creado
      */
     @Operation(summary = "Registrar usuario", description = "Crea un nuevo usuario y le asigna un rol. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PostMapping
     public ResponseEntity<RegisterUserResponse> registrar(@Valid @RequestBody RegisterUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.registrar(request));
@@ -76,7 +76,7 @@ public class UsuarioController {
     @Operation(summary = "Listar usuarios",
             description = "Devuelve los usuarios registrados paginados y ordenados por nombre. "
                     + "Admite búsqueda por nombre, apellidos, email o CI y filtros por rol y estado. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping
     public ResponseEntity<PageResponse<UsuarioListResponse>> listar(
             @Parameter(description = "Número de página, empezando en 0")
@@ -98,27 +98,27 @@ public class UsuarioController {
      * @return 200 OK con la lista de roles: ADMIN, DOCENTE, CONTROL
      */
     @Operation(summary = "Listar roles", description = "Devuelve los roles disponibles para asignar al registrar un usuario.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping("/roles")
     public ResponseEntity<List<Rol>> listarRoles() {
         return ResponseEntity.ok(usuarioService.listarRoles());
     }
     @Operation(summary = "Crear rol", description = "Crea un nuevo rol en el sistema. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ROLES_GESTIONAR')")
     @PostMapping("/roles")
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
     }
     @Operation(summary = "Estadísticas de usuarios",
             description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping("/stats")
     public ResponseEntity<UsuarioStatsResponse> obtenerEstadisticas() {
         return ResponseEntity.ok(usuarioService.obtenerEstadisticas());
     }
     @Operation(summary = "Exportar usuarios en CSV",
             description = "Usuarios que cumplen la búsqueda y los filtros del listado, sin paginar. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping("/exportar.csv")
     public ResponseEntity<byte[]> exportarCsv(
             @RequestParam(required = false) String search,
@@ -135,7 +135,7 @@ public class UsuarioController {
             description = "Registra usuarios desde un CSV (separado por ',' o ';') con las columnas "
                     + "nombre, apellidos, ci, email, rol y, opcional, estado (activo/inactivo). "
                     + "Cada usuario recibe su contraseña temporal por correo. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<ImportarUsuariosResponse> importar(@RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(importacionUsuariosService.importar(file));
@@ -144,7 +144,7 @@ public class UsuarioController {
     @Operation(summary = "Bloquear o desbloquear usuario",
             description = "activo=false bloquea la cuenta; activo=true la desbloquea, incluido el bloqueo "
                     + "por intentos fallidos. Un ADMIN no puede bloquearse a sí mismo. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PatchMapping("/{id}/estado")
     public ResponseEntity<UsuarioListResponse> cambiarEstado(
             @PathVariable Integer id,
@@ -154,7 +154,7 @@ public class UsuarioController {
     }
 
     @Operation(summary = "Actualizar usuario", description = "Modifica los datos y rol de un usuario existente. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PutMapping("/{id}")
     public ResponseEntity<RegisterUserResponse> actualizar(
         @PathVariable Integer id, 

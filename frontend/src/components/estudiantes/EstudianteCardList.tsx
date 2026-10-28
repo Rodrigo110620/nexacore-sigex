@@ -2,6 +2,7 @@ import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
 import FotoEstudiante from './FotoEstudiante'
+import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface EstudianteCardListProps {
   estudiantes: EstudianteListItem[]
@@ -50,13 +51,14 @@ export default function EstudianteCardList({
                     ? 'bg-red-100 text-red-800' 
                     : 'bg-emerald-100 text-emerald-900 '
                 }`}>
-                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'Inactivo' : 'Activo'}
+                  {e.estadoMatricula === 'NO_MATRICULADO' ? 'No matriculado' : 'Matriculado'}
                 </span>
               </div>
               
               <p className="mt-1 truncate text-[11px] text-[#627A9B]">
                 Cód: {e.codigoSis} · DNI: {e.ci}
               </p>
+              <div className="mt-1.5"><EstadoCuentaBadge tieneCuenta={e.tieneCuenta} compacto /></div>
             </div>
           </div>
 
