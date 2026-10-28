@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, BarChart3 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
@@ -34,16 +34,21 @@ export default function PanelTopBar({
   const { pathname } = useLocation()
   const isExamenes = pathname.startsWith('/dashboard/examenes')
   const isEstudiantes = pathname.startsWith('/dashboard/estudiantes')
+  const isReportes = pathname.startsWith('/dashboard/reportes')
   const pageTitle = isExamenes
     ? 'GESTIÓN DE EXÁMENES'
     : isEstudiantes
       ? 'GESTIÓN DE ESTUDIANTES'
-      : 'GESTIÓN DE USUARIOS'
+      : isReportes
+        ? 'REPORTES'
+        : 'GESTIÓN DE USUARIOS'
   const pageSubtitle = isExamenes
     ? 'Administra los exámenes programados y su habilitación.'
     : isEstudiantes
       ? 'Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados.'
-      : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
+      : isReportes
+        ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
+        : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
   const minimalControlHeader = variant === 'controlMinimal'
@@ -103,6 +108,10 @@ export default function PanelTopBar({
             ) : isEstudiantes ? (
               <span className={ICON_TILE}>
                 <GraduationCap size={24} aria-hidden="true" />
+              </span>
+            ) : isReportes ? (
+              <span className={ICON_TILE}>
+                <BarChart3 size={24} aria-hidden="true" />
               </span>
             ) : (
               <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />

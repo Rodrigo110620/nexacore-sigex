@@ -113,3 +113,34 @@
  .control-denial-footer { flex-direction: column-reverse; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
  .control-denial-footer > button { width: 100%; min-height: 40px; }
 }
+
+/* Microinteracciones del control: respuesta inmediata y breve (menos de 300 ms), sin frenar al personal. */
+.control-authorize, .control-deny, .control-siguiente { transition: transform 120ms ease-out, box-shadow 160ms ease-out, filter 160ms ease-out; }
+.control-authorize:not(:disabled):hover { box-shadow: 0 4px 12px #0439d945; }
+.control-deny:not(:disabled):hover { filter: brightness(0.97); }
+.control-authorize:not(:disabled):active, .control-deny:not(:disabled):active, .control-siguiente:active { transform: scale(0.97); }
+.control-overlay { animation: control-aparece 160ms ease-out both; }
+.control-receipt, .control-denial-modal { animation: control-sube 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.control-receipt.es-autorizado { border-top-color: #12a150; animation: control-sube 240ms cubic-bezier(0.22, 1, 0.36, 1) both, control-destello 700ms 120ms ease-out; }
+.control-receipt.es-denegado { border-top-color: #c71924; animation: control-sube 240ms cubic-bezier(0.22, 1, 0.36, 1) both, control-sacude 340ms 240ms ease-in-out; }
+.control-check circle, .control-check path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: control-dibuja 320ms ease-out forwards; }
+.control-check circle { animation-delay: 80ms; }
+.control-check path { animation-delay: 260ms; }
+.control-cuenta { width: 100%; transform-origin: left center; animation: control-cuenta linear forwards; }
+
+@keyframes control-aparece { from { opacity: 0; } }
+@keyframes control-sube { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+@keyframes control-destello { 0% { box-shadow: 0 0 0 0 #12a15055, 0 15px 45px #01114040; } 100% { box-shadow: 0 0 0 14px #12a15000, 0 15px 45px #01114040; } }
+@keyframes control-sacude { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+@keyframes control-dibuja { to { stroke-dashoffset: 0; } }
+@keyframes control-cuenta { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Quien pidió reducir movimiento ve solo el cambio de color, sin desplazamientos ni sacudones. */
+@media (prefers-reduced-motion: reduce) {
+  .control-overlay, .control-receipt, .control-receipt.es-autorizado, .control-receipt.es-denegado, .control-denial-modal,
+  .control-check circle, .control-check path, .control-cuenta { animation: none !important; }
+  .control-check circle, .control-check path { stroke-dashoffset: 0; }
+  .control-authorize, .control-deny, .control-siguiente { transition: none; }
+  .control-authorize:not(:disabled):active, .control-deny:not(:disabled):active, .control-siguiente:active { transform: none; }
+}
+

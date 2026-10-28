@@ -179,6 +179,8 @@ public class EstudianteFotoService {
      */
     @Transactional
     public void reportar(Integer idEstudiante, ReportarFotoRequest request, String emailPersonal) {
+        // Se valida antes de tocar nada (HU#6, BUG-E01 a E06).
+        String detalle = com.nexacore.examenes.utils.ValidacionTextoFoto.detalleReporte(request.detalle());
         verificarEstudiante(idEstudiante);
         if (fotoRepository.findById(idEstudiante).isEmpty()) {
             throw new IllegalArgumentException("El estudiante no tiene una foto registrada para reportar.");
@@ -194,7 +196,7 @@ public class EstudianteFotoService {
         reporte.setIdUsuario(personal.getId());
         reporte.setIdExamen(request.idExamen());
         reporte.setMotivo(request.motivo().name());
-        reporte.setDetalle(request.detalle() == null || request.detalle().isBlank() ? null : request.detalle().strip());
+        reporte.setDetalle(detalle);
         reporte.setCreadoEn(LocalDateTime.now());
         reporteRepository.save(reporte);
         String materia = notificacionService.materia(request.idExamen());
@@ -316,10 +318,12 @@ public class EstudianteFotoService {
     /** La foto actual no cambia; el estudiante ve el motivo y puede enviar otra. */
     @Transactional
     public void rechazarSolicitud(Integer idEstudiante, String motivo) {
+        // Se valida antes de tocar la solicitud (HU#6, BUG-E07 a E10).
+        String motivoValido = com.nexacore.examenes.utils.ValidacionTextoFoto.motivoRechazo(motivo);
         notificacionService.emitirCambio(NotificacionService.CAMBIO_FOTO, null, idEstudiante);
         EstudianteFotoSolicitud solicitud = solicitudPendiente(idEstudiante);
         solicitud.setEstado(EstudianteFotoSolicitud.RECHAZADA);
-        solicitud.setMotivoRechazo(motivo.strip());
+        solicitud.setMotivoRechazo(motivoValido);
         solicitud.setRevisadaEn(LocalDateTime.now());
         solicitudRepository.save(solicitud);
     }

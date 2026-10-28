@@ -37,6 +37,12 @@ const enmascarar = (raw: string) => {
  */
 export default function FechaInput({ id, label, value, min, error, onChange }: FechaInputProps) {
   const [texto, setTexto] = useState(aTexto(value))
+  // Si la fecha cambia desde afuera (p. ej. el botón "Hoy" o al cargar el examen), se muestra la nueva.
+  const [valorPrevio, setValorPrevio] = useState(value)
+  if (value !== valorPrevio) {
+    setValorPrevio(value)
+    if (value !== fechaTextoAIso(texto)) setTexto(aTexto(value))
+  }
   const calendario = useRef<HTMLInputElement>(null)
   const invalida = texto.length === 10 && !fechaTextoAIso(texto)
 

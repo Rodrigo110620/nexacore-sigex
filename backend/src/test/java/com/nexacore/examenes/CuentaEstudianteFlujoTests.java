@@ -103,9 +103,9 @@ class CuentaEstudianteFlujoTests {
 
     @Test
     void conDatosQueNoCoincidenNoSeEnviaCodigo() {
-        cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS, "1234567", EMAIL));
+        cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS, "7489299", EMAIL));
         cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS, CI, "otra@est.umss.edu"));
-        cuentaService.solicitarActivacion(new SolicitarActivacionRequest("999999999", CI, EMAIL));
+        cuentaService.solicitarActivacion(new SolicitarActivacionRequest("202199871", CI, EMAIL));
         verify(emailService, never()).enviarCodigoActivacion(anyString(), anyString(), anyString(), anyInt());
     }
 
@@ -256,8 +256,51 @@ class CuentaEstudianteFlujoTests {
     @Test
     void laActivacionEsPublica() throws Exception {
         mockMvc.perform(post("/auth/estudiante/activacion/solicitar").contentType("application/json")
-                .content("{\"codigoSis\":\"" + SIS + "\",\"ci\":\"1111111\",\"email\":\"" + EMAIL + "\"}"))
+                .content("{\"codigoSis\":\"" + SIS + "\",\"ci\":\"7489299\",\"email\":\"" + EMAIL + "\"}"))
             .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void unCodigoSisOCiFicticioNoPasaAlPaso2() {
+        // BUG-E01/E02 de HU#5: números repetidos o secuencias.
+        for (String sis : new String[]{"444444444", "123456789", "987654321"}) {
+            assertThatThrownBy(() -> cuentaService.solicitarActivacion(new SolicitarActivacionRequest(sis, CI, EMAIL)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("El código universitario");
+        }
+        for (String ci : new String[]{"4444444", "12345678", "8765432"}) {
+            assertThatThrownBy(() -> cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS, ci, EMAIL)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("El C.I.");
+        }
+        verify(emailService, never()).enviarCodigoActivacion(anyString(), anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    void elCodigoSeCompruebaAntesDePedirLaContrasena() throws Exception {
+        // BUG-E03 de HU#5: un código falso no deja pasar al paso 3; el correcto sí y sigue sirviendo.
+        String codigo = pedirCodigo();
+        String incorrecto = codigo.equals("000000") ? "111111" : "000000";
+        mockMvc.perform(post("/auth/estudiante/activacion/verificar").contentType("application/json")
+                .content("{\"codigoSis\":\"" + SIS + "\",\"codigo\":\"" + incorrecto + "\"}"))
+            .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/auth/estudiante/activacion/verificar").contentType("application/json")
+                .content("{\"codigoSis\":\"" + SIS + "\",\"codigo\":\"" + codigo + "\"}"))
+            .andExpect(status().isOk());
+        cuentaService.confirmarActivacion(new ConfirmarActivacionRequest(SIS, codigo, PASSWORD, PASSWORD));
+        assertThat(estudianteRepository.findByCodigoSis(SIS).orElseThrow().getIdUsuario()).isNotNull();
+    }
+
+    @Test
+    void verificarElCodigoCuentaEnElLimiteDeIntentos() {
+        String codigo = pedirCodigo();
+        String incorrecto = codigo.equals("000000") ? "111111" : "000000";
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> cuentaService.verificarCodigo(
+                    new com.nexacore.examenes.dto.VerificarCodigoActivacionRequest(SIS, incorrecto)))
+                    .hasMessageContaining("incorrecto o venció");
+        }
+        assertThatThrownBy(() -> cuentaService.verificarCodigo(
+                new com.nexacore.examenes.dto.VerificarCodigoActivacionRequest(SIS, codigo)))
+                .hasMessageContaining("incorrecto o venció");
     }
 
     @Test

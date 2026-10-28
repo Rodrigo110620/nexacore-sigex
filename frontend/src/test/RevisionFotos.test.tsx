@@ -79,7 +79,7 @@ describe('RevisionFotosPage (CTA-02)', () => {
     expect(await screen.findByText(/Se aprobó la foto de Ana Rojas Mendoza/)).toBeInTheDocument()
   })
 
-  it('rechaza con un motivo de 5 a 200 caracteres y ofrece motivos frecuentes', async () => {
+  it('rechaza con un motivo válido de 5 a 200 caracteres y ofrece motivos frecuentes', async () => {
     vi.mocked(fotoRevision.listarRevisionFotos).mockResolvedValue([cambio])
     vi.mocked(fotoRevision.rechazarFoto).mockResolvedValue()
     renderPagina()
@@ -88,7 +88,11 @@ describe('RevisionFotosPage (CTA-02)', () => {
     const dialogo = screen.getByRole('dialog', { name: 'Rechazar foto' })
     fireEvent.change(within(dialogo).getByLabelText('Motivo del rechazo'), { target: { value: 'Mal' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: /Rechazar foto/ }))
-    expect(within(dialogo).getByText('El motivo debe tener entre 5 y 200 caracteres.')).toBeInTheDocument()
+    expect(within(dialogo).getByText('El motivo del rechazo debe tener al menos 5 caracteres')).toBeInTheDocument()
+    // HU#6, BUG-E07 a E10: sin números ni solo signos, y se envía en formato oración.
+    fireEvent.change(within(dialogo).getByLabelText('Motivo del rechazo'), { target: { value: '1111111111' } })
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Rechazar foto/ }))
+    expect(within(dialogo).getByText('El motivo del rechazo no puede contener números')).toBeInTheDocument()
     expect(fotoRevision.rechazarFoto).not.toHaveBeenCalled()
 
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Foto borrosa' }))

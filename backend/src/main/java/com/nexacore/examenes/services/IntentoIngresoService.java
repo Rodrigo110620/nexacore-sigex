@@ -138,4 +138,52 @@ public class IntentoIngresoService {
         if (valor instanceof OffsetDateTime offsetDateTime) return offsetDateTime.toLocalDateTime();
         return (LocalDateTime) valor;
     }
+
+    /** Tamaño máximo de página del reporte (el frontend pide de a 20). */
+    static final int MAX_TAMANO_REPORTE = 100;
+
+    /**
+     * DASH-06 / HU#7: reporte de intentos de ingreso incorrectos para el ADMIN. Sin examen, todos los
+     * registrados; con examen, solo los de su sesión actual (si se reprogramó, los anteriores son historial).
+     */
+    @Transactional(readOnly = true)
+    public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
+            Integer idExamen, int page, int size) {
+        if (page < 0) throw new IllegalArgumentException("La página no puede ser negativa");
+        if (size < 1 || size > MAX_TAMANO_REPORTE) {
+            throw new IllegalArgumentException("El tamaño de página debe estar entre 1 y " + MAX_TAMANO_REPORTE);
+        }
+        LocalDateTime desde = null;
+        if (idExamen != null) {
+            if (!examenRepository.existsByIdIdExamen(idExamen)) {
+                throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen);
+            }
+            desde = sesionExamenService.ultimoCierre(idExamen);
+        }
+        var pagina = intentoRepository.reporte(idExamen, desde, org.springframework.data.domain.PageRequest.of(page, size));
+        return com.nexacore.examenes.dto.PageResponse.de(pagina.map(this::filaReporte));
+    }
+
+    private com.nexacore.examenes.dto.IntentoReporteResponse filaReporte(Object[] f) {
+        String motivo = (String) f[9];
+        String tipo = motivo != null && motivo.startsWith("Ambiente incorrecto")
+                ? com.nexacore.examenes.dto.IntentoReporteResponse.AULA_INCORRECTA
+                : com.nexacore.examenes.dto.IntentoReporteResponse.NO_CORRESPONDE;
+        String estudiante = (String) f[6];
+        return new com.nexacore.examenes.dto.IntentoReporteResponse(
+                ((Number) f[0]).intValue(), ((Number) f[1]).intValue(), (String) f[2],
+                aFechaExamen(f[3]), aHora(f[4]), f[5] == null ? null : ((Number) f[5]).intValue(),
+                estudiante == null || estudiante.isBlank() ? null : estudiante.strip(), (String) f[7], (String) f[8],
+                motivo, tipo, (String) f[10], aFecha(f[11]));
+    }
+
+    private static java.time.LocalDate aFechaExamen(Object valor) {
+        if (valor instanceof java.sql.Date d) return d.toLocalDate();
+        return (java.time.LocalDate) valor;
+    }
+
+    private static java.time.LocalTime aHora(Object valor) {
+        if (valor instanceof java.sql.Time t) return t.toLocalTime();
+        return (java.time.LocalTime) valor;
+    }
 }

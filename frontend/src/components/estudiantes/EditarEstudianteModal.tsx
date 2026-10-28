@@ -24,6 +24,7 @@ import {
     sanitizeNombreInput,
     validateApellidos,
     validateCodigoSis,
+    validateSisDistintoDeCi,
     validateDocumento,
     validateEmail,
     validateNombre,
@@ -230,7 +231,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         if (telefonoError) next.telefono = telefonoError
         if (emailError) next.email = emailError
 
-        const sisErr = validateCodigoSis(form.codigoSis)
+        const sisErr = validateCodigoSis(form.codigoSis) || validateSisDistintoDeCi(form.codigoSis, form.ci)
         if (sisErr) next.codigoSis = sisErr
 
         if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'

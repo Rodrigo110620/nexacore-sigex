@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Flag } from 'lucide-react'
 import { obtenerReporteFoto, textoMotivoReporte, type ReporteFotoAbierto } from '../../services/fotoRevisionService'
+import { fechaHoraNumerica } from '../../utils/examenFormat'
 
-const fechaHora = (iso: string) =>
-  new Date(iso).toLocaleString('es-BO', { dateStyle: 'short', timeStyle: 'short' })
+const fechaHora = (iso: string) => fechaHoraNumerica(iso)
 
 /**
  * Aviso para el personal de control y el docente: la foto del estudiante fue reportada y espera la

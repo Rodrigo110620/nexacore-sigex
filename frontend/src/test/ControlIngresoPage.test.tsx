@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import * as service from '../services/controlIngresoService'
@@ -85,6 +85,49 @@ describe('ControlIngresoPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
     await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ ingresoManual: true, justificacionManual: 'Celular apagado no presenta qr' })))
   })
+  it('tras autorizar vibra, muestra el resultado y vuelve sola a la identificación (o se queda si se cancela)', async () => {
+    const vibrate = vi.fn()
+    Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true })
+    vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-24T12:00:00', autorizadoPor: 'Carla Control' })
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
+    expect(vibrate).toHaveBeenCalledWith(40)
+    expect(screen.getByText('Vuelve a identificar en 6 s')).toBeInTheDocument()
+
+    // "Quedarme aquí" cancela la vuelta automática.
+    vi.useFakeTimers()
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Quedarme aquí' }))
+      act(() => { vi.advanceTimersByTime(7000) })
+      expect(screen.queryByText('Identificación del examen')).not.toBeInTheDocument()
+      expect(screen.getByText('Ingreso autorizado')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sin cancelar, vuelve a la identificación a los 6 segundos', async () => {
+    // Relojes simulados desde el inicio (avanzan solos para las promesas): la vuelta se programa al mostrar el resultado.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-24T12:00:00', autorizadoPor: 'Carla Control' })
+      renderPage()
+      await screen.findByText('Laura Paredes')
+      fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+      fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+      await screen.findByText('Ingreso autorizado')
+      act(() => { vi.advanceTimersByTime(5000) })
+      expect(screen.queryByText('Identificación del examen')).not.toBeInTheDocument()
+      act(() => { vi.advanceTimersByTime(1200) })
+      expect(screen.getByText('Identificación del examen')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it.each(['a'.repeat(66), '11111111111', '????????????', 'Celular  apagado', ' Celular apagado', 'Celular apagado '])('no envía una justificación inválida: %s', async texto => {
     renderPage()
     await screen.findByText('Laura Paredes')

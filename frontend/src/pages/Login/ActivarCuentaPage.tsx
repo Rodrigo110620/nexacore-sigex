@@ -19,7 +19,12 @@ import type { LucideIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
 import { EncabezadoAsistente, ProgresoAsistente } from '../../components/auth/Asistente'
-import { confirmarActivacionEstudiante, solicitarActivacionEstudiante } from '../../services/authService'
+import {
+  confirmarActivacionEstudiante,
+  solicitarActivacionEstudiante,
+  verificarCodigoActivacionEstudiante,
+} from '../../services/authService'
+import { motivoIdentificadorFicticio } from '../../utils/identificacionValidators'
 import { validateNewPassword } from '../../utils/passwordPolicy'
 import { ALLOWED_EMAIL_DOMAIN, FIELD_LIMITS } from '../../utils/validators'
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
@@ -162,13 +167,21 @@ export default function ActivarCuentaPage() {
     event.preventDefault()
     const nuevos: Record<string, string> = {}
     if (!/^\d{9}$/.test(codigoSis)) nuevos.codigoSis = 'El código SIS debe tener 9 dígitos'
+    else {
+      const ficticio = motivoIdentificadorFicticio('codigo', codigoSis)
+      if (ficticio) nuevos.codigoSis = ficticio
+    }
     if (!/^\d{7,8}$/.test(ci)) nuevos.ci = 'El C.I. debe tener 7 u 8 dígitos'
+    else {
+      const ficticio = motivoIdentificadorFicticio('ci', ci)
+      if (ficticio) nuevos.ci = ficticio
+    }
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
     if (await enviarCodigo()) setPaso(2)
   }
 
-  const verificarCodigo = (event: FormEvent) => {
+  const verificarCodigo = async (event: FormEvent) => {
     event.preventDefault()
     if (!/^\d{6}$/.test(codigo)) {
       setErrores({ codigo: 'El código tiene 6 dígitos' })
@@ -176,7 +189,16 @@ export default function ActivarCuentaPage() {
     }
     setErrores({})
     setErrorGeneral('')
-    setPaso(3)
+    // BUG-E03 de HU#5: con un código falso o vencido no se pasa a crear la contraseña.
+    setCargando(true)
+    try {
+      await verificarCodigoActivacionEstudiante({ codigoSis, codigo })
+      setPaso(3)
+    } catch (err: unknown) {
+      setErrores({ codigo: err instanceof Error ? err.message : 'No se pudo verificar el código.' })
+    } finally {
+      setCargando(false)
+    }
   }
 
   const reglas = reglasPassword(password, codigoSis, ci)

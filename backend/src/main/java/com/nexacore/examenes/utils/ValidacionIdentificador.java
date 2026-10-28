@@ -38,6 +38,24 @@ public final class ValidacionIdentificador {
         validarDigitos(valor, "El C.I.", DIGITOS_CI);
     }
 
+    /**
+     * C.I. ficticio en la activación de cuenta (BUG-E01/E02 de HU#5): un mismo dígito (4444444) o una
+     * secuencia (12345678). Allí el C.I. tiene 7 u 8 dígitos; la longitud la valida el formulario.
+     * @throws IllegalArgumentException con el motivo (400)
+     */
+    public static void validarCiNoFicticio(String valor) {
+        String campo = "El C.I.";
+        if (valor == null || !SOLO_DIGITOS.matcher(valor).matches() || valor.length() < 2) {
+            return;
+        }
+        if (MISMO_DIGITO.matcher(valor).matches()) {
+            throw new IllegalArgumentException(campo + " no puede ser un mismo dígito repetido");
+        }
+        if (esSecuencia(valor)) {
+            throw new IllegalArgumentException(campo + " no puede ser una secuencia ascendente o descendente");
+        }
+    }
+
     private static void validarDigitos(String valor, String campo, int digitos) {
         if (valor == null || valor.isBlank()) {
             throw new IllegalArgumentException(campo + " es obligatorio");

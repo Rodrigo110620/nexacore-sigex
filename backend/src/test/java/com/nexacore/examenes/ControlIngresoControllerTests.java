@@ -104,6 +104,30 @@ class ControlIngresoControllerTests {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    void elAdminAnulaUnaExpulsionConMotivo() throws Exception {
+        when(service.anularExpulsion(org.mockito.ArgumentMatchers.eq(20), org.mockito.ArgumentMatchers.eq(5),
+                org.mockito.ArgumentMatchers.eq("Error del control, era otro estudiante"), any()))
+                .thenReturn(new com.nexacore.examenes.dto.ExpulsionResponse(5, 10, 20, "Uso de celular", 7, "Ana Rojas",
+                        java.time.LocalDateTime.parse("2026-10-28T09:00:00"), "Luis Flores", "202104010",
+                        java.time.LocalDateTime.parse("2026-10-28T09:10:00"), "Ana Rojas", "Error del control, era otro estudiante"));
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON)
+                        .content("{\"motivo\":\"Error del control, era otro estudiante\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anuladaPor").value("Ana Rojas"));
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON).content("{\"motivo\":\" \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "CONTROL")
+    void elControlNoAnulaExpulsiones() throws Exception {
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON)
+                        .content("{\"motivo\":\"Error del control, era otro estudiante\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
     void elReporteDeExcepcionesListaLasDelExamen() throws Exception {
         org.mockito.Mockito.when(excepcionService.listar(20)).thenReturn(List.of(new com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse(
                 1, 10, "Carla Prueba", "202000093", "Deuda en biblioteca", "Se le indicó acudir a administración", null,

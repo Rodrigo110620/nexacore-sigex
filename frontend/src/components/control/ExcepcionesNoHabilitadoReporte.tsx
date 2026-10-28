@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
 import { listarExcepcionesNoHabilitado, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
+import { fechaHoraNumerica } from '../../utils/examenFormat'
 
 /**
  * INCI-04: reporte de excepciones de estudiantes no habilitados que intentaron ingresar (sesión
@@ -23,7 +24,7 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
 
   const actual = resultado?.clave === clave ? resultado : undefined
   return (
-    <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] p-3">
+    <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
       <h3 className="font-semibold text-[#92400E]">No habilitados que intentaron ingresar ({actual?.registros?.length ?? '…'})</h3>
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando excepciones…</p>}
       {actual?.error && (
@@ -48,7 +49,7 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
                 {x.observaciones && <><dt className="font-semibold">Observaciones</dt><dd>{x.observaciones}</dd></>}
                 {x.ambiente && <><dt className="font-semibold">Aula</dt><dd>{x.ambiente}</dd></>}
                 <dt className="font-semibold">Registró</dt><dd>{x.registradoPor ?? '—'}</dd>
-                <dt className="font-semibold">Fecha y hora (Bolivia)</dt><dd>{x.fechaHora.replace('T', ' ').slice(0, 16)}</dd>
+                <dt className="font-semibold">Fecha y hora (Bolivia)</dt><dd>{fechaHoraNumerica(x.fechaHora)}</dd>
               </dl>
             </li>
           ))}

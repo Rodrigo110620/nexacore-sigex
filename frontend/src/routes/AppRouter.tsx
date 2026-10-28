@@ -18,6 +18,7 @@ import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import UsuariosPage from '../pages/panel_admin/UsuariosPage'
+import ReportesPage from '../pages/panel_admin/ReportesPage'
 import ExamenesPage from '../pages/Examenes/ExamenesPage'
 import ExamenDetallePage from '../pages/Examenes/ExamenDetallePage'
 import IdentificacionPage from '../pages/Control/IdentificacionPage'
@@ -129,6 +130,16 @@ export default function AppRouter() {
             <ProtectedRoute>
               <PerfilPage />
             </ProtectedRoute>
+          }
+        />
+
+        {/* Reportes: intentos incorrectos, expulsiones y excepciones (SOLO ADMIN, Épica 5) */}
+        <Route
+          path="/dashboard/reportes"
+          element={
+            <AdminRoute>
+              <ReportesPage />
+            </AdminRoute>
           }
         />
 

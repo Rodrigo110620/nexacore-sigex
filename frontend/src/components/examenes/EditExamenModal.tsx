@@ -26,7 +26,6 @@ import { actualizarExamen, type ExamenDto, type ModoReparto } from '../../servic
 import { listarEstudiantesExamen, type EstudianteHabilitacionDto } from '../../services/habilitacionService'
 import {
   detalleAmbiente,
-  formatFechaDisplay,
   isNetworkError,
   isOffline,
   minutesBetween,
@@ -54,6 +53,7 @@ import DocenteAutocomplete from './DocenteAutocomplete'
 import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
+import FechaInput from './FechaInput'
 
 interface EditExamenModalProps {
   isOpen: boolean
@@ -587,19 +587,17 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-medium text-[#011140]">
+                  <label htmlFor="editar-fecha" className="mb-1 block text-xs font-medium text-[#011140]">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <FechaInput
+                    id="editar-fecha"
+                    label="Fecha de Evaluación"
                     min={todayISO()}
                     value={form.fecha}
-                    onChange={(e) => handleChange('fecha', e.target.value)}
-                    className={fieldClass(errors.fecha)}
+                    error={errors.fecha}
+                    onChange={(v) => handleChange('fecha', v)}
                   />
-                  {form.fecha && (
-                    <p className="mt-1 text-[10px] text-[#627A9B]">{formatFechaDisplay(form.fecha)}</p>
-                  )}
                   {errors.fecha && <p className="mt-1 text-[10px] text-red-500">{errors.fecha}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">
