@@ -1,5 +1,10 @@
 import api from './api'
 
+/** Cambia solo mayúsculas/minúsculas; conserva signos, números y espacios internos. */
+export function normalizarMotivoExpulsion(motivo: string): string {
+  return motivo.trim().toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
+}
+
 export interface ExpulsionResponse {
   idExpulsion: number
   idEstudiante: number

@@ -55,6 +55,7 @@ function renderPage(contexto: ContextoControlIngreso = contextoBase) {
   vi.mocked(service.obtenerContextoControl).mockResolvedValue(contexto)
   vi.mocked(service.obtenerTiposIncidencia).mockResolvedValue([
     { id: 3, nombre: 'DOCUMENTO_MAL_ESTADO', descripcion: null },
+    { id: 4, nombre: 'OTRA_INCIDENCIA', descripcion: null },
   ])
   return render(
     <MemoryRouter initialEntries={['/control/10/20']}>
@@ -357,7 +358,7 @@ describe('ControlIngresoPage', () => {
     expect(screen.getByRole('button', { name: 'Autorizar Ingreso' })).toBeDisabled()
     fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
     fireEvent.click(screen.getByLabelText('Documento en mal estado'))
-    fireEvent.change(screen.getByPlaceholderText('Opcional: describe la incidencia...'), { target: { value: 'Documento deteriorado' } })
+    expect(screen.queryByLabelText('Detalle de incidencias')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
 
     await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith({
@@ -366,7 +367,7 @@ describe('ControlIngresoPage', () => {
       observaciones: 'Sin novedades',
       identidadVerificada: true,
       verificacionesAdicionales: ['Identidad biométrica cotejada / Carnet físico verificado'],
-      incidencias: [{ idTipoIncidencia: 3, descripcion: 'Documento deteriorado' }],
+      incidencias: [{ idTipoIncidencia: 3, descripcion: 'DOCUMENTO_MAL_ESTADO' }],
       fechaHoraDispositivo: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/),
     }))
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
@@ -513,4 +514,57 @@ describe('ControlIngresoPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar la información')
     expect(screen.queryByText('Laura Paredes')).not.toBeInTheDocument()
   })
+})
+
+it('solo Otra incidencia muestra el detalle y no lo envía para los demás tipos', async () => {
+  vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-29T10:00:00', autorizadoPor: 'Carla Control' })
+  renderPage()
+  await screen.findByText('Laura Paredes')
+  fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+  fireEvent.click(screen.getByLabelText('Documento en mal estado'))
+  expect(screen.queryByLabelText('Detalle de incidencias')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByLabelText('Otra incidencia'))
+  fireEvent.change(screen.getByLabelText('Detalle de incidencias'), { target: { value: 'Se retiró el documento' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+  await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ incidencias: [
+    { idTipoIncidencia: 3, descripcion: 'DOCUMENTO_MAL_ESTADO' },
+    { idTipoIncidencia: 4, descripcion: 'Se retiró el documento' },
+  ] })))
+})
+it('al desmarcar Otra incidencia oculta y limpia el texto anterior', async () => {
+  renderPage()
+  await screen.findByText('Laura Paredes')
+  fireEvent.click(screen.getByLabelText('Otra incidencia'))
+  fireEvent.change(screen.getByLabelText('Detalle de incidencias'), { target: { value: 'Texto anterior' } })
+  fireEvent.click(screen.getByLabelText('Otra incidencia'))
+  expect(screen.queryByLabelText('Detalle de incidencias')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByLabelText('Otra incidencia'))
+  expect(screen.getByLabelText('Detalle de incidencias')).toHaveValue('')
+})
+it('no permite confirmar una denegación con detalle de un carácter', async () => {
+  renderPage()
+  fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
+  fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Suplantación' } })
+  fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: 'A' } })
+  expect(screen.getByText('El detalle adicional debe tener al menos 10 caracteres')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Confirmar Denegación' })).toBeDisabled()
+})
+
+it.each([false, true])('rechaza el contenido inválido de Otra incidencia, denegar=%s', async denegar => {
+  vi.clearAllMocks()
+  renderPage()
+  await screen.findByText('Laura Paredes')
+  fireEvent.click(screen.getByLabelText('Otra incidencia'))
+  fireEvent.change(screen.getByLabelText('Detalle de incidencias'), { target: { value: '????????????' } })
+  if (denegar) {
+    fireEvent.click(screen.getByRole('button', { name: 'Denegar' }))
+    fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Documento inválido' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
+    expect(within(screen.getByRole('dialog', { name: 'Denegar ingreso' })).getByRole('alert')).toHaveTextContent('El detalle de incidencia debe tener letras o números')
+  } else {
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+  }
+  expect(service.autorizarIngreso).not.toHaveBeenCalled()
+  expect(service.denegarIngreso).not.toHaveBeenCalled()
 })

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { prepararFoto, validarArchivoFoto } from "../../utils/fotoEstudiante";
 import { registrarReporteQrDuplicado } from "../../services/reporteQrDuplicadoService";
+import { motivoIdentificadorFicticio } from "../../utils/identificacionValidators";
 import { sanitizeNombreInput, validateDocumento } from "../../utils/validators";
 import "./ReporteQrDuplicadoModal.css";
 import "./ReporteQrDuplicadoCamera.css";
@@ -53,6 +54,13 @@ export default function ReporteQrDuplicadoModal({
     [enviando, setEnviando] = useState(false),
     [idReporte, setIdReporte] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const vigente = useRef(true);
+  const solicitandoCamara = useRef(false);
+  const [camaraPendiente, setCamaraPendiente] = useState(false);
+  useEffect(() => {
+    vigente.current = true;
+    return () => { vigente.current = false; };
+  }, []);
   const detenerCamara = () => {
     stream?.getTracks().forEach((t) => t.stop());
     setStream(null);
@@ -66,20 +74,25 @@ export default function ReporteQrDuplicadoModal({
       setError("Este dispositivo no permite usar la cámara.");
       return;
     }
+    if (solicitandoCamara.current) return;
+    solicitandoCamara.current = true;
+    setCamaraPendiente(true);
     try {
-      setStream(
-        await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        }),
-      );
+      const nueva = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      if (!vigente.current) {
+        nueva.getTracks().forEach(t => t.stop());
+        return;
+      }
+      setStream(nueva);
       setError("");
     } catch {
-      setError(
-        "No se pudo acceder a la cámara. Revisa el permiso del navegador.",
-      );
+      if (vigente.current) setError("No se pudo acceder a la cámara. Revisa el permiso del navegador.");
+    } finally {
+      solicitandoCamara.current = false;
+      if (vigente.current) setCamaraPendiente(false);
     }
   };
+
   const capturarFoto = async () => {
     const video = videoRef.current;
     if (!video?.videoWidth) {
@@ -146,6 +159,8 @@ export default function ReporteQrDuplicadoModal({
       setError("El código SIS debe tener 9 dígitos.");
       return;
     }
+    const errorSis = sis ? motivoIdentificadorFicticio('codigo', sis) : null;
+    if (errorSis) { setError(errorSis); return; }
     const compuesto = `Documento presentado: ${sinCarnet ? "No presentó carnet." : "Carnet de identidad."}\nQué no coincide: ${motivo}.\nVerificación realizada: ${sinCarnet ? "La persona indicó no contar con su carnet." : "Carnet comparado con la persona presente."}${detalle.trim() ? `\nObservación adicional: ${detalle.trim()}` : ""}`;
     setEnviando(true);
     setError("");
@@ -341,6 +356,7 @@ export default function ReporteQrDuplicadoModal({
                 ) : (
                   <button
                     type="button"
+                    disabled={camaraPendiente}
                     onClick={() => void abrirCamara()}
                     className={`report-incidence-upload ${foto ? "has-photo" : ""}`}
                   >

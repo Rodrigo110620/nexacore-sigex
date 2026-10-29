@@ -434,12 +434,15 @@ class PostgresIntegracionTests {
         sincronizar();
         jdbc.execute("SET LOCAL TIME ZONE '" + zonaBase + "'");
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
-                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr");
+                List.of("CI verificado"), List.of(new com.nexacore.examenes.dto.IncidenciaIngresoRequest(
+                        jdbc.queryForObject("SELECT id_tipo_incidencia FROM catalogo_incidencia WHERE nombre = 'OTRA_INCIDENCIA'", Integer.class),
+                        "Documento deteriorado")), null, null, true, "Celular apagado no presenta qr");
         assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
         sincronizar();
         var horaGuardada = asistenciaExamenRepository.obtenerFechaHoraIngreso(estudiante, examen);
         assertThat(Math.abs(java.time.Duration.between(ahoraBolivia, horaGuardada).toMillis())).isLessThan(5000);
         assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
+            assertThat(registro.incidencias()).singleElement().satisfies(i -> assertThat(i.descripcion()).isEqualTo("Documento deteriorado"));
             assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
             assertThat(registro.justificacionManual()).isEqualTo("Celular apagado no presenta qr");
             assertThat(registro.usuarioControl()).isEqualTo("Luis Paz");

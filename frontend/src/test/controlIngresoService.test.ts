@@ -67,6 +67,15 @@ describe('INCI-01: confirmación de expulsión', () => {
     expect(evento.detail).toEqual({ tipo: 'INGRESO', idExamen: 20, idEstudiante: 10 })
   })
 
+  it.each(['uso de celular durante el examen', 'USO DE CELULAR DURANTE EL EXAMEN', 'uSO de CELULAR durante el EXAMEN'])(
+    'normaliza %s y confirma sin relajar la coincidencia del motivo', async (motivo) => {
+      mockedApi.post = vi.fn().mockResolvedValue({ data: registro })
+      await expect(expulsarEstudiante({ ...payload, motivo })).resolves.toBe(registro)
+      expect(mockedApi.post).toHaveBeenCalledWith('/control-ingresos/expulsar', payload)
+      expect(window.dispatchEvent).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it('envía únicamente estudiante, examen y motivo al endpoint autenticado', async () => {
     mockedApi.post = vi.fn().mockResolvedValue({ data: null })
     await expulsarEstudiante({
