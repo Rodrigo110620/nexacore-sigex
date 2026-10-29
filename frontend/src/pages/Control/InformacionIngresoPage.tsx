@@ -421,6 +421,7 @@ export default function InformacionIngresoPage() {
                       <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
                       {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
+                      {!!registro.incidencias?.length && <div><strong>Incidencias:</strong><ul className="mt-1 list-disc space-y-1 pl-5">{registro.incidencias.map((incidencia, i) => <li key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{incidencia.tipo.replace(/_/g, ' ')}{incidencia.descripcion && incidencia.descripcion !== incidencia.tipo ? `: ${incidencia.descripcion}` : ''}</li>)}</ul></div>}
                       {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? (registro.trasladadoDesde ? ` · trasladado desde ${registro.trasladadoDesde}` : ' (Reasignado)') : ''}</p>}
                     </div>}
                   </li>
@@ -526,7 +527,7 @@ export default function InformacionIngresoPage() {
                       <IdCard size={17} />
                       {sinCarnet
                         ? "No presentó carnet"
-                        : documentoPresentado ?? "Carnet de identidad"}
+                        : reporteAbierto.ciPresentado?.trim() || "CI no registrado"}
                     </b>
                   </p>
                   {reporteAbierto.codigoSisPresentado && (
