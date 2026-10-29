@@ -91,7 +91,7 @@ it.each([0, 1])('vista %s: confirma auditoría válida y conserva el bloqueo has
   expect(await screen.findByRole('status')).toHaveTextContent('Expulsión registrada correctamente.')
   fireEvent.click(within(modal).getByText('Ver registro de expulsión'))
   expect(within(modal).getByText('Ana Rojas')).toBeVisible()
-  expect(within(modal).getByText('24/10/2026 14:00')).toBeVisible()
+  expect(within(modal).getByText('24/10/2026 14:00:00')).toBeVisible()
   expect(within(modal).getByRole('textbox')).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).toHaveBeenCalledTimes(1)
