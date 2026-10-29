@@ -24,7 +24,6 @@ const FIELD_LABELS: Record<string, string> = {
   observaciones: 'las Observaciones',
 }
 
-// 🆕 Opciones actualizadas
 const OPCIONES_ACCION = [
   { value: 'Se negó el ingreso y se derivó a coordinación académica.', label: 'Se negó el ingreso y se derivó a coordinación académica.' },
   { value: 'Se permitió el ingreso bajo supervisión.', label: 'Se permitió el ingreso bajo supervisión.' },
@@ -49,11 +48,9 @@ export default function RegistrarNoHabilitadoModal({
   const [errorMessage, setErrorMessage] = useState('')
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  // 🆕 Estados para el dropdown personalizado
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // 🆕 Cerrar el dropdown si se hace clic afuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -78,7 +75,6 @@ export default function RegistrarNoHabilitadoModal({
   const handleContinue = () => {
     setErrorModalOpen(false)
     setTimeout(() => {
-      // 🆕 Buscamos el botón del dropdown por su id
       const el = document.getElementById(errorField) as HTMLElement | null
       if (el) {
         el.focus()
@@ -176,7 +172,6 @@ export default function RegistrarNoHabilitadoModal({
                   <span className="text-xs font-semibold text-[#011140]">Acción Tomada <span className="text-red-500">*</span></span>
                 </label>
                 
-                {/* 🆕 Custom Dropdown en lugar del select nativo */}
                 <div className="relative" ref={dropdownRef}>
                   <button
                     id="accion"
