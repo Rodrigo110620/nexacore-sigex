@@ -178,6 +178,16 @@ class ControlIngresoServiceTests {
         assertEquals("Documento inválido — CI vencido", service.denegar(request, "control@umss.edu.bo").causa());
     }
 
+    @Test
+    void rechazaDetalleCortoSinDenegarNiGuardar() {
+        for (String detalle : new String[] {"A", "CI viejo", "  CI viejo  "}) {
+            var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), detalle);
+            assertEquals("El detalle adicional debe tener al menos 10 caracteres", assertThrows(IllegalArgumentException.class,
+                    () -> service.denegar(request, "control@umss.edu.bo")).getMessage());
+        }
+        verifyNoInteractions(registroRepository, asistenciaRepository);
+    }
+
     /** BUG-D02: con un detalle inválido no se deniega ni se registra nada. */
     @Test
     void rechazaDetalleAdicionalInvalidoSinEscribirDatos() {
@@ -482,11 +492,14 @@ class ControlIngresoServiceTests {
         registro.setVerificacionesAdicionales("[\"Identidad contrastada\"]");
         registro.setFechaHora(LocalDateTime.parse("2026-09-25T16:00:00"));
         when(registroRepository.listarPorExamen(20)).thenReturn(List.of(registro));
+        when(incidenciaRepository.listarDelControl(10, 20)).thenReturn(List.<Object[]>of(
+                new Object[] {registro.getFechaHora(), "OTRA_INCIDENCIA", "Documento observado"}));
 
         var filas = service.consultarRegistrosExamen(20);
 
         assertEquals(1, filas.size());
         assertEquals(92, filas.get(0).idRegistro());
+        assertEquals("Documento observado", filas.get(0).incidencias().get(0).descripcion());
         assertEquals("Laura Paredes", filas.get(0).estudiante());
         assertEquals("20261234", filas.get(0).codigoSis());
         assertEquals("AUTORIZADO", filas.get(0).resultado());
@@ -815,5 +828,16 @@ class ControlIngresoServiceTests {
         when(reparto.repartir(any(), any())).thenReturn(
                 new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
         return reparto;
+    }
+    @Test
+    void incidenciaInvalidaNoAutorizaNiDeniegaNiGuarda() {
+        prepararTipoIncidencia(4);
+        for (String texto : List.of("????????", "aaaaaaaaaaaa", "###")) {
+            var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", true, List.of(),
+                    List.of(new com.nexacore.examenes.dto.IncidenciaIngresoRequest(4, texto)));
+            assertThrows(IllegalArgumentException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+            assertThrows(IllegalArgumentException.class, () -> service.denegar(request, "control@umss.edu.bo"));
+        }
+        verifyNoInteractions(registroRepository, incidenciaRepository, asistenciaRepository);
     }
 }
