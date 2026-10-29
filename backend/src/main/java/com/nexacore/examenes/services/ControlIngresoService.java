@@ -800,6 +800,7 @@ public class ControlIngresoService {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
 
         // Validar y normalizar motivo (C01-C04)
+        // Validar y normalizar motivo permitiendo acentos y eñes (áéíóúÁÉÍÓÚñÑ)
         String motivoLimpio = limpiar(request.motivo());
         if (motivoLimpio == null || motivoLimpio.isBlank()) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
@@ -810,13 +811,15 @@ public class ControlIngresoService {
         if (!Character.isLetter(motivoLimpio.charAt(0))) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe comenzar con una letra");
         }
-        if (!motivoLimpio.matches("^[a-zA-Z0-9 ]+$")) {
+        // Expresión regular actualizada para incluir letras con tilde y eñes
+        if (!motivoLimpio.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9 ]+$")) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo solo permite letras, números y espacios simples entre palabras");
         }
         if (esSoloUnaLetraRepetida(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
         }
-        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1).toLowerCase();
+        // Solo capitalizar la primera letra sin volver minúscula el resto por completo
+        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1);
 
         // Validar y normalizar observación (C01-C04)
         String observacionLimpia = limpiar(request.observacion());
