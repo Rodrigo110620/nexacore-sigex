@@ -106,3 +106,10 @@ describe('VerificarAmbienteModal (ACCS-06)', () => {
     expect(screen.getByTitle('Haz clic para editar')).toHaveTextContent('692F')
   })
 })
+
+it.each(['66666666666666666666', 'FFFFFFFFFFFFFFFFFFFF'])('rechaza un aula repetitiva %s', texto => {
+  expect(validarAulaActual(texto, '692F')).not.toBeNull()
+})
+it.each(['666', '692F', 'L813', 'INFLAB'])('conserva códigos de aula legítimos %s', texto => {
+  expect(validarAulaActual(texto, '601')).toBeNull()
+})
