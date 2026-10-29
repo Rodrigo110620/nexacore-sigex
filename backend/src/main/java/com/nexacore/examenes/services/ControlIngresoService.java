@@ -775,6 +775,18 @@ public class ControlIngresoService {
                     "El texto contiene contenido no válido: " + garabato);
         }
     }
+
+    /** Devuelve true si el texto consiste únicamente en el mismo carácter alfabético repetido
+     *  (ignorando espacios), ej: "SSS SSSSS", "AAAAA", "111 111". */
+    private static boolean esSoloUnaLetraRepetida(String texto) {
+        String letras = texto.replaceAll("\\s", "").toUpperCase();
+        if (letras.isEmpty()) return false;
+        char primera = letras.charAt(0);
+        for (int i = 1; i < letras.length(); i++) {
+            if (letras.charAt(i) != primera) return false;
+        }
+        return true;
+    }
     @Transactional
     public ReasignarAmbienteResponse reasignarAmbiente(
             Integer idExamen, 
@@ -786,8 +798,40 @@ public class ControlIngresoService {
         sesionExamenService.bloquearContexto(idExamen);
 
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
-        validarTextoLibre(request.motivo());
-        validarTextoLibre(request.observacion());
+
+        // Validar y normalizar motivo (C01-C04)
+        // Validar y normalizar motivo permitiendo acentos y eñes (áéíóúÁÉÍÓÚñÑ)
+        String motivoLimpio = limpiar(request.motivo());
+        if (motivoLimpio == null || motivoLimpio.isBlank()) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
+        }
+        if (motivoLimpio.length() > 65) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede superar 65 caracteres");
+        }
+        if (!Character.isLetter(motivoLimpio.charAt(0))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe comenzar con una letra");
+        }
+        // Expresión regular actualizada para incluir letras con tilde y eñes
+        if (!motivoLimpio.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9 ]+$")) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo solo permite letras, números y espacios simples entre palabras");
+        }
+        if (esSoloUnaLetraRepetida(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
+        }
+        // Solo capitalizar la primera letra sin volver minúscula el resto por completo
+        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1);
+
+        // Validar y normalizar observación (C01-C04)
+        String observacionLimpia = limpiar(request.observacion());
+        if (observacionLimpia != null && !observacionLimpia.isBlank()) {
+            if (observacionLimpia.matches(".*\\d.*")) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            if (!observacionLimpia.matches("^[a-zA-Z ]+$")) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            observacionLimpia = observacionLimpia.substring(0, 1).toUpperCase() + observacionLimpia.substring(1).toLowerCase();
+        }
 
         Usuario control = usuarioRepository.findByEmail(emailControl)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
@@ -838,9 +882,9 @@ TrasladoAmbiente traslado = new TrasladoAmbiente();
 traslado.setIdEstudiante(idEstudiante);
 traslado.setIdExamen(idExamen);
 traslado.setIdAmbienteOrigen(ambienteOrigenId);
-traslado.setIdAmbienteDestino(request.idAmbienteDestino()); 
-traslado.setMotivo(limpiar(request.motivo()));
-traslado.setObservacion(limpiar(request.observacion()));               
+traslado.setIdAmbienteDestino(request.idAmbienteDestino());
+traslado.setMotivo(motivoLimpio);
+traslado.setObservacion(observacionLimpia);
 traslado.setIdUsuarioAdmin(control.getId());
 traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
 trasladoAmbienteRepository.save(traslado);
@@ -859,7 +903,7 @@ trasladoAmbienteRepository.save(traslado);
                 request.idAmbienteDestino(),
                 aulaDestinoNombre,
                 asistencia.getFechaHoraIngreso(), // La fecha original no cambia
-                limpiar(request.observacion()),
+                observacionLimpia,
                 true
         );
     }
