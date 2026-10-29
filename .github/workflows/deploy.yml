@@ -32,7 +32,7 @@ jobs:
       NOTA: ${{ inputs.nota }}
     steps:
       - name: Descargar el repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
