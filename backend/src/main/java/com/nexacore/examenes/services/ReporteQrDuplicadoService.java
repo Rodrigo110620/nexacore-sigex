@@ -74,6 +74,9 @@ public class ReporteQrDuplicadoService {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, ReglasEstudiante.MSG_CI);
         if (codigoSis != null && !codigoSis.isBlank() && !codigoSis.strip().matches(ReglasEstudiante.CODIGO_SIS))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, ReglasEstudiante.MSG_CODIGO_SIS);
+        if (codigoSis != null && !codigoSis.isBlank()) {
+            com.nexacore.examenes.utils.ValidacionIdentificador.validarCodigoUniversitario(codigoSis.strip());
+        }
         if (detalle.strip().length() < 20)
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La descripción guiada debe tener al menos 20 caracteres.");
         byte[] imagen = leerImagenObligatoria(foto);
