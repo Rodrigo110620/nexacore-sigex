@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import api from '../../services/api'
@@ -24,17 +24,45 @@ const FIELD_LABELS: Record<string, string> = {
   observaciones: 'las Observaciones',
 }
 
+// 🆕 Opciones actualizadas
+const OPCIONES_ACCION = [
+  { value: 'Se negó el ingreso y se derivó a coordinación académica.', label: 'Se negó el ingreso y se derivó a coordinación académica.' },
+  { value: 'Se permitió el ingreso bajo supervisión.', label: 'Se permitió el ingreso bajo supervisión.' },
+  { value: 'Se solicitó al estudiante retirarse del ambiente.', label: 'Se solicitó al estudiante retirarse del ambiente.' },
+]
+
+const toSentenceCase = (text: string) => {
+  if (!text) return text
+  const lower = text.toLowerCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
 export default function RegistrarNoHabilitadoModal({
   isOpen, onClose, estudiante, idEstudiante, idExamen, idAmbiente, onGuardadoExitoso,
 }: Props) {
-  const [accion, setAccion] = useState('')
+  const [accion, setAccion] = useState('') 
   const [observaciones, setObservaciones] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   
   const [errorModalOpen, setErrorModalOpen] = useState(false)
-  const [errorField, setErrorField] = useState('') 
+  const [errorField, setErrorField] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [resultado, setResultado] = useState<Resultado | null>(null)
+
+  // 🆕 Estados para el dropdown personalizado
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // 🆕 Cerrar el dropdown si se hace clic afuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   if (!isOpen || !estudiante) return null
 
@@ -50,12 +78,11 @@ export default function RegistrarNoHabilitadoModal({
   const handleContinue = () => {
     setErrorModalOpen(false)
     setTimeout(() => {
-      // Busca el textarea por su atributo name
-      const el = document.querySelector(`[name="${errorField}"]`) as HTMLTextAreaElement | null
+      // 🆕 Buscamos el botón del dropdown por su id
+      const el = document.getElementById(errorField) as HTMLElement | null
       if (el) {
-        el.focus() // Lo enfoca (le pone el borde azul de focus)
-        el.select() // Selecciona todo el texto (lo marca en azul para que lo borren)
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' }) // Hace scroll hasta él
+        el.focus()
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
     }, 150)
   }
@@ -65,29 +92,21 @@ export default function RegistrarNoHabilitadoModal({
     const textoObs = observaciones.trim();
 
     if (!textoAccion) {
-      showError('accion', 'La acción tomada es obligatoria.')
+      showError('accion', 'Debes seleccionar una acción tomada.')
       return
     }
-    if (textoAccion.length < 5) {
-      showError('accion', 'Debe ser más descriptiva (mínimo 5 letras).')
-      return
-    }
-    if (/^[0-9\s]+$/.test(textoAccion)) {
-      showError('accion', 'Debe contener letras, no solo números.')
-      return
-    }
-    if (/^(.)\1+$/.test(textoAccion.replace(/\s/g, ''))) {
-      showError('accion', 'No puede ser una letra repetida.')
-      return
-    }
-    
+
     if (textoObs) {
-      if (textoObs.length < 5) {
-        showError('observaciones', 'Deben tener al menos 5 caracteres.')
+      if (textoObs.length < 10) {
+        showError('observaciones', 'Las observaciones deben tener al menos 10 caracteres.')
+        return
+      }
+      if (textoObs.length > 200) {
+        showError('observaciones', 'Las observaciones no pueden superar los 200 caracteres.')
         return
       }
       if (/^[0-9\s]+$/.test(textoObs)) {
-        showError('observaciones', 'Deben contener letras, no solo números.')
+        showError('observaciones', 'Las observaciones deben contener letras, no solo números.')
         return
       }
     }
@@ -155,19 +174,43 @@ export default function RegistrarNoHabilitadoModal({
               <div>
                 <label className="flex justify-between items-center mb-1">
                   <span className="text-xs font-semibold text-[#011140]">Acción Tomada <span className="text-red-500">*</span></span>
-                  <span className="text-[10px] font-semibold text-[#94A3B8] uppercase">Texto libre</span>
                 </label>
-                <textarea
-                  name="accion" 
-                  value={accion}
-                  onChange={(e) => setAccion(e.target.value)}
-                  placeholder="Ej: Se negó el ingreso y se derivó a coordinación académica."
-                  rows={2}
-                  maxLength={100}
-                  className={inputClass}
-                />
-                <div className="mt-1 flex justify-end">
-                  <span className="text-[10px] text-[#94A3B8]">{accion.length}/100</span>
+                
+                {/* 🆕 Custom Dropdown en lugar del select nativo */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    id="accion"
+                    type="button"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className={`${inputClass} flex items-center justify-between text-left ${!accion ? 'text-[#64748B]' : 'text-[#011140]'}`}
+                  >
+                    <span className="truncate">{accion || 'Seleccione una acción...'}</span>
+                    <ChevronDown 
+                      size={16} 
+                      className={`text-[#64748B] transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+
+
+                  {dropdownOpen && (
+                    <div className="absolute z-10 mt-0.5 w-full rounded-lg border border-[#D8E3F5] bg-white py-1 shadow-xl">
+                      {OPCIONES_ACCION.map((opcion) => (
+                        <button
+                          key={opcion.value}
+                          type="button"
+                          onClick={() => {
+                            setAccion(opcion.value)
+                            setDropdownOpen(false)
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-[#E9F1FF] hover:text-[#0439D9] ${
+                            accion === opcion.value ? 'bg-[#F4F7FB] font-semibold text-[#0439D9]' : 'text-[#011140]'
+                          }`}
+                        >
+                          {opcion.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -177,14 +220,19 @@ export default function RegistrarNoHabilitadoModal({
                   <span className="text-[10px] font-semibold text-[#94A3B8] uppercase">(Opcional)</span>
                 </label>
                 <textarea
-                  name="observaciones" 
+                  id="observaciones"
                   value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
+                  onChange={(e) => setObservaciones(toSentenceCase(e.target.value))}
                   placeholder="El estudiante se retiró sin oponer resistencia."
                   rows={3}
-                  maxLength={500}
                   className={inputClass}
                 />
+              
+                <div className="mt-1 flex justify-end">
+                  <span className={`text-[10px] ${observaciones.length > 200 ? 'text-red-500 font-bold' : 'text-[#94A3B8]'}`}>
+                    {observaciones.length}/200 caracteres
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -192,7 +240,7 @@ export default function RegistrarNoHabilitadoModal({
               <button onClick={onClose} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
                 <ArrowLeft size={15} /> Cancelar
               </button>
-              <button onClick={handleGuardar} disabled={isSaving || !accion.trim()} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-[#BA1A1A] px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#B91C1C] disabled:opacity-50 ml-auto">
+              <button onClick={handleGuardar} disabled={isSaving || !accion} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-[#BA1A1A] px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#B91C1C] disabled:opacity-50 ml-auto">
                 <CheckCircle2 size={18} />
                 {isSaving ? 'Guardando...' : 'Guardar Registro'}
               </button>
