@@ -1,11 +1,11 @@
 import api from './api'
-import { esExpulsionConfirmada, type ExpulsionResponse } from './expulsionService'
+import { esExpulsionConfirmada, normalizarMotivoExpulsion, type ExpulsionResponse } from './expulsionService'
 import { emitirCambioLocal } from './notificacionService'
 import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
 
 /** null significa que hubo respuesta HTTP, pero no un registro verificable. */
 export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | null> {
-  const motivo = payload.motivo.trim()
+  const motivo = normalizarMotivoExpulsion(payload.motivo)
   if (!motivo) throw new Error('El motivo de expulsión es obligatorio.')
   if (![payload.idEstudiante, payload.idExamen].every((id) => Number.isSafeInteger(id) && id > 0)) {
     throw new Error('El estudiante y el examen deben tener identificadores válidos.')

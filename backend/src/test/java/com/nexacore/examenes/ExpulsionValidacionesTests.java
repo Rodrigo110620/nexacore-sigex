@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -74,6 +75,14 @@ class ExpulsionValidacionesTests {
     @ValueSource(strings = {"   ", "\n\t", "????", "aaaa", "Texto <script>"})
     void motivoEsObligatorioYReutilizaLasReglasDeTexto(String motivo) {
         assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(motivo));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"uso de celular,Uso de celular", "USO DE CELULAR,Uso de celular",
+            "  áRBOL y ÑANDÚ  ,Árbol y ñandú", "¿uSO  de CELULAR?,¿Uso  de celular?",
+            "123 uso de CELULAR,123 Uso de celular"})
+    void normalizaSoloLaCajaSinAlterarSignosNiEspacios(String entrada, String esperado) {
+        assertEquals(esperado, ExpulsionValidaciones.motivo(entrada));
     }
 
     @Test

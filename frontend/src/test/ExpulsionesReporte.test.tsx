@@ -53,7 +53,7 @@ it('incluye auditoría sin duplicados y conserva ingresos manuales y no autoriza
   fireEvent.click(reporte.getByText('Ver registro de expulsión'))
   expect(reporte.getByText('Uso de celular')).toBeVisible()
   expect(reporte.getByText('Ana Rojas')).toBeVisible()
-  expect(reporte.getByText('24/10/2026 14:00:00')).toBeVisible()
+  expect(reporte.getByText('24/10/2026 14:00')).toBeVisible()
   expect(reporte.queryByRole('textbox')).not.toBeInTheDocument()
   expect(screen.getByRole('tab', { name: /Excepciones/ })).toHaveTextContent('1 manual')
   fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
@@ -114,4 +114,26 @@ it('muestra el nombre y el código SIS que manda el servidor aunque no esté en 
   render(<ExpulsionesReporte idExamen={7} examen="Redes de Computadoras · 28/10/2026 · 15:25" controles={[]} />)
   expect(await screen.findByRole('heading', { name: 'Marco Rocha Paz · SIS 202101987' })).toBeInTheDocument()
   expect(screen.getByText('Redes de Computadoras · 28/10/2026 · 15:25')).toBeInTheDocument()
+})
+
+it('prioriza la identidad de expulsiones ante un historial distinto', async () => {
+  vi.mocked(listarExpulsionesExamen).mockResolvedValue([{ ...expulsion, estudiante: 'Marco Rocha Paz', codigoSis: '202101987' }])
+  render(<ExpulsionesReporte idExamen={7} controles={[manual]} />)
+  expect(await screen.findByRole('heading', { name: 'Marco Rocha Paz · SIS 202101987' })).toBeInTheDocument()
+  expect(screen.queryByText(/Luis Flores/)).not.toBeInTheDocument()
+})
+
+it('tolera el contrato de controles sin idExamen y descarta otro examen explícito', async () => {
+  const sinExamen = { ...manual }
+  Reflect.deleteProperty(sinExamen, 'idExamen')
+  const controles = [sinExamen as RegistroControlIngresoExamen, { ...manual, idExamen: 8, estudiante: 'Otro estudiante' }]
+  render(<ExpulsionesReporte idExamen={7} controles={controles} />)
+  expect(await screen.findByRole('heading', { name: 'Luis Flores · SIS 202600002' })).toBeInTheDocument()
+  expect(screen.queryByText(/Otro estudiante/)).not.toBeInTheDocument()
+})
+
+it('no oculta el SIS cuando falta el nombre real', async () => {
+  vi.mocked(listarExpulsionesExamen).mockResolvedValue([{ ...expulsion, estudiante: ' ', codigoSis: '202101987' }])
+  render(<ExpulsionesReporte idExamen={7} controles={[]} />)
+  expect(await screen.findByRole('heading', { name: 'Estudiante #24 · SIS 202101987' })).toBeInTheDocument()
 })
