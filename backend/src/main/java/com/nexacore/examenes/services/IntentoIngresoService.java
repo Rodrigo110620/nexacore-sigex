@@ -89,6 +89,9 @@ public class IntentoIngresoService {
         var examen = asistencia.getExamen();
         String aulaEsperada = examen.getAmbiente() != null ? examen.getAmbiente().getNombre() : null;
         String aulaActual = request.aulaActual().trim().toUpperCase();
+        if (!com.nexacore.examenes.utils.ValidacionPalabras.esCodigoDeAmbiente(aulaActual)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Usa un código de aula válido, por ejemplo 692F, L813 o INFLAB");
+        }
         if (aulaEsperada != null && aulaEsperada.trim().equalsIgnoreCase(aulaActual)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
                     "El aula actual es la misma que el aula asignada al examen");

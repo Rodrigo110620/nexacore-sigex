@@ -14,7 +14,8 @@ export interface ReglaTextoLibre {
   max: number
 }
 
-export const DETALLE_DENEGACION: ReglaTextoLibre = { campo: 'El detalle adicional', min: 1, max: 500 }
+export const DETALLE_INCIDENCIA: ReglaTextoLibre = { campo: 'El detalle de incidencia', min: 1, max: 1000 }
+export const DETALLE_DENEGACION: ReglaTextoLibre = { campo: 'El detalle adicional', min: 10, max: 500 }
 /** Observaciones del control de ingreso (ACCS-02 CA-53/54): opcionales, de 10 a 100 caracteres. */
 export const OBSERVACIONES_CONTROL: ReglaTextoLibre = { campo: 'La observación', min: 10, max: 100 }
 
