@@ -492,10 +492,16 @@ class ControlIngresoServiceTests {
         registro.setVerificacionesAdicionales("[\"Identidad contrastada\"]");
         registro.setFechaHora(LocalDateTime.parse("2026-09-25T16:00:00"));
         when(registroRepository.listarPorExamen(20)).thenReturn(List.of(registro));
-        when(incidenciaRepository.listarDelControl(10, 20)).thenReturn(List.<Object[]>of(
-                new Object[] {registro.getFechaHora(), "OTRA_INCIDENCIA", "Documento observado"}));
+        when(incidenciaRepository.listarDelExamen(20)).thenReturn(List.<Object[]>of(
+                new Object[] {10, registro.getFechaHora(), "OTRA_INCIDENCIA", "Documento observado"},
+                new Object[] {11, registro.getFechaHora(), "LLEGADA_TARDE", "De otro estudiante"}));
 
         var filas = service.consultarRegistrosExamen(20);
+
+        // Una sola consulta por examen, no una por estudiante.
+        verify(incidenciaRepository).listarDelExamen(20);
+        verify(incidenciaRepository, never()).listarDelControl(any(), any());
+        assertEquals(1, filas.get(0).incidencias().size());
 
         assertEquals(1, filas.size());
         assertEquals(92, filas.get(0).idRegistro());
