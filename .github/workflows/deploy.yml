@@ -1,0 +1,96 @@
+# Abre (o actualiza) el PR develop → main con la lista de cambios y las migraciones nuevas.
+# Se ejecuta a mano: pestaña Actions → "Deploy (pasar a producción)" → Run workflow.
+# Al fusionar el PR en main, Coolify despliega solo (webhook del laboratorio).
+#
+# Los checks del CI no vuelven a correr en este PR: GitHub los toma del último push a develop,
+# que es el mismo commit. Si develop no pasó el CI, el PR queda bloqueado igual.
+name: Deploy (pasar a producción)
+
+on:
+  workflow_dispatch:
+    inputs:
+      nota:
+        description: "Nota para el PR (opcional), p. ej. 'Despliegue del sábado 31/10'"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pasar-a-produccion
+  cancel-in-progress: false
+
+jobs:
+  abrir-pr:
+    name: Abrir el PR develop → main
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # La nota va por variable de entorno, nunca dentro del script (evita inyectar comandos).
+      NOTA: ${{ inputs.nota }}
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Comparar develop con main
+        id: cambios
+        run: |
+          git fetch origin main develop
+          total=$(git rev-list --count --no-merges origin/main..origin/develop)
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          if [ "$total" -eq 0 ]; then
+            echo "develop no tiene cambios nuevos respecto de main."
+            exit 0
+          fi
+          {
+            echo "## Cambios ($total commits)"
+            echo
+            git log --no-merges --format='- %s (%an)' origin/main..origin/develop | head -100
+            echo
+            migraciones=$(git diff --name-only --diff-filter=A origin/main origin/develop -- backend/src/main/resources/db/migration | sed 's#.*/##' | sort -V)
+            if [ -n "$migraciones" ]; then
+              echo "## ⚠️ Migraciones nuevas"
+              echo
+              for m in $migraciones; do printf -- '- \x60%s\x60\n' "$m"; done
+              echo
+              echo "**Antes de fusionar, haz el respaldo de la base** (el laboratorio o CloudBeaver): estas migraciones cambian la estructura y no se deshacen solas."
+              echo
+            else
+              echo "Sin migraciones nuevas."
+              echo
+            fi
+            echo "## Antes de fusionar"
+            echo
+            echo "- [ ] Los checks del CI de develop están en verde"
+            echo "- [ ] QA verificó los cambios y los criterios de aceptación"
+            if [ -n "$migraciones" ]; then echo "- [ ] Respaldo de la base hecho"; fi
+            echo
+            echo "## Después de fusionar"
+            echo
+            echo "- [ ] Coolify terminó el despliegue (el sitio responde)"
+            echo "- [ ] Prueba de humo: iniciar sesión con cada rol, registrar un ingreso y ver un reporte"
+            if [ -n "$NOTA" ]; then
+              echo
+              echo "> $NOTA"
+            fi
+            echo
+            echo "_Generado por el workflow \"deploy.yml\" ($(date -u +%Y-%m-%dT%H:%MZ))._"
+          } > cuerpo.md
+          cat cuerpo.md
+
+      - name: Abrir o actualizar el PR
+        if: steps.cambios.outputs.total != '0'
+        run: |
+          titulo="Producción: develop → main ($(TZ=America/La_Paz date +%d/%m/%Y))"
+          existente=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number')
+          if [ -n "$existente" ]; then
+            gh pr edit "$existente" --title "$titulo" --body-file cuerpo.md
+            echo "PR #$existente actualizado." >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --base main --head develop --title "$titulo" --body-file cuerpo.md)
+            echo "PR creado: $url" >> "$GITHUB_STEP_SUMMARY"
+          fi

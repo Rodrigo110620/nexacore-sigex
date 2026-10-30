@@ -228,6 +228,7 @@ public class ControlIngresoService {
     @Transactional
     public AutorizarIngresoResponse autorizar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        validarIncidencias(request.incidencias());
         validarTextoLibre(request.observaciones());
         validarObservaciones(request.observaciones());
         Usuario control = usuarioRepository.findByEmail(emailControl)
@@ -255,7 +256,7 @@ public class ControlIngresoService {
                             ? "El estudiante no está habilitado para este examen"
                             : "El estudiante no está habilitado: " + String.join("; ", razones(motivo));
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_NO_HABILITADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -263,7 +264,7 @@ public class ControlIngresoService {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String causa = "El ingreso de este estudiante al examen ya fue autorizado";
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -294,7 +295,7 @@ public class ControlIngresoService {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String causa = "El ingreso de este estudiante al examen ya fue autorizado";
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -307,7 +308,7 @@ public class ControlIngresoService {
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
 
         if (request.ingresoManual() || request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
-            guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
+            guardarRegistroDelControl(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
         } else {
             guardarRegistro(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
         }
@@ -403,6 +404,7 @@ public class ControlIngresoService {
     @Transactional
     public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        validarIncidencias(request.incidencias());
         validarTextoLibre(request.observaciones());
         String razon = limpiar(request.observaciones());
         if (razon == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");
@@ -412,7 +414,7 @@ public class ControlIngresoService {
             validarObservaciones(razon.substring(finRazon + SEPARADOR_CAUSA.length()));
         }
         String detalle = ValidacionTextoLibre.validarOpcional(
-                request.detalleDenegacion(), "El detalle adicional", 1, DETALLE_DENEGACION_MAX);
+                request.detalleDenegacion(), "El detalle adicional", 10, DETALLE_DENEGACION_MAX);
         if (detalle == null && razon.startsWith(OTRA_RAZON)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
         }
@@ -432,7 +434,7 @@ public class ControlIngresoService {
                 asistencia.getMotivoInhabilitacion(), "Ingreso denegado por CONTROL: " + causa));
         asistenciaRepository.save(asistencia);
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-        guardarRegistro(asistencia, control, request, "DENEGADO", causa, causa);
+        guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, causa, ahora);
         return crearRespuesta(asistencia, control, request, false, "DENEGADO_CONTROL", causa, ahora, request.incidencias().size());
     }
 
@@ -442,6 +444,17 @@ public class ControlIngresoService {
         int finRazon = observaciones.indexOf(SEPARADOR_CAUSA);
         if (finRazon < 0) return observaciones + SEPARADOR_CAUSA + detalle;
         return observaciones.substring(0, finRazon) + SEPARADOR_CAUSA + detalle + observaciones.substring(finRazon);
+    }
+
+    private void validarIncidencias(List<IncidenciaIngresoRequest> incidencias) {
+        for (var item : incidencias) {
+            var tipo = catalogoRepository.findById(item.idTipoIncidencia()).orElseThrow(() ->
+                    new ControlIngresoException(HttpStatus.BAD_REQUEST, "El tipo de incidencia no existe"));
+            String descripcion = item.descripcion();
+            if (descripcion != null && descripcion.equals(tipo.getNombre())) continue;
+            ValidacionTextoLibre.validarOpcional(descripcion, "El detalle de incidencia", 1, 1000);
+            validarTextoLibre(descripcion);
+        }
     }
 
     private void registrarIncidencias(
@@ -541,6 +554,8 @@ public class ControlIngresoService {
             }
         }
 
+        Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasPorEstudiante =
+                incidenciasDelExamen(idExamen);
         return registroRepository.listarPorExamen(idExamen).stream()
                 .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
@@ -577,7 +592,10 @@ public class ControlIngresoService {
                             leerVerificaciones(registro.getVerificacionesAdicionales()),
                             (control.getNombre() + " " + control.getApellidos()).trim(),
                             registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual(),
-                            ambienteNombre, reasignado, trasladadoDesde);
+                            ambienteNombre, reasignado, trasladadoDesde,
+                            registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
+                                    .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
+                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()));
                 })
                 .toList();
     }
@@ -629,6 +647,13 @@ public class ControlIngresoService {
                 asistencia.getObservacionesControl(),
                 verificaciones,
                 incidenciasRegistradas);
+    }
+
+    /** Con incidencias se conserva exactamente la hora usada al guardarlas para poder consultarlas juntas. */
+    private void guardarRegistroDelControl(AsistenciaExamen asistencia, Usuario control, AutorizarIngresoRequest request,
+                                           String resultado, String causa, String observaciones, LocalDateTime fecha) {
+        if (request.incidencias().isEmpty()) guardarRegistro(asistencia, control, request, resultado, causa, observaciones);
+        else guardarRegistro(asistencia, control, request, resultado, causa, observaciones, fecha);
     }
 
     private void guardarRegistro(
@@ -713,12 +738,28 @@ public class ControlIngresoService {
             Integer idEstudiante, Integer idExamen) {
         Map<LocalDateTime, List<IncidenciaRegistradaResponse>> porFecha = new HashMap<>();
         for (Object[] fila : incidenciaRepository.listarDelControl(idEstudiante, idExamen)) {
-            LocalDateTime fecha = aLocalDateTime(fila[0]);
-            if (fecha == null) continue;
-            porFecha.computeIfAbsent(alMicrosegundo(fecha), f -> new ArrayList<>())
-                    .add(new IncidenciaRegistradaResponse((String) fila[1], (String) fila[2]));
+            agregarPorFecha(porFecha, fila[0], fila[1], fila[2]);
         }
         return porFecha;
+    }
+
+    /** Lo mismo para todo el examen y en una sola consulta: estudiante → fecha y hora → incidencias. */
+    private Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasDelExamen(Integer idExamen) {
+        Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> porEstudiante = new HashMap<>();
+        for (Object[] fila : incidenciaRepository.listarDelExamen(idExamen)) {
+            if (!(fila[0] instanceof Number idEstudiante)) continue;
+            agregarPorFecha(porEstudiante.computeIfAbsent(idEstudiante.intValue(), id -> new HashMap<>()),
+                    fila[1], fila[2], fila[3]);
+        }
+        return porEstudiante;
+    }
+
+    private static void agregarPorFecha(Map<LocalDateTime, List<IncidenciaRegistradaResponse>> porFecha,
+                                        Object fechaHora, Object tipo, Object descripcion) {
+        LocalDateTime fecha = aLocalDateTime(fechaHora);
+        if (fecha == null) return;
+        porFecha.computeIfAbsent(alMicrosegundo(fecha), f -> new ArrayList<>())
+                .add(new IncidenciaRegistradaResponse((String) tipo, (String) descripcion));
     }
 
     private static LocalDateTime aLocalDateTime(Object valor) {

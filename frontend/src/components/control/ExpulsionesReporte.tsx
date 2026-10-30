@@ -92,14 +92,13 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : undefined
-  // Nombre y código SIS desde los registros del control; sin ellos se muestra el identificador real.
-  const nombres = new Map(controles.filter((r) => r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
+  // El endpoint de controles ya está acotado al examen y puede omitir idExamen.
+  const nombres = new Map(controles.filter((r) => r.idExamen == null || r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
   const titulo = (e: ExpulsionResponse) => {
     const r = nombres.get(e.idEstudiante)
-    const nombre = e.estudiante || r?.estudiante
-    const sis = e.codigoSis || r?.codigoSis
-    if (!nombre) return `Estudiante #${e.idEstudiante}`
-    return sis ? `${nombre} · SIS ${sis}` : nombre
+    const nombre = e.estudiante?.trim() || r?.estudiante?.trim()
+    const sis = e.codigoSis?.trim() || r?.codigoSis?.trim()
+    return `${nombre || `Estudiante #${e.idEstudiante}`}${sis ? ` · SIS ${sis}` : ''}`
   }
   return (
     <section aria-label="Expulsiones de la sesión actual" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">

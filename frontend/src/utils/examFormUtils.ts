@@ -167,6 +167,7 @@ export function validarAulaActual(aulaActual: string, aulaEsperada: string): str
   if (aulaActual.toUpperCase() === aulaEsperada.trim().toUpperCase()) {
     return 'El aula actual es la misma que el aula asignada al examen'
   }
+  if (!esCodigoDeAmbiente(aulaActual)) return 'Usa un código de aula válido, por ejemplo 692F, L813 o INFLAB'
   return null
 }
 

@@ -39,6 +39,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, estudiante, 
     try {
       const respuesta = await expulsarEstudiante({ idEstudiante: estudiante.idEstudiante, idExamen, motivo })
       setRegistro(respuesta)
+      if (respuesta) setMotivo(respuesta.motivo)
       setSinConfirmar(true)
     } catch (err) {
       setError(mensajeDeError(err, 'No se pudo registrar la expulsión.'))
