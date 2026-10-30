@@ -15,6 +15,7 @@ import useIdentificacion from '../../hooks/useIdentificacion'
 import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
 import { identificarEstudiante, type EstudianteIdentificado } from '../../services/identificacionService'
+import { obtenerContextoControl } from '../../services/controlIngresoService'
 import { isNetworkError, isOffline } from '../../utils/examFormUtils'
 import { tienePermiso } from '../../utils/permisos'
 
@@ -37,6 +38,8 @@ export default function IdentificacionPage() {
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
   // Estado de habilitación consultado de nuevo al presionar Continuar (ACCS-03): nunca se asume.
   const [estudianteVerificado, setEstudianteVerificado] = useState<EstudianteIdentificado | null>(null)
+  // Aula donde está realmente asignado el estudiante (puede haber cambiado por reasignación).
+  const [aulaEstudiante, setAulaEstudiante] = useState<string | null>(null)
   const [verificando, setVerificando] = useState(false)
   // El aviso queda ligado al estudiante con el que se intentó continuar; otra búsqueda lo oculta.
   const [errorVerificacion, setErrorVerificacion] = useState<{ para: EstudianteIdentificado; mensaje: string } | null>(null)
@@ -60,6 +63,7 @@ export default function IdentificacionPage() {
     lecturaQrActual.current += 1
     setModalVerificacionOpen(false)
     setEstudianteVerificado(null)
+    setAulaEstudiante(null)
     setErrorVerificacion(null)
     setErrorContinuar(null)
   }
@@ -109,6 +113,14 @@ export default function IdentificacionPage() {
     setVerificando(true)
     try {
       setEstudianteVerificado(await identificarEstudiante(idExamen, 'codigo', estudiante.codigoSis))
+      // Obtener el aula real donde está asignado el estudiante (puede haber cambiado por reasignación).
+      try {
+        const contexto = await obtenerContextoControl(estudiante.idEstudiante, idExamen)
+        setAulaEstudiante(contexto.ambiente ?? null)
+      } catch {
+        // Si falla la consulta de contexto, se sigue sin el aula del estudiante y el modal usa la del examen.
+        setAulaEstudiante(null)
+      }
       setErrorContinuar(null)
       setModalVerificacionOpen(true)
     } catch (error) {
@@ -225,6 +237,7 @@ export default function IdentificacionPage() {
                   idAmbiente={(examen as any)?.idAmbiente || 0} 
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
+                  aulaEstudiante={aulaEstudiante}
                   fecha={examen?.fecha}
                   hora={examen?.horaInicio}
                   onVolver={() => {

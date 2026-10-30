@@ -423,6 +423,8 @@ export default function InformacionIngresoPage() {
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
                       {!!registro.incidencias?.length && <div><strong>Incidencias:</strong><ul className="mt-1 list-disc space-y-1 pl-5">{registro.incidencias.map((incidencia, i) => <li key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{incidencia.tipo.replace(/_/g, ' ')}{incidencia.descripcion && incidencia.descripcion !== incidencia.tipo ? `: ${incidencia.descripcion}` : ''}</li>)}</ul></div>}
                       {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? (registro.trasladadoDesde ? ` · trasladado desde ${registro.trasladadoDesde}` : ' (Reasignado)') : ''}</p>}
+                      {registro.motivoTraslado && <p className="whitespace-pre-wrap break-words"><strong>Motivo del traslado:</strong> {registro.motivoTraslado}</p>}
+                      {registro.observacionTraslado && <p className="whitespace-pre-wrap break-words"><strong>Observación del traslado:</strong> {registro.observacionTraslado}</p>}
                     </div>}
                   </li>
                 ))}

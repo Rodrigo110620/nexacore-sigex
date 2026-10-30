@@ -8,9 +8,9 @@ public record ReasignarAmbienteRequest(
         @NotNull(message = "El aula destino es obligatoria")
         Integer idAmbienteDestino,
         @NotBlank(message = "El motivo es obligatorio")
-        @Size(max = 65, message = "El motivo no puede superar 65 caracteres")
+        @Size(min = 10, max = 65, message = "El motivo debe contener al menos 10 caracteres y no puede superar 65 caracteres")
         String motivo,
-        @Size(max = 1000, message = "La observación no puede superar 1000 caracteres")
+        @Size(max = 65, message = "La observación no puede superar 65 caracteres")
         String observacion
 ) {
 }

@@ -295,7 +295,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
           {errorGeneral && (
             <div className="flex items-start gap-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[11px] text-[#B91C1C] mt-2">
               <ShieldAlert size={12} className="mt-0.5" />
-              <span>{errorGeneral}</span>
+              <span className="break-words whitespace-normal leading-tight">{errorGeneral}</span>
             </div>
           )}
         </div>
