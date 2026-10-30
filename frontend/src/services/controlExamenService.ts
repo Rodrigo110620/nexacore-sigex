@@ -16,6 +16,12 @@ export interface EstudianteAsignado {
   ingresado: boolean
   /** Ruta de la foto; null si no tiene (no se podrá autorizar su ingreso). */
   fotoUrl?: string | null
+  /** ID del aula donde está asignado el estudiante (para saber el aula actual al reasignar). */
+  idAmbienteIngreso?: number | null
+  /** INCI-03: aula original si lo trasladaron en la sesión actual ("Trasladado desde ..."). */
+  trasladadoDesde?: string | null
+  /** Aula actual tras el traslado. */
+  trasladadoA?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse
@@ -26,6 +32,8 @@ export interface ResumenEstudiantes {
   habilitados: number
   noHabilitados: number
   ingresados: number
+  /** DASH-01: incidencias de la sesión actual (expulsiones, intentos, excepciones, manuales, traslados, QR duplicados). */
+  incidencias?: number
 }
 
 /** Estudiantes asignados al examen, ordenados por apellidos y nombre. */
@@ -39,7 +47,8 @@ export async function listarEstudiantesExamen(
     api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, { params: { estado, page, size } }),
     listarExpulsionesExamen(idExamen),
   ])
-  const porEstudiante = new Map([...expulsiones].reverse().map((registro) => [registro.idEstudiante, registro]))
+  // Una expulsión anulada (por error) no cuenta: el estudiante sigue con su examen.
+  const porEstudiante = new Map([...expulsiones].filter((r) => !r.anuladaEn).reverse().map((registro) => [registro.idEstudiante, registro]))
   return { ...data, contenido: data.contenido.map((estudiante) => ({
     ...estudiante, expulsado: porEstudiante.has(estudiante.idEstudiante), expulsion: porEstudiante.get(estudiante.idEstudiante),
   })) }

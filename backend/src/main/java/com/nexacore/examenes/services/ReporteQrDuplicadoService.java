@@ -67,10 +67,16 @@ public class ReporteQrDuplicadoService {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Ingresa el CI del carnet presentado.");
         if (!nombres.strip().matches(ReglasEstudiante.NOMBRE) || nombres.strip().length() > 160)
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres solo pueden contener letras; cada palabra debe tener al menos 2 letras.");
+        // Ningún nombre real repite una letra 3 veces seguidas ("Aaaaaaaa" desbordaba las notificaciones).
+        if (java.util.regex.Pattern.compile("(?iu)(\\p{L})\\1\\1").matcher(nombres).find())
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres no pueden repetir una letra 3 veces seguidas.");
         if (presentoCarnet && !ci.strip().matches(ReglasEstudiante.CI))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, ReglasEstudiante.MSG_CI);
         if (codigoSis != null && !codigoSis.isBlank() && !codigoSis.strip().matches(ReglasEstudiante.CODIGO_SIS))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, ReglasEstudiante.MSG_CODIGO_SIS);
+        if (codigoSis != null && !codigoSis.isBlank()) {
+            com.nexacore.examenes.utils.ValidacionIdentificador.validarCodigoUniversitario(codigoSis.strip());
+        }
         if (detalle.strip().length() < 20)
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La descripción guiada debe tener al menos 20 caracteres.");
         byte[] imagen = leerImagenObligatoria(foto);
@@ -86,6 +92,7 @@ public class ReporteQrDuplicadoService {
         reporte.setDetalle(detalle.strip()); reporte.setFotoContenido(imagen); reporte.setFotoTipoContenido(foto.getContentType());
         reporte.setFechaHoraDispositivo(hora); reporte.setFechaHoraServidor(asistenciaRepository.obtenerFechaHoraServidor());
         Integer id = repository.save(reporte).getId();
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudianteQr);
         var estudiante = asistencia.getEstudiante();
         notificacionService.publicar(Notificacion.QR_DUPLICADO,
                 "QR duplicado: " + estudiante.getNombre() + " " + estudiante.getApellidos(),

@@ -26,7 +26,7 @@ public class MateriaController {
     }
 
     @Operation(summary = "Buscar asignaturas", description = "Búsqueda predictiva por nombre o sigla. Mínimo 3 caracteres. ADMIN o DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @GetMapping
     public ResponseEntity<List<MateriaResponse>> buscar(
             @RequestParam(name = "search", defaultValue = "") String search) {

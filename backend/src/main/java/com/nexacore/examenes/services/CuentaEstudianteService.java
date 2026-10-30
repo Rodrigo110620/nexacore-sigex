@@ -2,6 +2,8 @@ package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.dto.ConfirmarActivacionRequest;
 import com.nexacore.examenes.dto.SolicitarActivacionRequest;
+import com.nexacore.examenes.utils.ValidacionIdentificador;
+import com.nexacore.examenes.dto.VerificarCodigoActivacionRequest;
 import com.nexacore.examenes.exceptions.PasswordConfirmacionException;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.EstudianteActivacion;
@@ -49,6 +51,7 @@ public class CuentaEstudianteService {
     private final UsuarioRolRepository usuarioRolRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final QrEstudianteService qrEstudianteService;
 
     public CuentaEstudianteService(EstudianteRepository estudianteRepository,
                                    EstudianteActivacionRepository activacionRepository,
@@ -56,7 +59,9 @@ public class CuentaEstudianteService {
                                    RolRepository rolRepository,
                                    UsuarioRolRepository usuarioRolRepository,
                                    PasswordEncoder passwordEncoder,
-                                   EmailService emailService) {
+                                   EmailService emailService,
+                                   QrEstudianteService qrEstudianteService) {
+        this.qrEstudianteService = qrEstudianteService;
         this.estudianteRepository = estudianteRepository;
         this.activacionRepository = activacionRepository;
         this.usuarioRepository = usuarioRepository;
@@ -79,6 +84,10 @@ public class CuentaEstudianteService {
      */
     @Transactional
     public void solicitarActivacion(SolicitarActivacionRequest request) {
+        // BUG-E01/E02 de HU#5: un código SIS o C.I. ficticio (444444444, 123456789) no pasa al paso 2.
+        // Solo mira el formato, así que no revela qué estudiantes existen.
+        ValidacionIdentificador.validarCodigoUniversitario(request.codigoSis().strip());
+        ValidacionIdentificador.validarCiNoFicticio(request.ci().strip());
         String email = request.email().strip().toLowerCase(Locale.ROOT);
         Optional<Estudiante> encontrado = estudianteRepository.findByCodigoSis(request.codigoSis().strip())
                 .filter(e -> e.getIdUsuario() == null)
@@ -122,19 +131,7 @@ public class CuentaEstudianteService {
         Estudiante estudiante = estudianteRepository.findByCodigoSis(request.codigoSis().strip())
                 .filter(e -> e.getIdUsuario() == null)
                 .orElseThrow(CodigoActivacionInvalidoException::new);
-        EstudianteActivacion activacion = activacionRepository.findById(estudiante.getId())
-                .orElseThrow(CodigoActivacionInvalidoException::new);
-        if (activacion.getIntentos() >= MAX_INTENTOS || activacion.getExpiraEn().isBefore(LocalDateTime.now())) {
-            throw new CodigoActivacionInvalidoException();
-        }
-        boolean coincide = MessageDigest.isEqual(
-                activacion.getHashCodigo().getBytes(StandardCharsets.US_ASCII),
-                hash(estudiante.getId(), request.codigo().strip()).getBytes(StandardCharsets.US_ASCII));
-        if (!coincide) {
-            activacion.setIntentos(activacion.getIntentos() + 1);
-            activacionRepository.save(activacion);
-            throw new CodigoActivacionInvalidoException();
-        }
+        EstudianteActivacion activacion = comprobarCodigo(estudiante, request.codigo());
 
         PasswordPolicy.validarSinDatosDelEstudiante(password, estudiante.getCodigoSis(), estudiante.getCi(), estudiante.getNombre());
         // El correo del usuario se guarda en minúsculas (V25).
@@ -170,6 +167,44 @@ public class CuentaEstudianteService {
         usuarioRolRepository.save(usuarioRol);
 
         activacionRepository.delete(activacion);
+
+        // El QR se envía al activar la cuenta (no al registrarlo): recién ahí el estudiante está activo.
+        // Si ya tenía uno (registrado antes de este cambio), ya le llegó y no se reenvía.
+        var qr = qrEstudianteService.crearSiNoExiste(estudiante);
+        if (qr != null) {
+            emailService.enviarQrEstudiante(estudiante.getEmail(),
+                    estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+        }
+    }
+
+    /**
+     * Paso 2 (BUG-E03 de HU#5): comprueba el código sin usarlo, para no pasar a la contraseña con un
+     * código falso. Cada código fallido cuenta igual que al confirmar (mismo límite de intentos).
+     */
+    @Transactional(noRollbackFor = CodigoActivacionInvalidoException.class)
+    public void verificarCodigo(VerificarCodigoActivacionRequest request) {
+        Estudiante estudiante = estudianteRepository.findByCodigoSis(request.codigoSis().strip())
+                .filter(e -> e.getIdUsuario() == null)
+                .orElseThrow(CodigoActivacionInvalidoException::new);
+        comprobarCodigo(estudiante, request.codigo());
+    }
+
+    /** El registro de activación si el código es correcto y vigente; si no, suma un intento y lanza. */
+    private EstudianteActivacion comprobarCodigo(Estudiante estudiante, String codigo) {
+        EstudianteActivacion activacion = activacionRepository.findById(estudiante.getId())
+                .orElseThrow(CodigoActivacionInvalidoException::new);
+        if (activacion.getIntentos() >= MAX_INTENTOS || activacion.getExpiraEn().isBefore(LocalDateTime.now())) {
+            throw new CodigoActivacionInvalidoException();
+        }
+        boolean coincide = MessageDigest.isEqual(
+                activacion.getHashCodigo().getBytes(StandardCharsets.US_ASCII),
+                hash(estudiante.getId(), codigo.strip()).getBytes(StandardCharsets.US_ASCII));
+        if (!coincide) {
+            activacion.setIntentos(activacion.getIntentos() + 1);
+            activacionRepository.save(activacion);
+            throw new CodigoActivacionInvalidoException();
+        }
+        return activacion;
     }
 
     private static String hash(Integer idEstudiante, String codigo) {

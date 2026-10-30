@@ -5,9 +5,11 @@ interface AuthContextType {
   token: string | null
   nombre: string | null
   roles: string[]
+  /** Permisos que mandó el servidor al iniciar sesión (null en una sesión vieja: se calculan con los roles). */
+  permisos: string[] | null
   isAuthenticated: boolean
   isAdmin: boolean
-  login: (token: string, nombre: string, roles: string[]) => void
+  login: (token: string, nombre: string, roles: string[], permisos?: string[]) => void
   logout: () => void
 }
 
@@ -38,6 +40,7 @@ function leerTokenValido(): string | null {
     localStorage.removeItem('token')
     localStorage.removeItem('nombre')
     localStorage.removeItem('roles')
+    localStorage.removeItem('permisos')
     return null
   }
   return token
@@ -57,22 +60,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  const login = (newToken: string, newNombre: string, newRoles: string[]) => {
+  const [permisos, setPermisos] = useState<string[] | null>(() => {
+    try {
+      const guardados = JSON.parse(localStorage.getItem('permisos') ?? 'null')
+      return Array.isArray(guardados) ? guardados : null
+    } catch {
+      return null
+    }
+  })
+
+  const login = (newToken: string, newNombre: string, newRoles: string[], newPermisos?: string[]) => {
     localStorage.setItem('token', newToken)
     localStorage.setItem('nombre', newNombre)
     localStorage.setItem('roles', JSON.stringify(newRoles))
+    if (newPermisos) localStorage.setItem('permisos', JSON.stringify(newPermisos))
+    else localStorage.removeItem('permisos')
     setToken(newToken)
     setNombre(newNombre)
     setRoles(newRoles)
+    setPermisos(newPermisos ?? null)
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('nombre')
     localStorage.removeItem('roles')
+    localStorage.removeItem('permisos')
     setToken(null)
     setNombre(null)
     setRoles([])
+    setPermisos(null)
   }
 
   // Registra logout en el módulo navigate para que api.ts pueda llamarlo
@@ -86,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ token, nombre, roles, isAuthenticated, isAdmin, login, logout }}
+      value={{ token, nombre, roles, permisos, isAuthenticated, isAdmin, login, logout }}
     >
       {children}
     </AuthContext.Provider>

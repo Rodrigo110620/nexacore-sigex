@@ -33,14 +33,12 @@ import {
 } from "../../services/reporteQrDuplicadoConsultaService";
 import useEnVivo from "../../hooks/useEnVivo";
 import ExpulsionesReporte from "../../components/control/ExpulsionesReporte";
+import ExcepcionesNoHabilitadoReporte from "../../components/control/ExcepcionesNoHabilitadoReporte";
+import { fechaHoraNumerica, formatFecha } from "../../utils/examenFormat";
 
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
-const fechaHora = (valor: string) =>
-  new Date(valor).toLocaleString("es-BO", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+const fechaHora = (valor: string) => fechaHoraNumerica(valor);
 
 export default function InformacionIngresoPage() {
   const idExamen = Number(useParams().idExamen);
@@ -177,7 +175,7 @@ export default function InformacionIngresoPage() {
               </h1>
               <p className="mt-1 text-xs text-[#627A9B]">
                 {examen
-                  ? `${examen.fecha} · ${examen.horaInicio} · ${examen.asignatura} · ${examen.ambienteNombre}${examen.docente ? ` · Docente: ${examen.docente}` : ""}`
+                  ? `${formatFecha(examen.fecha)} · ${examen.horaInicio.slice(0, 5)} · ${examen.asignatura} · ${examen.ambienteNombre}${examen.docente ? ` · Docente: ${examen.docente}` : ""}`
                   : "Registros de control e intentos de ingreso del examen."}
               </p>
             </div>
@@ -240,6 +238,7 @@ export default function InformacionIngresoPage() {
             {pestaña === "excepciones" && <>
               {idValido && <ExpulsionesReporte idExamen={idExamen} controles={registros ?? []}
                 examen={examen?.idExamen === idExamen ? examen.asignatura : undefined} />}
+              {idValido && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} />}
               <h3 className="mt-4 font-semibold text-[#011140]">Ingresos manuales autorizados</h3>
               <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>
             </>}
@@ -422,6 +421,10 @@ export default function InformacionIngresoPage() {
                       <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
                       {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
+                      {!!registro.incidencias?.length && <div><strong>Incidencias:</strong><ul className="mt-1 list-disc space-y-1 pl-5">{registro.incidencias.map((incidencia, i) => <li key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{incidencia.tipo.replace(/_/g, ' ')}{incidencia.descripcion && incidencia.descripcion !== incidencia.tipo ? `: ${incidencia.descripcion}` : ''}</li>)}</ul></div>}
+                      {registro.ambienteIngreso && <p><strong>Aula:</strong> {registro.ambienteIngreso}{registro.reasignado ? (registro.trasladadoDesde ? ` · trasladado desde ${registro.trasladadoDesde}` : ' (Reasignado)') : ''}</p>}
+                      {registro.motivoTraslado && <p className="whitespace-pre-wrap break-words"><strong>Motivo del traslado:</strong> {registro.motivoTraslado}</p>}
+                      {registro.observacionTraslado && <p className="whitespace-pre-wrap break-words"><strong>Observación del traslado:</strong> {registro.observacionTraslado}</p>}
                     </div>}
                   </li>
                 ))}
@@ -526,7 +529,7 @@ export default function InformacionIngresoPage() {
                       <IdCard size={17} />
                       {sinCarnet
                         ? "No presentó carnet"
-                        : documentoPresentado ?? "Carnet de identidad"}
+                        : reporteAbierto.ciPresentado?.trim() || "CI no registrado"}
                     </b>
                   </p>
                   {reporteAbierto.codigoSisPresentado && (

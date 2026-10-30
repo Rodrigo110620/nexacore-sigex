@@ -134,7 +134,7 @@ public class ExamenService {
 
     /** Un DOCENTE no puede crear un examen en representación de otro docente. */
     private Docente resolverDocenteParaRegistro(CrearExamenRequest request) {
-        if (SesionActual.esSoloDocente()) {
+        if (SesionActual.gestionaSoloPropios()) {
             Integer idDocente = usuarioRepository.findByEmail(SesionActual.email())
                     .map(Usuario::getId)
                     .orElseThrow(() -> new IllegalArgumentException("No se encontró el docente autenticado."));
@@ -220,7 +220,11 @@ public class ExamenService {
                 request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
-        Docente docente = resolverDocente(request.idDocente(), request.docente().trim());
+        // Como al crearlo: el DOCENTE no puede pasarle su examen a otro docente.
+        Docente docente = SesionActual.gestionaSoloPropios()
+                ? docenteRepository.findById(examen.getIdDocente())
+                        .orElseThrow(() -> new IllegalArgumentException("El docente del examen no está registrado como DOCENTE."))
+                : resolverDocente(request.idDocente(), request.docente().trim());
         // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
         List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
                 ? request.idAmbientesAdicionales()

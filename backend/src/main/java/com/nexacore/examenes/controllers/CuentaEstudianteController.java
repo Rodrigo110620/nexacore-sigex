@@ -2,6 +2,7 @@ package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.ConfirmarActivacionRequest;
 import com.nexacore.examenes.dto.SolicitarActivacionRequest;
+import com.nexacore.examenes.dto.VerificarCodigoActivacionRequest;
 import com.nexacore.examenes.services.CuentaEstudianteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,10 +37,18 @@ public class CuentaEstudianteController {
                 "Si los datos coinciden con un estudiante registrado sin cuenta, te enviamos un código a tu correo institucional."));
     }
 
+    @Operation(summary = "Comprobar el código de verificación",
+            description = "Antes de pedir la contraseña; cada código fallido cuenta en el límite de intentos.")
+    @PostMapping("/verificar")
+    public ResponseEntity<Map<String, String>> verificar(@Valid @RequestBody VerificarCodigoActivacionRequest request) {
+        cuentaEstudianteService.verificarCodigo(request);
+        return ResponseEntity.ok(Map.of("mensaje", "Código correcto. Crea tu contraseña."));
+    }
+
     @Operation(summary = "Confirmar el código y crear la contraseña")
     @PostMapping("/confirmar")
     public ResponseEntity<Map<String, String>> confirmar(@Valid @RequestBody ConfirmarActivacionRequest request) {
         cuentaEstudianteService.confirmarActivacion(request);
-        return ResponseEntity.ok(Map.of("mensaje", "Tu cuenta quedó activada. Ya puedes iniciar sesión."));
+        return ResponseEntity.ok(Map.of("mensaje", "Tu cuenta quedó activada. Te enviamos tu código QR a tu correo institucional. Ya puedes iniciar sesión."));
     }
 }

@@ -23,8 +23,12 @@ public record MiExamenResponse(
         LocalDateTime fechaHoraIngreso,
         /** INCI-01: lo expulsaron en la sesión actual del examen. */
         boolean expulsado,
+        /** Hora oficial de la expulsión: su cronómetro se detiene ahí. null si no lo expulsaron. */
+        LocalDateTime fechaHoraExpulsion,
         /** Normas del examen que valen para todos. */
         List<String> normasGenerales,
         /** Normas particulares (adaptaciones) de este estudiante; nunca las de otros. */
-        List<String> normasParticulares
+        List<String> normasParticulares,
+        /** INCI-03: aula original si lo trasladaron en la sesión actual; null si no. */
+        String trasladadoDesde
 ) {}

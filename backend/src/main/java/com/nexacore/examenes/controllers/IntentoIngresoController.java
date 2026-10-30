@@ -42,4 +42,14 @@ public class IntentoIngresoController {
                                                                  @RequestParam(required = false) Integer idEstudiante) {
         return ResponseEntity.ok(service.listar(idExamen, idEstudiante));
     }
+
+    /** DASH-06 / HU#7: reporte de intentos incorrectos de todos los exámenes (o de uno). Solo ADMIN. */
+    @PreAuthorize("@permisos.tiene(authentication, 'REPORTES_VER')")
+    @GetMapping("/reporte")
+    public ResponseEntity<com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse>> reporte(
+            @RequestParam(required = false) Integer idExamen,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(service.reporte(idExamen, page, size));
+    }
 }

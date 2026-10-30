@@ -3,16 +3,22 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ActivarCuentaPage from '../pages/Login/ActivarCuentaPage'
-import { confirmarActivacionEstudiante, solicitarActivacionEstudiante } from '../services/authService'
+import {
+  confirmarActivacionEstudiante,
+  solicitarActivacionEstudiante,
+  verificarCodigoActivacionEstudiante,
+} from '../services/authService'
 
 vi.mock('../hooks/useIsMobileDevice', () => ({ useIsMobileDevice: () => false }))
 vi.mock('../services/authService', () => ({
   solicitarActivacionEstudiante: vi.fn(),
   confirmarActivacionEstudiante: vi.fn(),
+  verificarCodigoActivacionEstudiante: vi.fn(),
 }))
 
 const solicitar = vi.mocked(solicitarActivacionEstudiante)
 const confirmar = vi.mocked(confirmarActivacionEstudiante)
+const verificar = vi.mocked(verificarCodigoActivacionEstudiante)
 const AVISO = 'Si los datos coinciden con un estudiante registrado sin cuenta, te enviamos un código a tu correo institucional.'
 
 function renderPagina() {
@@ -28,7 +34,7 @@ function renderPagina() {
 
 async function completarIdentidad() {
   await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '202104010')
-  await userEvent.type(screen.getByLabelText('C.I.'), '7654321')
+  await userEvent.type(screen.getByLabelText('C.I.'), '7489210')
   await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
 }
 
@@ -41,6 +47,28 @@ describe('ActivarCuentaPage (CTA-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     solicitar.mockResolvedValue(AVISO)
+    verificar.mockResolvedValue()
+  })
+
+  it('no acepta un código SIS ni un C.I. ficticios (BUG-E01/E02 de HU#5)', async () => {
+    renderPagina()
+    await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '444444444')
+    await userEvent.type(screen.getByLabelText('C.I.'), '12345678')
+    await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    expect(screen.getByText('El código SIS no puede ser un mismo dígito repetido')).toBeInTheDocument()
+    expect(screen.getByText('El C.I. no puede ser una secuencia ascendente o descendente')).toBeInTheDocument()
+    expect(solicitar).not.toHaveBeenCalled()
+  })
+
+  it('con un código de verificación falso no pasa a crear la contraseña (BUG-E03 de HU#5)', async () => {
+    verificar.mockRejectedValue(new Error('El código es incorrecto o venció. Pide uno nuevo.'))
+    renderPagina()
+    await completarIdentidad()
+    await completarCodigo('123745')
+    expect(await screen.findByText('El código es incorrecto o venció. Pide uno nuevo.')).toBeInTheDocument()
+    expect(verificar).toHaveBeenCalledWith({ codigoSis: '202104010', codigo: '123745' })
+    expect(screen.queryByLabelText('CONTRASEÑA')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('CÓDIGO DE VERIFICACIÓN')).toBeInTheDocument()
   })
 
   it('valida el formato de los datos antes de pedir el código', async () => {
@@ -71,7 +99,7 @@ describe('ActivarCuentaPage (CTA-01)', () => {
     renderPagina()
     await completarIdentidad()
 
-    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', ci: '7654321', email: '202104010@est.umss.edu' })
+    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', ci: '7489210', email: '202104010@est.umss.edu' })
     expect(await screen.findByRole('heading', { name: 'Verifica tu correo' })).toBeInTheDocument()
     expect(screen.getByText(AVISO)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reenviar código en \d+ s/i })).toBeDisabled()

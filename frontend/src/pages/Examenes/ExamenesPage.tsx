@@ -14,6 +14,7 @@ import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 import { ordenarPorFase } from '../../utils/tiempoExamen'
 import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
+import { tienePermiso } from '../../utils/permisos'
 
 const PAGE_SIZE = 5
 
@@ -30,13 +31,13 @@ function ExamAvatar({ examen, size = 'card' }: { examen: ExamenDto; size?: 'card
 }
 
 export default function ExamenesPage() {
-  const { isAdmin, roles } = useAuth()
+  const auth = useAuth()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const isControlView = location.pathname === '/dashboard/control'
   const paraleloSeleccionado = searchParams.get('paralelo')
-  const canControl = isAdmin || roles.includes('CONTROL') || roles.includes('DOCENTE')
-  const canRegister = (isAdmin || roles.includes('DOCENTE')) && !isControlView
+  const canControl = tienePermiso(auth, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')
+  const canRegister = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS') && !isControlView
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')

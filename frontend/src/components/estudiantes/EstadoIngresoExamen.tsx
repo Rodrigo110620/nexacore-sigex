@@ -13,7 +13,9 @@ export default function EstadoIngresoExamen({ examen, className = '' }: { examen
       <div role="alert" className={`flex gap-3 rounded-xl border border-[#FBCFD4] bg-[#FFF5F5] p-4 text-sm text-[#7F1D1D] ${className}`}>
         <ShieldBan size={24} className="shrink-0 text-[#B91C1C]" aria-hidden="true" />
         <div>
-          <p className="font-bold text-[#B91C1C]">Tu participación en este examen fue anulada</p>
+          <p className="font-bold text-[#B91C1C]">
+            Tu participación en este examen fue anulada{examen.fechaHoraExpulsion ? ` a las ${horaDe(examen.fechaHoraExpulsion)}` : ''}
+          </p>
           <p className="mt-0.5">Comunícate con la administración de la facultad para conocer el motivo y los pasos a seguir.</p>
         </div>
       </div>

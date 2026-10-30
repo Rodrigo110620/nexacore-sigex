@@ -6,7 +6,7 @@ const validar = (texto: string) => validarTextoLibre(texto, DETALLE_DENEGACION)
 describe('validarTextoLibre: detalle de la denegación (BUG-D02)', () => {
   it('es opcional y acepta letras con tilde, ñ, números, espacios y los signos permitidos', () => {
     expect(validar('')).toBeNull()
-    expect(validar('x')).toBeNull()
+    expect(validar('x')).toBe('El detalle adicional debe tener al menos 10 caracteres')
     expect(validar('Llegó tarde: 10 min (sin credencial); ¿avisó? ¡No! - Ñandú.')).toBeNull()
     expect(validar('a'.repeat(499) + 'b')).toBeNull()
     expect(validar('\nPrimera línea\nsegunda.\n')).toBeNull()
@@ -28,4 +28,9 @@ describe('validarTextoLibre: detalle de la denegación (BUG-D02)', () => {
   ])('"%s" → %s', (texto, motivo) => {
     expect(validar(texto)).toBe(`El detalle adicional ${motivo}`)
   })
+})
+
+it('acepta el límite de diez caracteres y rechaza nueve sin contar espacios extremos', () => {
+  expect(validar('CI vencido')).toBeNull()
+  expect(validar('  CI viejo  ')).toBe('El detalle adicional debe tener al menos 10 caracteres')
 })

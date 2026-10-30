@@ -48,7 +48,7 @@ public class HabilitacionController {
     }
 
     @Operation(summary = "Listar estudiantes del examen con su habilitación")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE','CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_VER')")
     @GetMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> listar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
@@ -57,7 +57,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Reparto de estudiantes por aula",
             description = "Por orden alfabético, llena cada aula del examen hasta su aforo. Los NO habilitados no ocupan lugar.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE','CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_VER')")
     @GetMapping("/aulas")
     public ResponseEntity<RepartoAulasResponse> reparto(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
@@ -66,7 +66,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar estudiante al examen",
             description = "Busca por código universitario o CI y lo asocia pendiente de habilitación. 409 si ya está asociado.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
     @PostMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> asociar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -77,7 +77,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar varios estudiantes al examen",
             description = "Por códigos universitarios o CI. Los ya asociados o inexistentes se informan sin detener al resto.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
     @PostMapping("/lote")
     public ResponseEntity<AsociacionLoteResponse> asociarLote(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -87,7 +87,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar a todos los inscritos del paralelo",
             description = "Asocia, pendientes de habilitación, a los inscritos en el paralelo del examen que aún no estén asociados.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
     @PostMapping("/inscritos")
     public ResponseEntity<AsociacionLoteResponse> asociarInscritos(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
@@ -96,7 +96,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Cambiar habilitación",
             description = "Habilita, deshabilita (con razón obligatoria) o deja pendientes a uno o varios estudiantes asociados al examen.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
     @PutMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> actualizar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -106,7 +106,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Quitar a un estudiante del examen",
             description = "Para un estudiante asociado por error, mientras no haya pasado por el control de ingreso. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
     @DeleteMapping("/{idEstudiante}")
     public ResponseEntity<List<EstudianteHabilitacionResponse>> quitar(
             @PathVariable Integer idExamen,

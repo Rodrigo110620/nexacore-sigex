@@ -7,6 +7,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
 import java.util.Objects;
+import java.util.Locale;
 
 import static org.springframework.http.HttpStatus.*;
 
@@ -21,9 +22,10 @@ public final class ExpulsionValidaciones {
                 || authentication.getName() == null || authentication.getName().isBlank()) {
             throw new ControlIngresoException(UNAUTHORIZED, "Se requiere una sesión autenticada");
         }
-        boolean admin = authentication.getAuthorities().stream()
-                .anyMatch(rol -> "ROLE_ADMIN".equals(rol.getAuthority()));
-        if (!admin) throw new ControlIngresoException(FORBIDDEN, "Solo ADMIN puede expulsar estudiantes");
+        // Que el docente sea el de ese examen lo verifica la ruta (ExamenAccesoService.puedeExpulsar).
+        boolean puede = com.nexacore.examenes.security.Permisos.alguno(authentication,
+                com.nexacore.examenes.security.Permiso.EXPULSAR_TODOS, com.nexacore.examenes.security.Permiso.EXPULSAR_PROPIOS);
+        if (!puede) throw new ControlIngresoException(FORBIDDEN, "Solo el administrador o el docente del examen puede expulsar estudiantes");
         return authentication.getName();
     }
 
@@ -31,8 +33,23 @@ public final class ExpulsionValidaciones {
         if (motivo == null || motivo.isBlank()) {
             throw new IllegalArgumentException("El motivo de expulsión es obligatorio");
         }
-        return ValidacionTextoLibre.validarOpcional(
+        String texto = ValidacionTextoLibre.validarOpcional(
                 motivo, "El motivo de expulsión", 1, ExpulsarEstudianteRequest.MOTIVO_MAX);
+        String minusculas = texto.toLowerCase(Locale.forLanguageTag("es"));
+        for (int i = 0; i < minusculas.length(); i++) {
+            if (Character.isLetter(minusculas.charAt(i))) {
+                return minusculas.substring(0, i) + Character.toUpperCase(minusculas.charAt(i)) + minusculas.substring(i + 1);
+            }
+        }
+        return minusculas;
+    }
+
+    /** Motivo de la anulación (expulsión registrada por error): obligatorio, de 10 a 200 caracteres. */
+    public static String motivoAnulacion(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new IllegalArgumentException("Indica por qué se anula la expulsión");
+        }
+        return ValidacionTextoLibre.validarOpcional(motivo, "El motivo de la anulación", 10, 200);
     }
 
     public static void asistencia(ExpulsarEstudianteRequest request, AsistenciaExamen asistencia) {

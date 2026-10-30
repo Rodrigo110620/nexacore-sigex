@@ -54,7 +54,7 @@ public class EstudianteController {
 
     @Operation(summary = "Fotografía del estudiante",
             description = "Imagen para identificar al estudiante en el control de ingreso. 404 si no tiene. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
     @GetMapping("/{id}/foto")
     public ResponseEntity<byte[]> foto(@PathVariable Integer id) {
         return estudianteFotoService.obtener(id)
@@ -67,16 +67,18 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Subir o reemplazar la fotografía",
-            description = "Imagen JPG, PNG o WEBP de hasta 150 KB. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+            description = "Imagen JPG, PNG o WEBP de hasta 150 KB. Solo ADMIN: queda como foto oficial sin revisión, "
+                    + "así que no la puede cambiar un docente (el docente reporta la foto si no coincide).")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @PutMapping(value = "/{id}/foto", consumes = "multipart/form-data")
     public ResponseEntity<Void> subirFoto(@PathVariable Integer id, @RequestParam("file") MultipartFile file) {
         estudianteFotoService.guardar(id, file);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Quitar la fotografía", description = "ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @Operation(summary = "Quitar la fotografía",
+            description = "Solo ADMIN: sin foto el estudiante no puede ingresar a ningún examen.")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @DeleteMapping("/{id}/foto")
     public ResponseEntity<Void> quitarFoto(@PathVariable Integer id) {
         estudianteFotoService.eliminar(id);
@@ -86,7 +88,7 @@ public class EstudianteController {
     @Operation(summary = "Revisión de fotos",
             description = "Cambios de foto enviados por los estudiantes y fotos reportadas por el personal de control, "
                     + "de la más antigua a la más reciente. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @GetMapping("/fotos-pendientes")
     public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes() {
         return ResponseEntity.ok(estudianteFotoService.listarRevision());
@@ -95,7 +97,7 @@ public class EstudianteController {
     @Operation(summary = "Reportar foto que no coincide",
             description = "El estudiante deberá volver a escanear su rostro y la administración revisará la nueva foto. "
                     + "No autoriza ni deniega el ingreso. 409 si ya tiene un reporte abierto. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REPORTAR')")
     @PostMapping("/{id}/foto/reportes")
     public ResponseEntity<Void> reportarFoto(@PathVariable Integer id, @Valid @RequestBody ReportarFotoRequest request,
                                              Authentication authentication) {
@@ -106,7 +108,7 @@ public class EstudianteController {
     @Operation(summary = "Reporte abierto de la foto",
             description = "Si la foto del estudiante fue reportada y espera la revisión del ADMIN: motivo, detalle, "
                     + "quién la reportó y cuándo. 204 si no tiene reporte abierto. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REPORTAR', 'FOTOS_REVISAR')")
     @GetMapping("/{id}/foto/reporte")
     public ResponseEntity<FotoPendienteResponse.Reporte> reporteFoto(@PathVariable Integer id) {
         return estudianteFotoService.reporteVigente(id)
@@ -116,7 +118,7 @@ public class EstudianteController {
 
     @Operation(summary = "Descartar el reporte de una foto",
             description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @PostMapping("/{id}/foto/reportes/descartar")
     public ResponseEntity<Void> descartarReporte(@PathVariable Integer id) {
         estudianteFotoService.descartarReporte(id);
@@ -124,7 +126,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Foto enviada por el estudiante", description = "404 si no envió ninguna. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @GetMapping("/{id}/foto-solicitud")
     public ResponseEntity<byte[]> fotoSolicitud(@PathVariable Integer id) {
         return estudianteFotoService.obtenerSolicitud(id)
@@ -138,7 +140,7 @@ public class EstudianteController {
 
     @Operation(summary = "Aprobar la foto enviada",
             description = "Pasa a ser la foto que ve el personal de control. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @PostMapping("/{id}/foto-solicitud/aprobar")
     public ResponseEntity<Void> aprobarFoto(@PathVariable Integer id) {
         estudianteFotoService.aprobarSolicitud(id);
@@ -147,7 +149,7 @@ public class EstudianteController {
 
     @Operation(summary = "Rechazar la foto enviada",
             description = "La foto actual no cambia; el estudiante ve el motivo. ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
     @PostMapping("/{id}/foto-solicitud/rechazar")
     public ResponseEntity<Void> rechazarFoto(@PathVariable Integer id, @Valid @RequestBody RechazarFotoRequest request) {
         estudianteFotoService.rechazarSolicitud(id, request.motivo());
@@ -156,7 +158,7 @@ public class EstudianteController {
 
     @Operation(summary = "Listar estudiantes",
             description = "Devuelve los estudiantes paginados con búsqueda y filtros. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteListResponse>> listar(
             @RequestParam(defaultValue = "0") int page,
@@ -172,7 +174,7 @@ public class EstudianteController {
 
     @Operation(summary = "Listar carreras",
             description = "Devuelve las carreras, opcionalmente filtradas por facultad.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
     @GetMapping("/carreras")
     public ResponseEntity<List<CarreraResponse>> listarCarreras(
             @RequestParam(required = false) Integer idFacultad
@@ -182,7 +184,7 @@ public class EstudianteController {
 
     @Operation(summary = "Obtener estudiante por ID",
             description = "Devuelve un estudiante con sus carreras. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE', 'CONTROL')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
     @GetMapping("/{id}")
     public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id) {
         return ResponseEntity.ok(estudianteService.obtenerPorId(id));
@@ -190,7 +192,7 @@ public class EstudianteController {
 
     @Operation(summary = "Actualizar estudiante",
             description = "Modifica los datos personales y académicos de un estudiante. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PutMapping("/{id}")
     public ResponseEntity<EstudianteListResponse> actualizar(
             @PathVariable Integer id,
@@ -201,7 +203,7 @@ public class EstudianteController {
 
     @Operation(summary = "Registrar estudiante",
             description = "Crea un estudiante y lo asocia a su carrera. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping
     public ResponseEntity<EstudianteListResponse> registrar(
             @Valid @RequestBody RegistrarEstudianteRequest request
@@ -210,7 +212,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Regenerar y reenviar QR", description = "Revoca el QR anterior y envía uno nuevo. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping("/{id}/qr/regenerar")
     public ResponseEntity<Void> regenerarQr(@PathVariable Integer id) {
         estudianteService.regenerarYEnviarQr(id);
@@ -220,7 +222,7 @@ public class EstudianteController {
     @Operation(summary = "Importar estudiantes masivamente",
             description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
             + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<ImportarEstudiantesResponse> importarEstudiantes(
             @RequestParam("file") MultipartFile file
@@ -230,7 +232,7 @@ public class EstudianteController {
 
     @Operation(summary = "Descargar planilla de estudiantes en CSV",
             description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @GetMapping("/planilla.csv")
     public ResponseEntity<byte[]> planillaCsv() {
         return descarga(planillaEstudiantesService.csv(), "planilla_estudiantes.csv",
@@ -239,7 +241,7 @@ public class EstudianteController {
 
     @Operation(summary = "Descargar planilla de estudiantes en PDF",
             description = "Estudiantes registrados con los nombres de su facultad y carrera. ADMIN y DOCENTE.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DOCENTE')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @GetMapping("/planilla.pdf")
     public ResponseEntity<byte[]> planillaPdf() {
         return descarga(planillaEstudiantesService.pdf(), "planilla_estudiantes.pdf", MediaType.APPLICATION_PDF);

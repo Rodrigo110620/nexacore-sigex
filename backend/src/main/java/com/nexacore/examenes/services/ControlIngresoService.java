@@ -2,6 +2,7 @@ package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.repositories.EstudianteFotoRepository;
 import com.nexacore.examenes.utils.EstadoExamen;
+import com.nexacore.examenes.utils.JustificacionManual;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,7 +24,9 @@ import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.AsistenciaExamenId;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Notificacion;
 import com.nexacore.examenes.models.Examen;
@@ -37,6 +40,7 @@ import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
 import com.nexacore.examenes.utils.ValidacionPalabras;
 import com.nexacore.examenes.utils.ValidacionTextoLibre;
+import com.nexacore.examenes.utils.TextoTraslado;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -174,12 +178,58 @@ public class ControlIngresoService {
                         + " · Registrada por " + admin.getNombre() + " " + admin.getApellidos(),
                 request.idExamen(), request.idEstudiante(), enlaceInformacion(request.idExamen()), email);
         return new ExpulsionResponse(expulsion.getId(), request.idEstudiante(), request.idExamen(), motivo,
-                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora);
+                admin.getId(), admin.getNombre() + " " + admin.getApellidos(), fechaHora,
+                (expulsado.getNombre() + " " + expulsado.getApellidos()).trim(), expulsado.getCodigoSis());
+    }
+
+    /**
+     * Anula una expulsión registrada por error (ADMIN o docente del examen). No se borra: queda en el
+     * historial como anulada, con quién, cuándo (hora del servidor) y por qué. El estudiante vuelve a
+     * figurar como ingresado y su cronómetro sigue con el horario del examen.
+     */
+    @Transactional
+    public ExpulsionResponse anularExpulsion(Integer idExamen, Integer idExpulsion, String motivoAnulacion,
+                                             Authentication authentication) {
+        String email = ExpulsionValidaciones.responsableAutenticado(authentication);
+        String motivo = ExpulsionValidaciones.motivoAnulacion(motivoAnulacion);
+        sesionExamenService.bloquearContexto(idExamen);
+        Usuario quien = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
+        Expulsion expulsion = expulsionRepository.findById(idExpulsion)
+                .filter(e -> idExamen.equals(e.getIdExamen()))
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró la expulsión en este examen"));
+        if (expulsion.getAnuladaEn() != null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "La expulsión ya fue anulada");
+        }
+        LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        if (cierre != null && expulsion.getFechaHora() != null && !expulsion.getFechaHora().isAfter(cierre)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "La expulsión es de una sesión anterior del examen; queda en el historial");
+        }
+        expulsion.setAnuladaEn(asistenciaRepository.obtenerFechaHoraServidor());
+        expulsion.setIdUsuarioAnula(quien.getId());
+        expulsion.setMotivoAnulacion(motivo);
+        expulsionRepository.saveAndFlush(expulsion);
+
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, expulsion.getIdEstudiante());
+        Estudiante est = estudianteRepository.findById(expulsion.getIdEstudiante()).orElse(null);
+        String nombre = est == null ? "Estudiante #" + expulsion.getIdEstudiante() : (est.getNombre() + " " + est.getApellidos()).trim();
+        String anulo = quien.getNombre() + " " + quien.getApellidos();
+        notificacionService.publicar(Notificacion.EXPULSION_ANULADA, "Expulsión anulada: " + nombre,
+                notificacionService.materia(idExamen) + " · " + motivo + " · Anulada por " + anulo,
+                idExamen, expulsion.getIdEstudiante(), enlaceInformacion(idExamen), email);
+        Usuario responsable = usuarioRepository.findById(expulsion.getIdUsuarioResponsable()).orElse(null);
+        return new ExpulsionResponse(expulsion.getId(), expulsion.getIdEstudiante(), idExamen, expulsion.getMotivo(),
+                expulsion.getIdUsuarioResponsable(),
+                responsable == null ? null : responsable.getNombre() + " " + responsable.getApellidos(),
+                expulsion.getFechaHora(), est == null ? null : nombre, est == null ? null : est.getCodigoSis(),
+                expulsion.getAnuladaEn(), anulo, motivo);
     }
 
     @Transactional
     public AutorizarIngresoResponse autorizar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        validarIncidencias(request.incidencias());
         validarTextoLibre(request.observaciones());
         validarObservaciones(request.observaciones());
         Usuario control = usuarioRepository.findByEmail(emailControl)
@@ -192,6 +242,12 @@ public class ControlIngresoService {
                         "El estudiante no está asociado al examen seleccionado"));
         verificarIngresoAbierto(asistencia);
 
+        String justificacionManual = null;
+        if (request.ingresoManual()) {
+            justificacionManual = JustificacionManual.validarYNormalizar(request.justificacionManual());
+        }
+
+
         if (!Boolean.TRUE.equals(asistencia.getHabilitado())) {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String motivo = asistencia.getMotivoInhabilitacion();
@@ -201,7 +257,7 @@ public class ControlIngresoService {
                             ? "El estudiante no está habilitado para este examen"
                             : "El estudiante no está habilitado: " + String.join("; ", razones(motivo));
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_NO_HABILITADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -209,7 +265,7 @@ public class ControlIngresoService {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String causa = "El ingreso de este estudiante al examen ya fue autorizado";
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -222,15 +278,6 @@ public class ControlIngresoService {
         if (!request.identidadVerificada()) {
             throw new ControlIngresoException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Confirma la verificación de identidad antes de autorizar");
-        }
-
-        String justificacionManual = null;
-        if (request.ingresoManual()) {
-            justificacionManual = request.justificacionManual() == null ? "" : request.justificacionManual().strip();
-            if (justificacionManual.length() < 10 || justificacionManual.length() > 1000) {
-                throw new ControlIngresoException(HttpStatus.BAD_REQUEST,
-                        "La justificación del ingreso manual debe tener entre 10 y 1000 caracteres");
-            }
         }
 
         RepartoAulasService.Aula aula = aulaDelEstudiante(asistencia);
@@ -249,7 +296,7 @@ public class ControlIngresoService {
             LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
             String causa = "El ingreso de este estudiante al examen ya fue autorizado";
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-            guardarRegistro(asistencia, control, request, "DENEGADO", causa);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
                     request.incidencias().size());
         }
@@ -262,7 +309,7 @@ public class ControlIngresoService {
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
 
         if (request.ingresoManual() || request.fechaHoraDispositivo() == null || request.fechaHoraDispositivo().isBlank()) {
-            guardarRegistro(asistencia, control, request, "AUTORIZADO", null);
+            guardarRegistroDelControl(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
         } else {
             guardarRegistro(asistencia, control, request, "AUTORIZADO", null, limpiar(request.observaciones()), ahora);
         }
@@ -335,7 +382,8 @@ public class ControlIngresoService {
      * reportes de incidentes (intentos, aula incorrecta, QR duplicado, foto) siguen permitidos.
      */
     private void verificarIngresoAbierto(AsistenciaExamen asistencia) {
-        String estado = EstadoExamen.de(asistencia.getExamen(), asistenciaRepository.obtenerFechaHoraServidor());
+        LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
+        String estado = EstadoExamen.de(asistencia.getExamen(), ahora);
         if (EstadoExamen.CANCELADO.equals(estado)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT, "El examen fue cancelado; no se pueden registrar ingresos.");
         }
@@ -343,11 +391,21 @@ public class ControlIngresoService {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
                     "El examen ya terminó; no se pueden registrar ingresos. Los reportes de incidentes siguen disponibles.");
         }
+        // No se puede registrar el ingreso días antes: el control abre poco antes del inicio.
+        LocalDateTime apertura = EstadoExamen.aperturaControl(asistencia.getExamen());
+        if (apertura != null && ahora.isBefore(apertura)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, String.format(
+                    "El control de ingreso de este examen se habilita el %s a las %s, %d minutos antes del inicio.",
+                    apertura.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    apertura.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                    EstadoExamen.MINUTOS_APERTURA_CONTROL));
+        }
     }
 
     @Transactional
     public AutorizarIngresoResponse denegar(AutorizarIngresoRequest request, String emailControl) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
+        validarIncidencias(request.incidencias());
         validarTextoLibre(request.observaciones());
         String razon = limpiar(request.observaciones());
         if (razon == null) throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Indique el motivo de denegación");
@@ -357,7 +415,7 @@ public class ControlIngresoService {
             validarObservaciones(razon.substring(finRazon + SEPARADOR_CAUSA.length()));
         }
         String detalle = ValidacionTextoLibre.validarOpcional(
-                request.detalleDenegacion(), "El detalle adicional", 1, DETALLE_DENEGACION_MAX);
+                request.detalleDenegacion(), "El detalle adicional", 10, DETALLE_DENEGACION_MAX);
         if (detalle == null && razon.startsWith(OTRA_RAZON)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
         }
@@ -377,7 +435,7 @@ public class ControlIngresoService {
                 asistencia.getMotivoInhabilitacion(), "Ingreso denegado por CONTROL: " + causa));
         asistenciaRepository.save(asistencia);
         registrarIncidencias(asistencia, control, request.incidencias(), ahora);
-        guardarRegistro(asistencia, control, request, "DENEGADO", causa, causa);
+        guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, causa, ahora);
         return crearRespuesta(asistencia, control, request, false, "DENEGADO_CONTROL", causa, ahora, request.incidencias().size());
     }
 
@@ -387,6 +445,17 @@ public class ControlIngresoService {
         int finRazon = observaciones.indexOf(SEPARADOR_CAUSA);
         if (finRazon < 0) return observaciones + SEPARADOR_CAUSA + detalle;
         return observaciones.substring(0, finRazon) + SEPARADOR_CAUSA + detalle + observaciones.substring(finRazon);
+    }
+
+    private void validarIncidencias(List<IncidenciaIngresoRequest> incidencias) {
+        for (var item : incidencias) {
+            var tipo = catalogoRepository.findById(item.idTipoIncidencia()).orElseThrow(() ->
+                    new ControlIngresoException(HttpStatus.BAD_REQUEST, "El tipo de incidencia no existe"));
+            String descripcion = item.descripcion();
+            if (descripcion != null && descripcion.equals(tipo.getNombre())) continue;
+            ValidacionTextoLibre.validarOpcional(descripcion, "El detalle de incidencia", 1, 1000);
+            validarTextoLibre(descripcion);
+        }
     }
 
     private void registrarIncidencias(
@@ -415,6 +484,13 @@ public class ControlIngresoService {
         NormasExamenService.NormasDeEstudiante normas = normasExamenService.leerParaEstudiante(
                 idExamen, estudiante.getId(), nombreCompleto);
         var fila = estudianteRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen);
+        // Aula donde está realmente asignado el estudiante (puede haber cambiado por reasignación).
+        // Si aún no tiene aula de ingreso, se muestra el aula del examen como referencia.
+        String ambienteEstudiante = asistencia.getIdAmbienteIngreso() != null
+                ? ambienteRepository.findById(asistencia.getIdAmbienteIngreso())
+                        .map(Ambiente::getNombre)
+                        .orElse(examen.getAmbiente().getNombre())
+                : examen.getAmbiente().getNombre();
         return new ContextoControlIngresoResponse(
                 idEstudiante,
                 nombreCompleto,
@@ -425,7 +501,7 @@ public class ControlIngresoService {
                 examen.getFecha(),
                 examen.getHoraInicio(),
                 examen.getDuracionMinutos(),
-                examen.getAmbiente().getNombre(),
+                ambienteEstudiante,
                 normas.generales(),
                 normas.particulares(),
                 Boolean.TRUE.equals(asistencia.getHabilitado()),
@@ -470,11 +546,61 @@ public class ControlIngresoService {
     public List<RegistroControlIngresoExamenResponse> consultarRegistrosExamen(Integer idExamen) {
         // Solo la sesión actual: si el examen se reprogramó, lo anterior está en el historial de sesiones.
         java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
+        LocalDateTime desde = cierre == null
+                ? TrasladoAmbienteRepository.DESDE_SIEMPRE
+                : cierre;
+
+        // Traslados de la sesión actual, por estudiante.
+        // Nota: trasladoAmbienteRepository puede ser null si se usa el constructor de compatibilidad
+        // de tests antiguos; en ese caso no hay historial de traslados que consultar.
+        Map<Integer, TrasladoAmbiente> trasladoOriginalPorEstudiante = new HashMap<>();
+        Map<Integer, TrasladoAmbiente> trasladoRecientePorEstudiante = new HashMap<>();
+        if (trasladoAmbienteRepository != null) {
+            for (TrasladoAmbiente t : trasladoAmbienteRepository
+                    .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
+                // El primero (orden ascendente) tiene el aula original: "trasladado desde ...".
+                trasladoOriginalPorEstudiante.putIfAbsent(t.getIdEstudiante(), t);
+                // Sobrescribe para quedarse con el traslado más reciente (motivo y observación).
+                trasladoRecientePorEstudiante.put(t.getIdEstudiante(), t);
+            }
+        }
+
+        Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasPorEstudiante =
+                incidenciasDelExamen(idExamen);
         return registroRepository.listarPorExamen(idExamen).stream()
                 .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
                     var estudiante = registro.getEstudiante();
                     var control = registro.getUsuarioControl();
+
+                    // Aula donde está el estudiante ahora (puede haber cambiado por reasignación).
+                    String ambienteNombre = null;
+                    Boolean reasignado = false;
+                    String trasladadoDesde = null;
+                    AsistenciaExamenId asistenciaId = new AsistenciaExamenId();
+                    asistenciaId.setIdEstudiante(registro.getId().getIdEstudiante());
+                    asistenciaId.setIdExamen(idExamen);
+                    var asistencia = asistenciaRepository.findById(asistenciaId).orElse(null);
+                    if (asistencia != null && asistencia.getIdAmbienteIngreso() != null && ambienteRepository != null) {
+                        var ambiente = ambienteRepository.findById(asistencia.getIdAmbienteIngreso());
+                        ambienteNombre = ambiente.map(Ambiente::getNombre).orElse(null);
+                        reasignado = trasladoOriginalPorEstudiante.containsKey(registro.getId().getIdEstudiante());
+                        if (reasignado) {
+                            trasladadoDesde = ambienteRepository
+                                    .findById(trasladoOriginalPorEstudiante.get(registro.getId().getIdEstudiante()).getIdAmbienteOrigen())
+                                    .map(Ambiente::getNombre).orElse(null);
+                        }
+                    }
+
+                    // Motivo y observación del traslado más reciente de este estudiante (si hay reasignación).
+                    String motivoTraslado = null;
+                    String observacionTraslado = null;
+                    var trasladoReciente = trasladoRecientePorEstudiante.get(registro.getId().getIdEstudiante());
+                    if (trasladoReciente != null) {
+                        motivoTraslado = trasladoReciente.getMotivo();
+                        observacionTraslado = trasladoReciente.getObservacion();
+                    }
+
                     return new RegistroControlIngresoExamenResponse(
                             registro.getId().getIdControl(),
                             registro.getId().getIdEstudiante(),
@@ -485,7 +611,12 @@ public class ControlIngresoService {
                             registro.getObservaciones(),
                             leerVerificaciones(registro.getVerificacionesAdicionales()),
                             (control.getNombre() + " " + control.getApellidos()).trim(),
-                            registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual());
+                            registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual(),
+                            ambienteNombre, reasignado, trasladadoDesde,
+                            motivoTraslado, observacionTraslado,
+                            registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
+                                    .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
+                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()));
                 })
                 .toList();
     }
@@ -537,6 +668,13 @@ public class ControlIngresoService {
                 asistencia.getObservacionesControl(),
                 verificaciones,
                 incidenciasRegistradas);
+    }
+
+    /** Con incidencias se conserva exactamente la hora usada al guardarlas para poder consultarlas juntas. */
+    private void guardarRegistroDelControl(AsistenciaExamen asistencia, Usuario control, AutorizarIngresoRequest request,
+                                           String resultado, String causa, String observaciones, LocalDateTime fecha) {
+        if (request.incidencias().isEmpty()) guardarRegistro(asistencia, control, request, resultado, causa, observaciones);
+        else guardarRegistro(asistencia, control, request, resultado, causa, observaciones, fecha);
     }
 
     private void guardarRegistro(
@@ -621,12 +759,28 @@ public class ControlIngresoService {
             Integer idEstudiante, Integer idExamen) {
         Map<LocalDateTime, List<IncidenciaRegistradaResponse>> porFecha = new HashMap<>();
         for (Object[] fila : incidenciaRepository.listarDelControl(idEstudiante, idExamen)) {
-            LocalDateTime fecha = aLocalDateTime(fila[0]);
-            if (fecha == null) continue;
-            porFecha.computeIfAbsent(alMicrosegundo(fecha), f -> new ArrayList<>())
-                    .add(new IncidenciaRegistradaResponse((String) fila[1], (String) fila[2]));
+            agregarPorFecha(porFecha, fila[0], fila[1], fila[2]);
         }
         return porFecha;
+    }
+
+    /** Lo mismo para todo el examen y en una sola consulta: estudiante → fecha y hora → incidencias. */
+    private Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasDelExamen(Integer idExamen) {
+        Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> porEstudiante = new HashMap<>();
+        for (Object[] fila : incidenciaRepository.listarDelExamen(idExamen)) {
+            if (!(fila[0] instanceof Number idEstudiante)) continue;
+            agregarPorFecha(porEstudiante.computeIfAbsent(idEstudiante.intValue(), id -> new HashMap<>()),
+                    fila[1], fila[2], fila[3]);
+        }
+        return porEstudiante;
+    }
+
+    private static void agregarPorFecha(Map<LocalDateTime, List<IncidenciaRegistradaResponse>> porFecha,
+                                        Object fechaHora, Object tipo, Object descripcion) {
+        LocalDateTime fecha = aLocalDateTime(fechaHora);
+        if (fecha == null) return;
+        porFecha.computeIfAbsent(alMicrosegundo(fecha), f -> new ArrayList<>())
+                .add(new IncidenciaRegistradaResponse((String) tipo, (String) descripcion));
     }
 
     private static LocalDateTime aLocalDateTime(Object valor) {
@@ -683,6 +837,18 @@ public class ControlIngresoService {
                     "El texto contiene contenido no válido: " + garabato);
         }
     }
+
+    /** Devuelve true si el texto consiste únicamente en el mismo carácter alfabético repetido
+     *  (ignorando espacios), ej: "SSS SSSSS", "AAAAA", "111 111". */
+    private static boolean esSoloUnaLetraRepetida(String texto) {
+        String letras = texto.replaceAll("\\s", "").toUpperCase();
+        if (letras.isEmpty()) return false;
+        char primera = letras.charAt(0);
+        for (int i = 1; i < letras.length(); i++) {
+            if (letras.charAt(i) != primera) return false;
+        }
+        return true;
+    }
     @Transactional
     public ReasignarAmbienteResponse reasignarAmbiente(
             Integer idExamen, 
@@ -694,8 +860,54 @@ public class ControlIngresoService {
         sesionExamenService.bloquearContexto(idExamen);
 
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
-        validarTextoLibre(request.motivo());
-        validarTextoLibre(request.observacion());
+
+        // Validar y normalizar motivo (C01-C04): letras con tildes, ü y ñ (TextoTraslado)
+        String motivoLimpio = limpiar(request.motivo());
+        if (motivoLimpio == null || motivoLimpio.isBlank()) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
+        }
+        // C04: no permitir espacios iniciales, finales ni múltiples entre palabras
+        String motivoOriginal = request.motivo();
+        if (motivoOriginal != null && (!motivoOriginal.equals(motivoOriginal.trim()) || motivoOriginal.contains("  "))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
+        }
+        if (motivoLimpio.length() < TextoTraslado.MOTIVO_MIN) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos 10 caracteres");
+        }
+        if (motivoLimpio.length() > TextoTraslado.MAX) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede superar 65 caracteres");
+        }
+        if (!Character.isLetter(motivoLimpio.charAt(0))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe comenzar con una letra");
+        }
+        if (!TextoTraslado.motivoValido(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo solo permite letras, números y espacios simples entre palabras");
+        }
+        if (esSoloUnaLetraRepetida(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
+        }
+        // Formato de oración; los códigos de aula ("690B") quedan en mayúscula.
+        motivoLimpio = TextoTraslado.formatoOracion(motivoLimpio);
+
+        // Validar y normalizar observación (C01-C04)
+        String observacionLimpia = limpiar(request.observacion());
+        // C04: no permitir espacios iniciales, finales ni múltiples entre palabras
+        String observacionOriginal = request.observacion();
+        if (observacionOriginal != null && (!observacionOriginal.equals(observacionOriginal.trim()) || observacionOriginal.contains("  "))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
+        }
+        if (observacionLimpia != null && !observacionLimpia.isBlank()) {
+            if (observacionLimpia.matches(".*\\d.*")) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            if (observacionLimpia.length() > TextoTraslado.MAX) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación no puede superar 65 caracteres");
+            }
+            if (!TextoTraslado.observacionValida(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            observacionLimpia = TextoTraslado.formatoOracion(observacionLimpia);
+        }
 
         Usuario control = usuarioRepository.findByEmail(emailControl)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
@@ -746,11 +958,18 @@ TrasladoAmbiente traslado = new TrasladoAmbiente();
 traslado.setIdEstudiante(idEstudiante);
 traslado.setIdExamen(idExamen);
 traslado.setIdAmbienteOrigen(ambienteOrigenId);
-traslado.setIdAmbienteDestino(request.idAmbienteDestino()); 
-traslado.setMotivo(limpiar(request.motivo()));               
+traslado.setIdAmbienteDestino(request.idAmbienteDestino());
+traslado.setMotivo(motivoLimpio);
+traslado.setObservacion(observacionLimpia);
 traslado.setIdUsuarioAdmin(control.getId());
 traslado.setFechaHoraTraslado(asistenciaRepository.obtenerFechaHoraServidor());
 trasladoAmbienteRepository.save(traslado);
+        Estudiante trasladado = asistencia.getEstudiante();
+        notificacionService.publicar(Notificacion.TRASLADO_AMBIENTE,
+                "Traslado: " + trasladado.getNombre() + " " + trasladado.getApellidos(),
+                notificacionService.materia(idExamen) + " · De " + aulaOrigenNombre + " a " + aulaDestinoNombre
+                        + " · " + traslado.getMotivo() + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
+                idExamen, idEstudiante, enlaceInformacion(idExamen), emailControl);
         
         return new ReasignarAmbienteResponse(
                 idEstudiante,
@@ -760,7 +979,7 @@ trasladoAmbienteRepository.save(traslado);
                 request.idAmbienteDestino(),
                 aulaDestinoNombre,
                 asistencia.getFechaHoraIngreso(), // La fecha original no cambia
-                limpiar(request.motivo()),
+                observacionLimpia,
                 true
         );
     }

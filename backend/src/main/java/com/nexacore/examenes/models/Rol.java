@@ -22,4 +22,8 @@ public class Rol {
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
+    /** Para qué sirve el rol (los roles extra que crea el ADMIN, V48). */
+    @Column(name = "descripcion", length = 200)
+    private String descripcion;
+
 }

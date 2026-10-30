@@ -26,7 +26,6 @@ import { actualizarExamen, type ExamenDto, type ModoReparto } from '../../servic
 import { listarEstudiantesExamen, type EstudianteHabilitacionDto } from '../../services/habilitacionService'
 import {
   detalleAmbiente,
-  formatFechaDisplay,
   isNetworkError,
   isOffline,
   minutesBetween,
@@ -54,6 +53,8 @@ import DocenteAutocomplete from './DocenteAutocomplete'
 import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
+import FechaInput from './FechaInput'
+import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
 
 interface EditExamenModalProps {
   isOpen: boolean
@@ -88,7 +89,10 @@ function calcHoraFin(horaInicio: string, duracionMinutos: number): string {
 
 export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: EditExamenModalProps) {
   // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
-  const esAdmin = useAuth().roles.includes('ADMIN')
+  const auth = useAuth()
+  const esAdmin = tienePermiso(auth, 'AMBIENTES_GESTIONAR')
+  // Como al crear: el DOCENTE edita su examen, pero no se lo puede pasar a otro docente.
+  const esSoloDocente = gestionaSoloPropios(auth)
   const [form, setForm] = useState<RegisterExamenFormState>({
     asignatura: '',
     docente: '',
@@ -551,6 +555,15 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                   <label htmlFor="editar-docente" className="mb-1 block text-xs font-medium text-[#011140]">
                     Docente Responsable <span className="text-red-500">*</span>
                   </label>
+                  {esSoloDocente ? (
+                    <input
+                      id="editar-docente"
+                      value={form.docente}
+                      readOnly
+                      aria-label="Docente Responsable"
+                      className="h-9 w-full cursor-not-allowed rounded-lg border border-[#D8E3F5] bg-gray-100 px-3 text-sm text-gray-600"
+                    />
+                  ) : (
                   <DocenteAutocomplete
                     id="editar-docente"
                     value={form.docente}
@@ -562,6 +575,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                       setIdDocente(docente.id)
                     }}
                   />
+                  )}
                   {errors.docente && <p className="mt-1 text-[10px] text-red-500">{errors.docente}</p>}
                 </div>
               </div>
@@ -574,19 +588,17 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-medium text-[#011140]">
+                  <label htmlFor="editar-fecha" className="mb-1 block text-xs font-medium text-[#011140]">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <FechaInput
+                    id="editar-fecha"
+                    label="Fecha de Evaluación"
                     min={todayISO()}
                     value={form.fecha}
-                    onChange={(e) => handleChange('fecha', e.target.value)}
-                    className={fieldClass(errors.fecha)}
+                    error={errors.fecha}
+                    onChange={(v) => handleChange('fecha', v)}
                   />
-                  {form.fecha && (
-                    <p className="mt-1 text-[10px] text-[#627A9B]">{formatFechaDisplay(form.fecha)}</p>
-                  )}
                   {errors.fecha && <p className="mt-1 text-[10px] text-red-500">{errors.fecha}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">

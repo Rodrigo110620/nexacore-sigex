@@ -43,4 +43,17 @@ public interface IncidenciaRepository extends JpaRepository<Incidencia, Incidenc
     List<Object[]> listarDelControl(
             @Param("idEstudiante") Integer idEstudiante,
             @Param("idExamen") Integer idExamen);
+
+    /**
+     * Incidencias de todo el examen en una sola consulta: [id_estudiante, fecha_hora, nombre del tipo,
+     * descripción]. El reporte de ingresos las reparte en memoria en vez de consultar por estudiante.
+     */
+    @Query(value = """
+            SELECT i.id_estudiante, i.fecha_hora, c.nombre, i.descripcion
+            FROM incidencia i
+            JOIN catalogo_incidencia c ON c.id_tipo_incidencia = i.id_tipo_incidencia
+            WHERE i.id_examen = :idExamen
+            ORDER BY i.id_incidencia
+            """, nativeQuery = true)
+    List<Object[]> listarDelExamen(@Param("idExamen") Integer idExamen);
 }

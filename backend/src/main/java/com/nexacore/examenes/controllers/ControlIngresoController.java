@@ -9,6 +9,7 @@ import com.nexacore.examenes.dto.RegistroControlIngresoExamenResponse;
 import com.nexacore.examenes.dto.ContextoControlIngresoResponse;
 import com.nexacore.examenes.dto.ReasignarAmbienteRequest;
 import com.nexacore.examenes.dto.ReasignarAmbienteResponse;
+import com.nexacore.examenes.dto.RegistrarExceptionRequest;
 import com.nexacore.examenes.dto.TipoIncidenciaResponse;
 
 import com.nexacore.examenes.services.ControlIngresoService;
@@ -34,11 +35,21 @@ public class ControlIngresoController {
         this.excepcionService = excepcionService; 
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@examenAccesoService.puedeExpulsar(#request.idExamen, authentication)")
     @PostMapping("/expulsar")
     public ResponseEntity<ExpulsionResponse> expulsar(
             @Valid @RequestBody ExpulsarEstudianteRequest request, Authentication authentication) {
         return ResponseEntity.ok(service.expulsar(request, authentication));
+    }
+
+    @Operation(summary = "Anular una expulsión registrada por error",
+               description = "No se borra: queda en el historial como anulada, con quién, cuándo y por qué.")
+    @PreAuthorize("@examenAccesoService.puedeExpulsar(#idExamen, authentication)")
+    @PostMapping("/examen/{idExamen}/expulsiones/{idExpulsion}/anular")
+    public ResponseEntity<ExpulsionResponse> anularExpulsion(
+            @PathVariable Integer idExamen, @PathVariable Integer idExpulsion,
+            @Valid @RequestBody com.nexacore.examenes.dto.AnularExpulsionRequest request, Authentication authentication) {
+        return ResponseEntity.ok(service.anularExpulsion(idExamen, idExpulsion, request.motivo(), authentication));
     }
 
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
@@ -90,7 +101,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Listar tipos de incidencia", description = "Devuelve el catálogo disponible para registrar incidencias durante el control.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CONTROL', 'DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')")
     @GetMapping("/tipos-incidencia")
     public ResponseEntity<List<TipoIncidenciaResponse>> tiposIncidencia() {
         return ResponseEntity.ok(service.listarTiposIncidencia());
@@ -106,5 +117,27 @@ public class ControlIngresoController {
         
         ReasignarAmbienteResponse response = service.reasignarAmbiente(idExamen, idEstudiante, request, authentication.getName());
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Reporte de excepciones de no habilitado",
+               description = "Excepciones registradas en la sesión actual del examen, de la más reciente a la más antigua.")
+    @PreAuthorize("@examenAccesoService.puedeVerReportes(#idExamen, authentication)")
+    @GetMapping("/examen/{idExamen}/excepciones-no-habilitado")
+    public ResponseEntity<List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse>> listarExcepciones(
+            @PathVariable Integer idExamen) {
+        return ResponseEntity.ok(excepcionService.listar(idExamen));
+    }
+
+    // INCI-04 (Lia): se había borrado al resolver un conflicto con INCI-03 (commit ea64843).
+    // ControlIngresoControllerTests la llama para que no vuelva a desaparecer sin que fallen las pruebas.
+    @Operation(summary = "Registrar excepción de no habilitado",
+               description = "Registra en la tabla de excepciones y en el historial de intentos automáticamente.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
+    @PostMapping("/excepcion-no-habilitado")
+    public ResponseEntity<Void> registrarExcepcion(
+            @Valid @RequestBody RegistrarExceptionRequest request,
+            Authentication authentication) {
+        excepcionService.registrarExcepcion(request, authentication.getName());
+        return ResponseEntity.ok().build();
     }
 }

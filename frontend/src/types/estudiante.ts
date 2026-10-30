@@ -20,6 +20,8 @@ export interface EstudianteListItem {
   carreras: CarreraInfo[]
   condicion?: CondicionEstudiante
   estadoMatricula?: EstadoMatricula
+  /** true si el estudiante ya activó su cuenta (CTA-01); hasta entonces queda "Pendiente de activación". */
+  tieneCuenta?: boolean
   /** Ruta de la API para descargar la foto, o null si no tiene. */
   fotoUrl?: string | null
 }

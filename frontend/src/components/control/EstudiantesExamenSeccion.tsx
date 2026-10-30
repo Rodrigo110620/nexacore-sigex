@@ -19,6 +19,7 @@ interface EstudiantesExamenSeccionProps {
   pagina?: PageResponse<EstudianteAsignado>
   error?: string
   cargando: boolean
+  refetch?: () => void
 }
 
 /** Lista "Estudiantes del examen" con pestañas por estado, carga, vacío, error y paginación. */
@@ -32,6 +33,7 @@ export default function EstudiantesExamenSeccion({
   pagina,
   error,
   cargando,
+  refetch,
 }: EstudiantesExamenSeccionProps) {
   return (
     <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
@@ -84,7 +86,7 @@ export default function EstudiantesExamenSeccion({
         </p>
       ) : (
         <>
-          <EstudiantesExamenLista idExamen={idExamen} examen={examen} estudiantes={pagina.contenido} />
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} estudiantes={pagina.contenido} onExito={refetch} />
           <div className="mt-3">
             <UserPagination
               compact

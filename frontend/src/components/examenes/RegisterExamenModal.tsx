@@ -53,6 +53,8 @@ import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
+import FechaInput from './FechaInput'
+import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -75,10 +77,12 @@ const STEP_DESCRIPCION: Record<Step, string> = {
 }
 
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
-  const { nombre, roles } = useAuth()
-  const esDocente = roles.includes('DOCENTE') && !roles.includes('ADMIN')
-  // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
-  const esAdmin = roles.includes('ADMIN')
+  const auth = useAuth()
+  const { nombre } = auth
+  // Quien solo gestiona sus propios exámenes (DOCENTE) los crea a su nombre.
+  const esDocente = gestionaSoloPropios(auth)
+  // Solo quien gestiona ambientes (ADMIN) da de alta uno nuevo; el resto elige del catálogo.
+  const esAdmin = tienePermiso(auth, 'AMBIENTES_GESTIONAR')
   const [step, setStep] = useState<Step>(1)
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
@@ -589,19 +593,17 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
-                  <label className="mb-1 block text-xs font-medium text-[#011140]">
+                  <label htmlFor="registrar-fecha" className="mb-1 block text-xs font-medium text-[#011140]">
                     Fecha de Evaluación <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <FechaInput
+                    id="registrar-fecha"
+                    label="Fecha de Evaluación"
                     min={todayISO()}
                     value={form.fecha}
-                    onChange={(e) => handleChange('fecha', e.target.value)}
-                    className={fieldClass(errors.fecha)}
+                    error={errors.fecha}
+                    onChange={(v) => handleChange('fecha', v)}
                   />
-                  {form.fecha && (
-                    <p className="mt-1 text-[10px] text-[#627A9B]">{formatFechaDisplay(form.fecha)}</p>
-                  )}
                   {errors.fecha && <p className="mt-1 text-[10px] text-red-500">{errors.fecha}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:contents">

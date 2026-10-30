@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, CameraOff, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -7,7 +7,9 @@ import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
+import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import ReasignarAmbienteModal from './ReasignarAmbienteModal'
+import { tienePermiso } from '../../utils/permisos'
 
 
 interface FilaProps {
@@ -70,6 +72,13 @@ function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: Estudiant
   )
 }
 
+/** INCI-03: "Trasladado de 691A a 692B" (o solo el origen si no se conoce el aula actual). */
+function textoTraslado(estudiante: EstudianteAsignado) {
+  return estudiante.trasladadoA
+    ? `Trasladado de ${estudiante.trasladadoDesde} a ${estudiante.trasladadoA}`
+    : `Trasladado desde ${estudiante.trasladadoDesde}`
+}
+
 function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -109,18 +118,37 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
 }
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
-export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string }) {
-  const { isAdmin } = useAuth()
+export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, onExito }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; onExito?: () => void }) {
+  const auth = useAuth()
+  // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
+  // personal de control reporta el incidente y la notificación les llega a ellos.
+  const puedeExpulsar = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
-    isAdmin && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
+    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
+  const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
     setEstudianteSeleccionado(estudiante)
     setModalReasignarAbierto(true)
   }
+
+  useEffect(() => {
+    let vigente = true
+    listarAmbientes()
+      .then((data) => {
+        if (vigente) setAulasExamen(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        if (vigente) setAulasExamen([])
+      })
+    return () => {
+      vigente = false
+    }
+  }, [])
+
   return (
     <>
       <table className="hidden w-full text-left md:table">
@@ -143,7 +171,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                 </Identidad></td>
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
-                <td className="px-4 py-3"><EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} /></td>
+                <td className="px-4 py-3">
+                  <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                  {estudiante.ingresado && estudiante.trasladadoDesde && (
+                    <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
               </tr>
             )
@@ -169,6 +202,9 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
                       {estudiante.nombre} {estudiante.apellidos}
                     </p>
                     <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                    {estudiante.ingresado && estudiante.trasladadoDesde && (
+                      <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
+                    )}
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
                   <SinFoto estudiante={estudiante} />
@@ -186,11 +222,13 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
           )
         })}
       </ul>
-      {isAdmin && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
+      {puedeExpulsar && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
         {modalReasignarAbierto && estudianteSeleccionado && (
         <ReasignarAmbienteModal
           idExamen={idExamen}
           estudiante={estudianteSeleccionado}
+          aulas={aulasExamen}
+          aulaActualId={estudianteSeleccionado?.idAmbienteIngreso ?? undefined}
           onClose={() => {
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
@@ -198,6 +236,8 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen }
           onSuccess={() => {
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
+            // Refrescar la lista para que se vea el nuevo aula asignado sin recargar la página.
+            onExito?.()
           }}
         />
       )}

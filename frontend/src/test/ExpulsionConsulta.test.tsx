@@ -33,7 +33,7 @@ it.each(['ADMIN', 'CONTROL', 'DOCENTE'])('consulta real y registro solo lectura 
     fireEvent.click(vista.getByText('Ver registro de expulsión'))
     expect(vista.getByText('Uso de celular')).toBeVisible()
     expect(vista.getByText('Ana Rojas')).toBeVisible()
-    expect(vista.getByText('2026-10-24 14:00:00.123456')).toBeVisible()
+    expect(vista.getByText('24/10/2026 14:00:00')).toBeVisible()
     expect(vista.queryByRole('textbox')).not.toBeInTheDocument()
   }
 })

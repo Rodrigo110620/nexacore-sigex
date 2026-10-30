@@ -4,7 +4,7 @@ import api from './api'
 export interface Notificacion {
   id: number
   tipo: 'FOTO_REPORTADA' | 'QR_DUPLICADO' | 'INTENTO_INGRESO' | 'AULA_INCORRECTA' | 'EXCEPCION_NO_HABILITADO'
-    | 'EXPULSION' | 'INGRESO_MANUAL' | string
+    | 'EXPULSION' | 'INGRESO_MANUAL' | 'TRASLADO_AMBIENTE' | 'EXPULSION_ANULADA' | string
   titulo: string
   detalle: string | null
   idExamen: number | null

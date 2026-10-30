@@ -1,5 +1,10 @@
 import api from './api'
 
+/** Cambia solo mayúsculas/minúsculas; conserva signos, números y espacios internos. */
+export function normalizarMotivoExpulsion(motivo: string): string {
+  return motivo.trim().toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
+}
+
 export interface ExpulsionResponse {
   idExpulsion: number
   idEstudiante: number
@@ -8,6 +13,13 @@ export interface ExpulsionResponse {
   idResponsable: number
   responsable: string
   fechaHora: string
+  /** Nombre completo y código SIS del expulsado (los manda el servidor). */
+  estudiante?: string | null
+  codigoSis?: string | null
+  /** Si se anuló por error: cuándo, quién y por qué (null si sigue vigente). */
+  anuladaEn?: string | null
+  anuladaPor?: string | null
+  motivoAnulacion?: string | null
 }
 
 export function esExpulsionConfirmada(data: unknown): data is ExpulsionResponse {
@@ -26,5 +38,11 @@ export async function listarExpulsionesExamen(idExamen: number): Promise<Expulsi
   if (!Array.isArray(data) || !data.every((registro) => esExpulsionConfirmada(registro) && registro.idExamen === idExamen)) {
     throw new Error('No se pudo verificar el registro de expulsiones del examen.')
   }
+  return data
+}
+
+/** Anula una expulsión registrada por error (ADMIN o docente del examen). No se borra: queda como anulada. */
+export async function anularExpulsion(idExamen: number, idExpulsion: number, motivo: string): Promise<ExpulsionResponse> {
+  const { data } = await api.post<ExpulsionResponse>(`/control-ingresos/examen/${idExamen}/expulsiones/${idExpulsion}/anular`, { motivo })
   return data
 }

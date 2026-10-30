@@ -109,13 +109,38 @@ class ControlIngresoServiceTests {
     }
 
     @Test
+    void justificacionInvalidaNoCreaIngresoNiCambiaAsistencia() {
+        for (String texto : new String[] {"a".repeat(66), "12345678901", "????????????", "Celular  apagado", " Celular apagado", "Celular apagado ", "Celular\tact ivo", "Celular\napagado"}) {
+            var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null, null, true, texto);
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ControlIngresoException.class,
+                    () -> service.autorizar(request, "control@umss.edu.bo")).getStatus());
+        }
+        assertNull(asistencia.getFechaHoraIngreso());
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+        verifyNoInteractions(registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void ingresoManualRespetaAperturaYAutorizaEnElLimite() {
+        asistencia.getExamen().setIdAmbiente(5);
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null, null, true, "celular apagado");
+        horario("16:16", 90);
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo")).getStatus());
+        verifyNoInteractions(registroRepository);
+        horario("16:15", 90);
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado");
+    }
+
+    @Test
     void ingresoManualGuardaMotivoYUsaHoraServidorAunqueElClienteEnvieOtra() {
         var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
-                "2026-09-25T09:00:00-04:00", true, "  Celular apagado, no presenta QR  ");
+                "2026-09-25T09:00:00-04:00", true, "CELULAR APAGADO NO PRESENTA QR");
         assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
         verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
         verify(asistenciaRepository, never()).autorizarConHoraDispositivo(any(), any(), any(), any(), any(), any());
-        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado, no presenta QR");
+        verify(registroRepository).marcarIngresoManual(10, 20, "Celular apagado no presenta qr");
     }
 
     @Test
@@ -151,6 +176,16 @@ class ControlIngresoServiceTests {
     void deniegaConDetalleAdicionalSinObservaciones() {
         var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), "CI vencido");
         assertEquals("Documento inválido — CI vencido", service.denegar(request, "control@umss.edu.bo").causa());
+    }
+
+    @Test
+    void rechazaDetalleCortoSinDenegarNiGuardar() {
+        for (String detalle : new String[] {"A", "CI viejo", "  CI viejo  "}) {
+            var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), detalle);
+            assertEquals("El detalle adicional debe tener al menos 10 caracteres", assertThrows(IllegalArgumentException.class,
+                    () -> service.denegar(request, "control@umss.edu.bo")).getMessage());
+        }
+        verifyNoInteractions(registroRepository, asistenciaRepository);
     }
 
     /** BUG-D02: con un detalle inválido no se deniega ni se registra nada. */
@@ -457,11 +492,20 @@ class ControlIngresoServiceTests {
         registro.setVerificacionesAdicionales("[\"Identidad contrastada\"]");
         registro.setFechaHora(LocalDateTime.parse("2026-09-25T16:00:00"));
         when(registroRepository.listarPorExamen(20)).thenReturn(List.of(registro));
+        when(incidenciaRepository.listarDelExamen(20)).thenReturn(List.<Object[]>of(
+                new Object[] {10, registro.getFechaHora(), "OTRA_INCIDENCIA", "Documento observado"},
+                new Object[] {11, registro.getFechaHora(), "LLEGADA_TARDE", "De otro estudiante"}));
 
         var filas = service.consultarRegistrosExamen(20);
 
+        // Una sola consulta por examen, no una por estudiante.
+        verify(incidenciaRepository).listarDelExamen(20);
+        verify(incidenciaRepository, never()).listarDelControl(any(), any());
+        assertEquals(1, filas.get(0).incidencias().size());
+
         assertEquals(1, filas.size());
         assertEquals(92, filas.get(0).idRegistro());
+        assertEquals("Documento observado", filas.get(0).incidencias().get(0).descripcion());
         assertEquals("Laura Paredes", filas.get(0).estudiante());
         assertEquals("20261234", filas.get(0).codigoSis());
         assertEquals("AUTORIZADO", filas.get(0).resultado());
@@ -673,11 +717,44 @@ class ControlIngresoServiceTests {
     }
 
     @Test
-    void seAutorizaElIngresoAntesDeQueEmpieceElExamen() {
+    void seAutorizaElIngresoDentroDeLos15MinutosAntesDelInicio() {
         asistencia.getExamen().setIdAmbiente(5);
-        horario("18:00", 90); // todavía no empieza
+        horario("16:10", 90); // empieza en 10 minutos: el control ya está abierto
         var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
         assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void elControlAbreJustoQuinceMinutosAntes() {
+        asistencia.getExamen().setIdAmbiente(5);
+        horario("16:15", 90); // abre a las 16:00, la hora del servidor
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+    }
+
+    @Test
+    void noSeRegistraNiDeniegaElIngresoAntesDeQueAbraElControl() {
+        horario("18:00", 90); // abre a las 17:45
+        var autorizar = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+        var denegar = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(autorizar, "control@umss.edu.bo"));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
+        assertTrue(error.getMessage().contains("se habilita el 25/09/2026 a las 17:45"), error.getMessage());
+        assertThrows(ControlIngresoException.class, () -> service.denegar(denegar, "control@umss.edu.bo"));
+        verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void noSeRegistraElIngresoUnaSemanaAntes() {
+        horario("10:00", 90);
+        asistencia.getExamen().setFecha(java.time.LocalDate.parse("2026-10-02"));
+        var request = new AutorizarIngresoRequest(10, 20, "Sin novedades", true, List.of(), List.of());
+
+        ControlIngresoException error = assertThrows(ControlIngresoException.class,
+                () -> service.autorizar(request, "control@umss.edu.bo"));
+        assertTrue(error.getMessage().contains("se habilita el 02/10/2026 a las 09:45"), error.getMessage());
     }
 
     @Test
@@ -718,7 +795,7 @@ class ControlIngresoServiceTests {
             return expulsion;
         });
         when(expulsiones.fechaHoraRegistrada(99)).thenReturn(fecha);
-        assertEquals(new ExpulsionResponse(99, 10, 20, "Uso de celular", 7, "Carla Control", fecha),
+        assertEquals(new ExpulsionResponse(99, 10, 20, "Uso de celular", 7, "Carla Control", fecha, "Laura Paredes", "20261234"),
                 service.expulsar(request, admin));
         verify(expulsiones).saveAndFlush(argThat(e -> e.getIdEstudiante() == 10 && e.getIdExamen() == 20
                 && e.getIdUsuarioResponsable() == 7 && e.getMotivo().equals("Uso de celular")));
@@ -757,5 +834,16 @@ class ControlIngresoServiceTests {
         when(reparto.repartir(any(), any())).thenReturn(
                 new RepartoAulasService.Reparto(List.of(), Map.of(), List.of(), Map.of()));
         return reparto;
+    }
+    @Test
+    void incidenciaInvalidaNoAutorizaNiDeniegaNiGuarda() {
+        prepararTipoIncidencia(4);
+        for (String texto : List.of("????????", "aaaaaaaaaaaa", "###")) {
+            var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", true, List.of(),
+                    List.of(new com.nexacore.examenes.dto.IncidenciaIngresoRequest(4, texto)));
+            assertThrows(IllegalArgumentException.class, () -> service.autorizar(request, "control@umss.edu.bo"));
+            assertThrows(IllegalArgumentException.class, () -> service.denegar(request, "control@umss.edu.bo"));
+        }
+        verifyNoInteractions(registroRepository, incidenciaRepository, asistenciaRepository);
     }
 }

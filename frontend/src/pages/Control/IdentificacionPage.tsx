@@ -15,7 +15,9 @@ import useIdentificacion from '../../hooks/useIdentificacion'
 import useExamen from '../../hooks/useExamen'
 import { useAuth } from '../../context/AuthContext'
 import { identificarEstudiante, type EstudianteIdentificado } from '../../services/identificacionService'
+import { obtenerContextoControl } from '../../services/controlIngresoService'
 import { isNetworkError, isOffline } from '../../utils/examFormUtils'
+import { tienePermiso } from '../../utils/permisos'
 
 const SIN_CONEXION_VERIFICAR =
   'Sin conexión a Internet: no se pudo verificar la habilitación del estudiante. No se confirma ningún estado; vuelve a presionar Continuar cuando recuperes la conexión.'
@@ -24,9 +26,9 @@ const SIN_CONEXION_CONTINUAR =
 
 /** Control de ingreso: identificar al estudiante por código universitario, CI o QR dentro de un examen. */
 export default function IdentificacionPage() {
-  const { roles } = useAuth()
+  const auth = useAuth()
   const navigate = useNavigate()
-  const puedeContinuar = roles.some((role) => role === 'ADMIN' || role === 'CONTROL')
+  const puedeContinuar = tienePermiso(auth, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
@@ -36,6 +38,8 @@ export default function IdentificacionPage() {
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
   // Estado de habilitación consultado de nuevo al presionar Continuar (ACCS-03): nunca se asume.
   const [estudianteVerificado, setEstudianteVerificado] = useState<EstudianteIdentificado | null>(null)
+  // Aula donde está realmente asignado el estudiante (puede haber cambiado por reasignación).
+  const [aulaEstudiante, setAulaEstudiante] = useState<string | null>(null)
   const [verificando, setVerificando] = useState(false)
   // El aviso queda ligado al estudiante con el que se intentó continuar; otra búsqueda lo oculta.
   const [errorVerificacion, setErrorVerificacion] = useState<{ para: EstudianteIdentificado; mensaje: string } | null>(null)
@@ -59,6 +63,7 @@ export default function IdentificacionPage() {
     lecturaQrActual.current += 1
     setModalVerificacionOpen(false)
     setEstudianteVerificado(null)
+    setAulaEstudiante(null)
     setErrorVerificacion(null)
     setErrorContinuar(null)
   }
@@ -108,6 +113,14 @@ export default function IdentificacionPage() {
     setVerificando(true)
     try {
       setEstudianteVerificado(await identificarEstudiante(idExamen, 'codigo', estudiante.codigoSis))
+      // Obtener el aula real donde está asignado el estudiante (puede haber cambiado por reasignación).
+      try {
+        const contexto = await obtenerContextoControl(estudiante.idEstudiante, idExamen)
+        setAulaEstudiante(contexto.ambiente ?? null)
+      } catch {
+        // Si falla la consulta de contexto, se sigue sin el aula del estudiante y el modal usa la del examen.
+        setAulaEstudiante(null)
+      }
       setErrorContinuar(null)
       setModalVerificacionOpen(true)
     } catch (error) {
@@ -198,7 +211,7 @@ export default function IdentificacionPage() {
                   disabled={!estudiante || !puedeContinuar || verificando}
                   aria-busy={verificando}
                   onClick={() => void manejarContinuar()}
-                  title={!puedeContinuar ? 'Se requiere el rol ADMIN o CONTROL para continuar' : undefined}
+                  title={!puedeContinuar ? 'Se requiere el rol ADMIN, CONTROL o DOCENTE para continuar' : undefined}
                   className="inline-flex h-9 items-center gap-2 rounded-md bg-[#0439D9] px-3.5 text-sm font-semibold text-white hover:bg-[#032db0] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:px-4"
                 >
                   Continuar
@@ -224,6 +237,7 @@ export default function IdentificacionPage() {
                   idAmbiente={(examen as any)?.idAmbiente || 0} 
                   materia={examen?.asignatura}
                   aula={examen?.ambienteNombre}
+                  aulaEstudiante={aulaEstudiante}
                   fecha={examen?.fecha}
                   hora={examen?.horaInicio}
                   onVolver={() => {

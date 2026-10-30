@@ -14,6 +14,11 @@ import java.util.List;
 public record AuthResponse(
         String token,
         String nombre,
-        List<String> roles
+        List<String> roles,
+        /** Permisos del usuario según sus roles: el frontend decide con ellos qué menús y botones mostrar. */
+        List<String> permisos
 ) {
+    public AuthResponse(String token, String nombre, List<String> roles) {
+        this(token, nombre, roles, com.nexacore.examenes.security.Permisos.deRoles(roles).stream().sorted().toList());
+    }
 }

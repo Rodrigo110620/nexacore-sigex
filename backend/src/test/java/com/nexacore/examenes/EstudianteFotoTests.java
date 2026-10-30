@@ -112,6 +112,17 @@ class EstudianteFotoTests {
         mockMvc.perform(get("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isNotFound());
     }
 
+    /** La foto subida por el personal queda oficial sin revisión: solo el ADMIN puede cambiarla o quitarla. */
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void elDocenteVeLaFotoPeroNoPuedeCambiarlaNiQuitarla() throws Exception {
+        mockMvc.perform(multipart("/estudiantes/{id}/foto", idEstudiante).file(archivo(JPEG))
+                        .with(r -> { r.setMethod("PUT"); return r; }))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isNotFound());
+    }
+
     @Test
     void laIdentificacionIndicaCondicionYSiTieneFoto() {
         var sinFoto = estudianteRepository.identificarPorCodigoSis("202600077", 999).orElseThrow();

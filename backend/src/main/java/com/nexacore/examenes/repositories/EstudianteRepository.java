@@ -49,7 +49,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                       FROM EstudianteCarrera ec JOIN ec.carrera c
                      WHERE ec.id.idEstudiante = e.id),
                    a.id.idExamen, a.habilitado, a.motivoInhabilitacion, a.fechaHoraIngreso,
-                   e.condicion,
+                   a.idAmbienteIngreso, e.condicion,
                    CASE WHEN EXISTS (SELECT 1 FROM EstudianteFoto f WHERE f.idEstudiante = e.id)
                         THEN true ELSE false END)
             """;
@@ -97,6 +97,23 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                    COUNT(a.fechaHoraIngreso))
             """ + ASIGNADOS_AL_EXAMEN)
     ResumenEstudiantesResponse resumirAsignadosAlExamen(@Param("idExamen") Integer idExamen);
+
+    /**
+     * DASH-01: incidencias del examen desde el último cierre de sesión (una sola consulta): expulsiones
+     * no anuladas, intentos incorrectos, excepciones de no habilitados, ingresos manuales, traslados y
+     * reportes de QR duplicado. La excepción (INCI-04) también deja un intento en su historial: ese no se
+     * cuenta dos veces.
+     */
+    @Query(value = """
+            SELECT (SELECT COUNT(*) FROM expulsion WHERE id_examen = :idExamen AND fecha_hora > :desde AND anulada_en IS NULL)
+                 + (SELECT COUNT(*) FROM intento_ingreso WHERE id_examen = :idExamen AND fecha_hora > :desde
+                      AND observacion NOT LIKE 'Intento ingresar no habilitado ###%')
+                 + (SELECT COUNT(*) FROM excepcion_no_habilitado WHERE id_examen = :idExamen AND fecha_hora > :desde)
+                 + (SELECT COUNT(*) FROM registro_control_ingreso WHERE id_examen = :idExamen AND tipo_ingreso = 'MANUAL' AND fecha_hora > :desde)
+                 + (SELECT COUNT(*) FROM traslado_ambiente WHERE id_examen = :idExamen AND fecha_hora_traslado > :desde)
+                 + (SELECT COUNT(*) FROM reporte_qr_duplicado WHERE id_examen = :idExamen AND fecha_hora_servidor > :desde)
+            """, nativeQuery = true)
+    long contarIncidencias(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
 
 
     /**

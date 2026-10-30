@@ -75,6 +75,9 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.NormasExamenService normasExamenService;
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
+    @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
+    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
+    @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -85,6 +88,14 @@ class PostgresIntegracionTests {
         entityManager.clear();
     }
     @MockitoBean EmailService emailService;
+
+    @Test
+    void controlUsaHoraBolivianaInclusoConSesionPostgresEnUtc() {
+        jdbc.execute("SET LOCAL TIME ZONE 'UTC'");
+        var hora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        var bolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        assertThat(Math.abs(java.time.Duration.between(hora, bolivia).toMillis())).isLessThan(2000);
+    }
 
     @Test
     void flywayAplicaTodasLasMigracionesYHibernateValidaElEsquema() throws IOException {
@@ -332,6 +343,15 @@ class PostgresIntegracionTests {
                 .singleElement().satisfies(t -> assertThat(t.getIdAmbienteOrigen()).isEqualTo(idAmbiente));
         assertThat(trasladoRepository.deSesionActual(idExamen, null)).hasSize(1);
 
+        // La lista del control muestra "Trasladado desde [aula original]" a todo el personal (viene del servidor).
+        String aulaOriginal = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, idAmbiente);
+        assertThat(identificacionService.listarAsignados(idExamen, "TODOS", 0, 10).contenido())
+                .filteredOn(e -> e.idEstudiante() == trasladado).singleElement()
+                .satisfies(e -> {
+                    assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
+                    assertThat(e.trasladadoA()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
+                });
+
         // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
         String insertar = "INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, motivo, id_usuario_admin) VALUES (";
         assertThat(errorSql(insertar + idExamen + ", " + trasladado + ", " + idAmbiente + ", " + aulaNueva + ", '  ', " + idDocente + ")"))
@@ -348,6 +368,8 @@ class PostgresIntegracionTests {
 
     @Test
     void losRegistrosGuardanLaHoraRealYNoLaDelInicioDeLaTransaccion() {
+        // Los defaults timestamp y la consulta de control se comparan en la misma zona de negocio.
+        jdbc.execute("SET LOCAL TIME ZONE 'America/La_Paz'");
         // V45: con NOW() todo lo guardado en una transacción tenía la misma hora (la de su inicio).
         var columnas = jdbc.queryForList("""
                 SELECT table_name || '.' || column_name AS columna, column_default FROM information_schema.columns
@@ -391,8 +413,9 @@ class PostgresIntegracionTests {
         idAmbiente = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente", Integer.class);
     }
 
-    @Test
-    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"UTC", "America/La_Paz"})
+    void ingresoManualPersisteLaEvidenciaYSeConsultaComoExcepcion(String zonaBase) {
         prepararCatalogo();
         int paralelo = materiaYParalelo("TST-MANUAL");
         int examen = examen(paralelo, "08:00", 90);
@@ -403,13 +426,25 @@ class PostgresIntegracionTests {
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
                 + "VALUES (?, ?, 'image/jpeg', NOW())", estudiante, new byte[]{(byte) 0xFF, (byte) 0xD8});
         sincronizar();
+        // Caso de la captura: empezó hace 40 minutos y dura 190; sigue en curso hasta dentro de 150.
+        var ahoraBolivia = java.time.LocalDateTime.now(java.time.ZoneId.of("America/La_Paz"));
+        var inicio = ahoraBolivia.minusMinutes(40);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ?, duracion_minutos = 190 WHERE id_examen = ?",
+                inicio.toLocalDate(), inicio.toLocalTime(), examen);
+        sincronizar();
+        jdbc.execute("SET LOCAL TIME ZONE '" + zonaBase + "'");
         var request = new com.nexacore.examenes.dto.AutorizarIngresoRequest(estudiante, examen, null, true,
-                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR");
+                List.of("CI verificado"), List.of(new com.nexacore.examenes.dto.IncidenciaIngresoRequest(
+                        jdbc.queryForObject("SELECT id_tipo_incidencia FROM catalogo_incidencia WHERE nombre = 'OTRA_INCIDENCIA'", Integer.class),
+                        "Documento deteriorado")), null, null, true, "Celular apagado no presenta qr");
         assertThat(controlIngresoService.autorizar(request, "luis.paz@umss.edu").autorizado()).isTrue();
         sincronizar();
+        var horaGuardada = asistenciaExamenRepository.obtenerFechaHoraIngreso(estudiante, examen);
+        assertThat(Math.abs(java.time.Duration.between(ahoraBolivia, horaGuardada).toMillis())).isLessThan(5000);
         assertThat(controlIngresoService.consultarRegistrosExamen(examen)).singleElement().satisfies(registro -> {
+            assertThat(registro.incidencias()).singleElement().satisfies(i -> assertThat(i.descripcion()).isEqualTo("Documento deteriorado"));
             assertThat(registro.tipoIngreso()).isEqualTo("MANUAL");
-            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado, no presenta QR");
+            assertThat(registro.justificacionManual()).isEqualTo("Celular apagado no presenta qr");
             assertThat(registro.usuarioControl()).isEqualTo("Luis Paz");
             assertThat(registro.estudiante()).isEqualTo("Ana Prueba");
             assertThat(registro.fechaHora()).isNotNull();
@@ -430,6 +465,16 @@ class PostgresIntegracionTests {
                 INSERT INTO examen (id_paralelo, fecha, hora_inicio, duracion_minutos, id_materia, id_docente, id_ambiente)
                 VALUES (?, CURRENT_DATE + 1, CAST(? AS time), ?, ?, ?, ?) RETURNING id_examen
                 """, Integer.class, paralelo, hora, duracion, idMateria, idDocente, idAmbiente);
+    }
+
+    /** Tras asociar estudiantes al examen futuro, abre el control con un horario boliviano. */
+    private void abrirControl(int idExamen) {
+        jdbc.update("""
+                UPDATE examen SET fecha = CAST(t AS date), hora_inicio = CAST(t AS time(0))
+                FROM (SELECT timezone('America/La_Paz', clock_timestamp()) + INTERVAL '5 minutes' AS t) ahora
+                WHERE id_examen = ?
+                """, idExamen);
+        sincronizar();
     }
 
     private int estudiante(String sis, String nombre) {
@@ -466,11 +511,14 @@ class PostgresIntegracionTests {
             // Solo sus adaptaciones: nunca las de otro estudiante.
             assertThat(e.normasParticulares()).containsExactly("Tiempo adicional de 15 minutos");
             assertThat(e.expulsado()).isTrue();
+            // Su cronómetro se detiene en la hora oficial de la expulsión.
+            assertThat(e.fechaHoraExpulsion()).isNotNull();
             assertThat(e.fechaHoraIngreso()).isNotNull();
         });
         assertThat(panelEstudianteService.examenes(correoLuis)).singleElement().satisfies(e -> {
             assertThat(e.normasParticulares()).containsExactly("Asiento cerca de la puerta");
             assertThat(e.expulsado()).isFalse();
+            assertThat(e.fechaHoraExpulsion()).isNull();
         });
 
         // Si el examen se reprograma, la expulsión queda en la sesión anterior.
@@ -478,6 +526,61 @@ class PostgresIntegracionTests {
         sincronizar();
         assertThat(panelEstudianteService.examenes(correoAna)).singleElement()
                 .satisfies(e -> assertThat(e.expulsado()).isFalse());
+    }
+
+    @Test
+    void unaExpulsionPorErrorSeAnulaSinBorrarseYElEstudianteSigueConSuExamen() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-941");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int ana = estudiante("202000141", "Ana");
+        String correoAna = cuentaDeEstudiante(ana, "202000141@est.umss.edu");
+        habilitacionService.asociar(idExamen, paralelo, "202000141");
+        abrirControl(idExamen);
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE, fecha_hora_ingreso = NOW(), id_ambiente_ingreso = ? WHERE id_estudiante = ? AND id_examen = ?",
+                idAmbiente, ana, idExamen);
+        sincronizar();
+        var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        var expulsion = controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Uso de celular"), admin);
+        sincronizar();
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> assertThat(e.expulsado()).isTrue());
+
+        var anulada = controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "Error del control, era otro estudiante", admin);
+        sincronizar();
+        assertThat(anulada.anuladaEn()).isNotNull();
+        assertThat(anulada.anuladaPor()).isEqualTo("Luis Paz");
+        // Sigue con su examen: el portal ya no lo muestra expulsado y se lo puede trasladar.
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> {
+            assertThat(e.expulsado()).isFalse();
+            assertThat(e.fechaHoraExpulsion()).isNull();
+        });
+        assertThat(expulsionRepository.expulsadoEnSesionActual(ana, idExamen, null)).isFalse();
+        // El registro no se borra: queda en el reporte como anulado.
+        assertThat(expulsionConsultaService.listar(idExamen)).singleElement().satisfies(x -> {
+            assertThat(x.motivo()).isEqualTo("Uso de celular");
+            assertThat(x.motivoAnulacion()).isEqualTo("Error del control, era otro estudiante");
+        });
+        assertThat(jdbc.queryForObject("SELECT tipo FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion DESC LIMIT 1", String.class, idExamen))
+                .isEqualTo("EXPULSION_ANULADA");
+
+        // No se anula dos veces, ni con un motivo corto, ni la expulsión de otro examen.
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "Otra vez por error", admin))
+                .hasMessageContaining("ya fue anulada");
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen, expulsion.idExpulsion(), "corto", admin))
+                .hasMessageContaining("al menos 10 caracteres");
+        assertThatThrownBy(() -> controlIngresoService.anularExpulsion(idExamen + 1000, expulsion.idExpulsion(), "Error del control", admin))
+                .hasMessageContaining("No se encontró la expulsión");
+        // La base impide cambiar la anulación o la expulsión registrada.
+        assertThat(errorSql("UPDATE expulsion SET motivo_anulacion = 'Cambiado' WHERE id_expulsion = " + expulsion.idExpulsion()))
+                .contains("La anulación de la expulsión no se puede modificar");
+        assertThat(errorSql("UPDATE expulsion SET anulada_en = NULL, id_usuario_anula = NULL WHERE id_expulsion = " + expulsion.idExpulsion()))
+                .contains("no se puede modificar");
+
+        // Si de verdad corresponde, se lo puede volver a expulsar.
+        controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
+        assertThat(expulsionRepository.expulsadoEnSesionActual(ana, idExamen, null)).isTrue();
     }
 
     @Test
@@ -491,6 +594,7 @@ class PostgresIntegracionTests {
         habilitacionService.asociar(idExamen, paralelo, "202000091");
         habilitacionService.asociar(idExamen, paralelo, "202000092");
         habilitacionService.asociar(idExamen, paralelo, "202000093");
+        abrirControl(idExamen);
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_examen = ? AND id_estudiante IN (?, ?)", idExamen, ana, beto);
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) VALUES (?, ?, 'image/jpeg', NOW())",
                 beto, new byte[]{(byte) 0xFF, (byte) 0xD8});
@@ -500,21 +604,95 @@ class PostgresIntegracionTests {
         var admin = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
                 List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
 
+        // INCI-03: el control traslada a Ana; avisa al personal y su portal muestra el aula nueva y la original.
+        String correoAna = cuentaDeEstudiante(ana, "202000091@est.umss.edu");
+        int aulaNueva = jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        controlIngresoService.reasignarAmbiente(idExamen, ana,
+                new com.nexacore.examenes.dto.ReasignarAmbienteRequest(aulaNueva, "Computadora dañada", null), "luis.paz@umss.edu");
+        sincronizar();
+        String aulaOriginal = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, idAmbiente);
+        String aulaDestino = jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva);
+        assertThat(panelEstudianteService.examenes(correoAna)).singleElement().satisfies(e -> {
+            assertThat(e.aula()).isEqualTo(aulaDestino);
+            assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
+        });
+
         controlIngresoService.expulsar(new com.nexacore.examenes.dto.ExpulsarEstudianteRequest(ana, idExamen, "Copia durante el examen"), admin);
         controlIngresoService.autorizar(new com.nexacore.examenes.dto.AutorizarIngresoRequest(beto, idExamen, null, true,
-                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado, no presenta QR"), "luis.paz@umss.edu");
+                List.of("CI verificado"), List.of(), null, null, true, "Celular apagado no presenta qr"), "luis.paz@umss.edu");
         excepcionService.registrarExcepcion(new com.nexacore.examenes.dto.RegistrarExceptionRequest(carla, idExamen, idAmbiente,
                 "Pendiente de habilitación", "Se le permitió esperar afuera", null), "luis.paz@umss.edu");
         sincronizar();
 
+        // DASH-01: el panel del examen cuenta traslado, expulsión, ingreso manual y excepción.
+        assertThat(identificacionService.resumir(idExamen).incidencias()).isEqualTo(4);
+
+        // INCI-04: el reporte de excepciones del examen, con nombres y la sesión actual.
+        assertThat(excepcionService.listar(idExamen)).singleElement().satisfies(x -> {
+            assertThat(x.estudiante()).isEqualTo("Carla Prueba");
+            assertThat(x.codigoSis()).isEqualTo("202000093");
+            assertThat(x.accionTomada()).isEqualTo("Se le permitió esperar afuera");
+            assertThat(x.registradoPor()).isEqualTo("Luis Paz");
+            assertThat(x.ambiente()).isNotBlank();
+            assertThat(x.fechaHora()).isNotNull();
+        });
+
         var avisos = jdbc.queryForList("SELECT tipo, titulo, detalle, id_estudiante, enlace FROM notificacion WHERE id_examen = ? ORDER BY id_notificacion", idExamen);
         assertThat(avisos).extracting(a -> a.get("tipo"))
-                .containsExactly("EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
-        assertThat(avisos.get(0)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsExactly("TRASLADO_AMBIENTE", "EXPULSION", "INGRESO_MANUAL", "EXCEPCION_NO_HABILITADO");
+        assertThat(avisos.get(0)).containsEntry("titulo", "Traslado: Ana Prueba").containsEntry("id_estudiante", ana)
                 .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
-        assertThat((String) avisos.get(0).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
-        assertThat((String) avisos.get(1).get("detalle")).contains("Celular apagado, no presenta QR");
-        assertThat((String) avisos.get(2).get("detalle")).contains("Se le permitió esperar afuera");
+        assertThat((String) avisos.get(0).get("detalle"))
+                .contains("De " + aulaOriginal + " a " + aulaDestino).contains("Computadora dañada").contains("Luis Paz");
+        assertThat(avisos.get(1)).containsEntry("titulo", "Expulsión: Ana Prueba").containsEntry("id_estudiante", ana)
+                .containsEntry("enlace", "/dashboard/control/" + idExamen + "/informacion");
+        assertThat((String) avisos.get(1).get("detalle")).contains("Materia TST-909").contains("Copia durante el examen");
+        assertThat((String) avisos.get(2).get("detalle")).contains("Celular apagado no presenta qr");
+        assertThat((String) avisos.get(3).get("detalle")).contains("Se le permitió esperar afuera");
+    }
+
+    @Test
+    void elReporteDeIntentosIncorrectosListaTodosLosExamenesYFiltraPorUno() {
+        // DASH-06 / HU#7.
+        prepararCatalogo();
+        int p1 = materiaYParalelo("TST-931");
+        int p2 = materiaYParalelo("TST-932");
+        int examen1 = examen(p1, "08:00", 90);
+        int examen2 = examen(p2, "10:00", 90);
+        int ana = estudiante("202000131", "Ana");
+        String insertar = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, id_estudiante, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        jdbc.update(insertar, examen1, p1, idDocente, "202000131", ana, "No está inscrito en la materia",
+                java.sql.Timestamp.valueOf("2026-10-28 08:05:00"));
+        jdbc.update(insertar, examen2, p2, idDocente, "202000131", ana, "Ambiente incorrecto: se presentó en el aula 691B",
+                java.sql.Timestamp.valueOf("2026-10-28 10:07:00"));
+        jdbc.update(insertar, examen1, p1, idDocente, "9999999", null, "QR de otra persona",
+                java.sql.Timestamp.valueOf("2026-10-28 08:09:00"));
+        sincronizar();
+
+        var todos = intentoIngresoService.reporte(null, 0, 20);
+        assertThat(todos.totalRegistros()).isGreaterThanOrEqualTo(3);
+        var mios = todos.contenido().stream().filter(i -> i.idExamen() == examen1 || i.idExamen() == examen2).toList();
+        assertThat(mios).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("10:07", "08:09", "08:05");
+        assertThat(mios.get(0)).satisfies(i -> {
+            assertThat(i.tipo()).isEqualTo("AULA_INCORRECTA");
+            assertThat(i.examen()).isEqualTo("Materia TST-932");
+            assertThat(i.estudiante()).isEqualTo("Ana Prueba");
+            assertThat(i.personalControl()).isNotBlank();
+            assertThat(i.horaExamen()).hasToString("10:00");
+        });
+        // Sin estudiante identificado: queda el identificador que se escaneó.
+        assertThat(mios.get(1)).satisfies(i -> {
+            assertThat(i.estudiante()).isNull();
+            assertThat(i.identificador()).isEqualTo("9999999");
+            assertThat(i.tipo()).isEqualTo("NO_CORRESPONDE");
+        });
+
+        var soloExamen1 = intentoIngresoService.reporte(examen1, 0, 20);
+        assertThat(soloExamen1.totalRegistros()).isEqualTo(2);
+        assertThat(soloExamen1.contenido()).allSatisfy(i -> assertThat(i.idExamen()).isEqualTo(examen1));
+        assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
+        assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
+        assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

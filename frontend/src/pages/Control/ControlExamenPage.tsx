@@ -74,7 +74,7 @@ export default function ControlExamenPage() {
               </div>
             </section>
             <div className="mt-4">
-              <ResumenExamenCards resumen={datos.resumen} />
+              <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
             <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} {...datos} />
           </>

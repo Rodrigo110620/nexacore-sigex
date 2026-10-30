@@ -81,5 +81,6 @@ export default function useEstudiantesExamen(idExamen: number) {
     setPage(0)
   }
 
-  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, cargando: !actual }
+  const refetch = () => setRecarga((n) => n + 1)
+  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, cargando: !actual, refetch }
 }

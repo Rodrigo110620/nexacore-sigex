@@ -208,7 +208,7 @@ export default function MiQrPage() {
                     <p className="mt-3 flex items-center gap-2 text-sm text-[#011140]"><CalendarDays size={18} className="text-[#0439D9]" aria-hidden="true" /> {fechaLarga(proximo.fecha)}</p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <p className="flex items-center gap-2 text-sm text-[#011140]"><Clock size={18} className="text-[#0439D9]" aria-hidden="true" /> {horario(proximo)}</p>
-                      <p className="flex items-center gap-2 text-sm text-[#011140]"><MapPin size={18} className="text-[#0439D9]" aria-hidden="true" /> {proximo.aula ? `Aula ${proximo.aula}` : 'Se asigna al llegar'}</p>
+                      <p className="flex items-center gap-2 text-sm text-[#011140]"><MapPin size={18} className="text-[#0439D9]" aria-hidden="true" /> {proximo.aula ? `Aula ${proximo.aula}` : 'Se asigna al llegar'}{proximo.aula && proximo.trasladadoDesde ? ` (te trasladaron desde ${proximo.trasladadoDesde})` : ''}</p>
                     </div>
                   </article>
                   {proximo.habilitado === false ? (

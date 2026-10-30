@@ -147,6 +147,15 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     expect(screen.queryByRole('region', { name: 'Normas del examen' })).not.toBeInTheDocument()
   })
 
+  it('si lo trasladaron, muestra el aula nueva y desde cuál (INCI-03)', async () => {
+    vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
+      aula: '692B', trasladadoDesde: '691A', resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00',
+    })])
+    renderEn('/estudiante')
+    const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
+    expect(within(tarjeta).getByText('(te trasladaron desde 691A)')).toBeInTheDocument()
+  })
+
   it('confirma su ingreso con la hora y el aula, sin pedirle otra vez que se presente', async () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
       resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00',
@@ -178,11 +187,14 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
   it('si lo expulsaron, lo indica sin detalles internos y sin el QR', async () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', {
       resultadoIngreso: 'AUTORIZADO', fechaHoraIngreso: '2099-03-10T08:55:00', expulsado: true,
+      fechaHoraExpulsion: '2099-03-10T09:40:00',
     })])
     renderEn('/estudiante')
 
     const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
-    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('Tu participación en este examen fue anulada')
+    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('Tu participación en este examen fue anulada a las 09:40')
+    // Su cronómetro queda detenido en la hora de la expulsión.
+    expect(within(tarjeta).getByRole('timer')).toHaveTextContent('Cronómetro detenido')
     expect(within(tarjeta).getAllByText('Expulsado').length).toBeGreaterThan(0)
     expect(within(tarjeta).queryByText(/Tu ingreso quedó registrado/)).not.toBeInTheDocument()
     expect(within(tarjeta).queryByRole('link', { name: /qr/i })).not.toBeInTheDocument()

@@ -19,6 +19,8 @@ public class ExcepcionService {
     private final IntentoIngresoRepository intentoIngresoRepo;
     private final ExamenRepository examenRepo;
     private final NotificacionService notificacionService;
+    private final AmbienteRepository ambienteRepo;
+    private final SesionExamenService sesionExamenService;
 
     public ExcepcionService(
             ExcepcionNoHabilitadoRepository excepcionRepo,
@@ -26,8 +28,12 @@ public class ExcepcionService {
             UsuarioRepository usuarioRepo,
             IntentoIngresoRepository intentoIngresoRepo,
             ExamenRepository examenRepo,
-            NotificacionService notificacionService) {
+            NotificacionService notificacionService,
+            AmbienteRepository ambienteRepo,
+            SesionExamenService sesionExamenService) {
         this.notificacionService = notificacionService;
+        this.ambienteRepo = ambienteRepo;
+        this.sesionExamenService = sesionExamenService;
         this.excepcionRepo = excepcionRepo;
         this.estudianteRepo = estudianteRepo;
         this.usuarioRepo = usuarioRepo;
@@ -101,11 +107,39 @@ public class ExcepcionService {
         );
 
         // 3. Avisar a ADMIN, CONTROL y al DOCENTE del examen (como los demás reportes del control).
+        notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, req.idExamen(), req.idEstudiante());
         notificacionService.publicar(Notificacion.EXCEPCION_NO_HABILITADO,
                 "Excepción de no habilitado: " + est.getNombre() + " " + est.getApellidos(),
                 notificacionService.materia(req.idExamen()) + " · " + detalles
                         + " · Registrada por " + user.getNombre() + " " + user.getApellidos(),
                 req.idExamen(), est.getId(), "/dashboard/control/" + req.idExamen() + "/informacion",
                 emailUsuarioControl);
+    }
+
+    /**
+     * INCI-04: reporte de excepciones del examen (sesión actual), de la más reciente a la más antigua,
+     * con el nombre del estudiante, del ambiente y de quien la registró (sin consultas por fila).
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse> listar(Integer idExamen) {
+        var registros = excepcionRepo.deSesionActual(idExamen, sesionExamenService.ultimoCierre(idExamen));
+        if (registros.isEmpty()) return java.util.List.of();
+        var estudiantes = new java.util.HashMap<Integer, Estudiante>();
+        estudianteRepo.findAllById(registros.stream().map(ExcepcionNoHabilitado::getIdEstudiante).distinct().toList())
+                .forEach(e -> estudiantes.put(e.getId(), e));
+        var usuarios = new java.util.HashMap<Integer, Usuario>();
+        usuarioRepo.findAllById(registros.stream().map(ExcepcionNoHabilitado::getIdUsuarioControl).distinct().toList())
+                .forEach(u -> usuarios.put(u.getId(), u));
+        var ambientes = new java.util.HashMap<Integer, String>();
+        ambienteRepo.findAllById(registros.stream().map(ExcepcionNoHabilitado::getIdAmbiente).distinct().toList())
+                .forEach(a -> ambientes.put(a.getId(), a.getNombre()));
+        return registros.stream().map(x -> {
+            Estudiante e = estudiantes.get(x.getIdEstudiante());
+            Usuario u = usuarios.get(x.getIdUsuarioControl());
+            return new com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse(x.getId(), x.getIdEstudiante(),
+                    e == null ? null : (e.getNombre() + " " + e.getApellidos()).trim(), e == null ? null : e.getCodigoSis(),
+                    x.getMotivoInhabilitacion(), x.getAccionTomada(), x.getObservaciones(), ambientes.get(x.getIdAmbiente()),
+                    u == null ? null : (u.getNombre() + " " + u.getApellidos()).trim(), x.getFechaHora());
+        }).toList();
     }
 }

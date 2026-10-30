@@ -49,4 +49,40 @@ class ReprogramarAccesoTests {
         assertThat(acceso.puedeReprogramar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
         assertThat(acceso.puedeReprogramar(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
     }
+
+    // INCI-01: expulsa el ADMIN o el docente de su propio examen; el control reporta, no expulsa.
+    @Test
+    void elAdminYElDocenteDelExamenPuedenExpulsar() {
+        docente("propio@umss.edu", 7);
+        when(examenes.perteneceADocente(3, 7)).thenReturn(true);
+        assertThat(acceso.puedeExpulsar(3, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(acceso.puedeExpulsar(3, sesion("propio@umss.edu", "DOCENTE"))).isTrue();
+    }
+
+    @Test
+    void otroDocenteElControlYElEstudianteNoPuedenExpulsar() {
+        docente("ajeno@umss.edu", 8);
+        when(examenes.perteneceADocente(3, 8)).thenReturn(false);
+        assertThat(acceso.puedeExpulsar(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
+        assertThat(acceso.puedeExpulsar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
+        assertThat(acceso.puedeExpulsar(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
+    }
+
+    // El DOCENTE crea y edita sus propios exámenes igual que el ADMIN.
+    @Test
+    void elAdminYElDocenteDelExamenPuedenEditar() {
+        docente("propio@umss.edu", 7);
+        when(examenes.perteneceADocente(3, 7)).thenReturn(true);
+        assertThat(acceso.puedeEditar(3, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(acceso.puedeEditar(3, sesion("propio@umss.edu", "DOCENTE"))).isTrue();
+    }
+
+    @Test
+    void otroDocenteElControlYElEstudianteNoPuedenEditar() {
+        docente("ajeno@umss.edu", 8);
+        when(examenes.perteneceADocente(3, 8)).thenReturn(false);
+        assertThat(acceso.puedeEditar(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
+        assertThat(acceso.puedeEditar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
+        assertThat(acceso.puedeEditar(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
+    }
 }

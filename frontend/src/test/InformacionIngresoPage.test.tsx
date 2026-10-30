@@ -13,7 +13,7 @@ vi.mock('../components/layout/PanelLayout', () => ({
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: ['CONTROL'] }) }))
 vi.mock('../services/intentoIngresoService')
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn() }))
-vi.mock('../services/reporteQrDuplicadoConsultaService', () => ({ listarReportesQrDuplicado: vi.fn() }))
+vi.mock('../services/reporteQrDuplicadoConsultaService', () => ({ listarReportesQrDuplicado: vi.fn(), obtenerFotoReporteQr: vi.fn().mockResolvedValue(null) }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
 vi.mock('../services/expulsionService', () => ({ listarExpulsionesExamen: vi.fn().mockResolvedValue([]) }))
 
@@ -23,6 +23,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue([{
       idRegistro: 91, idEstudiante: 24, idExamen: 7, estudiante: 'Luis Flores', codigoSis: '202600002',
       resultado: 'AUTORIZADO', causa: null, observaciones: null, verificacionesAdicionales: [],
+      incidencias: [{ tipo: 'OTRA_INCIDENCIA', descripcion: 'Documento deteriorado en el control' }],
       usuarioControl: 'Diego Control', fechaHora: '2026-10-24T13:30:00', tipoIngreso: 'MANUAL', justificacionManual: 'Celular apagado, no presenta QR',
     }])
     renderPage()
@@ -31,6 +32,7 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     expect(screen.getByText('Luis Flores')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
     expect(screen.getByText(/Celular apagado, no presenta QR/)).toBeInTheDocument()
+    expect(screen.getByText(/Documento deteriorado en el control/)).toBeInTheDocument()
     expect(screen.getAllByText(/Diego Control/).length).toBeGreaterThan(0)
   })
   beforeEach(() => {
@@ -107,4 +109,24 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     expect(await screen.findByText('No hay ingresos autorizados registrados para este examen.')).toBeInTheDocument()
     expect(intentos.listarIntentosIngreso).toHaveBeenCalledTimes(2)
   })
+})
+
+it.each([
+  [true, '74839201', '74839201'],
+  [false, null, 'No presentó carnet'],
+  [true, null, 'CI no registrado'],
+])('el detalle presenta el número de CI o su ausencia: %s / %s', async (presentoCarnet, ciPresentado, esperado) => {
+  vi.mocked(intentos.listarIntentosIngreso).mockResolvedValue([])
+  vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue([])
+  vi.mocked(reportes.listarReportesQrDuplicado).mockResolvedValue([{
+    idReporte: 991, estudianteQr: 'Ana Prueba', codigoSisQr: '202104010', nombresPresentado: 'Persona Observada',
+    ciPresentado, presentoCarnet, codigoSisPresentado: null, detalle: 'Documento presentado: Carnet de identidad.',
+    personalControl: 'Carla Control', estado: 'PENDIENTE', fechaHora: '2026-10-29T10:00:00',
+  }])
+  render(<MemoryRouter initialEntries={['/dashboard/control/7/informacion']}><Routes><Route path="/dashboard/control/:idExamen/informacion" element={<InformacionIngresoPage />} /></Routes></MemoryRouter>)
+  await screen.findByText('1 intento observado')
+  fireEvent.click(screen.getByRole('tab', { name: /Ingresos no autorizados/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
+  const dialogo = await screen.findByRole('dialog', { name: 'Detalles de incidencia' })
+  expect(within(dialogo).getAllByText(esperado).length).toBeGreaterThan(0)
 })

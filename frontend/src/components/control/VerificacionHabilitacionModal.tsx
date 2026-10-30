@@ -23,7 +23,10 @@ interface Props {
   idExamen: number 
   idAmbiente: number 
   materia?: string
+  /** Aula del examen (aula asignada al examen). */
   aula?: string
+  /** Aula donde está realmente asignado el estudiante (puede ser distinta si fue reasignado). */
+  aulaEstudiante?: string | null
   fecha?: string
   hora?: string
   onVolver: () => void
@@ -44,7 +47,8 @@ export default function VerificacionHabilitacionModal(p: Props) {
   }, [p])
 
   const habBase = p.estudiante.estado === 'HABILITADO'
-  const aulaEstudiante = (p.estudiante as any).aula || (p.estudiante as any).ambienteAsignado
+  // Aula donde está realmente asignado el estudiante (puede haber cambiado por reasignación).
+  const aulaEstudiante = p.aulaEstudiante ?? null
   const esAmbienteCorrecto = !p.aula || !aulaEstudiante || aulaEstudiante === p.aula
   
   const hab = habBase && esAmbienteCorrecto
@@ -130,10 +134,11 @@ export default function VerificacionHabilitacionModal(p: Props) {
                 {p.estudiante.ci || '—'}
               </span>
             </div>
-            {(mTxt || fTxt) && (
+            {(mTxt || fTxt || p.aulaEstudiante) && (
               <div className="col-span-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[10.5px] font-medium text-[#475569]">
                 {mTxt && <span>📖 {mTxt}</span>}
                 {fTxt && <span>📅 {fTxt}</span>}
+                {p.aulaEstudiante && <span>🏫 Aula del estudiante: {p.aulaEstudiante}</span>}
               </div>
             )}
           </div>

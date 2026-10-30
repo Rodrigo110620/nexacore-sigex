@@ -159,4 +159,14 @@ class IntentoIngresoServiceTests {
         org.junit.jupiter.api.Assertions.assertEquals(anterior, historial.get(1).fechaHora());
         verify(intentoRepository).listar(7, null);
     }
+    @Test
+    void aulaRepetitivaNoGuardaElReporte() {
+        var asistencia = asistenciaEnAula("692F");
+        when(asistenciaRepository.buscarContexto(23, 7)).thenReturn(Optional.of(asistencia));
+        for (String aula : List.of("66666666666666666666", "FFFFFFFFFFFFFFFFFFFF")) {
+            assertThrows(ControlIngresoException.class, () -> service.registrarAmbienteIncorrecto(
+                    new com.nexacore.examenes.dto.RegistrarAmbienteIncorrectoRequest(7, 23, aula), "control@umss.edu.bo"));
+        }
+        verifyNoInteractions(intentoRepository);
+    }
 }

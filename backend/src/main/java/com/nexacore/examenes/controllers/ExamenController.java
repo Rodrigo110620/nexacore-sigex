@@ -39,21 +39,22 @@ public class ExamenController {
     }
 
     @Operation(summary = "Listar exámenes", description = "ADMIN y CONTROL ven todos. DOCENTE solo los que tiene asignados.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE','CONTROL')")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'REPORTES_VER')")
     @GetMapping
     public ResponseEntity<List<ExamenResponse>> listar() {
         return ResponseEntity.ok(examenService.listar());
     }
 
     @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. ADMIN o DOCENTE; el docente queda asignado a sí mismo.")
-    @PreAuthorize("hasAnyRole('ADMIN','DOCENTE')")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @PostMapping
     public ResponseEntity<ExamenResponse> crear(@Valid @RequestBody CrearExamenRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(examenService.crear(request));
     }
 
-    @Operation(summary = "Actualizar examen", description = "Modifica datos del examen (fecha, hora, ambiente y normas). Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Actualizar examen", description = "Modifica datos del examen (fecha, hora, ambiente y normas). "
+            + "ADMIN cualquiera; DOCENTE solo los suyos, y el examen sigue a su nombre.")
+    @PreAuthorize("@examenAccesoService.puedeEditar(#idExamen, authentication)")
     @PutMapping("/{idExamen}/{idParalelo}")
     public ResponseEntity<ExamenResponse> actualizar(
             @PathVariable Integer idExamen,
@@ -83,7 +84,7 @@ public class ExamenController {
     }
 
     @Operation(summary = "Cancelar examen", description = "Marca el examen como cancelado. Solo ADMIN.")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("@permisos.tiene(authentication, 'EXAMENES_CANCELAR')")
     @DeleteMapping("/{idExamen}/{idParalelo}")
     public ResponseEntity<Void> cancelar(
             @PathVariable Integer idExamen,

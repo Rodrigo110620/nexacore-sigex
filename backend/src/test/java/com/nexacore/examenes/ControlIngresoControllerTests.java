@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
@@ -35,6 +36,131 @@ class ControlIngresoControllerTests {
 
     @MockitoBean
     private ControlIngresoService service;
+
+    @MockitoBean
+    private com.nexacore.examenes.services.ExcepcionService excepcionService;
+
+    @MockitoBean
+    private com.nexacore.examenes.repositories.UsuarioRepository usuarios;
+
+    @MockitoBean
+    private com.nexacore.examenes.repositories.ExamenRepository examenes;
+
+    @Test
+    @WithMockUser(username = "docente@sigex.test", roles = "DOCENTE")
+    void docenteControlaSuExamenSinNecesitarRolControl() throws Exception {
+        var docente = new com.nexacore.examenes.models.Usuario();
+        docente.setId(7);
+        when(usuarios.findByEmail("docente@sigex.test")).thenReturn(java.util.Optional.of(docente));
+        when(examenes.perteneceADocente(20, 7)).thenReturn(true);
+        when(service.autorizar(any(), anyString())).thenReturn(new com.nexacore.examenes.dto.AutorizarIngresoResponse(
+                true, "AUTORIZADO", null, 10, 20, "Estudiante", "202104010", "Examen", "Aula", null, "Docente", null, null, List.of(), 0));
+        for (String ruta : List.of("autorizar", "denegar")) {
+            mockMvc.perform(post("/control-ingresos/" + ruta).contentType(APPLICATION_JSON)
+                            .content("{\"idEstudiante\":10,\"idExamen\":20,\"identidadVerificada\":true,\"ingresoManual\":true,\"justificacionManual\":\"Celular apagado\"}"))
+                    .andExpect(status().isOk());
+        }
+        for (String ruta : List.of("/10/20/contexto", "/10/20", "/examen/20/registros")) {
+            mockMvc.perform(get("/control-ingresos" + ruta)).andExpect(status().isOk());
+        }
+        org.mockito.Mockito.verify(service).autorizar(any(), org.mockito.ArgumentMatchers.eq("docente@sigex.test"));
+        org.mockito.Mockito.verify(service).denegar(any(), org.mockito.ArgumentMatchers.eq("docente@sigex.test"));
+    }
+
+    @Test
+    @WithMockUser(username = "docente@sigex.test", roles = "DOCENTE")
+    void docenteNoControlaExamenAjeno() throws Exception {
+        var docente = new com.nexacore.examenes.models.Usuario();
+        docente.setId(7);
+        when(usuarios.findByEmail("docente@sigex.test")).thenReturn(java.util.Optional.of(docente));
+        when(examenes.perteneceADocente(20, 7)).thenReturn(false);
+        for (String ruta : List.of("autorizar", "denegar")) {
+            mockMvc.perform(post("/control-ingresos/" + ruta).contentType(APPLICATION_JSON)
+                            .content("{\"idEstudiante\":10,\"idExamen\":20,\"identidadVerificada\":true}"))
+                    .andExpect(status().isForbidden());
+        }
+        for (String ruta : List.of("/10/20/contexto", "/10/20", "/examen/20/registros")) {
+            mockMvc.perform(get("/control-ingresos" + ruta)).andExpect(status().isForbidden());
+        }
+        org.mockito.Mockito.verifyNoInteractions(service);
+    }
+
+    private static final String EXCEPCION = "{\"idEstudiante\":10,\"idExamen\":20,\"idAmbiente\":0,"
+            + "\"motivoInhabilitacion\":\"Deuda en biblioteca\",\"accionTomada\":\"Se le indicó acudir a administración\","
+            + "\"observaciones\":\"Insistió en ingresar\"}";
+
+    // INCI-04: la ruta se borró una vez al resolver un conflicto de fusión; estas pruebas lo detectan.
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "CONTROL"})
+    void registrarExcepcionDeNoHabilitadoGuardaLaExcepcion(String rol) throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").with(user("control@sigex.test").roles(rol))
+                        .contentType(APPLICATION_JSON).content(EXCEPCION))
+                .andExpect(status().isOk());
+        org.mockito.Mockito.verify(excepcionService).registrarExcepcion(
+                org.mockito.ArgumentMatchers.argThat(r -> r.idEstudiante() == 10 && r.idExamen() == 20
+                        && "Se le indicó acudir a administración".equals(r.accionTomada())),
+                org.mockito.ArgumentMatchers.eq("control@sigex.test"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void elAdminAnulaUnaExpulsionConMotivo() throws Exception {
+        when(service.anularExpulsion(org.mockito.ArgumentMatchers.eq(20), org.mockito.ArgumentMatchers.eq(5),
+                org.mockito.ArgumentMatchers.eq("Error del control, era otro estudiante"), any()))
+                .thenReturn(new com.nexacore.examenes.dto.ExpulsionResponse(5, 10, 20, "Uso de celular", 7, "Ana Rojas",
+                        java.time.LocalDateTime.parse("2026-10-28T09:00:00"), "Luis Flores", "202104010",
+                        java.time.LocalDateTime.parse("2026-10-28T09:10:00"), "Ana Rojas", "Error del control, era otro estudiante"));
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON)
+                        .content("{\"motivo\":\"Error del control, era otro estudiante\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anuladaPor").value("Ana Rojas"));
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON).content("{\"motivo\":\" \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "CONTROL")
+    void elControlNoAnulaExpulsiones() throws Exception {
+        mockMvc.perform(post("/control-ingresos/examen/20/expulsiones/5/anular").contentType(APPLICATION_JSON)
+                        .content("{\"motivo\":\"Error del control, era otro estudiante\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void elReporteDeExcepcionesListaLasDelExamen() throws Exception {
+        org.mockito.Mockito.when(excepcionService.listar(20)).thenReturn(List.of(new com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse(
+                1, 10, "Carla Prueba", "202000093", "Deuda en biblioteca", "Se le indicó acudir a administración", null,
+                "Aula 691A", "Luis Paz", java.time.LocalDateTime.parse("2026-10-27T08:05:00"))));
+        mockMvc.perform(get("/control-ingresos/examen/20/excepciones-no-habilitado"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].estudiante").value("Carla Prueba"))
+                .andExpect(jsonPath("$[0].accionTomada").value("Se le indicó acudir a administración"));
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void elReporteDeExcepcionesNoLoVeUnDocenteDeOtroExamen() throws Exception {
+        mockMvc.perform(get("/control-ingresos/examen/20/excepciones-no-habilitado"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "CONTROL")
+    void registrarExcepcionExigeLaAccionTomada() throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").contentType(APPLICATION_JSON)
+                        .content(EXCEPCION.replace("Se le indicó acudir a administración", " ")))
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(excepcionService);
+    }
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void registrarExcepcionNoLaPermiteAUnDocenteDeOtroExamen() throws Exception {
+        mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").contentType(APPLICATION_JSON).content(EXCEPCION))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(excepcionService);
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"ADMIN", "CONTROL", "DOCENTE"})

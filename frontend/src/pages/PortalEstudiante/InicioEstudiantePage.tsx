@@ -95,10 +95,13 @@ function ProximoExamen({ examen }: { examen: MiExamen }) {
         </p>
         <p className="flex items-center gap-2 text-sm text-[#011140]">
           <MapPin size={18} className="text-[#0439D9]" aria-hidden="true" /> {examen.aula ? `Aula ${examen.aula}` : 'El aula se asigna al llegar'}
+          {examen.aula && examen.trasladadoDesde && (
+            <span className="text-xs font-semibold text-[#92400E]">(te trasladaron desde {examen.trasladadoDesde})</span>
+          )}
         </p>
       </div>
       {/* Todo lo del mismo examen junto: cuánto falta o queda, el aviso de ingreso y su QR. */}
-      <CronometroExamen examen={examen} className="mt-4" />
+      <CronometroExamen examen={examen} detenidoEn={examen.expulsado ? examen.fechaHoraExpulsion : null} className="mt-4" />
       <EstadoIngresoExamen examen={examen} className="mt-3" />
       <AvisoIngresoExamen examen={examen} conBotonQr={false} className="mt-3" />
       <NormasExamen examen={examen} className="mt-3" />
@@ -140,7 +143,7 @@ function FilaExamen({ examen, pasado }: { examen: MiExamen; pasado: boolean }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-[#011140]">{examen.materia}</p>
         <p className="mt-0.5 text-xs text-[#627A9B]">{fechaLarga(examen.fecha)} · {horario(examen)}</p>
-        <p className="text-xs text-[#627A9B]">{examen.aula ? `Aula ${examen.aula}` : 'Aula por asignar'}</p>
+        <p className="text-xs text-[#627A9B]">{examen.aula ? `Aula ${examen.aula}` : 'Aula por asignar'}{examen.aula && examen.trasladadoDesde ? ` (te trasladaron desde ${examen.trasladadoDesde})` : ''}</p>
         {detalle && <p className={`mt-1 text-xs ${estado === 'INGRESO' ? 'text-[#047857]' : 'text-[#7F1D1D]'}`}>{detalle}</p>}
         {!pasado && normas > 0 && (
           <p className="mt-1 inline-flex items-center gap-1 text-xs text-[#0439D9]">

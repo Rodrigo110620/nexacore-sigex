@@ -176,6 +176,31 @@ class ExamenServiceTests {
     }
 
     @Test
+    void elDocenteEditaSuExamenPeroNoSeLoPuedePasarAOtroDocente() {
+        prepararCatalogo();
+        prepararRespuesta();
+        Examen propio = examen(50, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90);
+        when(examenRepository.findById(any())).thenReturn(Optional.of(propio));
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of(propio));
+        when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(docenteRepository.findById(DOCENTE)).thenReturn(Optional.of(docente()));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("ana.rojas@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            // El formulario manda otro docente (99): el examen sigue siendo de quien lo edita.
+            service.actualizar(50, PARALELO, new ActualizarExamenRequest("Cálculo I", "Otro Docente", FECHA,
+                    LocalTime.of(9, 0), 120, AMBIENTE, List.of(), List.of(), MATERIA, 99, List.of(), List.of()));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+
+        assertThat(propio.getIdDocente()).isEqualTo(DOCENTE);
+        assertThat(propio.getDuracionMinutos()).isEqualTo(120);
+        verify(docenteRepository, never()).findById(99);
+    }
+
+    @Test
     void actualizarResponde404SiElExamenNoExiste() {
         when(examenRepository.findById(any())).thenReturn(Optional.empty());
 

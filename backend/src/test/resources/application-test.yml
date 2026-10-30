@@ -1,7 +1,7 @@
 spring:
   datasource:
     # clock_timestamp() de PostgreSQL no existe en H2: se agrega como función para las pruebas.
-    url: "jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;INIT=CREATE ALIAS IF NOT EXISTS CLOCK_TIMESTAMP FOR 'com.nexacore.examenes.FuncionesH2.clockTimestamp'"
+    url: "jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;INIT=CREATE ALIAS IF NOT EXISTS CLOCK_TIMESTAMP FOR 'com.nexacore.examenes.FuncionesH2.clockTimestamp'\\;CREATE ALIAS IF NOT EXISTS TIMEZONE FOR 'com.nexacore.examenes.FuncionesH2.timezone'"
     driver-class-name: org.h2.Driver
     username: sa
     password:
