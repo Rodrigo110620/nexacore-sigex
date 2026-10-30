@@ -14,6 +14,10 @@ interface Props {
   onSuccess: () => void
 }
 
+/** Límites del traslado, iguales a los del servidor (TextoTraslado). */
+const MOTIVO_MIN = 10
+const TEXTO_MAX = 65
+
 export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudiante, aulas, aulaActualId, onClose, onSuccess }: Props) {
   const [idAmbienteDestino, setIdAmbienteDestino] = useState<number | ''>('')
   const [motivo, setMotivo] = useState('')
@@ -69,65 +73,40 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     return letras.split('').every(c => c === primera)
   }
 
-  const validarMotivo = () => {
-    const textoOriginal = motivo
-    let motivoLimpio = motivo.trim().replace(/\s+/g, ' ')
-    if (motivoLimpio) {
-      motivoLimpio = motivoLimpio.charAt(0).toUpperCase() + motivoLimpio.slice(1).toLowerCase()
-    }
-
-    if (!motivoLimpio) {
-      setErrorMotivo('El motivo es obligatorio')
-      return
-    }
-    if (motivoLimpio.length > 65) {
-      setErrorMotivo('El motivo no puede superar 65 caracteres')
-      return
-    }
+  // Mismas reglas que el servidor (TextoTraslado): letras con tildes, ü y ñ.
+  const motivoError = (texto: string): string | null => {
+    const limpio = texto.trim().replace(/\s+/g, ' ')
+    if (!limpio) return 'El motivo es obligatorio'
     // C04: no permitir espacios múltiples ni espacios al inicio/final
-    if (textoOriginal !== textoOriginal.trim() || textoOriginal.includes('  ')) {
-      setErrorMotivo('No uses espacios al inicio o final, ni múltiples espacios entre palabras')
-      return
-    }
-    if (!/^[a-zA-Z]/.test(motivoLimpio)) {
-      setErrorMotivo('El motivo debe comenzar con una letra')
-      return
-    }
-    if (/[^a-zA-Z0-9 ]/.test(motivoLimpio)) {
-      setErrorMotivo('El motivo solo permite letras, números y espacios simples entre palabras')
-      return
-    }
+    if (texto !== texto.trim() || texto.includes('  ')) return 'No uses espacios al inicio o final, ni múltiples espacios entre palabras'
+    if (limpio.length < MOTIVO_MIN) return 'El motivo debe contener al menos 10 caracteres'
+    if (limpio.length > TEXTO_MAX) return 'El motivo no puede superar 65 caracteres'
+    if (!/^\p{L}/u.test(limpio)) return 'El motivo debe comenzar con una letra'
+    if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ0-9 ]+$/.test(limpio)) return 'El motivo solo permite letras, números y espacios simples entre palabras'
     // No permitir que el motivo sea solo el mismo carácter repetido (ej: "SSS SSSSS", "AAAAA")
-    if (esSoloUnaLetraRepetida(motivoLimpio)) {
-      setErrorMotivo('El motivo no puede ser solo el mismo carácter repetido')
-      return
-    }
-    setErrorMotivo(null)
+    if (esSoloUnaLetraRepetida(limpio)) return 'El motivo no puede ser solo el mismo carácter repetido'
+    return null
+  }
+
+  const observacionError = (texto: string): string | null => {
+    const limpia = texto.trim().replace(/\s+/g, ' ')
+    if (!limpia) return null
+    if (texto !== texto.trim() || texto.includes('  ')) return 'No uses espacios al inicio o final, ni múltiples espacios entre palabras'
+    if (limpia.length > TEXTO_MAX) return 'La observación no puede superar 65 caracteres'
+    if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]+$/.test(limpia)) return 'La observación solo permite letras y espacios simples entre palabras'
+    return null
+  }
+
+  const validarMotivo = () => {
+    const error = motivoError(motivo)
+    setErrorMotivo(error)
+    return error
   }
 
   const validarObservacion = () => {
-    const textoOriginal = observacion
-    let observacionLimpia = observacion.trim().replace(/\s+/g, ' ')
-    if (observacionLimpia) {
-      observacionLimpia = observacionLimpia.charAt(0).toUpperCase() + observacionLimpia.slice(1).toLowerCase()
-    }
-
-    if (observacionLimpia) {
-      // C04: no permitir espacios múltiples ni espacios al inicio/final
-      if (textoOriginal !== textoOriginal.trim() || textoOriginal.includes('  ')) {
-        setErrorObservacion('No uses espacios al inicio o final, ni múltiples espacios entre palabras')
-        return
-      }
-      if (/\d/.test(observacionLimpia)) {
-        setErrorObservacion('La observación solo permite letras y espacios simples entre palabras')
-        return
-      }
-      if (/[^a-zA-Z ]/.test(observacionLimpia)) {
-        setErrorObservacion('La observación solo permite letras y espacios simples entre palabras')
-        return
-      }
-    }
-    setErrorObservacion(null)
+    const error = observacionError(observacion)
+    setErrorObservacion(error)
+    return error
   }
 
   const enviar = async (e: React.FormEvent) => {
@@ -145,17 +124,15 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
       return
     }
 
-    validarMotivo()
-    if (errorMotivo) return
-
-    validarObservacion()
-    if (errorObservacion) return
+    // Se valida con el valor actual: el estado del error todavía no se actualizó en este render.
+    if (validarMotivo() || validarObservacion()) return
 
     try {
       setCargando(true)
       await reasignarAmbiente(idExamen, estudiante.idEstudiante, {
         idAmbienteDestino: Number(idAmbienteDestino),
-        motivo: motivo.trim().replace(/\s+/g, ' ').charAt(0).toUpperCase() + motivo.trim().replace(/\s+/g, '').slice(1).toLowerCase(),
+        // El servidor aplica el formato oración (conserva los códigos de aula, p. ej. 690B).
+        motivo: motivo.trim().replace(/\s+/g, ' '),
         observacion: observacion.trim().replace(/\s+/g, ' ') || undefined,
       })
       onSuccess()
@@ -246,7 +223,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               onBlur={() => validarMotivo()}
-              maxLength={65}
+              maxLength={TEXTO_MAX}
               rows={3}
               className={`w-full rounded-lg border border-[#D8E3F5] bg-[#F2F2F2] px-3 py-2.5 text-sm text-[#011140] placeholder-[#758EBF]/40 focus:border-[#0439D9] focus:ring-1 focus:ring-[#0439D9] disabled:bg-[#F2F2F2] disabled:text-[#758EBF] disabled:cursor-not-allowed ${
                 errorMotivo ? 'border-[#B91C1C] focus:border-[#B91C1C]' : ''
@@ -255,8 +232,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               disabled={cargando}
             />
             <div className="flex justify-between mt-0.5">
-              <span className="text-[10px] text-[#758EBF]">{motivo.length}/65</span>
-              {motivo.length > 65 && <span className="text-[10px] text-[#B91C1C] font-medium">Límite excedido</span>}
+              <span className="text-[10px] text-[#758EBF]">{motivo.length}/{TEXTO_MAX}</span>
             </div>
             {errorMotivo && (
               <p className="text-[10px] text-[#B91C1C] mt-0.5 leading-tight">
@@ -275,7 +251,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               value={observacion}
               onChange={(e) => setObservacion(e.target.value)}
               onBlur={() => validarObservacion()}
-              maxLength={1000}
+              maxLength={TEXTO_MAX}
               rows={2}
               className={`w-full rounded-lg border border-[#D8E3F5] bg-[#F2F2F2] px-3 py-2.5 text-sm text-[#011140] placeholder-[#758EBF]/40 focus:border-[#0439D9] focus:ring-1 focus:ring-[#0439D9] disabled:bg-[#F2F2F2] disabled:text-[#758EBF] disabled:cursor-not-allowed ${
                 errorObservacion ? 'border-[#B91C1C] focus:border-[#B91C1C]' : ''
@@ -283,6 +259,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               placeholder="Observaciones adicionales del traslado..."
               disabled={cargando}
             />
+            <span className="mt-0.5 text-[10px] text-[#758EBF]">{observacion.length}/{TEXTO_MAX}</span>
             {errorObservacion && (
               <p className="text-[10px] text-[#B91C1C] mt-0.5 leading-tight">
                 <ShieldAlert size={10} className="mt-0.5 mr-1" />

@@ -40,6 +40,7 @@ import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.repositories.RegistroControlIngresoRepository;
 import com.nexacore.examenes.utils.ValidacionPalabras;
 import com.nexacore.examenes.utils.ValidacionTextoLibre;
+import com.nexacore.examenes.utils.TextoTraslado;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -860,8 +861,7 @@ public class ControlIngresoService {
 
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
 
-        // Validar y normalizar motivo (C01-C04)
-        // Validar y normalizar motivo permitiendo acentos y eñes (áéíóúÁÉÍÓÚñÑ)
+        // Validar y normalizar motivo (C01-C04): letras con tildes, ü y ñ (TextoTraslado)
         String motivoLimpio = limpiar(request.motivo());
         if (motivoLimpio == null || motivoLimpio.isBlank()) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
@@ -871,24 +871,23 @@ public class ControlIngresoService {
         if (motivoOriginal != null && (!motivoOriginal.equals(motivoOriginal.trim()) || motivoOriginal.contains("  "))) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
         }
-        if (motivoLimpio.length() < 10) {
+        if (motivoLimpio.length() < TextoTraslado.MOTIVO_MIN) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos 10 caracteres");
         }
-        if (motivoLimpio.length() > 65) {
+        if (motivoLimpio.length() > TextoTraslado.MAX) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede superar 65 caracteres");
         }
         if (!Character.isLetter(motivoLimpio.charAt(0))) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe comenzar con una letra");
         }
-        // Expresión regular actualizada para incluir letras con tilde y eñes
-        if (!motivoLimpio.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9 ]+$")) {
+        if (!TextoTraslado.motivoValido(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo solo permite letras, números y espacios simples entre palabras");
         }
         if (esSoloUnaLetraRepetida(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
         }
-        // Formato de oración: primera letra mayúscula, el resto en minúscula
-        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1).toLowerCase();
+        // Formato de oración; los códigos de aula ("690B") quedan en mayúscula.
+        motivoLimpio = TextoTraslado.formatoOracion(motivoLimpio);
 
         // Validar y normalizar observación (C01-C04)
         String observacionLimpia = limpiar(request.observacion());
@@ -901,10 +900,13 @@ public class ControlIngresoService {
             if (observacionLimpia.matches(".*\\d.*")) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
             }
-            if (!observacionLimpia.matches("^[a-zA-Z ]+$")) {
+            if (observacionLimpia.length() > TextoTraslado.MAX) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación no puede superar 65 caracteres");
+            }
+            if (!TextoTraslado.observacionValida(observacionLimpia)) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
             }
-            observacionLimpia = observacionLimpia.substring(0, 1).toUpperCase() + observacionLimpia.substring(1).toLowerCase();
+            observacionLimpia = TextoTraslado.formatoOracion(observacionLimpia);
         }
 
         Usuario control = usuarioRepository.findByEmail(emailControl)
