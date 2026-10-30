@@ -483,6 +483,13 @@ public class ControlIngresoService {
         NormasExamenService.NormasDeEstudiante normas = normasExamenService.leerParaEstudiante(
                 idExamen, estudiante.getId(), nombreCompleto);
         var fila = estudianteRepository.identificarPorCodigoSis(estudiante.getCodigoSis(), idExamen);
+        // Aula donde está realmente asignado el estudiante (puede haber cambiado por reasignación).
+        // Si aún no tiene aula de ingreso, se muestra el aula del examen como referencia.
+        String ambienteEstudiante = asistencia.getIdAmbienteIngreso() != null
+                ? ambienteRepository.findById(asistencia.getIdAmbienteIngreso())
+                        .map(Ambiente::getNombre)
+                        .orElse(examen.getAmbiente().getNombre())
+                : examen.getAmbiente().getNombre();
         return new ContextoControlIngresoResponse(
                 idEstudiante,
                 nombreCompleto,
@@ -493,7 +500,7 @@ public class ControlIngresoService {
                 examen.getFecha(),
                 examen.getHoraInicio(),
                 examen.getDuracionMinutos(),
-                examen.getAmbiente().getNombre(),
+                ambienteEstudiante,
                 normas.generales(),
                 normas.particulares(),
                 Boolean.TRUE.equals(asistencia.getHabilitado()),
@@ -542,15 +549,18 @@ public class ControlIngresoService {
                 ? TrasladoAmbienteRepository.DESDE_SIEMPRE
                 : cierre;
 
-        // Traslados de la sesión actual, por estudiante (el último vale como el aula actual).
+        // Traslados de la sesión actual, por estudiante.
         // Nota: trasladoAmbienteRepository puede ser null si se usa el constructor de compatibilidad
         // de tests antiguos; en ese caso no hay historial de traslados que consultar.
-        Map<Integer, TrasladoAmbiente> trasladosPorEstudiante = new HashMap<>();
+        Map<Integer, TrasladoAmbiente> trasladoOriginalPorEstudiante = new HashMap<>();
+        Map<Integer, TrasladoAmbiente> trasladoRecientePorEstudiante = new HashMap<>();
         if (trasladoAmbienteRepository != null) {
             for (TrasladoAmbiente t : trasladoAmbienteRepository
                     .findByIdExamenAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(idExamen, desde)) {
                 // El primero (orden ascendente) tiene el aula original: "trasladado desde ...".
-                trasladosPorEstudiante.putIfAbsent(t.getIdEstudiante(), t);
+                trasladoOriginalPorEstudiante.putIfAbsent(t.getIdEstudiante(), t);
+                // Sobrescribe para quedarse con el traslado más reciente (motivo y observación).
+                trasladoRecientePorEstudiante.put(t.getIdEstudiante(), t);
             }
         }
 
@@ -573,12 +583,21 @@ public class ControlIngresoService {
                     if (asistencia != null && asistencia.getIdAmbienteIngreso() != null && ambienteRepository != null) {
                         var ambiente = ambienteRepository.findById(asistencia.getIdAmbienteIngreso());
                         ambienteNombre = ambiente.map(Ambiente::getNombre).orElse(null);
-                        reasignado = trasladosPorEstudiante.containsKey(registro.getId().getIdEstudiante());
+                        reasignado = trasladoOriginalPorEstudiante.containsKey(registro.getId().getIdEstudiante());
                         if (reasignado) {
                             trasladadoDesde = ambienteRepository
-                                    .findById(trasladosPorEstudiante.get(registro.getId().getIdEstudiante()).getIdAmbienteOrigen())
+                                    .findById(trasladoOriginalPorEstudiante.get(registro.getId().getIdEstudiante()).getIdAmbienteOrigen())
                                     .map(Ambiente::getNombre).orElse(null);
                         }
+                    }
+
+                    // Motivo y observación del traslado más reciente de este estudiante (si hay reasignación).
+                    String motivoTraslado = null;
+                    String observacionTraslado = null;
+                    var trasladoReciente = trasladoRecientePorEstudiante.get(registro.getId().getIdEstudiante());
+                    if (trasladoReciente != null) {
+                        motivoTraslado = trasladoReciente.getMotivo();
+                        observacionTraslado = trasladoReciente.getObservacion();
                     }
 
                     return new RegistroControlIngresoExamenResponse(
@@ -593,6 +612,7 @@ public class ControlIngresoService {
                             (control.getNombre() + " " + control.getApellidos()).trim(),
                             registro.getFechaHora(), registro.getTipoIngreso(), registro.getJustificacionManual(),
                             ambienteNombre, reasignado, trasladadoDesde,
+                            motivoTraslado, observacionTraslado,
                             registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
                                     .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
                                     .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()));
@@ -846,6 +866,14 @@ public class ControlIngresoService {
         if (motivoLimpio == null || motivoLimpio.isBlank()) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
         }
+        // C04: no permitir espacios iniciales, finales ni múltiples entre palabras
+        String motivoOriginal = request.motivo();
+        if (motivoOriginal != null && (!motivoOriginal.equals(motivoOriginal.trim()) || motivoOriginal.contains("  "))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
+        }
+        if (motivoLimpio.length() < 10) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos 10 caracteres");
+        }
         if (motivoLimpio.length() > 65) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede superar 65 caracteres");
         }
@@ -859,11 +887,16 @@ public class ControlIngresoService {
         if (esSoloUnaLetraRepetida(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
         }
-        // Solo capitalizar la primera letra sin volver minúscula el resto por completo
-        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1);
+        // Formato de oración: primera letra mayúscula, el resto en minúscula
+        motivoLimpio = motivoLimpio.substring(0, 1).toUpperCase() + motivoLimpio.substring(1).toLowerCase();
 
         // Validar y normalizar observación (C01-C04)
         String observacionLimpia = limpiar(request.observacion());
+        // C04: no permitir espacios iniciales, finales ni múltiples entre palabras
+        String observacionOriginal = request.observacion();
+        if (observacionOriginal != null && (!observacionOriginal.equals(observacionOriginal.trim()) || observacionOriginal.contains("  "))) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
+        }
         if (observacionLimpia != null && !observacionLimpia.isBlank()) {
             if (observacionLimpia.matches(".*\\d.*")) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
