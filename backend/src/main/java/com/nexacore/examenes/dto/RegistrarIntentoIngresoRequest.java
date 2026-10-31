@@ -9,5 +9,5 @@ public record RegistrarIntentoIngresoRequest(
         @NotNull(message = "El examen es obligatorio") Integer idExamen,
         @NotNull(message = "El estudiante es obligatorio") Integer idEstudiante,
         @NotBlank(message = "El identificador presentado es obligatorio") @Size(max = 50) String identificador,
-        @NotBlank(message = "Indique el motivo del intento") @Size(max = 500) String motivo
+        @NotBlank(message = "Indique el motivo del intento") @Size(min = 10, max = 65, message = "El motivo debe tener entre 10 y 65 caracteres") String motivo
 ) {}
