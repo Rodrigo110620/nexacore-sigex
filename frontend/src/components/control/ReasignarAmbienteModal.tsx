@@ -105,7 +105,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
         palabras[i] = palabras[i].toUpperCase()
       }
     }
-    let resultado = palabras.join(' ')
+    const resultado = palabras.join(' ')
     if (resultado.length === 0) return resultado
     return resultado.charAt(0).toUpperCase() + resultado.slice(1)
   }
