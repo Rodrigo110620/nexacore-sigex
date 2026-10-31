@@ -16,7 +16,7 @@ it('presenta la auditoría y anulación con segundos, sin microsegundos ni cambi
   expect(container).not.toHaveTextContent(/\d{2}:\d{2}:\d{2}\.\d+/)
   expect(screen.getByText('MOTIVO HISTÓRICO')).toBeVisible()
   expect(screen.getByText('Error de identificación')).toBeVisible()
-  for (const etiqueta of container.querySelectorAll('dt')) expect(etiqueta).toHaveClass('font-semibold')
+  for (const etiqueta of container.querySelectorAll('dt')) expect(etiqueta).toHaveClass('font-bold')
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   expect(registro.fechaHora).toBe('2026-10-29T09:05:53.123456')
   expect(registro.anuladaEn).toBe('2026-10-29T09:07:59.987654')
