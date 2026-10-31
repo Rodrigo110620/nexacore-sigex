@@ -25,4 +25,20 @@ class ReporteQrSisTests {
                 sis, "Documento revisado por control", "2026-10-29T10:00:00-04:00", null, "control@umss.edu"));
         verifyNoInteractions(repository);
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"Al", "Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana Ana"})
+    void bug10RechazaNombresFueraDelLimiteSinGuardar(String nombres) {
+        var repository = mock(ReporteQrDuplicadoRepository.class);
+        var asistencias = mock(AsistenciaExamenRepository.class);
+        var asistencia = new AsistenciaExamen();
+        asistencia.setFechaHoraIngreso(LocalDateTime.now());
+        when(asistencias.buscarContexto(10, 7)).thenReturn(Optional.of(asistencia));
+        var service = new ReporteQrDuplicadoService(repository, asistencias, mock(UsuarioRepository.class),
+                mock(EstudianteRepository.class), mock(NotificacionService.class), mock(SesionExamenService.class));
+        var error = assertThrows(com.nexacore.examenes.exceptions.ControlIngresoException.class,
+                () -> service.registrar(7, 10, nombres, "74839201", true, null,
+                        "Documento revisado por control", "2026-10-31T10:00:00-04:00", null, "control@umss.edu"));
+        assertTrue(error.getMessage().contains("entre 3 y 75"));
+        verifyNoInteractions(repository);
+    }
 }
