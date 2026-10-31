@@ -1,5 +1,8 @@
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
+import { MOTIVO_INTENTO_INICIAL, normalizarMotivoIntento, validarMotivoIntento } from '../../utils/motivoIntento'
+import { isNetworkError, isOffline } from '../../utils/examFormUtils'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import { listarIntentosIngreso, registrarIntentoIngreso, type IntentoIngreso } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
@@ -20,7 +23,9 @@ export default function EstudianteNoVinculadoModal({
   aula,
   onCerrar,
 }: EstudianteNoVinculadoModalProps) {
-  const [motivo, setMotivo] = useState('Intentó ingresar a un examen que no le corresponde.')
+  const [motivo, setMotivo] = useState(MOTIVO_INTENTO_INICIAL)
+  const [descartar, setDescartar] = useState(false)
+  const motivoError = validarMotivoIntento(motivo)
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [registrado, setRegistrado] = useState(false)
@@ -30,27 +35,31 @@ export default function EstudianteNoVinculadoModal({
   const enviandoRef = useRef(false)
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCerrar()
+      if (event.key === 'Escape' && !guardando && !descartar) {
+        if (!registrado && motivo !== MOTIVO_INTENTO_INICIAL) setDescartar(true)
+        else onCerrar()
+      }
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [onCerrar])
+  }, [onCerrar, motivo, registrado, guardando, descartar])
 
   useEffect(() => {
     void listarIntentosIngreso(idExamen, estudiante.idEstudiante).then(setHistorial).catch(() => setHistorial([]))
   }, [idExamen, estudiante.idEstudiante])
 
   const registrar = async () => {
-    if (!motivo.trim() || enviandoRef.current || registrado) return
+    if (motivoError || enviandoRef.current || registrado) return
+    if (isOffline()) { setMensaje('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.'); return }
     enviandoRef.current = true
     setGuardando(true)
     setMensaje('')
     try {
       await registrarIntentoIngreso({ idExamen, idEstudiante: estudiante.idEstudiante,
-        identificador: estudiante.codigoSis || estudiante.ci, motivo: motivo.trim() })
+        identificador: estudiante.codigoSis || estudiante.ci, motivo: normalizarMotivoIntento(motivo) })
       setRegistrado(true)
-    } catch {
-      setMensaje('No se pudo registrar el intento. Intenta nuevamente.')
+    } catch (err) {
+      setMensaje(isNetworkError(err) ? 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.' : (err as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje ?? 'No se pudo registrar el intento. Intenta nuevamente.')
     } finally {
       enviandoRef.current = false
       setGuardando(false)
@@ -72,8 +81,9 @@ export default function EstudianteNoVinculadoModal({
       aria-labelledby="no-vinculado-title"
       aria-describedby="no-vinculado-descripcion"
     >
-      <div className="w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-2xl">
-        <div className="flex items-start gap-3">
+      <div className="relative max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-2xl">
+        {!registrado && <button type="button" aria-label="Cerrar formulario" disabled={guardando} onClick={() => motivo !== MOTIVO_INTENTO_INICIAL ? setDescartar(true) : onCerrar()} className="absolute right-3 top-3 rounded p-1 text-gray-500"><X size={18}/></button>}
+        <div className="flex items-start gap-3 pr-5">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#FDE68A] bg-[#FFF8E7] text-[#D97706]">
             <TriangleAlert size={18} aria-hidden="true" />
           </span>
@@ -113,10 +123,12 @@ export default function EstudianteNoVinculadoModal({
           </section>
         ) : <div className="mt-4 rounded-lg border border-[#D8E3F5] p-3">
           <label htmlFor="motivo-intento" className="text-xs font-semibold text-[#011140]">Motivo del intento</label>
-          <textarea id="motivo-intento" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} rows={2}
+          <textarea id="motivo-intento" value={motivo} aria-invalid={!!motivoError} aria-describedby="motivo-intento-ayuda motivo-intento-error" onChange={(e) => {setMotivo(e.target.value.slice(0, 65));setMensaje('')}} maxLength={65} minLength={10} rows={2}
             className="mt-1 w-full rounded-lg border border-[#C9D7EC] p-2 text-sm" />
+          <p id="motivo-intento-ayuda" className="mt-1 text-xs text-[#627A9B]">{motivo.length}/65 caracteres. Mínimo 10.</p>
+          {motivoError && <p id="motivo-intento-error" role="alert" className="mt-1 text-xs text-red-700">{motivoError}</p>}
           {mensaje && <p role="status" className="mt-2 text-xs text-red-700">{mensaje}</p>}
-          <button type="button" disabled={guardando || !motivo.trim()} onClick={() => void registrar()}
+          <button type="button" disabled={guardando || !!motivoError} onClick={() => void registrar()}
             className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
             <CheckCircle2 size={16} />{guardando ? 'Registrando…' : 'Registrar intento'}
           </button>
@@ -135,13 +147,15 @@ export default function EstudianteNoVinculadoModal({
           <button
             type="button"
             autoFocus
-            onClick={onCerrar}
+            disabled={guardando}
+            onClick={() => motivo !== MOTIVO_INTENTO_INICIAL ? setDescartar(true) : onCerrar()}
             className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-[#011140] hover:bg-gray-50"
           >
             Cerrar
           </button>
         </div>}
       </div>
+      <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={onCerrar}/>
     </div>
   )
 }

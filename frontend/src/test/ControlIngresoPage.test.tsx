@@ -355,6 +355,7 @@ describe('ControlIngresoPage', () => {
     await screen.findByText('Laura Paredes')
     const listas = screen.getAllByRole('list').filter((list) => list.classList.contains('control-rules-list'))
     expect(listas).toHaveLength(2)
+    listas.forEach(lista => expect(lista.tagName).toBe('OL'))
     expect(within(listas[0]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['No usar celular', 'Mantener silencio'])
     expect(within(listas[1]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Calculadora permitida', 'Tiempo adicional'])
     expect(screen.queryByText(/No usar celular;/)).not.toBeInTheDocument()

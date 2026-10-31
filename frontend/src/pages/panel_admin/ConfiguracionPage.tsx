@@ -3,6 +3,8 @@ import axios from 'axios'
 import { Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
+import RespaldoBase from '../../components/configuracion/RespaldoBase'
+import { useAuth } from '../../context/AuthContext'
 import {
   actualizarRol, crearRolConPermisos, eliminarRol, listarPermisos, listarRolesConPermisos,
   type PermisoCatalogo, type RolConPermisos,
@@ -145,6 +147,7 @@ export default function ConfiguracionPage() {
     return () => { vigente = false }
   }, [recarga])
 
+  const esAdmin = useAuth().roles.includes('ADMIN')
   const descripcionDe = useMemo(() => new Map(catalogo.map((p) => [p.codigo, p.descripcion])), [catalogo])
 
   const borrar = async (rol: RolConPermisos) => {
@@ -235,6 +238,8 @@ export default function ConfiguracionPage() {
                 ))}
               </ul>
             )}
+            {/* El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles. */}
+            {esAdmin && <RespaldoBase />}
           </div>
         </section>
       </div>
