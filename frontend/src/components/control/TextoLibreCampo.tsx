@@ -11,13 +11,15 @@ interface TextoLibreCampoProps {
   placeholder?: string
   rows?: number
   className?: string
+  normalizarEntrada?: (valor: string) => string
+  onBlur?: () => void
 }
 
 /**
  * Textarea del control de ingreso con tope de caracteres (también al pegar), contador y error junto al campo.
  * Si el texto no cabe en el área visible, ofrece "Ver todo" para mostrarlo completo sin recortarlo.
  */
-export default function TextoLibreCampo({ id, label, value, onChange, max, error, placeholder, rows = 4, className = 'mt-3 block text-xs' }: TextoLibreCampoProps) {
+export default function TextoLibreCampo({ id, label, value, onChange, max, error, placeholder, rows = 4, className = 'mt-3 block text-xs', normalizarEntrada, onBlur }: TextoLibreCampoProps) {
   const errorId = `${id}-error`
   const ref = useRef<HTMLTextAreaElement | null>(null)
   const [desborda, setDesborda] = useState(false)
@@ -39,9 +41,10 @@ export default function TextoLibreCampo({ id, label, value, onChange, max, error
         ref={ref}
         className="control-input"
         rows={rows}
-        maxLength={max}
+        maxLength={normalizarEntrada ? undefined : max}
         value={value}
-        onChange={(e) => onChange(e.target.value.slice(0, max))}
+        onChange={(e) => onChange((normalizarEntrada ? normalizarEntrada(e.target.value) : e.target.value).slice(0, max))}
+        onBlur={onBlur}
         placeholder={placeholder}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
