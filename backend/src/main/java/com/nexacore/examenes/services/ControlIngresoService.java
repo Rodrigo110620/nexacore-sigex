@@ -897,6 +897,9 @@ public class ControlIngresoService {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
         }
         if (observacionLimpia != null && !observacionLimpia.isBlank()) {
+            if (observacionLimpia.length() < TextoTraslado.MOTIVO_MIN) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación debe contener al menos 10 caracteres");
+            }
             if (observacionLimpia.matches(".*\\d.*")) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
             }
