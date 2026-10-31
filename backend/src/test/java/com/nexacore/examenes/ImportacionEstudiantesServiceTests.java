@@ -6,6 +6,7 @@ import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
+import com.nexacore.examenes.services.RegistroLoteEstudiantesService;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.AfterAll;
@@ -30,6 +31,7 @@ class ImportacionEstudiantesServiceTests {
     private static Validator validator;
 
     @Mock EstudianteService estudianteService;
+    @Mock RegistroLoteEstudiantesService registroLote;
     private ImportacionEstudiantesService service;
 
     @BeforeAll
@@ -45,7 +47,22 @@ class ImportacionEstudiantesServiceTests {
 
     @BeforeEach
     void setUp() {
-        service = new ImportacionEstudiantesService(estudianteService, validator);
+        service = new ImportacionEstudiantesService(estudianteService, registroLote, validator);
+        // El bloque simulado registra cada estudiante con registrar(): las verificaciones de esta clase
+        // siguen viendo qué solicitud llega y con qué error responde la base.
+        lenient().when(registroLote.registrar(any())).thenAnswer(invocation -> {
+            List<RegistrarEstudianteRequest> bloque = invocation.getArgument(0);
+            List<String> errores = new java.util.ArrayList<>();
+            for (RegistrarEstudianteRequest r : bloque) {
+                try {
+                    estudianteService.registrar(r);
+                    errores.add(null);
+                } catch (EstudianteDuplicadoException | IllegalArgumentException e) {
+                    errores.add(e.getMessage());
+                }
+            }
+            return errores;
+        });
     }
 
     private static MockMultipartFile csv(String contenido) {
@@ -179,5 +196,43 @@ class ImportacionEstudiantesServiceTests {
         assertThrows(IllegalArgumentException.class, () -> service.importar(csv("")));
         var xlsx = new MockMultipartFile("file", "estudiantes.xlsx", "application/octet-stream", new byte[]{1});
         assertThrows(IllegalArgumentException.class, () -> service.importar(xlsx));
+    }
+
+    @Test
+    void guardaPorBloquesDeQuinientos() {
+        StringBuilder contenido = new StringBuilder(ENCABEZADO);
+        for (int i = 0; i < 1200; i++) {
+            contenido.append(202400000 + i * 7 + 13).append(",Ana,Pérez,").append(3000000 + i * 11 + 17)
+                .append(",ana").append(i).append("@umss.edu,1,10\n");
+        }
+
+        var result = service.importar(csv(contenido.toString()));
+
+        assertEquals(1200, result.insertados(), String.valueOf(result.errores().stream().limit(3).toList()));
+        // 1200 filas = 3 bloques (500, 500 y 200), no 1200 transacciones.
+        verify(registroLote, times(3)).registrar(any());
+    }
+
+    @Test
+    void siLaBaseRechazaElBloqueLoReintentaFilaPorFila() {
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("duplicado")).when(registroLote).registrar(any());
+        var file = csv(ENCABEZADO
+            + "202404012,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
+            + "202404015,Leo,Mena,7489213,leo@umss.edu,1,10\n");
+
+        var result = service.importar(file);
+
+        assertEquals(2, result.insertados());
+        verify(estudianteService, times(2)).registrar(any());
+    }
+
+    @Test
+    void aceptaHastaDiezMilFilas() {
+        StringBuilder contenido = new StringBuilder(ENCABEZADO);
+        for (int i = 0; i < 10_001; i++) contenido.append("x,Ana,Pérez,1,a@umss.edu,1,10\n");
+
+        var error = assertThrows(IllegalArgumentException.class, () -> service.importar(csv(contenido.toString())));
+
+        assertTrue(error.getMessage().contains("10000"), error.getMessage());
     }
 }
