@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Calendar, MapPin, ShieldAlert, Info, Mail } from 'lucide-react'
+import { X, Calendar, MapPin, ShieldAlert, Info, Mail, CheckCircle2 } from 'lucide-react'
 import { reasignarAmbiente } from '../../services/controlExamenService'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 
 interface Props {
   idExamen: number
@@ -26,8 +27,30 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   const [errorMotivo, setErrorMotivo] = useState<string | null>(null)
   const [errorObservacion, setErrorObservacion] = useState<string | null>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  const [successGeneral, setSuccessGeneral] = useState<string | null>(null)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
   const [cargandoAmbientes, setCargandoAmbientes] = useState(true)
+  const [confirmarDescartar, setConfirmarDescartar] = useState(false)
+
+  /** Hay datos que el usuario aún no ha guardado (aula destino, motivo u observación). */
+  const hayCambiosSinGuardar = () =>
+    idAmbienteDestino !== '' ||
+    motivo.trim() !== '' ||
+    observacion.trim() !== ''
+
+  /** Cierre controlado: si hay cambios sin guardar, pide confirmar antes de salir. */
+  const manejarCerrar = () => {
+    if (hayCambiosSinGuardar()) {
+      setConfirmarDescartar(true)
+    } else {
+      onClose()
+    }
+  }
+
+  const confirmarDescartarDatos = () => {
+    setConfirmarDescartar(false)
+    onClose()
+  }
 
   const aulaActualNombre = useMemo(() => {
     if (!aulaActualId) return '—'
@@ -73,6 +96,21 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     return letras.split('').every(c => c === primera)
   }
 
+  /** Formato oración: primera letra mayúscula, resto minúsculas; códigos de aula con dígitos en mayúscula (ej. "690B"). */
+  const formatoOracion = (texto: string): string => {
+    if (!texto) return texto
+    const palabras = texto.toLowerCase().split(' ')
+    for (let i = 0; i < palabras.length; i++) {
+      if (/\d/.test(palabras[i])) {
+        palabras[i] = palabras[i].toUpperCase()
+      }
+    }
+    let resultado = palabras.join(' ')
+    if (resultado.length === 0) return resultado
+    return resultado.charAt(0).toUpperCase() + resultado.slice(1)
+  }
+
+
   // Mismas reglas que el servidor (TextoTraslado): letras con tildes, ü y ñ.
   const motivoError = (texto: string): string | null => {
     const limpio = texto.trim().replace(/\s+/g, ' ')
@@ -92,6 +130,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     const limpia = texto.trim().replace(/\s+/g, ' ')
     if (!limpia) return null
     if (texto !== texto.trim() || texto.includes('  ')) return 'No uses espacios al inicio o final, ni múltiples espacios entre palabras'
+    if (limpia.length < MOTIVO_MIN) return 'La observación debe contener al menos 10 caracteres'
     if (limpia.length > TEXTO_MAX) return 'La observación no puede superar 65 caracteres'
     if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]+$/.test(limpia)) return 'La observación solo permite letras y espacios simples entre palabras'
     return null
@@ -135,6 +174,9 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
         motivo: motivo.trim().replace(/\s+/g, ' '),
         observacion: observacion.trim().replace(/\s+/g, ' ') || undefined,
       })
+      setSuccessGeneral('El estudiante fue reasignado exitosamente al nuevo ambiente.')
+      // Mostrar el mensaje de éxito brevemente antes de cerrar el modal.
+      await new Promise(resolve => setTimeout(resolve, 1500))
       onSuccess()
       onClose()
     } catch (err: any) {
@@ -148,7 +190,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 backdrop-blur-sm">
       <div className="relative w-full max-w-md sm:max-w-lg transform scale-100 transition-all duration-200 bg-white rounded-2xl shadow-2xl border border-[#E2E6EC]" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#E2E6EC] px-4 sm:px-6 py-4 bg-[#F8FAFC] rounded-t-2xl">
@@ -161,7 +203,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               <p className="text-[10px] text-[#758EBF] leading-tight">{estudiante.nombre} {estudiante.apellidos}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-[#758EBF] hover:bg-[#E2E6EC] hover:text-[#011140] transition-colors">
+          <button type="button" onClick={manejarCerrar} className="rounded-lg p-2 text-[#758EBF] hover:bg-[#E2E6EC] hover:text-[#011140] transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -221,7 +263,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
             </label>
             <textarea
               value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
+              onChange={(e) => setMotivo(formatoOracion(e.target.value))}
               onBlur={() => validarMotivo()}
               maxLength={TEXTO_MAX}
               rows={3}
@@ -231,14 +273,16 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               placeholder="Ej. Computadora dañada, corte de red..."
               disabled={cargando}
             />
-            <div className="flex justify-between mt-0.5">
+            <div className="flex justify-between mt-1">
               <span className="text-[10px] text-[#758EBF]">{motivo.length}/{TEXTO_MAX}</span>
             </div>
             {errorMotivo && (
-              <p className="text-[10px] text-[#B91C1C] mt-0.5 leading-tight">
-                <ShieldAlert size={10} className="mt-0.5 mr-1" />
-                {errorMotivo}
-              </p>
+              <div className="flex items-start mt-1">
+                <ShieldAlert size={10} className="mt-0.5 shrink-0" />
+                <p className="text-[10px] text-[#B91C1C] leading-tight m-0 pl-3">
+                  {errorMotivo}
+                </p>
+              </div>
             )}
           </div>
 
@@ -249,7 +293,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
             </label>
             <textarea
               value={observacion}
-              onChange={(e) => setObservacion(e.target.value)}
+              onChange={(e) => setObservacion(formatoOracion(e.target.value))}
               onBlur={() => validarObservacion()}
               maxLength={TEXTO_MAX}
               rows={2}
@@ -259,15 +303,23 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               placeholder="Observaciones adicionales del traslado..."
               disabled={cargando}
             />
-            <span className="mt-0.5 text-[10px] text-[#758EBF]">{observacion.length}/{TEXTO_MAX}</span>
+            <span className="mt-1 text-[10px] text-[#758EBF]">{observacion.length}/{TEXTO_MAX}</span>
             {errorObservacion && (
-              <p className="text-[10px] text-[#B91C1C] mt-0.5 leading-tight">
-                <ShieldAlert size={10} className="mt-0.5 mr-1" />
-                {errorObservacion}
-              </p>
+              <div className="flex items-start mt-1">
+                <ShieldAlert size={10} className="mt-0.5 shrink-0" />
+                <p className="text-[10px] text-[#B91C1C] leading-tight m-0 pl-3">
+                  {errorObservacion}
+                </p>
+              </div>
             )}
           </div>
 
+          {/* Éxito general */}          {successGeneral && (
+            <div className="flex items-start gap-2 rounded-lg border border-[#BBF7D0] bg-[#ECFDF5] px-3 py-2 text-[11px] text-[#065F46] mt-2">
+              <CheckCircle2 size={12} className="mt-0.5" />
+              <span className="break-words whitespace-normal leading-tight">{successGeneral}</span>
+            </div>
+          )}
           {/* Error general */}
           {errorGeneral && (
             <div className="flex items-start gap-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[11px] text-[#B91C1C] mt-2">
@@ -281,7 +333,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
         <div className="border-t border-[#E2E6EC] bg-[#F8FAFC] rounded-b-2xl px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-end sm:justify-end gap-3 sm:gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={manejarCerrar}
             className={`w-full sm:w-auto flex items-center gap-2 rounded-lg border border-[#D8E3F5] bg-white px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-[#011140] hover:bg-[#E2E6EC] disabled:opacity-60 disabled:cursor-not-allowed transition-colors`}
             disabled={cargando}
           >
@@ -308,6 +360,13 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
           </button>
         </div>
       </div>
+
+      {/* Advertencia de pérdida de datos al cerrar con X o Cancelar */}
+      <ConfirmDiscardDialog
+        open={confirmarDescartar}
+        onStay={() => setConfirmarDescartar(false)}
+        onLeave={confirmarDescartarDatos}
+      />
     </div>
   )
 }
