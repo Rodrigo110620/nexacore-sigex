@@ -9,11 +9,12 @@ public final class JustificacionManual {
     private JustificacionManual() {}
 
     public static String validarYNormalizar(String texto) {
+        if (texto != null) texto = texto.stripTrailing();
         if (texto == null || texto.isBlank()) {
             throw invalida("La justificación del ingreso manual es obligatoria.");
         }
-        if (texto.codePoints().filter(Character::isLetter).count() > 65) {
-            throw invalida("La justificación no puede superar las 65 letras.");
+        if (texto.length() > 65) {
+            throw invalida("La justificación no puede superar los 65 caracteres.");
         }
         if (!texto.matches("[\\p{L} ]+")) {
             throw invalida("La justificación solo permite letras y un espacio entre palabras.");
@@ -23,6 +24,10 @@ public final class JustificacionManual {
         }
         if (texto.codePointCount(0, texto.length()) < 10) {
             throw invalida("La justificación debe tener al menos 10 caracteres.");
+        }
+        String garabato = ValidacionPalabras.primerGarabato(texto.replaceAll("(?i)\\b(?:qr|ci|sis)\\b", "documento"));
+        if (garabato != null) {
+            throw invalida("La justificación contiene contenido no válido: " + garabato + ".");
         }
         String minusculas = texto.toLowerCase(Locale.forLanguageTag("es"));
         int finPrimera = minusculas.offsetByCodePoints(0, 1);

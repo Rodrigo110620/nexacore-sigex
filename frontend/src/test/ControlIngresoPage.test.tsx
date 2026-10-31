@@ -129,7 +129,7 @@ describe('ControlIngresoPage', () => {
     }
   })
 
-  it.each(['a'.repeat(66), '11111111111', '????????????', 'Celular  apagado', ' Celular apagado', 'Celular apagado '])('no envía una justificación inválida: %s', async texto => {
+  it.each(['a'.repeat(66), '11111111111', '????????????', 'Celular  apagado', ' Celular apagado'])('no envía una justificación inválida: %s', async texto => {
     renderPage()
     await screen.findByText('Laura Paredes')
     fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
@@ -138,6 +138,38 @@ describe('ControlIngresoPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
     expect(service.autorizarIngreso).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Justificación del ingreso manual (obligatoria)')).toHaveAttribute('aria-invalid', 'true')
+  })
+  it('BUG-B01 y B03: el error aparece debajo del campo y no envía garabatos', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    const campo = screen.getByLabelText('Justificación del ingreso manual (obligatoria)')
+    fireEvent.change(campo, { target: { value: 'Bhgghjhgggyjy' } })
+    const error = within(campo.parentElement!).getByRole('alert')
+    expect(error).toHaveTextContent('contenido no válido')
+    expect(campo.nextElementSibling).toBe(error)
+    expect(campo).toHaveAttribute('aria-describedby', 'justificacion-ayuda justificacion-error')
+    expect(service.autorizarIngreso).not.toHaveBeenCalled()
+  })
+  it('BUG-B02: corta el pegado de 672 caracteres en 65', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    const campo = screen.getByLabelText('Justificación del ingreso manual (obligatoria)')
+    fireEvent.change(campo, { target: { value: 't'.repeat(672) } })
+    expect(campo).toHaveAttribute('maxLength', '65')
+    expect(campo).toHaveValue('T' + 't'.repeat(64))
+    expect(screen.getByText(/65\/65 caracteres/)).toBeInTheDocument()
+  })
+  it('BUG-B04: autoriza y envía sin el salto de línea final', async () => {
+    vi.mocked(service.autorizarIngreso).mockResolvedValue({ autorizado: true, resultado: 'AUTORIZADO', causa: null, fechaHoraIngreso: '2026-10-31T12:00:00', autorizadoPor: 'Carla Control' })
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
+    fireEvent.click(screen.getByLabelText('Ingreso manual por excepción'))
+    fireEvent.change(screen.getByLabelText('Justificación del ingreso manual (obligatoria)'), { target: { value: 'No tiene celular\n' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
+    await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ justificacionManual: 'No tiene celular' })))
   })
   beforeEach(() => {
     vi.clearAllMocks()
