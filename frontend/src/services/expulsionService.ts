@@ -5,18 +5,20 @@ import { primerGarabato } from '../utils/palabras'
 export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 65 }
 
 export function validarMotivoExpulsion(motivo: string): string | null {
+  motivo = normalizarMotivoExpulsion(motivo)
   if (!motivo.trim()) return 'El motivo es obligatorio.'
   const error = validarTextoLibre(motivo, MOTIVO_EXPULSION)
   if (error) return error
-  if (/ {2,}|[\r\n]/.test(motivo.trim())) return 'El motivo solo permite un espacio entre palabras'
+  if (/[\r\n]/.test(motivo)) return 'El motivo solo permite un espacio entre palabras'
   if (!/\p{L}/u.test(motivo)) return 'El motivo debe contener palabras que expliquen la expulsión'
-  const garabato = primerGarabato(motivo.trim().replace(/\b(?:qr|ci|sis)\b/gi, 'documento'))
+  // Excepciones locales; esta heurística no garantiza que cualquier frase tenga significado.
+  const garabato = primerGarabato(motivo.replace(/\b(?:qr|ci|sis|whatsapp|pdf|chatgpt|c|smartwatch)\b/gi, 'documento'))
   return garabato ? `El motivo contiene contenido no válido: ${garabato}` : null
 }
 
-/** Cambia solo mayúsculas/minúsculas; conserva signos, números y espacios internos. */
+/** Los 10–65 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
 export function normalizarMotivoExpulsion(motivo: string): string {
-  return motivo.trim().toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
+  return motivo.trim().replace(/ +/g, ' ').toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
 }
 
 export interface ExpulsionResponse {

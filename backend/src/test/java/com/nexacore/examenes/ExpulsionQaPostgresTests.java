@@ -2,6 +2,11 @@ package com.nexacore.examenes;
 
 import com.nexacore.examenes.dto.ExpulsarEstudianteRequest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
@@ -15,6 +20,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
     @Autowired MockMvc mvc;
+    @Autowired ObjectMapper mapper;
+
+    static Stream<Arguments> motivosValidos() {
+        String limite = "Uso de celular durante el examen para copiar respuestas de física";
+        return Stream.of(Arguments.of("Uso   de celular", "Uso de celular"),
+                Arguments.of("Uso de WhatsApp durante el examen", "Uso de whatsapp durante el examen"),
+                Arguments.of("Consulta de archivo PDF", "Consulta de archivo pdf"),
+                Arguments.of("Uso de ChatGPT durante el examen", "Uso de chatgpt durante el examen"),
+                Arguments.of("Uso de código en C durante el examen", "Uso de código en c durante el examen"),
+                Arguments.of(limite.replace(" ", "   "), limite));
+    }
+
+    @ParameterizedTest
+    @MethodSource("motivosValidos")
+    void postPersisteYConsultaElMotivoCanonico(String original, String esperado) throws Exception {
+        var response = mvc.perform(post("/control-ingresos/expulsar").with(user(email).roles("ADMIN"))
+                        .contentType("application/json").content(mapper.writeValueAsString(
+                                java.util.Map.of("idEstudiante", estudiante, "idExamen", examen, "motivo", original))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.motivo").value(esperado)).andReturn();
+        int id = mapper.readTree(response.getResponse().getContentAsString()).get("idExpulsion").asInt();
+        assertEquals(esperado, jdbc.queryForObject("SELECT motivo FROM expulsion WHERE id_expulsion=?", String.class, id));
+        var fecha = expulsiones.fechaHoraRegistrada(id);
+        mvc.perform(get("/control-ingresos/examen/{id}/expulsiones", examen).with(user(email).roles("ADMIN")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].motivo").value(esperado))
+                .andExpect(jsonPath("$[0].estudiante").value("Eva Prueba"));
+        assertEquals(fecha, expulsiones.fechaHoraRegistrada(id));
+    }
 
     @Test
     void unMotivoCortoNoPersisteLaExpulsion() throws Exception {
