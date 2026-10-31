@@ -9,6 +9,8 @@ interface AsignaturaAutocompleteProps {
   error?: string
   onChange: (value: string) => void
   onSelect: (materia: MateriaDto) => void
+  /** Avisa cuando la lista de sugerencias se abre o se cierra (el modal se agranda solo mientras está abierta). */
+  onListaAbierta?: (abierta: boolean) => void
 }
 
 const MIN_CHARS = 3
@@ -19,6 +21,7 @@ export default function AsignaturaAutocomplete({
   error,
   onChange,
   onSelect,
+  onListaAbierta,
 }: AsignaturaAutocompleteProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -62,6 +65,7 @@ export default function AsignaturaAutocomplete({
   }, [open])
 
   const showList = open && query.trim().length >= MIN_CHARS
+  useEffect(() => { onListaAbierta?.(showList) }, [showList, onListaAbierta])
   const pending = loading || searchedQuery !== query.trim()
 
   return (
