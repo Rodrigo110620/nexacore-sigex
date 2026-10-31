@@ -18,6 +18,6 @@ public record ReprogramarExamenRequest(
         @Min(value = 1, message = "La duración debe ser al menos 1 minuto")
         Integer duracionMinutos,
         @NotBlank(message = "Indica el motivo de la reprogramación")
-        @Size(max = 200, message = "El motivo no puede superar los 200 caracteres")
+        @Size(max = 100, message = "El motivo no puede superar 100 caracteres")
         String motivo
 ) {}
