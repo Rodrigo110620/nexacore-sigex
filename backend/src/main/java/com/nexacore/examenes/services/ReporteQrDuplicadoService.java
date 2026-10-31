@@ -65,7 +65,9 @@ public class ReporteQrDuplicadoService {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Completa nombres y descripción del reporte.");
         if (presentoCarnet && (ci == null || ci.isBlank()))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Ingresa el CI del carnet presentado.");
-        if (!nombres.strip().matches(ReglasEstudiante.NOMBRE) || nombres.strip().length() > 160)
+        if (nombres.strip().length() < 3 || nombres.strip().length() > 75)
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres y apellidos deben tener entre 3 y 75 caracteres.");
+        if (!nombres.strip().matches(ReglasEstudiante.NOMBRE))
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Los nombres solo pueden contener letras; cada palabra debe tener al menos 2 letras.");
         // Ningún nombre real repite una letra 3 veces seguidas ("Aaaaaaaa" desbordaba las notificaciones).
         if (java.util.regex.Pattern.compile("(?iu)(\\p{L})\\1\\1").matcher(nombres).find())

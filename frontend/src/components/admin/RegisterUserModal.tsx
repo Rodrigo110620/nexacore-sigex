@@ -7,6 +7,8 @@ import RegisterUserFooter from './RegisterUserFooter';
 import RegisterUserSuccess from './RegisterUserSuccess';
 import FieldErrorModal from '../ui/FieldErrorModal';
 import { useRegisterUserForm } from './useRegisterUserForm';
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
+import { INITIAL_FORM_STATE } from '../../types/usuario.types';
 
 interface RegisterUserModalProps {
   isOpen: boolean;
@@ -41,6 +43,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
   const [errorModalOpen, setErrorModalOpen] = useState(false);
   const [errorField, setErrorField] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [descartar, setDescartar] = useState(false);
 
   if (!isOpen) return null;
 
@@ -48,7 +51,16 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     if (loading) return;
     resetAll();
     setErrorModalOpen(false);
+    setDescartar(false);
     onClose();
+  };
+
+  // BUG 11 (2.º test run): con datos ingresados, la X y Cancelar piden confirmar antes de descartar.
+  const hayDatos = !success && JSON.stringify(form) !== JSON.stringify(INITIAL_FORM_STATE);
+  const pedirCerrar = () => {
+    if (loading) return;
+    if (hayDatos) setDescartar(true);
+    else handleClose();
   };
 
   const showFieldError = (field: string, message: string) => {
@@ -150,7 +162,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             : 'h-[85dvh] max-h-[800px] max-w-2xl'
         }`}
       >
-        <RegisterUserHeader step={step} onClose={handleClose} />
+        <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={handleClose} />
+        <RegisterUserHeader step={step} onClose={pedirCerrar} />
 
         {/* PASO 1: SIN FORM (solo validación) */}
         {step === 1 && (
@@ -159,7 +172,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             <RegisterUserFooter
               step={step}
               loading={loading}
-              onClose={handleClose}
+              onClose={pedirCerrar}
               onBack={goBack}
               onNext={handleNext}
             />
@@ -173,7 +186,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
             <RegisterUserFooter
               step={step}
               loading={loading}
-              onClose={handleClose}
+              onClose={pedirCerrar}
               onBack={goBack}
               onNext={handleNext}
             />

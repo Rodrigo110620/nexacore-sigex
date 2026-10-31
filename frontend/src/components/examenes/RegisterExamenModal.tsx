@@ -95,6 +95,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
   const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [listaAbierta, setListaAbierta] = useState(false)
   const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
@@ -275,6 +276,24 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       ambienteOcupado,
     })
 
+  /** Aulas adicionales ocupadas o sin aforo: el examen no se puede repartir en ellas. */
+  const problemaDeAulas = (): string | null => {
+    const ocupadas = aulasAdicionalesOcupadas(ambientes, adicionalesVigentes)
+    if (ocupadas.length > 0) {
+      return `${ocupadas.length === 1 ? 'El aula' : 'Las aulas'} ${ocupadas.join(', ')} ${
+        ocupadas.length === 1 ? 'está ocupada' : 'están ocupadas'
+      } en ese horario. Quítala del examen o cambia el horario.`
+    }
+    const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
+    if (sinAforo.length > 0) {
+      // El DOCENTE no registra aforos: debe pedirlo al administrador o quitar esas aulas.
+      return esDocente
+        ? `Falta el aforo de: ${sinAforo.join(', ')}. Pide al administrador que lo registre o quita ${sinAforo.length === 1 ? 'esa aula' : 'esas aulas'} para continuar.`
+        : `Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`
+    }
+    return null
+  }
+
   const goNext = () => {
     const campos = STEPS[step - 1].campos
     const todos = validarTodo()
@@ -286,6 +305,14 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
     if (Object.keys(stepErrors).length > 0) {
       setGeneralError('Completa los campos obligatorios de este paso para continuar.')
       return
+    }
+    // BUG 3 (2.º test run): las aulas sin aforo o ocupadas se corrigen en el paso 2, no al final.
+    if (step === 2) {
+      const problema = problemaDeAulas()
+      if (problema) {
+        setGeneralError(problema)
+        return
+      }
     }
     setGeneralError('')
     setStep((s) => (s < 3 ? ((s + 1) as Step) : s))
@@ -324,16 +351,10 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       return
     }
 
-    const ocupadas = aulasAdicionalesOcupadas(ambientes, adicionalesVigentes)
-    if (ocupadas.length > 0) {
-      setGeneralError(`${ocupadas.length === 1 ? 'El aula' : 'Las aulas'} ${ocupadas.join(', ')} ${
-        ocupadas.length === 1 ? 'está ocupada' : 'están ocupadas'
-      } en ese horario. Quítala del examen o cambia el horario.`)
-      return
-    }
-    const sinAforo = aulasSinAforo(ambientes, form.idAmbiente, adicionalesVigentes)
-    if (sinAforo.length > 0) {
-      setGeneralError(`Para repartir a los estudiantes en varias aulas, registra el aforo de: ${sinAforo.join(', ')}.`)
+    const problemaAulas = problemaDeAulas()
+    if (problemaAulas) {
+      setStep(2)
+      setGeneralError(problemaAulas)
       return
     }
 
@@ -515,7 +536,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          {/* BUG 2 (2.º test run): mientras hay una lista de sugerencias abierta, el contenido se agranda para
+              mostrarla sin desplazar; cerrada, el modal vuelve a su tamaño justo. */}
+          <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 transition-[min-height] duration-150 sm:px-6 sm:py-5 ${listaAbierta && step === 1 ? 'sm:min-h-[320px]' : ''}`}>
             {step === 1 && (
             <section className={sectionCardClass}>
               <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
@@ -532,6 +555,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     value={form.asignatura}
                     error={errors.asignatura}
                     onChange={(value) => handleChange('asignatura', value)}
+                    onListaAbierta={setListaAbierta}
                     onSelect={(materia) => {
                       handleChange('asignatura', materia.nombre)
                       setAsignaturaOk(true)
@@ -560,6 +584,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     value={form.docente}
                     error={errors.docente}
                     onChange={(value) => handleChange('docente', value)}
+                    onListaAbierta={setListaAbierta}
                     onSelect={(docente) => {
                       handleChange('docente', `${docente.nombre} ${docente.apellidos}`.trim())
                       setDocenteOk(true)

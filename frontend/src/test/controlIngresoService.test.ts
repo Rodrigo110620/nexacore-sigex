@@ -92,6 +92,38 @@ describe('INCI-01: confirmación de expulsión', () => {
     expect(mockedApi.post).not.toHaveBeenCalled()
   })
 
+  it.each(['Copia ora', 'Uso de ' + 'a '.repeat(28) + 'QRs', 'Drrtgrdsgdgdfggfdffd',
+    'Uso de celularrrrr', 'Uso\nde celular', '1234567890', 'Uso de qwerty', 'Copia    ora'])(
+    'rechaza el motivo inválido %s sin enviar ni notificar', async (motivo) => {
+      await expect(expulsarEstudiante({ ...payload, motivo })).rejects.toThrow()
+      expect(mockedApi.post).not.toHaveBeenCalled()
+      expect(window.dispatchEvent).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([
+    ['Uso   de celular', 'Uso de celular'],
+    ['Uso de WhatsApp durante el examen', 'Uso de whatsapp durante el examen'],
+    ['Consulta de archivo PDF', 'Consulta de archivo pdf'],
+    ['Uso de ChatGPT durante el examen', 'Uso de chatgpt durante el examen'],
+    ['Uso de código en C durante el examen', 'Uso de código en c durante el examen'],
+  ])('envía y confirma %s como %s sin debilitar la comparación', async (original, motivo) => {
+    const confirmada = { ...registro, motivo }
+    mockedApi.post = vi.fn().mockResolvedValueOnce({ data: confirmada }).mockResolvedValueOnce({ data: { ...confirmada, motivo: 'Otro motivo válido' } })
+    await expect(expulsarEstudiante({ ...payload, motivo: original })).resolves.toBe(confirmada)
+    expect(mockedApi.post).toHaveBeenLastCalledWith('/control-ingresos/expulsar', { ...payload, motivo })
+    await expect(expulsarEstudiante({ ...payload, motivo: original })).resolves.toBeNull()
+    expect(window.dispatchEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['Copia oral', 'Uso de ' + 'a '.repeat(28) + 'qr', 'Uso de qr durante el examen'])(
+    'confirma límites y siglas sin cambiar la respuesta oficial: %s', async (motivo) => {
+      const confirmada = { ...registro, motivo }
+      mockedApi.post = vi.fn().mockResolvedValue({ data: confirmada })
+      await expect(expulsarEstudiante({ ...payload, motivo })).resolves.toBe(confirmada)
+    },
+  )
+
   it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
     'rechaza identificadores inválidos %s sin enviar HTTP', async (id) => {
       await expect(expulsarEstudiante({ ...payload, idEstudiante: id })).rejects.toThrow('identificadores')

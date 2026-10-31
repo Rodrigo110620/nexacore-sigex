@@ -9,6 +9,8 @@ interface AsignaturaAutocompleteProps {
   error?: string
   onChange: (value: string) => void
   onSelect: (materia: MateriaDto) => void
+  /** Avisa cuando la lista de sugerencias se abre o se cierra (el modal se agranda solo mientras está abierta). */
+  onListaAbierta?: (abierta: boolean) => void
 }
 
 const MIN_CHARS = 3
@@ -19,6 +21,7 @@ export default function AsignaturaAutocomplete({
   error,
   onChange,
   onSelect,
+  onListaAbierta,
 }: AsignaturaAutocompleteProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -62,6 +65,7 @@ export default function AsignaturaAutocomplete({
   }, [open])
 
   const showList = open && query.trim().length >= MIN_CHARS
+  useEffect(() => { onListaAbierta?.(showList) }, [showList, onListaAbierta])
   const pending = loading || searchedQuery !== query.trim()
 
   return (
@@ -125,10 +129,9 @@ export default function AsignaturaAutocomplete({
                   }}
                   className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-[#E9F1FF]"
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-semibold text-[#011140]">{toTitleCaseTexto(m.nombre)}</span>
-                    <span className="block truncate text-[10px] text-gray-500">Cód: {m.sigla}</span>
-                  </span>
+                  {/* BUG 1 (2.º test run): nombre y código en una fila, usando todo el ancho de la lista. */}
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[#011140]">{toTitleCaseTexto(m.nombre)}</span>
+                  <span className="shrink-0 rounded-md bg-[#F1F6FF] px-2 py-0.5 text-[10px] font-medium text-[#45628D]">Cód: {m.sigla}</span>
                 </button>
               </li>
             ))

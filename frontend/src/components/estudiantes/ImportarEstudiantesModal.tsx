@@ -18,7 +18,7 @@ interface ImportarEstudiantesModalProps {
 const COLUMNAS = ['codigoSis', 'nombre', 'apellidos', 'ci', 'email', 'idFacultad', 'idCarrera']
 /** Si faltan o van vacías: sin teléfono y MATRICULADO. */
 const COLUMNAS_OPCIONALES = ['telefono', 'estadoMatricula (MATRICULADO o NO_MATRICULADO)']
-const MAX_BYTES = 1024 * 1024
+const MAX_BYTES = 5 * 1024 * 1024
 
 export default function ImportarEstudiantesModal({ open, onClose, onImported }: ImportarEstudiantesModalProps) {
   const [file, setFile] = useState<File | null>(null)
@@ -71,7 +71,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
       return
     }
     if (selected.size > MAX_BYTES) {
-      setError('El archivo supera el tamaño máximo de 1 MB.')
+      setError('El archivo supera el tamaño máximo de 5 MB.')
       return
     }
     setFile(selected)
@@ -214,7 +214,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
                 <span className="break-all text-sm font-medium text-[#011140]">
                   {file ? file.name : 'Haz clic para seleccionar el archivo CSV'}
                 </span>
-                <span className="text-[11px] text-[#627A9B]">{file ? 'Clic para cambiar de archivo' : 'Máximo 1 MB'}</span>
+                <span className="text-[11px] text-[#627A9B]">{file ? 'Clic para cambiar de archivo' : 'Hasta 10 000 estudiantes · máximo 5 MB'}</span>
               </div>
               <input type="file" name="file" accept=".csv,text/csv" className="sr-only" onChange={handleFileChange} />
             </label>

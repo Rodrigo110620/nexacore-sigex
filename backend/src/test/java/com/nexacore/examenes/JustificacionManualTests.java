@@ -15,9 +15,24 @@ class JustificacionManualTests {
     }
 
     @Test
-    void aceptaSesentaYCincoLetrasSinContarEspaciosYRechazaSesentaYSeis() {
-        String texto = "á".repeat(32) + " " + "ñ".repeat(33);
-        assertEquals("Á" + texto.substring(1), JustificacionManual.validarYNormalizar(texto));
-        assertThrows(ControlIngresoException.class, () -> JustificacionManual.validarYNormalizar(texto + "ü"));
+    void limiteDeCaracteresIncluyeEspacios() {
+        String texto = "No tiene celular y solicita ingreso manual por documento de papel";
+        assertEquals(65, texto.length());
+        assertEquals(texto, JustificacionManual.validarYNormalizar(texto));
+        assertThrows(ControlIngresoException.class, () -> JustificacionManual.validarYNormalizar(texto + "a"));
+    }
+
+    @Test
+    void rechazaGarabatosDelReporte() {
+        for (String texto : new String[] {"t".repeat(40), "Bhgghjhgggyjy"}) {
+            assertThrows(ControlIngresoException.class, () -> JustificacionManual.validarYNormalizar(texto));
+        }
+    }
+
+    @Test
+    void limpiaSaltosYEspaciosFinalesConservandoJustificacionesValidas() {
+        assertEquals("No tiene celular", JustificacionManual.validarYNormalizar("No tiene celular  \r\n"));
+        assertEquals("Celular apagado no presenta qr", JustificacionManual.validarYNormalizar("CELULAR APAGADO NO PRESENTA QR"));
+        assertThrows(ControlIngresoException.class, () -> JustificacionManual.validarYNormalizar("Celular\napagado"));
     }
 }

@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.dto.ReprogramarExamenRequest;
 import java.time.LocalDateTime;
+import com.nexacore.examenes.utils.MotivoReprogramacion;
 import com.nexacore.examenes.utils.EstadoExamen;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -343,6 +344,7 @@ public class ExamenService {
                     : "Solo se reprograma un examen que ya finalizó; para cambiar la fecha antes, edítalo.");
         }
         validarNoPasado(request.fecha(), request.horaInicio());
+        String motivo = MotivoReprogramacion.validar(request.motivo());
         Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
         validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
@@ -353,7 +355,7 @@ public class ExamenService {
 
         Integer idUsuario = usuarioRepository.findByEmail(emailUsuario).map(Usuario::getId).orElse(null);
         Map<String, Object> antes = resumen(examen);
-        int sesion = sesionExamenService.archivarYReiniciar(examen, idUsuario, request.motivo());
+        int sesion = sesionExamenService.archivarYReiniciar(examen, idUsuario, motivo);
 
         examen.setFecha(request.fecha());
         examen.setHoraInicio(request.horaInicio());
@@ -362,7 +364,7 @@ public class ExamenService {
         auditoriaService.registrar("EXAMEN_REPROGRAMADO", Map.of(
                 "idExamen", idExamen,
                 "sesionArchivada", sesion,
-                "motivo", request.motivo().strip(),
+                "motivo", motivo,
                 "antes", antes,
                 "despues", resumen(guardado)));
         notificacionService.emitirCambio(NotificacionService.CAMBIO_EXAMEN, idExamen, null);

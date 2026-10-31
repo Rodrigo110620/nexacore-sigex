@@ -14,7 +14,16 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 # Hora de Bolivia también en los logs. La aplicación la fija igual (APP_TIMEZONE, ver ZonaHoraria).
 ENV TZ=America/La_Paz
-RUN useradd --system --uid 1001 sigex
+# Cliente de PostgreSQL para el respaldo de la base (IMP-10; el laboratorio no respalda las bases).
+# Se instala la versión 17 del repositorio oficial: pg_dump no respalda un servidor más nuevo que él,
+# y el de Ubuntu (16) fallaría con un PostgreSQL 17.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-common ca-certificates \
+    && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y \
+    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && rm -rf /var/lib/apt/lists/*
+RUN useradd --system --uid 1001 sigex \
+    && mkdir -p /respaldos && chown sigex /respaldos
 COPY --from=build /app/app.jar app.jar
 USER sigex
 EXPOSE 8080

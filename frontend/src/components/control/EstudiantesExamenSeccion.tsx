@@ -2,6 +2,7 @@ import UserPagination from '../users/TablePagination'
 import EstudiantesExamenLista from './EstudiantesExamenLista'
 import type { EstudianteAsignado, FiltroEstado, ResumenEstudiantes } from '../../services/controlExamenService'
 import type { PageResponse } from '../../types/userApi'
+import type { ExamenDto } from '../../services/examenService'
 
 const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstudiantes }[] = [
   { valor: 'TODOS', label: 'Todos', cuenta: 'total' },
@@ -12,6 +13,7 @@ const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstud
 interface EstudiantesExamenSeccionProps {
   idExamen: number
   examen?: string
+  datosExamen?: ExamenDto
   resumen?: ResumenEstudiantes
   estado: FiltroEstado
   cambiarEstado: (estado: FiltroEstado) => void
@@ -26,6 +28,7 @@ interface EstudiantesExamenSeccionProps {
 export default function EstudiantesExamenSeccion({
   idExamen,
   examen,
+  datosExamen,
   resumen,
   estado,
   cambiarEstado,
@@ -86,7 +89,7 @@ export default function EstudiantesExamenSeccion({
         </p>
       ) : (
         <>
-          <EstudiantesExamenLista idExamen={idExamen} examen={examen} estudiantes={pagina.contenido} onExito={refetch} />
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} />
           <div className="mt-3">
             <UserPagination
               compact

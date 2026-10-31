@@ -1,10 +1,12 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
 import EstudiantesExamenLista from '../components/control/EstudiantesExamenLista'
 import api from '../services/api'
 import { EVENTO_CAMBIO } from '../services/notificacionService'
+import type { ExamenDto } from '../services/examenService'
 
 vi.mock('../services/api')
 const estudiante = {
@@ -12,10 +14,15 @@ const estudiante = {
   ci: '9000101', carrera: 'Sistemas', estado: 'HABILITADO' as const,
   motivoInhabilitacion: null, ingresado: true, expulsado: false,
 }
+const examen: ExamenDto = {
+  idExamen: 20, idParalelo: 1, asignatura: 'Ingeniería', docente: 'Ana Rojas',
+  fecha: '2026-10-31', horaInicio: '14:00:00', duracionMinutos: 90,
+  idAmbiente: 1, ambienteNombre: 'Aula 201', estado: 'en-curso', normasGenerales: [], normasParticulares: [],
+}
 function montar(rol = 'ADMIN', ingresado = true, expulsado = false) {
   localStorage.setItem('token', 'test')
   localStorage.setItem('roles', JSON.stringify([rol]))
-  return render(<AuthProvider><MemoryRouter><EstudiantesExamenLista idExamen={20} examen="Ingeniería · Aula 201" estudiantes={[{ ...estudiante, ingresado, expulsado }]} /></MemoryRouter></AuthProvider>)
+  return render(<AuthProvider><MemoryRouter><EstudiantesExamenLista idExamen={20} examen="Ingeniería · Aula 201" datosExamen={examen} estudiantes={[{ ...estudiante, ingresado, expulsado }]} /></MemoryRouter></AuthProvider>)
 }
 beforeEach(() => {
   vi.resetAllMocks()
@@ -41,14 +48,62 @@ it.each([
 it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', (indice) => {
   montar()
   fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
-  const modal = screen.getByRole('dialog', { name: 'Confirmar expulsión' })
+  const modal = screen.getByRole('dialog', { name: 'Expulsar estudiante' })
   expect(within(modal).getByText('Lucía Aguilar')).toBeInTheDocument()
-  expect(within(modal).getByText(/Examen #20 · Ingeniería/)).toBeInTheDocument()
+  expect(within(modal).getByText('Examen: Ingeniería')).toBeInTheDocument()
+  expect(within(modal).getByText('Fecha: 31/10/2026')).toBeInTheDocument()
+  expect(within(modal).getByText('Horario: 14:00 – 15:30')).toBeInTheDocument()
+  expect(within(modal).getByText('Ambiente del examen: Aula 201')).toBeInTheDocument()
+  expect(within(modal).getByText('Al confirmar, se registrará:')).toBeInTheDocument()
   fireEvent.change(within(modal).getByRole('textbox'), { target: { value: '   ' } })
   expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).not.toHaveBeenCalled()
   fireEvent.click(within(modal).getByRole('button', { name: 'Cancelar' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it.each([0, 1])('vista %s: valida junto al motivo y limita también el texto pegado a 65', (indice) => {
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
+  const modal = screen.getByRole('dialog')
+  const campo = within(modal).getByRole('textbox')
+  for (const motivo of ['Copia ora', 'Drrtgrdsgdgdfggfdffd', 'Uso de celularrrrr']) {
+    fireEvent.change(campo, { target: { value: motivo } })
+    expect(campo).toHaveAttribute('aria-invalid', 'true')
+    expect(campo).toHaveAccessibleDescription(/motivo/i)
+    expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
+    fireEvent.submit(modal.querySelector('form')!)
+  }
+  expect(api.post).not.toHaveBeenCalled()
+  fireEvent.change(campo, { target: { value: 'Uso de ' + 'a '.repeat(28) + 'qrs' } })
+  expect(campo).not.toHaveAttribute('maxlength') // El límite se aplica después de normalizar, también al pegar.
+  expect((campo as HTMLTextAreaElement).value).toHaveLength(65)
+  expect(within(modal).getByText('65/65')).toBeInTheDocument()
+  fireEvent.change(campo, { target: { value: 'Copia oral' } })
+  expect(campo).toHaveAttribute('aria-invalid', 'false')
+  expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeEnabled()
+})
+
+it.each([0, 1])('vista %s: pegar texto normaliza antes de limitar y permite los cuatro motivos legítimos', async (indice) => {
+  const user = userEvent.setup()
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
+  const campo = screen.getByRole('textbox')
+  const limite = 'Uso de celular durante el examen para copiar respuestas de física'
+  await user.click(campo)
+  await user.paste(limite.replace(/ /g, '   '))
+  expect(campo).toHaveValue(limite)
+  expect(screen.getByText('65/65')).toBeInTheDocument()
+  for (const motivo of ['Uso de WhatsApp durante el examen', 'Consulta de archivo PDF', 'Uso de ChatGPT durante el examen', 'Uso de código en C durante el examen']) {
+    fireEvent.change(campo, { target: { value: motivo } })
+    expect(campo).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByRole('button', { name: 'Confirmar expulsión' })).toBeEnabled()
+  }
+  fireEvent.change(campo, { target: { value: 'Uso   de celular' } })
+  expect(campo).toHaveValue('Uso de celular')
+  expect(api.post).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar expulsión' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
@@ -65,6 +120,7 @@ it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar',
   expect(api.post).toHaveBeenCalledTimes(1)
   expect(within(modal).getByRole('button', { name: 'Enviando…' })).toBeDisabled()
   expect(within(modal).getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+  expect(within(modal).getByRole('button', { name: 'Cerrar expulsión' })).toBeDisabled()
   expect(campo).toBeDisabled()
   await act(async () => rechazar({ response: { status: 403, data: { resultado: 'EXPULSADO', mensaje: 'Sin permiso' } } }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin permiso')

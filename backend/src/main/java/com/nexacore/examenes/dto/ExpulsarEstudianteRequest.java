@@ -9,7 +9,17 @@ import jakarta.validation.constraints.Size;
 public record ExpulsarEstudianteRequest(
         @NotNull @Positive Integer idEstudiante,
         @NotNull @Positive Integer idExamen,
-        @NotBlank @Size(max = ExpulsarEstudianteRequest.MOTIVO_MAX) String motivo
+        @NotBlank @Size(min = ExpulsarEstudianteRequest.MOTIVO_MIN, max = ExpulsarEstudianteRequest.MOTIVO_MAX) String motivo
 ) {
-    public static final int MOTIVO_MAX = 500;
+    public static final int MOTIVO_MIN = 10;
+    public static final int MOTIVO_MAX = 65;
+
+    public ExpulsarEstudianteRequest {
+        motivo = normalizarEspacios(motivo);
+    }
+
+    /** Los límites se cuentan después de quitar extremos y reducir espacios; no altera el historial. */
+    public static String normalizarEspacios(String motivo) {
+        return motivo == null ? null : motivo.strip().replaceAll(" +", " ");
+    }
 }

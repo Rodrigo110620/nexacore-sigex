@@ -1,3 +1,4 @@
+import { ConfirmDiscardDialog } from "../examenes/ExamFormDialogs";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertOctagon,
@@ -53,6 +54,15 @@ export default function ReporteQrDuplicadoModal({
   const [error, setError] = useState(""),
     [enviando, setEnviando] = useState(false),
     [idReporte, setIdReporte] = useState<number | null>(null);
+  const [descartar, setDescartar] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const limpiarError = (campo: string) => setErrores(prev => ({...prev, [campo]: ""}));
+  const cerrar = () => {
+    if (enviando) return;
+    if (!idReporte && (nombres || ci || sis || motivo || detalle || revisado || sinCarnet || foto)) setDescartar(true);
+    else { detenerCamara(); onClose(); }
+  };
+  const errorCampo = (campo: string) => errores[campo] ? <p className="report-incidence-error" role="alert" id={`error-${campo}`}>{errores[campo]}</p> : null;
   const videoRef = useRef<HTMLVideoElement>(null);
   const vigente = useRef(true);
   const solicitandoCamara = useRef(false);
@@ -71,7 +81,7 @@ export default function ReporteQrDuplicadoModal({
   }, [stream]);
   const abrirCamara = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Este dispositivo no permite usar la cámara.");
+      setErrores(prev => ({...prev, foto: "Este dispositivo no permite usar la cámara."}));
       return;
     }
     if (solicitandoCamara.current) return;
@@ -86,7 +96,7 @@ export default function ReporteQrDuplicadoModal({
       setStream(nueva);
       setError("");
     } catch {
-      if (vigente.current) setError("No se pudo acceder a la cámara. Revisa el permiso del navegador.");
+      if (vigente.current) setErrores(prev => ({...prev, foto: "No se pudo acceder a la cámara. Revisa el permiso del navegador."}));
     } finally {
       solicitandoCamara.current = false;
       if (vigente.current) setCamaraPendiente(false);
@@ -96,7 +106,7 @@ export default function ReporteQrDuplicadoModal({
   const capturarFoto = async () => {
     const video = videoRef.current;
     if (!video?.videoWidth) {
-      setError("Espera a que se active la cámara.");
+      setErrores(prev => ({...prev, foto: "Espera a que se active la cámara."}));
       return;
     }
     const canvas = document.createElement("canvas");
@@ -112,55 +122,33 @@ export default function ReporteQrDuplicadoModal({
       }),
       invalido = validarArchivoFoto(archivo);
     if (invalido) {
-      setError(invalido);
+      setErrores(prev => ({...prev, foto: invalido}));
       return;
     }
     try {
       setFoto(await prepararFoto(archivo));
       setFotoNombre("Fotografía capturada");
+      setErrores(prev => ({...prev, foto: ""}));
       detenerCamara();
     } catch {
-      setError("No se pudo preparar la fotografía.");
+      setErrores(prev => ({...prev, foto: "No se pudo preparar la fotografía."}));
     }
   };
   const enviar = async () => {
-    if (
-      !nombres.trim() ||
-      (!ci && !sinCarnet) ||
-      !motivo ||
-      (!revisado && !sinCarnet) ||
-      !foto ||
-      (motivo === "Otro motivo" && detalle.trim().length < 20)
-    ) {
-      setError(
-        "Completa los campos obligatorios, indica el estado del carnet y agrega la fotografía.",
-      );
-      return;
-    }
-    if (
-      !/^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/.test(
-        nombres.trim(),
-      )
-    ) {
-      setError("Escribe nombres válidos.");
-      return;
-    }
-    // Ningún nombre real repite una letra 3 veces seguidas ("Aaaaaaaa" desbordaba las notificaciones).
-    if (/(\p{L})\1\1/iu.test(nombres.trim())) {
-      setError("Los nombres no pueden repetir una letra 3 veces seguidas.");
-      return;
-    }
+    const campos: Record<string, string> = {};
+    if (nombres.trim().length < 3 || nombres.trim().length > 75) campos.nombres = "Los nombres y apellidos deben tener entre 3 y 75 caracteres.";
+    else if (!/^[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:[ '-][A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+)*$/.test(nombres.trim())) campos.nombres = "Escribe nombres y apellidos válidos.";
+    else if (/(\p{L})\1\1/iu.test(nombres.trim())) campos.nombres = "Los nombres no pueden repetir una letra 3 veces seguidas.";
     const ciError = sinCarnet ? "" : validateDocumento(ci);
-    if (ciError) {
-      setError(ciError);
-      return;
-    }
-    if (sis && !/^\d{9}$/.test(sis)) {
-      setError("El código SIS debe tener 9 dígitos.");
-      return;
-    }
-    const errorSis = sis ? motivoIdentificadorFicticio('codigo', sis) : null;
-    if (errorSis) { setError(errorSis); return; }
+    if (ciError) campos.ci = ciError;
+    if (sis && !/^\d{9}$/.test(sis)) campos.sis = "El código SIS debe tener 9 dígitos.";
+    else if (sis) { const invalido = motivoIdentificadorFicticio('codigo', sis); if (invalido) campos.sis = invalido; }
+    if (!motivo) campos.motivo = "Selecciona qué no coincide.";
+    if (motivo === "Otro motivo" && detalle.trim().length < 20) campos.detalle = "La descripción debe tener al menos 20 caracteres.";
+    if (!revisado && !sinCarnet) campos.carnet = "Indica si revisaste el carnet o no fue presentado.";
+    if (!foto) campos.foto = "La fotografía es obligatoria.";
+    setErrores(campos);
+    if (Object.keys(campos).length || !foto) { setError(""); return; }
     const compuesto = `Documento presentado: ${sinCarnet ? "No presentó carnet." : "Carnet de identidad."}\nQué no coincide: ${motivo}.\nVerificación realizada: ${sinCarnet ? "La persona indicó no contar con su carnet." : "Carnet comparado con la persona presente."}${detalle.trim() ? `\nObservación adicional: ${detalle.trim()}` : ""}`;
     setEnviando(true);
     setError("");
@@ -179,10 +167,10 @@ export default function ReporteQrDuplicadoModal({
         }),
       );
     } catch (e: unknown) {
-      setError(
-        (e as { response?: { data?: { mensaje?: string } } }).response?.data
-          ?.mensaje ?? "No se pudo registrar la incidencia.",
-      );
+      const mensaje = (e as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje ?? "No se pudo registrar la incidencia.";
+      const campo = /nombre/i.test(mensaje) ? 'nombres' : /código|SIS/i.test(mensaje) ? 'sis' : /\bCI\b|carnet/i.test(mensaje) ? 'ci' : /foto|imagen/i.test(mensaje) ? 'foto' : null;
+      if (campo) setErrores({ [campo]: mensaje });
+      else setError(mensaje);
     } finally {
       setEnviando(false);
     }
@@ -206,8 +194,7 @@ export default function ReporteQrDuplicadoModal({
           <button
             aria-label="Cerrar formulario"
             onClick={() => {
-              detenerCamara();
-              onClose();
+              cerrar();
             }}
           >
             <X size={21} />
@@ -238,24 +225,29 @@ export default function ReporteQrDuplicadoModal({
                   <label>
                     Nombres y apellidos <b>*</b>
                     <input
+                      aria-label="Nombres y apellidos"
+                      minLength={3} maxLength={75} aria-invalid={!!errores.nombres} aria-describedby="error-nombres"
                       value={nombres}
                       onChange={(e) =>
-                        setNombres(sanitizeNombreInput(e.target.value))
+                        { setNombres(sanitizeNombreInput(e.target.value).slice(0, 75)); limpiarError("nombres"); }
                       }
                       placeholder="Como figuran en el carnet"
                     />
+                    {errorCampo("nombres")}
                   </label>
                   <label>
                     CI / N.º de carnet <b>*</b>
                     <input
+                      aria-label="CI / N.º de carnet" aria-invalid={!!errores.ci} aria-describedby="error-ci"
                       value={ci}
                       disabled={sinCarnet}
                       inputMode="numeric"
                       onChange={(e) =>
-                        setCi(e.target.value.replace(/\D/g, "").slice(0, 8))
+                        { setCi(e.target.value.replace(/\D/g, "").slice(0, 8)); limpiarError("ci"); }
                       }
                       placeholder={sinCarnet ? "No presentó carnet" : "7 u 8 dígitos"}
                     />
+                    {errorCampo("ci")}
                   </label>
                 </div>
                 <button
@@ -274,13 +266,15 @@ export default function ReporteQrDuplicadoModal({
                   <label className="report-incidence-sis">
                     Código SIS
                     <input
+                      aria-label="Código SIS" aria-invalid={!!errores.sis} aria-describedby="error-sis"
                       value={sis}
                       inputMode="numeric"
                       onChange={(e) =>
-                        setSis(e.target.value.replace(/\D/g, "").slice(0, 9))
+                        { setSis(e.target.value.replace(/\D/g, "").slice(0, 9)); limpiarError("sis"); }
                       }
                       placeholder="Código del estudiante"
                     />
+                    {errorCampo("sis")}
                   </label>
                 )}
               </section>
@@ -296,7 +290,7 @@ export default function ReporteQrDuplicadoModal({
                     <button
                       key={x}
                       type="button"
-                      onClick={() => setMotivo(x)}
+                      onClick={() => {setMotivo(x); limpiarError("motivo"); limpiarError("detalle");}}
                       className={motivo === x ? "active" : ""}
                     >
                       <i />
@@ -304,35 +298,38 @@ export default function ReporteQrDuplicadoModal({
                     </button>
                   ))}
                 </div>
+                {errorCampo("motivo")}
                 {motivo === "Otro motivo" && (
                   <label className="report-incidence-detail">
                     Describe brevemente lo que observaste <b>*</b>
                     <textarea
                       value={detalle}
                       minLength={20}
-                      onChange={(e) => setDetalle(e.target.value)}
+                      onChange={(e) => {setDetalle(e.target.value); limpiarError("detalle");}}
                       placeholder="¿Qué ocurrió?"
                     />
+                    {errorCampo("detalle")}
                   </label>
                 )}
               </section>
               <section
-                className={`report-incidence-verification ${revisado ? "done" : ""}`}
+                className="report-incidence-verification"
               >
                 <div>
                   <h3>Verificación del carnet</h3>
                   <p>Compara el documento con la persona presente.</p>
                 </div>
                 <div className="report-incidence-verification-actions">
-                  <button type="button" onClick={() => { setRevisado(!revisado); setSinCarnet(false) }}>
+                  <button type="button" className={revisado ? "reviewed-active" : ""} onClick={() => { setRevisado(!revisado); setSinCarnet(false); limpiarError("carnet") }}>
                     <CheckCircle2 size={16} />
                     {revisado ? "Carnet revisado ✓" : "Marcar como revisado"}
                   </button>
-                  <button type="button" className={sinCarnet ? "absence-active" : ""} onClick={() => { setSinCarnet(!sinCarnet); setRevisado(false); if (!sinCarnet) setCi("") }}>
+                  <button type="button" className={sinCarnet ? "absence-active" : ""} onClick={() => { setSinCarnet(!sinCarnet); setRevisado(false); limpiarError("carnet"); limpiarError("ci"); if (!sinCarnet) setCi("") }}>
                     No presentó carnet
                   </button>
                 </div>
               </section>
+              {errorCampo("carnet")}
               <section className="report-incidence-photo">
                 <div className="report-incidence-section-head">
                   <h3>
@@ -377,6 +374,7 @@ export default function ReporteQrDuplicadoModal({
                     <ChevronRight size={19} />
                   </button>
                 )}
+                {errorCampo("foto")}
                 <p className="report-incidence-privacy">
                   <LockKeyhole size={12} />
                   La imagen se guarda como evidencia privada del reporte.
@@ -396,8 +394,7 @@ export default function ReporteQrDuplicadoModal({
               <div>
                 <button
                   onClick={() => {
-                    detenerCamara();
-                    onClose();
+                    cerrar();
                   }}
                 >
                   Cancelar
@@ -410,6 +407,7 @@ export default function ReporteQrDuplicadoModal({
           </>
         )}
       </section>
+      <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={() => {detenerCamara();onClose();}}/>
     </div>
   );
 }

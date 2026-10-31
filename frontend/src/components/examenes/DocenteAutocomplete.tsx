@@ -10,11 +10,13 @@ interface DocenteAutocompleteProps {
   error?: string
   onChange: (value: string) => void
   onSelect: (docente: UserListItem) => void
+  /** Avisa cuando la lista de sugerencias se abre o se cierra (el modal se agranda solo mientras está abierta). */
+  onListaAbierta?: (abierta: boolean) => void
 }
 
 const MIN_CHARS = 3
 
-export default function DocenteAutocomplete({ id, value, error, onChange, onSelect }: DocenteAutocompleteProps) {
+export default function DocenteAutocomplete({ id, value, error, onChange, onSelect, onListaAbierta }: DocenteAutocompleteProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<UserListItem[]>([])
@@ -57,6 +59,7 @@ export default function DocenteAutocomplete({ id, value, error, onChange, onSele
   }, [open])
 
   const showList = open && query.trim().length >= MIN_CHARS
+  useEffect(() => { onListaAbierta?.(showList) }, [showList, onListaAbierta])
   const pending = loading || searchedQuery !== query.trim()
 
   return (

@@ -251,7 +251,7 @@ class PostgresIntegracionTests {
         // Ya no está finalizado: no se puede volver a reprogramar hasta que termine.
         assertThatThrownBy(() -> examenService.reprogramar(idExamen, paralelo,
                 new com.nexacore.examenes.dto.ReprogramarExamenRequest(nueva.plusDays(1), java.time.LocalTime.of(10, 0),
-                        60, "Otra vez"), "luis.paz@umss.edu"))
+                        60, "Otra vez por un corte de luz"), "luis.paz@umss.edu"))
                 .hasMessageContaining("Solo se reprograma un examen que ya finalizó");
     }
 
