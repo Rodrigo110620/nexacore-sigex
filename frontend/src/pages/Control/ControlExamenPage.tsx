@@ -76,7 +76,7 @@ export default function ControlExamenPage() {
             <div className="mt-4">
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
-            <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} {...datos} />
+            <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
           </>
         ) : (
           <p className="text-sm text-[#B91C1C]">El examen indicado no es válido.</p>

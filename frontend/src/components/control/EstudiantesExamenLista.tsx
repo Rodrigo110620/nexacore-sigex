@@ -7,6 +7,7 @@ import RegistroExpulsion from './RegistroExpulsion'
 import { getUserInitials } from '../users/userAvatar.utils'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
+import type { ExamenDto } from '../../services/examenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import ReasignarAmbienteModal from './ReasignarAmbienteModal'
 import { tienePermiso } from '../../utils/permisos'
@@ -118,7 +119,7 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
 }
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
-export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, onExito }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; onExito?: () => void }) {
+export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, datosExamen, onExito }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; datosExamen?: ExamenDto; onExito?: () => void }) {
   const auth = useAuth()
   // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
   // personal de control reporta el incidente y la notificación les llega a ellos.
@@ -222,7 +223,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
           )
         })}
       </ul>
-      {puedeExpulsar && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
+      {puedeExpulsar && seleccionado && <ExpulsarEstudianteModal idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiante={seleccionado} onClose={() => setSeleccionado(null)} />}
         {modalReasignarAbierto && estudianteSeleccionado && (
         <ReasignarAmbienteModal
           idExamen={idExamen}

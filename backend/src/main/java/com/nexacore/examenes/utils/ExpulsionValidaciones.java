@@ -34,7 +34,17 @@ public final class ExpulsionValidaciones {
             throw new IllegalArgumentException("El motivo de expulsión es obligatorio");
         }
         String texto = ValidacionTextoLibre.validarOpcional(
-                motivo, "El motivo de expulsión", 1, ExpulsarEstudianteRequest.MOTIVO_MAX);
+                motivo, "El motivo de expulsión", ExpulsarEstudianteRequest.MOTIVO_MIN, ExpulsarEstudianteRequest.MOTIVO_MAX);
+        if (texto.contains("  ") || texto.contains("\n") || texto.contains("\r")) {
+            throw new IllegalArgumentException("El motivo solo permite un espacio entre palabras");
+        }
+        if (texto.codePoints().noneMatch(Character::isLetter)) {
+            throw new IllegalArgumentException("El motivo debe contener palabras que expliquen la expulsión");
+        }
+        String garabato = ValidacionPalabras.primerGarabato(texto.replaceAll("(?i)\\b(?:qr|ci|sis)\\b", "documento"));
+        if (garabato != null) {
+            throw new IllegalArgumentException("El motivo contiene contenido no válido: " + garabato);
+        }
         String minusculas = texto.toLowerCase(Locale.forLanguageTag("es"));
         for (int i = 0; i < minusculas.length(); i++) {
             if (Character.isLetter(minusculas.charAt(i))) {
