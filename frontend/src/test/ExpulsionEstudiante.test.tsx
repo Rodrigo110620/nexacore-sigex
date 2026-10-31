@@ -5,6 +5,7 @@ import { AuthProvider } from '../context/AuthContext'
 import EstudiantesExamenLista from '../components/control/EstudiantesExamenLista'
 import api from '../services/api'
 import { EVENTO_CAMBIO } from '../services/notificacionService'
+import type { ExamenDto } from '../services/examenService'
 
 vi.mock('../services/api')
 const estudiante = {
@@ -12,10 +13,15 @@ const estudiante = {
   ci: '9000101', carrera: 'Sistemas', estado: 'HABILITADO' as const,
   motivoInhabilitacion: null, ingresado: true, expulsado: false,
 }
+const examen: ExamenDto = {
+  idExamen: 20, idParalelo: 1, asignatura: 'Ingeniería', docente: 'Ana Rojas',
+  fecha: '2026-10-31', horaInicio: '14:00:00', duracionMinutos: 90,
+  idAmbiente: 1, ambienteNombre: 'Aula 201', estado: 'en-curso', normasGenerales: [], normasParticulares: [],
+}
 function montar(rol = 'ADMIN', ingresado = true, expulsado = false) {
   localStorage.setItem('token', 'test')
   localStorage.setItem('roles', JSON.stringify([rol]))
-  return render(<AuthProvider><MemoryRouter><EstudiantesExamenLista idExamen={20} examen="Ingeniería · Aula 201" estudiantes={[{ ...estudiante, ingresado, expulsado }]} /></MemoryRouter></AuthProvider>)
+  return render(<AuthProvider><MemoryRouter><EstudiantesExamenLista idExamen={20} examen="Ingeniería · Aula 201" datosExamen={examen} estudiantes={[{ ...estudiante, ingresado, expulsado }]} /></MemoryRouter></AuthProvider>)
 }
 beforeEach(() => {
   vi.resetAllMocks()
@@ -44,12 +50,38 @@ it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', 
   const modal = screen.getByRole('dialog', { name: 'Confirmar expulsión' })
   expect(within(modal).getByText('Lucía Aguilar')).toBeInTheDocument()
   expect(within(modal).getByText(/Examen #20 · Ingeniería/)).toBeInTheDocument()
+  expect(within(modal).getByText('Fecha: 31/10/2026')).toBeInTheDocument()
+  expect(within(modal).getByText('Horario: 14:00 – 15:30')).toBeInTheDocument()
+  expect(within(modal).getByText('Ambiente del examen: Aula 201')).toBeInTheDocument()
+  expect(within(modal).getByText('Al confirmar, se registrará:')).toBeInTheDocument()
   fireEvent.change(within(modal).getByRole('textbox'), { target: { value: '   ' } })
   expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).not.toHaveBeenCalled()
   fireEvent.click(within(modal).getByRole('button', { name: 'Cancelar' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it.each([0, 1])('vista %s: valida junto al motivo y limita también el texto pegado a 65', (indice) => {
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
+  const modal = screen.getByRole('dialog')
+  const campo = within(modal).getByRole('textbox')
+  for (const motivo of ['Copia ora', 'Drrtgrdsgdgdfggfdffd', 'Uso de celularrrrr', 'Uso  de celular']) {
+    fireEvent.change(campo, { target: { value: motivo } })
+    expect(campo).toHaveAttribute('aria-invalid', 'true')
+    expect(campo).toHaveAccessibleDescription(/motivo/i)
+    expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
+    fireEvent.submit(modal.querySelector('form')!)
+  }
+  expect(api.post).not.toHaveBeenCalled()
+  fireEvent.change(campo, { target: { value: 'Uso de ' + 'a '.repeat(28) + 'qrs' } })
+  expect(campo).toHaveAttribute('maxlength', '65')
+  expect((campo as HTMLTextAreaElement).value).toHaveLength(65)
+  expect(within(modal).getByText('65/65')).toBeInTheDocument()
+  fireEvent.change(campo, { target: { value: 'Copia oral' } })
+  expect(campo).toHaveAttribute('aria-invalid', 'false')
+  expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeEnabled()
 })
 
 it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar', async (indice) => {
