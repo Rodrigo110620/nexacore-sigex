@@ -101,8 +101,21 @@ export default function RegistrarNoHabilitadoModal({
         showError('observaciones', 'Las observaciones no pueden superar los 200 caracteres.')
         return
       }
-      if (/^[0-9\s]+$/.test(textoObs)) {
-        showError('observaciones', 'Las observaciones deben contener letras, no solo números.')
+
+      const regexSoloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/;
+      if (!regexSoloLetras.test(textoObs)) {
+        showError('observaciones', 'Solo se permiten letras y espacios. No se admiten números ni símbolos.')
+        return
+      }
+
+      const soloLetras = textoObs.replace(/\s/g, '')
+      if (/^(.)\1+$/.test(soloLetras)) {
+        showError('observaciones', 'Las observaciones no pueden ser una sola letra repetida.')
+        return
+      }
+      // 2. Si hay una misma letra repetida más de 3 veces seguidas (ej: "holaaaa", "reeeetiró")
+      if (/([a-zA-ZáéíóúÁÉÍÓÚüÜñÑ])\1{3,}/.test(textoObs)) {
+        showError('observaciones', 'Las observaciones tienen letras repetidas de forma inconsistente.')
         return
       }
     }
@@ -186,7 +199,6 @@ export default function RegistrarNoHabilitadoModal({
                     />
                   </button>
 
-
                   {dropdownOpen && (
                     <div className="absolute z-10 mt-0.5 w-full rounded-lg border border-[#D8E3F5] bg-white py-1 shadow-xl">
                       {OPCIONES_ACCION.map((opcion) => (
@@ -217,7 +229,10 @@ export default function RegistrarNoHabilitadoModal({
                 <textarea
                   id="observaciones"
                   value={observaciones}
-                  onChange={(e) => setObservaciones(toSentenceCase(e.target.value))}
+                  onChange={(e) => {
+                    const valorLimpio = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/g, '')
+                    setObservaciones(toSentenceCase(valorLimpio))
+                  }}
                   placeholder="El estudiante se retiró sin oponer resistencia."
                   rows={3}
                   className={inputClass}

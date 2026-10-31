@@ -119,12 +119,13 @@ export default function ExamenesPage() {
             'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)',
         }}
       >
-        <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
+        <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-3 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
+            
             {!isControlView && (
-              <div className="mb-4 rounded-xl border border-[#D8E3F5] bg-white px-4 py-3 shadow-sm min-[960px]:hidden">
-                <h1 className="text-sm font-extrabold text-[#011140]">GESTIÓN DE EXÁMENES</h1>
-                <p className="mt-1 text-[11px] leading-relaxed text-[#627A9B]">
+              <div className="mb-4 border-b border-[#E6EAF0] pb-3 min-[960px]:hidden">
+                <h1 className="text-base font-bold uppercase text-[#171C27]">GESTIÓN DE EXÁMENES</h1>
+                <p className="mt-0 text-xs text-[#627A9B]">
                   Administra los exámenes programados y su habilitación.
                 </p>
               </div>
