@@ -45,6 +45,7 @@ public class IntentoIngresoService {
 
     @Transactional
     public void registrar(RegistrarIntentoIngresoRequest request, String emailControl) {
+        String motivoValidado = com.nexacore.examenes.utils.MotivoIntento.validarYNormalizar(request.motivo());
         if (!examenRepository.existsByIdIdExamen(request.idExamen())) {
             throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + request.idExamen());
         }
@@ -61,13 +62,13 @@ public class IntentoIngresoService {
         var control = usuarioRepository.findByEmail(emailControl).orElseThrow(() ->
                 new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
         int insertados = intentoRepository.registrar(request.idExamen(), request.idEstudiante(), control.getId(),
-                request.identificador().trim(), request.motivo().trim());
+                request.identificador().trim(), motivoValidado);
         if (insertados != 1) throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen indicado");
         var estudiante = estudianteRepository.findById(request.idEstudiante()).orElseThrow();
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, request.idExamen(), request.idEstudiante());
         notificacionService.publicar(Notificacion.INTENTO_INGRESO,
                 "Intento de ingreso incorrecto: " + estudiante.getNombre() + " " + estudiante.getApellidos(),
-                notificacionService.materia(request.idExamen()) + " · " + request.motivo().trim()
+                notificacionService.materia(request.idExamen()) + " · " + motivoValidado
                         + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
                 request.idExamen(), request.idEstudiante(), enlace(request.idExamen()), emailControl);
     }

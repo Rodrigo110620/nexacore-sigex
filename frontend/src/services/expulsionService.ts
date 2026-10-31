@@ -1,4 +1,18 @@
 import api from './api'
+import { validarTextoLibre } from '../utils/textoLibreValidators'
+import { primerGarabato } from '../utils/palabras'
+
+export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 65 }
+
+export function validarMotivoExpulsion(motivo: string): string | null {
+  if (!motivo.trim()) return 'El motivo es obligatorio.'
+  const error = validarTextoLibre(motivo, MOTIVO_EXPULSION)
+  if (error) return error
+  if (/ {2,}|[\r\n]/.test(motivo.trim())) return 'El motivo solo permite un espacio entre palabras'
+  if (!/\p{L}/u.test(motivo)) return 'El motivo debe contener palabras que expliquen la expulsión'
+  const garabato = primerGarabato(motivo.trim().replace(/\b(?:qr|ci|sis)\b/gi, 'documento'))
+  return garabato ? `El motivo contiene contenido no válido: ${garabato}` : null
+}
 
 /** Cambia solo mayúsculas/minúsculas; conserva signos, números y espacios internos. */
 export function normalizarMotivoExpulsion(motivo: string): string {

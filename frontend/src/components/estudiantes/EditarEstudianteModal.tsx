@@ -16,6 +16,7 @@ import type {
     FacultadOption,
 } from '../../types/estudiante'
 import FotoEstudiante from './FotoEstudiante'
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
 import { getInitials } from './avatarColors'
 import { prepararFoto, validarArchivoFoto } from '../../utils/fotoEstudiante'
@@ -102,6 +103,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
     const [quitarFoto, setQuitarFoto] = useState(false)
     const [fotoError, setFotoError] = useState('')
     const [procesandoFoto, setProcesandoFoto] = useState(false)
+    const [descartar, setDescartar] = useState(false)
     const previewRef = useRef<string | null>(null)
 
     const cambiarPreview = (url: string | null) => {
@@ -175,7 +177,16 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         setQuitarFoto(false)
         setFotoError('')
         setLoading(true)
+        setDescartar(false)
         onClose()
+    }
+
+    // BUG 11 (2.º test run): con cambios sin guardar, la X y Cancelar piden confirmar antes de descartar.
+    const hayCambios = !success && (JSON.stringify(form) !== JSON.stringify(originalForm) || fotoNueva !== null || quitarFoto)
+    const pedirCerrar = () => {
+        if (saving) return
+        if (hayCambios) setDescartar(true)
+        else close()
     }
 
     const closeAndNotify = () => {
@@ -296,6 +307,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
             aria-modal="true"
             aria-labelledby="edit-student-title"
         >
+            <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={close} />
             <div className="relative flex h-[90dvh] max-h-[680px] w-full flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:max-w-[640px] sm:rounded-2xl">
                 <header className="flex shrink-0 items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
                     <div className="flex gap-3">
@@ -313,7 +325,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     </div>
                     <button
                         type="button"
-                        onClick={close}
+                        onClick={pedirCerrar}
                         onMouseDown={(e) => e.preventDefault()}
                         aria-label="Cerrar"
                         className="rounded p-1 text-[#627A9B] hover:bg-gray-100"
@@ -535,7 +547,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#D8E3F5] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-5 sm:pb-3">
                     <button
                         type="button"
-                        onClick={close}
+                        onClick={pedirCerrar}
                         onMouseDown={(e) => e.preventDefault()}
                         disabled={saving}
                         className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D] hover:bg-gray-100 disabled:opacity-60"

@@ -5,6 +5,7 @@ import { getCarreras, getFacultades, registrarEstudiante } from '../../services/
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
 import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 
 interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: string) => void }
@@ -31,6 +32,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const [errorField, setErrorField] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [resultado, setResultado] = useState<Resultado | null>(null)
+  const [descartar, setDescartar] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -55,8 +57,16 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   const close = () => {
     if (saving) return
-    setStep(1); setForm(initialForm); setResultado(null); setErrorModalOpen(false); onClose()
+    setStep(1); setForm(initialForm); setResultado(null); setErrorModalOpen(false); setDescartar(false); onClose()
   }
+  // BUG 11 (2.º test run): con datos ingresados, la X y Cancelar piden confirmar antes de descartar.
+  const hayDatos = !resultado && JSON.stringify(form) !== JSON.stringify(initialForm)
+  const pedirCerrar = () => {
+    if (saving) return
+    if (hayDatos) setDescartar(true)
+    else close()
+  }
+
 
   const update = (field: keyof FormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
@@ -143,13 +153,14 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="register-student-title">
+      <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={close} />
       <div className="w-full overflow-hidden rounded-xl border border-[#D8E3F5] bg-white shadow-xl sm:max-h-[92vh] sm:max-w-2xl sm:overflow-y-auto sm:rounded-2xl sm:shadow-2xl">
         <header className="flex items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
           <div className="flex gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><UserPlus size={19} /></span>
             <div><div className="flex flex-wrap items-center gap-2"><h2 id="register-student-title" className="font-bold text-[#011140]">Registrar Estudiante</h2><span className="rounded bg-[#E9F1FF] px-2 py-0.5 text-[10px] font-bold text-[#0439D9]">Paso {step} de 2</span></div><p className="mt-1 text-xs text-[#627A9B]">{step === 1 ? 'Complete los datos obligatorios con asterisco (*) para autorizar el acceso.' : 'Asigne el código institucional, facultad y carrera académica oficial.'}</p></div>
           </div>
-          <button type="button" onClick={close} onMouseDown={(e) => e.preventDefault()} aria-label="Cerrar" className="rounded p-1 text-[#627A9B] hover:bg-gray-100"><X size={18} /></button>
+          <button type="button" onClick={pedirCerrar} onMouseDown={(e) => e.preventDefault()} aria-label="Cerrar" className="rounded p-1 text-[#627A9B] hover:bg-gray-100"><X size={18} /></button>
         </header>
 
         <div className="grid grid-cols-2 border-b border-[#D8E3F5] px-4 pt-2 text-[12px] font-semibold sm:px-5">
@@ -213,7 +224,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
         </div>
 
         <footer className="flex flex-col-reverse gap-2 border-t border-[#D8E3F5] px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
-          <button type="button" onClick={step === 1 ? close : () => setStep(1)} onMouseDown={(e) => e.preventDefault()} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">{step === 1 ? 'Cancelar' : '← Atrás'}</button>
+          <button type="button" onClick={step === 1 ? pedirCerrar : () => setStep(1)} onMouseDown={(e) => e.preventDefault()} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">{step === 1 ? 'Cancelar' : '← Atrás'}</button>
           {step === 1 ? <button type="button" onClick={() => validateStep1() && setStep(2)}  className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md">Siguiente paso →</button> : <button type="button" disabled={saving} onClick={submit} className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">{saving ? 'Registrando...' : 'Registrar Estudiante'}</button>}
         </footer>
       </div>

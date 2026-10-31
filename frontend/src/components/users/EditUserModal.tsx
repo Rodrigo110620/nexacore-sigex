@@ -2,6 +2,7 @@ import { X, Info, Check, CircleAlert, Mail, Dot, UserRoundPen } from 'lucide-rea
 import { useState } from 'react';
 import api from '../../services/api';
 import PersonalInfoSection from '../admin/PersonalInfoSection';
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
 import CredentialsSection from '../admin/CredentialsSection';
 import {
   type FormErrors,
@@ -56,6 +57,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [descartar, setDescartar] = useState(false);
 
   if (!isOpen) return null;
 
@@ -87,7 +89,16 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     setGeneralError('');
     setSuccess(false);
     setRegisteredEmail('');
+    setDescartar(false);
     onClose();
+  };
+
+  // BUG 11 (2.º test run): con cambios sin guardar, la X y Cancelar piden confirmar antes de descartar.
+  const hayCambios = !success && JSON.stringify(form) !== JSON.stringify(buildFormFromUser(user));
+  const pedirCerrar = () => {
+    if (loading) return;
+    if (hayCambios) setDescartar(true);
+    else handleClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +188,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       aria-modal="true"
       aria-labelledby="edit-user-title"
     >
+      <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={handleClose} />
       <div className="flex h-[70dvh] max-h-[680px] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,900px)] sm:rounded-2xl sm:border-gray-100">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-6">
           <div className="min-w-0 flex-1">
@@ -200,7 +212,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
           </div>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={pedirCerrar}
             aria-label="Cerrar"
             className="mt-4 shrink-0 rounded-full bg-[#F1F6FF] p-2 text-[#627A9B] transition-colors hover:bg-gray-100 hover:text-gray-600 sm:mt-0 sm:rounded-lg sm:bg-transparent"
           >
@@ -250,7 +262,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
               <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={pedirCerrar}
                   className="w-full rounded-lg px-4 py-2 text-sm font-medium text-[#627A9B] transition-colors hover:bg-gray-200 sm:w-auto sm:px-5 sm:py-2.5 sm:text-[#011140]"
                 >
                   Cancelar

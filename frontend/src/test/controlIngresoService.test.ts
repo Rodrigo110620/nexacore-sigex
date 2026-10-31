@@ -92,6 +92,23 @@ describe('INCI-01: confirmación de expulsión', () => {
     expect(mockedApi.post).not.toHaveBeenCalled()
   })
 
+  it.each(['Copia ora', 'Uso de ' + 'a '.repeat(28) + 'QRs', 'Drrtgrdsgdgdfggfdffd',
+    'Uso de celularrrrr', 'Uso  de celular', 'Uso\nde celular', '1234567890', 'Uso de qwerty'])(
+    'rechaza el motivo inválido %s sin enviar ni notificar', async (motivo) => {
+      await expect(expulsarEstudiante({ ...payload, motivo })).rejects.toThrow()
+      expect(mockedApi.post).not.toHaveBeenCalled()
+      expect(window.dispatchEvent).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['Copia oral', 'Uso de ' + 'a '.repeat(28) + 'qr', 'Uso de qr durante el examen'])(
+    'confirma límites y siglas sin cambiar la respuesta oficial: %s', async (motivo) => {
+      const confirmada = { ...registro, motivo }
+      mockedApi.post = vi.fn().mockResolvedValue({ data: confirmada })
+      await expect(expulsarEstudiante({ ...payload, motivo })).resolves.toBe(confirmada)
+    },
+  )
+
   it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
     'rechaza identificadores inválidos %s sin enviar HTTP', async (id) => {
       await expect(expulsarEstudiante({ ...payload, idEstudiante: id })).rejects.toThrow('identificadores')
