@@ -9,11 +9,21 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @AutoConfigureMockMvc
 class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
     @Autowired MockMvc mvc;
+
+    @Test
+    void unMotivoCortoNoPersisteLaExpulsion() throws Exception {
+        mvc.perform(post("/control-ingresos/expulsar").with(user(email).roles("ADMIN"))
+                        .contentType("application/json").content("{\"idEstudiante\":" + estudiante
+                                + ",\"idExamen\":" + examen + ",\"motivo\":\"Copia ora\"}"))
+                .andExpect(status().isBadRequest());
+        assertEquals(0, expulsiones.deSesionActual(examen, null).size());
+    }
 
     @Test
     void consultaRealIncluyeIdentidadSinHistorialManualYConservaAuditoria() throws Exception {

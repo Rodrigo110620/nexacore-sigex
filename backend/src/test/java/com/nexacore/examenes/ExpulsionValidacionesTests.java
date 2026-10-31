@@ -33,10 +33,10 @@ class ExpulsionValidacionesTests {
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(id, 20, REQUEST.motivo())).isEmpty());
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(10, id, REQUEST.motivo())).isEmpty());
             }
-            for (String motivo : new String[] {null, "", " \n\t ", "ab".repeat(250) + "c"}) {
+            for (String motivo : new String[] {null, "", " \n\t ", "Copia ora", "ab".repeat(33)}) {
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(10, 20, motivo)).isEmpty());
             }
-            assertTrue(validator.validate(new ExpulsarEstudianteRequest(10, 20, "ab".repeat(250))).isEmpty());
+            assertTrue(validator.validate(new ExpulsarEstudianteRequest(10, 20, "ab".repeat(32) + "c")).isEmpty());
         }
     }
 
@@ -79,10 +79,27 @@ class ExpulsionValidacionesTests {
 
     @ParameterizedTest
     @CsvSource({"uso de celular,Uso de celular", "USO DE CELULAR,Uso de celular",
-            "  áRBOL y ÑANDÚ  ,Árbol y ñandú", "¿uSO  de CELULAR?,¿Uso  de celular?",
+            "  áRBOL y ÑANDÚ  ,Árbol y ñandú", "¿uSO de CELULAR?,¿Uso de celular?",
             "123 uso de CELULAR,123 Uso de celular"})
     void normalizaSoloLaCajaSinAlterarSignosNiEspacios(String entrada, String esperado) {
         assertEquals(esperado, ExpulsionValidaciones.motivo(entrada));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Copia ora", "Drrtgrdsgdgdfggfdffd", "Uso de celularrrrr", "Uso  de celular",
+            "Uso\nde celular", "1234567890", "Uso de qwerty"})
+    void rechazaLongitudContenidoYSeparacionesInvalidas(String motivo) {
+        assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(motivo));
+    }
+
+    @Test
+    void admiteLosLimitesDiezYSesentaYCincoSinBloquearSiglas() {
+        assertEquals("Copia oral", ExpulsionValidaciones.motivo("Copia oral"));
+        String limite = "Uso de " + "a ".repeat(28) + "QR";
+        assertEquals(65, limite.length());
+        assertEquals(limite.toLowerCase().replaceFirst("u", "U"), ExpulsionValidaciones.motivo(limite));
+        assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(limite + "s"));
+        assertEquals("Uso de qr durante el examen", ExpulsionValidaciones.motivo("USO DE QR DURANTE EL EXAMEN"));
     }
 
     @Test
