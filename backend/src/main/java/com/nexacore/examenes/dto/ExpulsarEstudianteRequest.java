@@ -13,4 +13,13 @@ public record ExpulsarEstudianteRequest(
 ) {
     public static final int MOTIVO_MIN = 10;
     public static final int MOTIVO_MAX = 65;
+
+    public ExpulsarEstudianteRequest {
+        motivo = normalizarEspacios(motivo);
+    }
+
+    /** Los límites se cuentan después de quitar extremos y reducir espacios; no altera el historial. */
+    public static String normalizarEspacios(String motivo) {
+        return motivo == null ? null : motivo.strip().replaceAll(" +", " ");
+    }
 }
