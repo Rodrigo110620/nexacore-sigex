@@ -110,7 +110,7 @@ class ControlIngresoServiceTests {
 
     @Test
     void justificacionInvalidaNoCreaIngresoNiCambiaAsistencia() {
-        for (String texto : new String[] {"a".repeat(66), "12345678901", "????????????", "Celular  apagado", " Celular apagado", "Celular apagado ", "Celular\tact ivo", "Celular\napagado"}) {
+        for (String texto : new String[] {"a".repeat(66), "12345678901", "????????????", "Celular  apagado", " Celular apagado", "Bhgghjhgggyjy", "t".repeat(40), "Celular\tact ivo", "Celular\napagado"}) {
             var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null, null, true, texto);
             assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ControlIngresoException.class,
                     () -> service.autorizar(request, "control@umss.edu.bo")).getStatus());
@@ -118,6 +118,15 @@ class ControlIngresoServiceTests {
         assertNull(asistencia.getFechaHoraIngreso());
         verify(asistenciaRepository, never()).autorizarConFechaServidor(any(), any(), any(), any(), any());
         verifyNoInteractions(registroRepository, incidenciaRepository);
+    }
+
+    @Test
+    void ingresoManualLimpiaEspaciosYSaltosFinalesAntesDeGuardar() {
+        var request = new AutorizarIngresoRequest(10, 20, null, true, List.of(), List.of(), null,
+                null, true, "No tiene celular  \r\n");
+        assertTrue(service.autorizar(request, "control@umss.edu.bo").autorizado());
+        verify(registroRepository).marcarIngresoManual(10, 20, "No tiene celular");
+        verify(asistenciaRepository).autorizarConFechaServidor(10, 20, 5, 7, null);
     }
 
     @Test

@@ -1,4 +1,4 @@
-import { contarLetrasJustificacion, normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
+import { normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -88,6 +88,7 @@ export default function ControlIngresoPage() {
   const [searchParams] = useSearchParams()
   const [ingresoManual, setIngresoManual] = useState(searchParams.get('ingreso') === 'manual')
   const [justificacionManual, setJustificacionManual] = useState('')
+  const [justificacionError, setJustificacionError] = useState<string | null>(null)
   const idEstudiante = Number(p.idEstudiante), idExamen = Number(p.idExamen)
   const valid = Number.isInteger(idEstudiante) && Number.isInteger(idExamen)
   const [ctx, setCtx] = useState<ContextoControlIngreso | null>(null)
@@ -165,7 +166,7 @@ export default function ControlIngresoPage() {
   const submit = async (denegar = false) => {
     const errorJustificacion = validarJustificacion(justificacionManual)
     if (!denegar && ingresoManual && errorJustificacion) {
-      setError(errorJustificacion)
+      setJustificacionError(errorJustificacion)
       return
     }
     const errorIncidencia = otraIncidenciaSeleccionada ? validarTextoLibre(incident, DETALLE_INCIDENCIA) : null
@@ -228,7 +229,11 @@ export default function ControlIngresoPage() {
       setDenialOpen(false)
     } catch (err) {
       if (isNetworkError(err)) setAviso({ tipo: 'offline', mensaje: denegar ? SIN_CONEXION_DENEGAR : SIN_CONEXION_AUTORIZAR })
-      else setError(mensajeDelServidor(err) ?? 'No se pudo registrar el control. Intenta nuevamente.')
+      else {
+        const mensaje = mensajeDelServidor(err)
+        if (ingresoManual && !denegar && mensaje?.toLocaleLowerCase('es').includes('justificación')) setJustificacionError(mensaje)
+        else setError(mensaje ?? 'No se pudo registrar el control. Intenta nuevamente.')
+      }
     } finally {
       setSaving(false)
     }
@@ -270,14 +275,15 @@ export default function ControlIngresoPage() {
               </div>
             ) : (
               <label className="flex items-center gap-2 text-sm font-semibold text-[#011140]">
-                <input type="checkbox" checked={ingresoManual} onChange={e=>setIngresoManual(e.target.checked)}/>
+                <input type="checkbox" checked={ingresoManual} onChange={e=>{setIngresoManual(e.target.checked);setJustificacionError(null)}}/>
                 Ingreso manual por excepción
               </label>
             )}
             {ingresoManual && <div className="mt-3">
               <label htmlFor="justificacion-manual" className="block text-xs font-semibold">Justificación del ingreso manual (obligatoria)</label>
-              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{setJustificacionManual(normalizarJustificacion(e.target.value));setError('')}} aria-describedby="justificacion-ayuda" aria-invalid={!!justificacionManual && !!validarJustificacion(justificacionManual)} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado"/>
-              <p id="justificacion-ayuda" className="mt-1 text-xs text-[#627A9B]">{contarLetrasJustificacion(justificacionManual)}/65 letras. Mínimo 10 caracteres; solo letras y un espacio entre palabras. Se guardará con el usuario y la hora del servidor.</p>
+              <textarea id="justificacion-manual" value={justificacionManual} onChange={e=>{const valor = e.target.value.slice(0, 65).toLocaleLowerCase('es').replace(/\p{L}/u, letra => letra.toLocaleUpperCase('es'));setJustificacionManual(valor);setJustificacionError(validarJustificacion(valor));setError('')}} maxLength={65} aria-describedby={`justificacion-ayuda${justificacionError ? ' justificacion-error' : ''}`} aria-invalid={!!justificacionError} rows={3} className="control-input mt-1" placeholder="Ej.: El celular está apagado"/>
+              {justificacionError && <p id="justificacion-error" role="alert" className="mt-1 text-xs text-red-700">{justificacionError}</p>}
+              <p id="justificacion-ayuda" className="mt-1 text-xs text-[#627A9B]">{justificacionManual.length}/65 caracteres. Mínimo 10 caracteres; solo letras y un espacio entre palabras. Se guardará con el usuario y la hora del servidor.</p>
             </div>}
           </div>
           <div className="control-fields">
