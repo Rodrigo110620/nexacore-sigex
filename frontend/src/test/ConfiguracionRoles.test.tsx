@@ -9,6 +9,8 @@ import { tienePermiso } from '../utils/permisos'
 
 vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null }))
+// Sesión de ADMIN: la sección de respaldo de la base solo la ve el ADMIN.
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: ['ADMIN'], permisos: null }) }))
 vi.mock('../services/rolesService', () => ({
   listarRolesConPermisos: vi.fn(), listarPermisos: vi.fn(), crearRolConPermisos: vi.fn(), actualizarRol: vi.fn(), eliminarRol: vi.fn(),
 }))

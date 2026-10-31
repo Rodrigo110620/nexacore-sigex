@@ -93,3 +93,13 @@ app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   password-reset:
     expiration-minutes: ${PASSWORD_RESET_EXPIRATION_MINUTES:30}
+  # Respaldo de la base con pg_dump (IMP-10). El laboratorio no respalda las bases de los grupos.
+  # El ADMIN lo descarga en Configuración. El respaldo automático nocturno queda apagado: solo se
+  # activa si el laboratorio carga RESPALDO_DIR apuntando a un volumen persistente (no se puede
+  # agregar en docker-compose.yml, que el laboratorio no permite modificar).
+  respaldo:
+    directorio: ${RESPALDO_DIR:}
+    cron: ${RESPALDO_CRON:0 0 3 * * *}
+    conservar: ${RESPALDO_CONSERVAR:7}
+    pg-dump: ${RESPALDO_PG_DUMP:pg_dump}
+    minutos-maximos: ${RESPALDO_MINUTOS_MAXIMOS:10}
