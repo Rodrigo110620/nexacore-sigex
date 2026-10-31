@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Flag, Info, X } from 'lucide-react'
 import { MOTIVOS_REPORTE, mensajeDeError, reportarFoto, type MotivoReporteFoto } from '../../services/fotoRevisionService'
 import { isOffline } from '../../utils/examFormUtils'
 import { DETALLE_REPORTE_MAX, aOracion, validarDetalleReporte } from '../../utils/textoFotoValidators'
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 
 const DETALLE_MAX = DETALLE_REPORTE_MAX
 
@@ -23,12 +24,28 @@ export default function ReportarFotoModal({
   const [motivo, setMotivo] = useState<MotivoReporteFoto>('NO_SE_PARECE')
   const [detalle, setDetalle] = useState('')
   const [saving, setSaving] = useState(false)
+  // Error del campo Detalle (va debajo del campo) y error general (conexión o servidor, al final).
+  const [errorDetalle, setErrorDetalle] = useState('')
   const [error, setError] = useState('')
+  const [descartar, setDescartar] = useState(false)
+  // BUG-E02 (2.º test run): con datos ingresados, cerrar pide confirmación.
+  const hayDatos = detalle.trim() !== '' || motivo !== 'NO_SE_PARECE'
+  const cerrar = () => {
+    if (saving) return
+    if (hayDatos) setDescartar(true)
+    else onClose()
+  }
+
+  useEffect(() => {
+    const alPresionar = (e: KeyboardEvent) => { if (e.key === 'Escape' && !descartar) cerrar() }
+    document.addEventListener('keydown', alPresionar)
+    return () => document.removeEventListener('keydown', alPresionar)
+  })
 
   const enviar = async () => {
     const invalido = validarDetalleReporte(detalle)
     if (invalido) {
-      setError(invalido)
+      setErrorDetalle(invalido)
       return
     }
     if (isOffline()) {
@@ -49,6 +66,7 @@ export default function ReportarFotoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={onClose} />
       <form
         role="dialog"
         aria-modal="true"
@@ -66,7 +84,7 @@ export default function ReportarFotoModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={cerrar}
             disabled={saving}
             aria-label="Cerrar"
             className="shrink-0 rounded-full bg-[#F1F5F9] p-1.5 text-gray-500 hover:bg-gray-200 disabled:opacity-50"
@@ -107,10 +125,15 @@ export default function ReportarFotoModal({
           value={detalle}
           maxLength={DETALLE_MAX}
           rows={2}
-          onChange={(e) => { setDetalle(e.target.value); setError('') }}
+          aria-invalid={!!errorDetalle}
+          aria-describedby={errorDetalle ? 'reportar-foto-detalle-error' : undefined}
+          onChange={(e) => { setDetalle(e.target.value); setErrorDetalle(''); setError('') }}
+          onBlur={() => setErrorDetalle(validarDetalleReporte(detalle) ?? '')}
           placeholder="Ej. No se parece a la foto registrada"
-          className="mt-1 w-full resize-none rounded-lg border border-[#B8CBEF] px-3 py-2 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25"
+          className={`mt-1 w-full resize-none rounded-lg border px-3 py-2 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]/25 ${errorDetalle ? 'border-red-400' : 'border-[#B8CBEF]'}`}
         />
+        {/* BUG-E01 (2.º test run): el error del Detalle va debajo del campo, no al final del formulario. */}
+        {errorDetalle && <p id="reportar-foto-detalle-error" role="alert" className="mt-1 text-xs text-red-700">{errorDetalle}</p>}
         <p className="mt-0.5 flex justify-between gap-2 text-[10px] text-gray-400">
           <span>Solo letras y espacios, de 10 a {DETALLE_MAX} caracteres.</span>
           <span className="shrink-0">{detalle.length}/{DETALLE_MAX}</span>
@@ -127,7 +150,7 @@ export default function ReportarFotoModal({
         )}
 
         <div className="mt-4 flex gap-3">
-          <button type="button" onClick={onClose} disabled={saving} className="flex-1 rounded-lg border border-[#D8E3F5] py-2.5 text-sm font-semibold text-[#011140]">
+          <button type="button" onClick={cerrar} disabled={saving} className="flex-1 rounded-lg border border-[#D8E3F5] py-2.5 text-sm font-semibold text-[#011140]">
             Cancelar
           </button>
           <button

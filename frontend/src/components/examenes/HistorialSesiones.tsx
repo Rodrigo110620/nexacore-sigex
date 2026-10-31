@@ -37,17 +37,18 @@ export default function HistorialSesiones({ idExamen, idParalelo, recarga = 0 }:
         {sesiones.map((s) => {
           const expandida = abierta === s.numero
           return (
-            <li key={s.numero} className="rounded-xl border border-[#E8EEF7]">
+            <li key={s.numero} className="min-w-0 overflow-hidden rounded-xl border border-[#E8EEF7]">
               <button type="button" onClick={() => setAbierta(expandida ? null : s.numero)} aria-expanded={expandida}
                 className="flex w-full items-start justify-between gap-3 p-3 text-left hover:bg-[#F8FAFC]">
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-[#011140]">
                     Sesión {s.numero} · {formatFecha(s.fecha)} · {horaCorta(s.horaInicio)} · {s.duracionMinutos} min{s.ambiente ? ` · ${s.ambiente}` : ''}
                   </span>
                   <span className="block text-xs text-[#45628D]">
                     Ingresaron {s.ingresaron} de {s.asociados} · Reprogramado{s.reprogramadoPor ? ` por ${s.reprogramadoPor}` : ''} el {fechaHora(s.cerradaEn)}
                   </span>
-                  <span className="block text-xs text-[#627A9B]">Motivo: {s.motivoReprogramacion}</span>
+                  {/* BUG 12 (2.º test run): un motivo largo, incluso sin espacios, baja de línea dentro de la tarjeta. */}
+                  <span className="block whitespace-pre-wrap text-xs text-[#627A9B] [overflow-wrap:anywhere]">Motivo: {s.motivoReprogramacion}</span>
                 </span>
                 <ChevronDown size={16} className={`mt-1 shrink-0 text-[#627A9B] transition-transform ${expandida ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>

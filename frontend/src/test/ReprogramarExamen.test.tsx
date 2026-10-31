@@ -38,7 +38,11 @@ describe('Reprogramar examen', () => {
     expect(screen.getByText('120 minutos')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Reprogramar' }))
 
-    await vi.waitFor(() => expect(onReprogramado).toHaveBeenCalled())
+    // BUG 8: primero muestra el modal de éxito; al aceptar, vuelve al detalle.
+    expect(await screen.findByText('Examen reprogramado')).toBeInTheDocument()
+    expect(onReprogramado).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Aceptar' }))
+    expect(onReprogramado).toHaveBeenCalled()
     expect(service.reprogramarExamen).toHaveBeenCalledWith(4, 9, {
       fecha: '2099-01-10', horaInicio: '08:00', duracionMinutos: 120, motivo: 'Se repite por un corte de luz',
     })
@@ -78,6 +82,50 @@ describe('Reprogramar examen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reprogramar' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El aula ya está ocupada en ese horario')
+  })
+
+  it('BUG 8: valida el motivo y muestra el error debajo del campo', () => {
+    render(<ReprogramarExamenModal examen={examen} onClose={vi.fn()} onReprogramado={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('Nueva fecha'), { target: { value: '10012099' } })
+    const motivo = screen.getByLabelText(/Motivo/)
+    for (const [texto, mensaje] of [
+      ['fffffffffffffff', 'misma letra repetida'],
+      ['Se repite  por corte', 'un solo espacio'],
+      ['Se repite por corte!', 'solo admite letras, números y espacios'],
+      ['12345678901', 'no solo números'],
+      ['corto', 'al menos 10 caracteres'],
+    ]) {
+      fireEvent.change(motivo, { target: { value: texto } })
+      fireEvent.click(screen.getByRole('button', { name: 'Reprogramar' }))
+      expect(screen.getByRole('alert')).toHaveTextContent(mensaje)
+      expect(motivo).toHaveAttribute('aria-describedby', 'reprogramar-motivo-error')
+    }
+    expect(motivo).toHaveAttribute('maxLength', '100')
+    expect(service.reprogramarExamen).not.toHaveBeenCalled()
+  })
+
+  it('BUG 8: con datos ingresados, Cancelar y la X piden confirmar antes de descartar', () => {
+    const onClose = vi.fn()
+    render(<ReprogramarExamenModal examen={examen} onClose={onClose} onReprogramado={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: 'Se repite el examen' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }))
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('BUG 8: sin internet muestra el mensaje de conexión al final del formulario', () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(<ReprogramarExamenModal examen={examen} onClose={vi.fn()} onReprogramado={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText('Nueva fecha'), { target: { value: '10012099' } })
+    fireEvent.change(screen.getByLabelText(/Motivo/), { target: { value: 'Se repite el examen' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Reprogramar' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.')
+    expect(service.reprogramarExamen).not.toHaveBeenCalled()
+    online.mockRestore()
   })
 
   it('el historial muestra cada sesión anterior con quién ingresó y quién no', async () => {
