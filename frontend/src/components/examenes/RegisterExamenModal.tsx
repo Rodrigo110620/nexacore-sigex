@@ -95,6 +95,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [showNuevoAmbiente, setShowNuevoAmbiente] = useState(false)
   const [ambienteError, setAmbienteError] = useState('')
   const [aulasAdicionales, setAulasAdicionales] = useState<number[]>([])
+  const [listaAbierta, setListaAbierta] = useState(false)
   const [modoReparto, setModoReparto] = useState<ModoReparto>('ALFABETICO')
   const [normasGenerales, setNormasGenerales] = useState<NormaGeneral[]>([
     {
@@ -535,8 +536,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          {/* BUG 2 (2.º test run): alto mínimo para que la lista de sugerencias se vea sin desplazar. */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:min-h-[340px] sm:px-6 sm:py-5">
+          {/* BUG 2 (2.º test run): mientras hay una lista de sugerencias abierta, el contenido se agranda para
+              mostrarla sin desplazar; cerrada, el modal vuelve a su tamaño justo. */}
+          <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 transition-[min-height] duration-150 sm:px-6 sm:py-5 ${listaAbierta && step === 1 ? 'sm:min-h-[320px]' : ''}`}>
             {step === 1 && (
             <section className={sectionCardClass}>
               <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
@@ -553,6 +555,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     value={form.asignatura}
                     error={errors.asignatura}
                     onChange={(value) => handleChange('asignatura', value)}
+                    onListaAbierta={setListaAbierta}
                     onSelect={(materia) => {
                       handleChange('asignatura', materia.nombre)
                       setAsignaturaOk(true)
@@ -581,6 +584,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                     value={form.docente}
                     error={errors.docente}
                     onChange={(value) => handleChange('docente', value)}
+                    onListaAbierta={setListaAbierta}
                     onSelect={(docente) => {
                       handleChange('docente', `${docente.nombre} ${docente.apellidos}`.trim())
                       setDocenteOk(true)
