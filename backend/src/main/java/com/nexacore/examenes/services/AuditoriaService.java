@@ -8,6 +8,7 @@ import com.nexacore.examenes.security.SesionActual;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 
@@ -29,7 +30,11 @@ public class AuditoriaService {
         this.objectMapper = objectMapper;
     }
 
-    /** Sin usuario en la sesión (tareas internas) no se registra nada. */
+    /**
+     * Sin usuario en la sesión (tareas internas) no se registra nada. Se suma a la transacción de la
+     * operación auditada; si se llama fuera de una (p. ej. la descarga del respaldo), abre la suya.
+     */
+    @Transactional
     public void registrar(String accion, Map<String, Object> detalles) {
         String email = SesionActual.email();
         if (email == null) {
