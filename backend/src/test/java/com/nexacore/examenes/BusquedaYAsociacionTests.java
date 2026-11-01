@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -62,5 +64,24 @@ class BusquedaYAsociacionTests {
         mockMvc.perform(post("/examenes/1/1/habilitacion/lote").contentType("application/json")
                         .content("{\"identificadores\":[\"123\"]}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // El DOCENTE asocia y cambia la habilitación solo en sus exámenes: en uno ajeno, 403 en todas las rutas.
+    @Test
+    @WithMockUser(username = "docente.ajeno@umss.edu", roles = "DOCENTE")
+    void unDocenteNoAsociaEstudiantesEnUnExamenAjeno() throws Exception {
+        mockMvc.perform(post("/examenes/1/1/habilitacion").contentType("application/json")
+                        .content("{\"identificador\":\"201904725\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/examenes/1/1/habilitacion/lote").contentType("application/json")
+                        .content("{\"identificadores\":[\"201904725\"]}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/examenes/1/1/habilitacion/inscritos"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/examenes/1/1/habilitacion").contentType("application/json")
+                        .content("{\"idsEstudiante\":[1],\"estadoHabilitacion\":\"HABILITADO\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/examenes/1/1/habilitacion/1"))
+                .andExpect(status().isForbidden());
     }
 }

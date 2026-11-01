@@ -65,9 +65,16 @@ public class EstudianteService {
     public PageResponse<EstudianteListResponse> listar(
             int page, int size, String search, Integer idFacultad, Integer idCarrera
     ) {
+        return listar(page, size, search, idFacultad, idCarrera, null);
+    }
+
+    /** Con idDocente, solo los estudiantes de sus paralelos y exámenes (ver EstudianteAlcanceService). */
+    public PageResponse<EstudianteListResponse> listar(
+            int page, int size, String search, Integer idFacultad, Integer idCarrera, Integer idDocente
+    ) {
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
-                normalizarBusqueda(search), idFacultad, idCarrera, pageable
+                normalizarBusqueda(search), idFacultad, idCarrera, idDocente, pageable
         );
 
         return PageResponse.de(pagina.map(this::toResponse));

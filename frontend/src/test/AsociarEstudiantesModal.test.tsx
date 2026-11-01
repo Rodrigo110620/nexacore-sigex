@@ -174,7 +174,8 @@ describe('AsociarEstudiantesModal', () => {
     fireEvent.click(await screen.findByRole('option', { name: 'Ingeniería de Sistemas' }))
 
     await waitFor(() => expect(estudianteService.getEstudiantes).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'Juan Pérez', idFacultad: '1', idCarrera: '5' }),
+      // Con el examen: el docente busca a quién asociar entre todos los estudiantes, no solo entre los suyos.
+      expect.objectContaining({ search: 'Juan Pérez', idFacultad: '1', idCarrera: '5', idExamen: 2 }),
       expect.anything(),
     ))
   })

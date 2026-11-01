@@ -12,7 +12,7 @@ interface Props {
   open: boolean
   estudiante: EstudianteListItem | null
   onClose: () => void
-  /** ADMIN y DOCENTE pueden regenerar y reenviar el QR desde la ficha. */
+  /** El ADMIN, con cualquier estudiante, y el DOCENTE, con los suyos, regeneran y reenvían el QR desde la ficha. */
   puedeRegenerarQr?: boolean
 }
 

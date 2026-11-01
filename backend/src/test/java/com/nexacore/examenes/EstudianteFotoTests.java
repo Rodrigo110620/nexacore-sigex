@@ -112,15 +112,18 @@ class EstudianteFotoTests {
         mockMvc.perform(get("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isNotFound());
     }
 
-    /** La foto subida por el personal queda oficial sin revisión: solo el ADMIN puede cambiarla o quitarla. */
+    /**
+     * La foto subida por el personal queda oficial sin revisión: solo el ADMIN puede cambiarla o quitarla.
+     * El DOCENTE solo ve la de sus estudiantes; este no está en sus paralelos ni en sus exámenes.
+     */
     @Test
     @WithMockUser(roles = "DOCENTE")
-    void elDocenteVeLaFotoPeroNoPuedeCambiarlaNiQuitarla() throws Exception {
+    void elDocenteNoCambiaNiQuitaLaFotoNiVeLaDeUnEstudianteAjeno() throws Exception {
         mockMvc.perform(multipart("/estudiantes/{id}/foto", idEstudiante).file(archivo(JPEG))
                         .with(r -> { r.setMethod("PUT"); return r; }))
                 .andExpect(status().isForbidden());
         mockMvc.perform(delete("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/estudiantes/{id}/foto", idEstudiante)).andExpect(status().isForbidden());
     }
 
     @Test

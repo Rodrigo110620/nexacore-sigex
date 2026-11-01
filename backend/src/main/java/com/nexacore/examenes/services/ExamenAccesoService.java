@@ -45,6 +45,14 @@ public class ExamenAccesoService {
         return segunPermiso(idExamen, authentication, Permiso.EXPULSAR_TODOS, Permiso.EXPULSAR_PROPIOS);
     }
 
+    /**
+     * Asociar, quitar y cambiar la habilitación de estudiantes: con HABILITACION_GESTIONAR en cualquier
+     * examen (ADMIN); con _PROPIOS solo en los suyos (DOCENTE).
+     */
+    public boolean puedeGestionarHabilitacion(Integer idExamen, Authentication authentication) {
+        return segunPermiso(idExamen, authentication, Permiso.HABILITACION_GESTIONAR, Permiso.HABILITACION_GESTIONAR_PROPIOS);
+    }
+
     /** Reprogramar: con EXAMENES_GESTIONAR_TODOS cualquier examen; con _PROPIOS, los suyos. */
     public boolean puedeReprogramar(Integer idExamen, Authentication authentication) {
         return segunPermiso(idExamen, authentication, Permiso.EXAMENES_GESTIONAR_TODOS, Permiso.EXAMENES_GESTIONAR_PROPIOS);
