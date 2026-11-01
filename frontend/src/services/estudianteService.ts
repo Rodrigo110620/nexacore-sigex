@@ -12,6 +12,8 @@ import type {
 export interface GetEstudiantesParams extends EstudianteFilterParams {
   page: number
   size: number
+  /** Al buscar a quién asociar a un examen: el docente busca entre todos, no solo entre los suyos. */
+  idExamen?: number
 }
 
 export async function getEstudiantes(
@@ -25,6 +27,7 @@ export async function getEstudiantes(
       search: params.search || undefined,
       idFacultad: params.idFacultad || undefined,
       idCarrera: params.idCarrera || undefined,
+      idExamen: params.idExamen,
     },
     signal,
   })

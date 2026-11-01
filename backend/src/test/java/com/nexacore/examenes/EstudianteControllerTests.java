@@ -56,13 +56,15 @@ class EstudianteControllerTests {
             .andExpect(status().isCreated());
     }
 
+    // Desde la V49 el registro de estudiantes es del ADMIN: el docente ve a los suyos, pero no los edita.
     @Test
     @WithMockUser(roles = "DOCENTE")
-    void docentePuedeRegistrar() throws Exception {
-        when(estudianteService.registrar(any())).thenReturn(new EstudianteListResponse(
-            1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));
+    void docenteNoPuedeRegistrarNiEditar() throws Exception {
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
-            .andExpect(status().isCreated());
+            .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/estudiantes/1")
+                .contentType("application/json").content(JSON_VALIDO))
+            .andExpect(status().isForbidden());
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.nexacore.examenes.dto.ReportarFotoRequest;
 import com.nexacore.examenes.dto.ImportarEstudiantesResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
+import com.nexacore.examenes.services.EstudianteAlcanceService;
 import com.nexacore.examenes.services.EstudianteFotoService;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
@@ -39,22 +40,25 @@ public class EstudianteController {
     private final ImportacionEstudiantesService importacionEstudiantesService;
     private final PlanillaEstudiantesService planillaEstudiantesService;
     private final EstudianteFotoService estudianteFotoService;
+    private final EstudianteAlcanceService estudianteAlcance;
 
     public EstudianteController(
             EstudianteService estudianteService,
             ImportacionEstudiantesService importacionEstudiantesService,
             PlanillaEstudiantesService planillaEstudiantesService,
-            EstudianteFotoService estudianteFotoService
+            EstudianteFotoService estudianteFotoService,
+            EstudianteAlcanceService estudianteAlcance
     ) {
         this.estudianteService = estudianteService;
         this.importacionEstudiantesService = importacionEstudiantesService;
         this.planillaEstudiantesService = planillaEstudiantesService;
         this.estudianteFotoService = estudianteFotoService;
+        this.estudianteAlcance = estudianteAlcance;
     }
 
     @Operation(summary = "Fotografía del estudiante",
             description = "Imagen para identificar al estudiante en el control de ingreso. 404 si no tiene. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER') and @estudianteAlcance.puedeVer(#id, authentication)")
     @GetMapping("/{id}/foto")
     public ResponseEntity<byte[]> foto(@PathVariable Integer id) {
         return estudianteFotoService.obtener(id)
@@ -157,7 +161,8 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Listar estudiantes",
-            description = "Devuelve los estudiantes paginados con búsqueda y filtros. ADMIN, DOCENTE y CONTROL.")
+            description = "Devuelve los estudiantes paginados con búsqueda y filtros. ADMIN y CONTROL ven a todos; el DOCENTE, "
+                    + "a los de sus paralelos y exámenes. Con idExamen (buscar a quién asociar a su examen), a todos.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteListResponse>> listar(
@@ -165,10 +170,13 @@ public class EstudianteController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer idFacultad,
-            @RequestParam(required = false) Integer idCarrera
+            @RequestParam(required = false) Integer idCarrera,
+            @RequestParam(required = false) Integer idExamen,
+            Authentication authentication
     ) {
+        Integer idDocente = estudianteAlcance.docenteParaFiltrar(idExamen, authentication);
         return ResponseEntity.ok(
-                estudianteService.listar(page, size, search, idFacultad, idCarrera)
+                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente)
         );
     }
 
@@ -184,14 +192,14 @@ public class EstudianteController {
 
     @Operation(summary = "Obtener estudiante por ID",
             description = "Devuelve un estudiante con sus carreras. ADMIN, DOCENTE y CONTROL.")
-    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER') and @estudianteAlcance.puedeVer(#id, authentication)")
     @GetMapping("/{id}")
     public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id) {
         return ResponseEntity.ok(estudianteService.obtenerPorId(id));
     }
 
     @Operation(summary = "Actualizar estudiante",
-            description = "Modifica los datos personales y académicos de un estudiante. ADMIN y DOCENTE.")
+            description = "Modifica los datos personales y académicos de un estudiante. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PutMapping("/{id}")
     public ResponseEntity<EstudianteListResponse> actualizar(
@@ -202,7 +210,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Registrar estudiante",
-            description = "Crea un estudiante y lo asocia a su carrera. ADMIN y DOCENTE.")
+            description = "Crea un estudiante y lo asocia a su carrera. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping
     public ResponseEntity<EstudianteListResponse> registrar(
@@ -211,7 +219,7 @@ public class EstudianteController {
         return ResponseEntity.status(HttpStatus.CREATED).body(estudianteService.registrar(request));
     }
 
-    @Operation(summary = "Regenerar y reenviar QR", description = "Revoca el QR anterior y envía uno nuevo. ADMIN y DOCENTE.")
+    @Operation(summary = "Regenerar y reenviar QR", description = "Revoca el QR anterior y envía uno nuevo. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping("/{id}/qr/regenerar")
     public ResponseEntity<Void> regenerarQr(@PathVariable Integer id) {
@@ -221,7 +229,7 @@ public class EstudianteController {
 
     @Operation(summary = "Importar estudiantes masivamente",
             description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
-            + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. ADMIN y DOCENTE.")
+            + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<ImportarEstudiantesResponse> importarEstudiantes(
@@ -231,7 +239,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Descargar planilla de estudiantes en CSV",
-            description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). ADMIN y DOCENTE.")
+            description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @GetMapping("/planilla.csv")
     public ResponseEntity<byte[]> planillaCsv() {
@@ -240,7 +248,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Descargar planilla de estudiantes en PDF",
-            description = "Estudiantes registrados con los nombres de su facultad y carrera. ADMIN y DOCENTE.")
+            description = "Estudiantes registrados con los nombres de su facultad y carrera. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @GetMapping("/planilla.pdf")
     public ResponseEntity<byte[]> planillaPdf() {

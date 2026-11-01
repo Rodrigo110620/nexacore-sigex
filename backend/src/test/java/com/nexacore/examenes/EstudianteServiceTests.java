@@ -124,13 +124,13 @@ class EstudianteServiceTests {
 
     @Test
     void listarLimitaElTamanoDePaginaYCorrigeValoresInvalidos() {
-        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any())).thenReturn(Page.empty());
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any())).thenReturn(Page.empty());
 
         service.listar(-3, 100_000, null, null, null);
         service.listar(0, 0, null, null, null);
 
         var paginas = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-        verify(estudianteRepository, times(2)).buscarConFiltros(any(), any(), any(), paginas.capture());
+        verify(estudianteRepository, times(2)).buscarConFiltros(any(), any(), any(), any(), paginas.capture());
         assertEquals(0, paginas.getAllValues().get(0).getPageNumber());
         assertEquals(100, paginas.getAllValues().get(0).getPageSize());
         assertEquals(1, paginas.getAllValues().get(1).getPageSize());
@@ -138,12 +138,12 @@ class EstudianteServiceTests {
 
     @Test
     void listarNormalizaLosEspaciosDeLaBusqueda() {
-        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(Pageable.class)))
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         service.listar(0, 10, "  Juan    Pérez ", null, null);
 
-        verify(estudianteRepository).buscarConFiltros(eq("Juan Pérez"), isNull(), isNull(), any(Pageable.class));
+        verify(estudianteRepository).buscarConFiltros(eq("Juan Pérez"), isNull(), isNull(), isNull(), any(Pageable.class));
     }
 
     @Test
@@ -152,6 +152,6 @@ class EstudianteServiceTests {
                 () -> service.listar(0, 10, "x".repeat(41), null, null));
 
         assertTrue(error.getMessage().contains("40"));
-        verify(estudianteRepository, never()).buscarConFiltros(any(), any(), any(), any(Pageable.class));
+        verify(estudianteRepository, never()).buscarConFiltros(any(), any(), any(), any(), any(Pageable.class));
     }
 }

@@ -451,6 +451,31 @@ class PostgresIntegracionTests {
         });
     }
 
+    // El DOCENTE solo ve a los inscritos en sus paralelos o asociados a sus exámenes; el ADMIN, a todos.
+    @Test
+    void elDocenteSoloVeASusEstudiantes() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-ALC");
+        int idExamen = examen(paralelo, "08:00", 90);
+        int inscrito = estudiante("209999101", "Ana");
+        int asociado = estudiante("209999102", "Beto");
+        int ajeno = estudiante("209999103", "Ciro");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente) VALUES (?, ?, ?, ?)",
+                inscrito, paralelo, idMateria, idDocente);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo) VALUES (?, ?, ?)",
+                asociado, idExamen, paralelo);
+        sincronizar();
+
+        assertThat(estudianteService.listar(0, 50, "209999", null, null, idDocente).contenido())
+                .extracting(e -> e.id()).containsExactlyInAnyOrder(inscrito, asociado);
+        assertThat(estudianteService.listar(0, 50, "209999", null, null, null).contenido())
+                .extracting(e -> e.id()).containsExactlyInAnyOrder(inscrito, asociado, ajeno);
+        assertThat(estudianteRepository.esDelDocente(inscrito, idDocente)).isTrue();
+        assertThat(estudianteRepository.esDelDocente(asociado, idDocente)).isTrue();
+        assertThat(estudianteRepository.esDelDocente(ajeno, idDocente)).isFalse();
+    }
+
     private int materiaYParalelo(String sigla) {
         jdbc.update("INSERT INTO materia (sigla, nombre) VALUES (?, ?)", sigla, "Materia " + sigla);
         Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM materia WHERE sigla = ?", Integer.class, sigla);
