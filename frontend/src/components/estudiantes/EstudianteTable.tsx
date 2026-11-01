@@ -85,16 +85,17 @@ export default function EstudianteTable({
                     Ver Ficha
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => puedeEditar && onEditClick?.(e)}
-                    disabled={!puedeEditar}
-                    title={!puedeEditar ? 'No tienes permiso para editar' : undefined}
-                    aria-label={`Editar ${e.nombre} ${e.apellidos}`}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#627A9B]"
-                  >
-                    <Pencil size={16} aria-hidden="true" />
-                  </button>
+                  {/* Sin permiso (DOCENTE y CONTROL) no se muestra: ese rol nunca puede editar. */}
+                  {puedeEditar && (
+                    <button
+                      type="button"
+                      onClick={() => onEditClick?.(e)}
+                      aria-label={`Editar ${e.nombre} ${e.apellidos}`}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#627A9B] transition-colors hover:bg-[#F1F6FF] hover:text-[#0439D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                    >
+                      <Pencil size={16} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

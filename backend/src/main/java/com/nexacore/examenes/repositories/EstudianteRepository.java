@@ -118,7 +118,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
 
     /**
  * Listado general de estudiantes con búsqueda y filtros (paginado).
- * Para la pantalla de Gestión de Estudiantes (HU-01).
+ * Para la pantalla de Gestión de Estudiantes (HU-01). Con idDocente, solo los inscritos en sus
+ * paralelos o asociados a sus exámenes.
  */
 @Query(value = """
         SELECT DISTINCT e FROM Estudiante e
@@ -132,6 +133,12 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
+          AND (:idDocente IS NULL
+               OR EXISTS (SELECT 1 FROM InscripcionParalelo ip
+                          WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
+               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
+                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
+                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
         ORDER BY e.apellidos, e.nombre
         """,
         countQuery = """
@@ -146,11 +153,30 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
+          AND (:idDocente IS NULL
+               OR EXISTS (SELECT 1 FROM InscripcionParalelo ip
+                          WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
+               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
+                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
+                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
         """)
 Page<Estudiante> buscarConFiltros(
     @Param("search") String search,
     @Param("idFacultad") Integer idFacultad,
     @Param("idCarrera") Integer idCarrera,
+    @Param("idDocente") Integer idDocente,
     Pageable pageable
 );
+
+/** true si el estudiante está inscrito en un paralelo del docente o asociado a uno de sus exámenes. */
+@Query("""
+        SELECT COUNT(e) > 0 FROM Estudiante e
+        WHERE e.id = :idEstudiante
+          AND (EXISTS (SELECT 1 FROM InscripcionParalelo ip
+                       WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
+               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
+                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
+                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
+        """)
+boolean esDelDocente(@Param("idEstudiante") Integer idEstudiante, @Param("idDocente") Integer idDocente);
 }

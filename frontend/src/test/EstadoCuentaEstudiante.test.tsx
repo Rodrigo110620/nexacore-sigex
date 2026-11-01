@@ -24,6 +24,22 @@ describe('estado de la cuenta del estudiante', () => {
   })
 })
 
+describe('editar estudiantes', () => {
+  it('sin permiso (DOCENTE y CONTROL) no se muestra el botón Editar, ni en la tabla ni en las tarjetas', () => {
+    const { unmount } = render(<EstudianteTable estudiantes={[estudiante(1, true)]} puedeEditar={false} />)
+    expect(screen.queryByRole('button', { name: 'Editar Ana Rojas' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ver Ficha/ })).toBeInTheDocument()
+    unmount()
+    render(<EstudianteCardList estudiantes={[estudiante(1, true)]} puedeEditar={false} />)
+    expect(screen.queryByRole('button', { name: 'Editar Ana Rojas' })).not.toBeInTheDocument()
+  })
+
+  it('con permiso (ADMIN) sí se muestra', () => {
+    render(<EstudianteTable estudiantes={[estudiante(1, true)]} puedeEditar />)
+    expect(screen.getByRole('button', { name: 'Editar Ana Rojas' })).toBeEnabled()
+  })
+})
+
 describe('regenerar el QR', () => {
   it('no se puede regenerar mientras el estudiante no active su cuenta', async () => {
     const { default: FichaEstudianteModal } = await import('../components/estudiantes/FichaEstudianteModal')

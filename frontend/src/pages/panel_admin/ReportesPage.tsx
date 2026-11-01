@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
 import ExcepcionesNoHabilitadoReporte from '../../components/control/ExcepcionesNoHabilitadoReporte'
+import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
@@ -129,19 +129,16 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
               </li>
             ))}
           </ul>
-          {datos.totalPaginas > 1 && (
-            <nav aria-label="Páginas del reporte" className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-              <button type="button" disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)}
-                className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-[#D8E3F5] px-3 font-semibold text-[#0439D9] disabled:opacity-40 sm:justify-self-start">
-                <ChevronLeft size={16} aria-hidden="true" /> Anterior
-              </button>
-              <span className="whitespace-nowrap text-xs text-[#627A9B] sm:text-sm">{pagina + 1} de {datos.totalPaginas}</span>
-              <button type="button" disabled={pagina + 1 >= datos.totalPaginas} onClick={() => setPagina((p) => p + 1)}
-                className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-[#D8E3F5] px-3 font-semibold text-[#0439D9] disabled:opacity-40 sm:justify-self-end">
-                Siguiente <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            </nav>
-          )}
+          <div className="mt-4">
+            <TablePagination
+              page={datos.pagina}
+              pageSize={datos.tamano}
+              totalRecords={datos.totalRegistros}
+              totalPages={datos.totalPaginas}
+              onPageChange={setPagina}
+              itemLabel="intentos"
+            />
+          </div>
         </>
       )}
     </section>

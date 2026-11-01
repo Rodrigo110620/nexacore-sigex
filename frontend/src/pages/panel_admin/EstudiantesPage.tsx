@@ -24,11 +24,12 @@ const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idC
 
 export default function EstudiantesPage() {
   const auth = useAuth()
-  // Registrar, editar e importar: ESTUDIANTES_GESTIONAR (ADMIN y DOCENTE). CONTROL solo consulta.
+  // Registrar, editar e importar: ESTUDIANTES_GESTIONAR (ADMIN). DOCENTE y CONTROL solo consultan.
   const puedeEditar = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
+  // El DOCENTE (solo ve sus exámenes) solo ve a los estudiantes de sus paralelos y exámenes; lo filtra el servidor.
+  const soloSusEstudiantes = tienePermiso(auth, 'EXAMENES_VER_PROPIOS') && !tienePermiso(auth, 'EXAMENES_VER_TODOS', 'REPORTES_VER')
   const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
-  const motivoBloqueo = 'No tienes permiso para realizar esta acción.'
 
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
@@ -114,6 +115,11 @@ export default function EstudiantesPage() {
                 Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados para jornadas de evaluación.
               </p>
             </div>
+            {soloSusEstudiantes && (
+              <p className="mb-4 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 text-xs text-[#45628D] sm:text-sm">
+                Ves a los estudiantes inscritos en tus paralelos o asociados a tus exámenes.
+              </p>
+            )}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
@@ -137,27 +143,26 @@ export default function EstudiantesPage() {
                       )}
                     </Link>
                   )}
+                  {/* Registrar e importar: solo quien gestiona estudiantes (ADMIN); a los demás no se les muestra. */}
+                  {puedeEditar && (<>
                   <button
                     type="button"
-                    onClick={() => puedeEditar && setImportOpen(true)}
-                    disabled={!puedeEditar}
-                    title={!puedeEditar ? motivoBloqueo : undefined}
+                    onClick={() => setImportOpen(true)}
                     aria-label="Importar estudiantes"
-                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
+                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <Upload size={16} aria-hidden="true" className="shrink-0" />
                     <span className="hidden truncate sm:inline">Importar</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => puedeEditar && setRegisterOpen(true)}
-                    disabled={!puedeEditar}
-                    title={!puedeEditar ? motivoBloqueo : undefined}
-                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[#0439D9] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
+                    onClick={() => setRegisterOpen(true)}
+                    className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
                     <span className="truncate">Registrar Estudiante</span>
                   </button>
+                  </>)}
                 </div>
               </div>
             </div>
@@ -179,7 +184,8 @@ export default function EstudiantesPage() {
             <FichaEstudianteModal
               open={Boolean(fichaEstudiante)}
               estudiante={fichaEstudiante}
-              puedeRegenerarQr={puedeEditar}
+              // El DOCENTE también, con sus estudiantes (los únicos que ve); el servidor lo verifica.
+              puedeRegenerarQr={puedeEditar || soloSusEstudiantes}
               onClose={() => setFichaEstudiante(null)}
             />
 

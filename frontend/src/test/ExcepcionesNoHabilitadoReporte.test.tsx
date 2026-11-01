@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ExcepcionesNoHabilitadoReporte from '../components/control/ExcepcionesNoHabilitadoReporte'
 import * as servicio from '../services/excepcionNoHabilitadoService'
@@ -24,6 +24,23 @@ describe('reporte de excepciones de no habilitados (INCI-04)', () => {
     expect(within(reporte).getByText('Luis Paz')).toBeInTheDocument()
     expect(within(reporte).getByText('27/10/2026 08:05')).toBeInTheDocument()
     expect(servicio.listarExcepcionesNoHabilitado).toHaveBeenCalledWith(20)
+  })
+
+  it('pagina las excepciones de 10 en 10', async () => {
+    vi.mocked(servicio.listarExcepcionesNoHabilitado).mockResolvedValue(Array.from({ length: 12 }, (_, i) => ({
+      idExcepcion: i + 1, idEstudiante: i + 1, estudiante: `Estudiante ${i + 1}`, codigoSis: null,
+      motivoInhabilitacion: 'Deuda', accionTomada: 'Se le indicó acudir a administración',
+      observaciones: null, ambiente: null, registradoPor: 'Luis Paz', fechaHora: '2026-10-27T08:05:00',
+    })))
+    render(<ExcepcionesNoHabilitadoReporte idExamen={20} />)
+
+    expect(await screen.findByText('Estudiante 10')).toBeInTheDocument()
+    expect(screen.queryByText('Estudiante 11')).not.toBeInTheDocument()
+    const paginacion = screen.getByRole('navigation', { name: 'Paginación de excepciones' })
+    expect(paginacion).toHaveTextContent('Mostrando 1–10 de 12 excepciones')
+    fireEvent.click(within(paginacion).getByRole('button', { name: 'Página siguiente' }))
+    expect(screen.getByText('Estudiante 11')).toBeInTheDocument()
+    expect(screen.queryByText('Estudiante 1')).not.toBeInTheDocument()
   })
 
   it('sin excepciones lo indica', async () => {

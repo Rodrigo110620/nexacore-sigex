@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import type { RegistroControlIngresoExamen } from '../../services/controlIngresoService'
+import TablePagination from '../users/TablePagination'
 import { anularExpulsion, listarExpulsionesExamen, type ExpulsionResponse } from '../../services/expulsionService'
 import useEnVivo from '../../hooks/useEnVivo'
 import { useAuth } from '../../context/AuthContext'
@@ -72,11 +73,14 @@ interface Props {
   controles: RegistroControlIngresoExamen[]
 }
 
+const TAMANO_PAGINA = 10
+
 export default function ExpulsionesReporte({ idExamen, examen, controles }: Props) {
   // Anulan los mismos que pueden expulsar: ADMIN o el docente del examen (el servidor lo verifica).
   const auth = useAuth()
   const puedeAnular = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const [recarga, setRecarga] = useState(0)
+  const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExpulsionResponse[]; error?: string }>()
   const clave = `${idExamen}|${recarga}`
   useEnVivo((cambio) => cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
@@ -92,6 +96,10 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : undefined
+  const total = actual?.registros?.length ?? 0
+  const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
+  const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
+  const visibles = actual?.registros?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
   // El endpoint de controles ya está acotado al examen y puede omitir idExamen.
   const nombres = new Map(controles.filter((r) => r.idExamen == null || r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
   const titulo = (e: ExpulsionResponse) => {
@@ -114,8 +122,9 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
       )}
       {actual?.registros?.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">No hay expulsiones en la sesión actual.</p>}
       {actual?.registros && actual.registros.length > 0 && (
+        <>
         <ul className="mt-3 space-y-3">
-          {actual.registros.map((registro) => (
+          {visibles.map((registro) => (
             <li key={registro.idExpulsion} className={`rounded-lg border p-3 ${registro.anuladaEn ? 'border-[#D8E3F5] bg-[#F8FAFC]' : 'border-[#F1C4C9] bg-[#FFF8F8]'}`}>
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold text-[#011140]">
@@ -133,6 +142,11 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
             </li>
           ))}
         </ul>
+        <div className="mt-3">
+          <TablePagination page={paginaActual} pageSize={TAMANO_PAGINA} totalRecords={total} totalPages={totalPaginas}
+            onPageChange={setPagina} itemLabel="expulsiones" />
+        </div>
+        </>
       )}
     </section>
   )

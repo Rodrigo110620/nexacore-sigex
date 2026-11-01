@@ -78,9 +78,11 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 
 export default function ExamenDetallePage() {
   const auth = useAuth()
-  // Cancelar el examen y cambiar la habilitación: permisos del ADMIN (o de un rol extra que los tenga).
+  // Cancelar el examen: permiso del ADMIN (o de un rol extra que lo tenga).
   const isAdmin = tienePermiso(auth, 'EXAMENES_CANCELAR')
-  const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR')
+  // Asociar y cambiar la habilitación: el ADMIN en cualquier examen; el DOCENTE en los suyos, que son los
+  // únicos que puede abrir (el servidor también lo verifica).
+  const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR', 'HABILITACION_GESTIONAR_PROPIOS')
   const gestionaExamenes = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')
   const navigate = useNavigate()
   const idExamen = Number(useParams().idExamen)

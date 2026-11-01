@@ -102,6 +102,7 @@ export default function AsociarEstudiantesModal({
           search: busquedaDebounced.trim(),
           idFacultad: filtros.idFacultad,
           idCarrera: filtros.idCarrera,
+          idExamen,
         },
         controller.signal,
       )
@@ -124,7 +125,7 @@ export default function AsociarEstudiantesModal({
       window.clearTimeout(handle)
       controller.abort()
     }
-  }, [modo, busquedaDebounced, filtros.idFacultad, filtros.idCarrera, reintento])
+  }, [modo, busquedaDebounced, filtros.idFacultad, filtros.idCarrera, reintento, idExamen])
 
   const cambiarModo = (siguiente: Modo) => {
     setModo(siguiente)
