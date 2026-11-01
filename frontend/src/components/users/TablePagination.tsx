@@ -64,7 +64,7 @@ export default function TablePagination({
 
   return (
     <nav
-      aria-label="Paginación de usuarios"
+      aria-label={`Paginación de ${itemLabel}`}
       className={compact
         ? 'flex items-center justify-between gap-2 text-[#627A9B]'
         : 'mt-3 flex flex-col gap-2 rounded-lg border border-[#D8E3F5] bg-white px-2 py-3 sm:mt-0 sm:flex-row sm:items-center sm:justify-between sm:px-4'}
