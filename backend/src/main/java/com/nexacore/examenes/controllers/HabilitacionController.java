@@ -66,7 +66,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar estudiante al examen",
             description = "Busca por código universitario o CI y lo asocia pendiente de habilitación. 409 si ya está asociado.")
-    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
+    @PreAuthorize("@examenAccesoService.puedeGestionarHabilitacion(#idExamen, authentication)")
     @PostMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> asociar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -77,7 +77,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar varios estudiantes al examen",
             description = "Por códigos universitarios o CI. Los ya asociados o inexistentes se informan sin detener al resto.")
-    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
+    @PreAuthorize("@examenAccesoService.puedeGestionarHabilitacion(#idExamen, authentication)")
     @PostMapping("/lote")
     public ResponseEntity<AsociacionLoteResponse> asociarLote(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -87,7 +87,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Asociar a todos los inscritos del paralelo",
             description = "Asocia, pendientes de habilitación, a los inscritos en el paralelo del examen que aún no estén asociados.")
-    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
+    @PreAuthorize("@examenAccesoService.puedeGestionarHabilitacion(#idExamen, authentication)")
     @PostMapping("/inscritos")
     public ResponseEntity<AsociacionLoteResponse> asociarInscritos(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
@@ -96,7 +96,7 @@ public class HabilitacionController {
 
     @Operation(summary = "Cambiar habilitación",
             description = "Habilita, deshabilita (con razón obligatoria) o deja pendientes a uno o varios estudiantes asociados al examen.")
-    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
+    @PreAuthorize("@examenAccesoService.puedeGestionarHabilitacion(#idExamen, authentication)")
     @PutMapping
     public ResponseEntity<List<EstudianteHabilitacionResponse>> actualizar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
@@ -105,8 +105,8 @@ public class HabilitacionController {
     }
 
     @Operation(summary = "Quitar a un estudiante del examen",
-            description = "Para un estudiante asociado por error, mientras no haya pasado por el control de ingreso. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'HABILITACION_GESTIONAR')")
+            description = "Para un estudiante asociado por error, mientras no haya pasado por el control de ingreso. ADMIN o el docente del examen.")
+    @PreAuthorize("@examenAccesoService.puedeGestionarHabilitacion(#idExamen, authentication)")
     @DeleteMapping("/{idEstudiante}")
     public ResponseEntity<List<EstudianteHabilitacionResponse>> quitar(
             @PathVariable Integer idExamen,

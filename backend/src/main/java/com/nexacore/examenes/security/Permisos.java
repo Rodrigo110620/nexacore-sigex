@@ -28,7 +28,8 @@ public final class Permisos {
 
     /** Lo que cada rol del sistema podía hacer antes de los roles configurables (igual que la V48). */
     public static final Map<String, Set<Permiso>> POR_DEFECTO = Map.of(
-            "DOCENTE", EnumSet.of(EXAMENES_VER_PROPIOS, EXAMENES_GESTIONAR_PROPIOS, HABILITACION_VER, CONTROL_INGRESO_PROPIOS,
+            "DOCENTE", EnumSet.of(EXAMENES_VER_PROPIOS, EXAMENES_GESTIONAR_PROPIOS, HABILITACION_VER, HABILITACION_GESTIONAR_PROPIOS,
+                    CONTROL_INGRESO_PROPIOS,
                     EXPULSAR_PROPIOS, ESTUDIANTES_VER, ESTUDIANTES_GESTIONAR, FOTOS_REPORTAR),
             "CONTROL", EnumSet.of(EXAMENES_VER_TODOS, HABILITACION_VER, CONTROL_INGRESO_TODOS, ESTUDIANTES_VER, FOTOS_REPORTAR,
                     NOTIFICACIONES_TODAS),

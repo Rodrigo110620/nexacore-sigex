@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Reprogramar: el ADMIN cualquier examen; el DOCENTE solo los suyos (sin pedirlo al ADMIN). */
+/** Reprogramar, expulsar, editar y asociar estudiantes: el ADMIN en cualquier examen; el DOCENTE solo en los suyos. */
 class ReprogramarAccesoTests {
 
     private final ExamenRepository examenes = mock(ExamenRepository.class);
@@ -66,6 +66,24 @@ class ReprogramarAccesoTests {
         assertThat(acceso.puedeExpulsar(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
         assertThat(acceso.puedeExpulsar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
         assertThat(acceso.puedeExpulsar(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
+    }
+
+    // El DOCENTE asocia estudiantes y cambia su habilitación en sus propios exámenes, como el ADMIN.
+    @Test
+    void elAdminYElDocenteDelExamenPuedenAsociarEstudiantes() {
+        docente("propio@umss.edu", 7);
+        when(examenes.perteneceADocente(3, 7)).thenReturn(true);
+        assertThat(acceso.puedeGestionarHabilitacion(3, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(acceso.puedeGestionarHabilitacion(3, sesion("propio@umss.edu", "DOCENTE"))).isTrue();
+    }
+
+    @Test
+    void otroDocenteElControlYElEstudianteNoPuedenAsociarEstudiantes() {
+        docente("ajeno@umss.edu", 8);
+        when(examenes.perteneceADocente(3, 8)).thenReturn(false);
+        assertThat(acceso.puedeGestionarHabilitacion(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
+        assertThat(acceso.puedeGestionarHabilitacion(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
+        assertThat(acceso.puedeGestionarHabilitacion(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
     }
 
     // El DOCENTE crea y edita sus propios exámenes igual que el ADMIN.

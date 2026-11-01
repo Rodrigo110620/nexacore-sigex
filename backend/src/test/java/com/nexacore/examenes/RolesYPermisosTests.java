@@ -59,8 +59,8 @@ class RolesYPermisosTests {
     void losRolesDelSistemaConservanSusPermisosDeSiempre() {
         assertThat(Permisos.deRoles(List.of("ADMIN"))).containsAll(Permisos.todos());
         assertThat(Permisos.deRoles(List.of("DOCENTE"))).containsExactlyInAnyOrder(
-                "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "CONTROL_INGRESO_PROPIOS",
-                "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "ESTUDIANTES_GESTIONAR", "FOTOS_REPORTAR");
+                "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "HABILITACION_GESTIONAR_PROPIOS",
+                "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "ESTUDIANTES_GESTIONAR", "FOTOS_REPORTAR");
         assertThat(Permisos.deRoles(List.of("CONTROL"))).containsExactlyInAnyOrder(
                 "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR",
                 "NOTIFICACIONES_TODAS");
