@@ -51,6 +51,21 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     expect(reporteIntentos).toHaveBeenCalledWith(null, 0, 20)
   })
 
+  it('pagina los intentos con la misma paginación que las demás tablas', async () => {
+    vi.mocked(reporteIntentos).mockImplementation(async (_id, pagina = 0) => ({
+      contenido: [intento({ idIntento: pagina + 1, estudiante: pagina === 0 ? 'Zoe Quispe Luna' : 'Ana Rojas' })],
+      pagina, tamano: 20, totalRegistros: 45, totalPaginas: 3,
+    }))
+    render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+
+    const paginacion = await screen.findByRole('navigation', { name: 'Paginación de intentos' })
+    expect(within(paginacion).getByText(/Mostrando/)).toHaveTextContent('Mostrando 1–20 de 45 intentos')
+    fireEvent.click(within(paginacion).getByRole('button', { name: 'Ir a la página 2' }))
+    expect(await screen.findAllByText('Ana Rojas')).not.toHaveLength(0)
+    expect(reporteIntentos).toHaveBeenLastCalledWith(null, 1, 20)
+    expect(screen.getByRole('navigation', { name: 'Paginación de intentos' })).toHaveTextContent('Mostrando 21–40 de 45 intentos')
+  })
+
   it('el filtro por examen pide solo los intentos de ese examen', async () => {
     vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)

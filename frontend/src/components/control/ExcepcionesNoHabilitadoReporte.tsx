@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
+import TablePagination from '../users/TablePagination'
 import { listarExcepcionesNoHabilitado, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
 
@@ -8,8 +9,11 @@ import { fechaHoraNumerica } from '../../utils/examenFormat'
  * actual del examen): estudiante, motivo, acción tomada, observaciones, aula, quién y cuándo. Se
  * actualiza en vivo cuando el control registra una nueva.
  */
+const TAMANO_PAGINA = 10
+
 export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen: number }) {
   const [recarga, setRecarga] = useState(0)
+  const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExcepcionNoHabilitado[]; error?: string }>()
   const clave = `${idExamen}|${recarga}`
   useEnVivo((cambio) => cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
@@ -23,6 +27,10 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : undefined
+  const total = actual?.registros?.length ?? 0
+  const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
+  const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
+  const visibles = actual?.registros?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
   return (
     <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
       <h3 className="font-semibold text-[#92400E]">No habilitados que intentaron ingresar ({actual?.registros?.length ?? '…'})</h3>
@@ -37,8 +45,9 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
       )}
       {actual?.registros?.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">No hay excepciones de no habilitados en la sesión actual.</p>}
       {actual?.registros && actual.registros.length > 0 && (
+        <>
         <ul className="mt-3 space-y-3">
-          {actual.registros.map((x) => (
+          {visibles.map((x) => (
             <li key={x.idExcepcion} className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-3">
               <h4 className="text-sm font-semibold text-[#011140]">
                 {x.estudiante ?? `Estudiante #${x.idEstudiante}`}{x.codigoSis ? ` · SIS ${x.codigoSis}` : ''}
@@ -54,6 +63,11 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
             </li>
           ))}
         </ul>
+        <div className="mt-3">
+          <TablePagination page={paginaActual} pageSize={TAMANO_PAGINA} totalRecords={total} totalPages={totalPaginas}
+            onPageChange={setPagina} itemLabel="excepciones" />
+        </div>
+        </>
       )}
     </section>
   )
