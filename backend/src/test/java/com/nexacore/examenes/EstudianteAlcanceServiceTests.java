@@ -71,6 +71,19 @@ class EstudianteAlcanceServiceTests {
     }
 
     @Test
+    void elDocenteRegeneraElQrSoloDeSusEstudiantesYElAdminDeCualquiera() {
+        usuario("ana@umss.edu", 7);
+        Authentication docente = sesion("ana@umss.edu", "DOCENTE");
+        when(estudiantes.esDelDocente(5, 7)).thenReturn(true);
+        when(estudiantes.esDelDocente(6, 7)).thenReturn(false);
+        assertThat(alcance.puedeRegenerarQr(5, docente)).isTrue();
+        assertThat(alcance.puedeRegenerarQr(6, docente)).isFalse();
+
+        assertThat(alcance.puedeRegenerarQr(6, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(alcance.puedeRegenerarQr(6, sesion("control@umss.edu", "CONTROL"))).isFalse();
+    }
+
+    @Test
     void paraAsociarEnSuExamenElDocenteBuscaEntreTodos() {
         Authentication docente = sesion("ana@umss.edu", "DOCENTE");
         when(examenes.puedeGestionarHabilitacion(3, docente)).thenReturn(true);

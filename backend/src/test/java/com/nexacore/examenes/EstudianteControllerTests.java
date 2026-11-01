@@ -65,6 +65,14 @@ class EstudianteControllerTests {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/estudiantes/1")
                 .contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isForbidden());
+        // Regenerar el QR sí, pero solo de sus estudiantes: este no lo es.
+        mockMvc.perform(post("/estudiantes/1/qr/regenerar")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "CONTROL")
+    void controlNoRegeneraElQr() throws Exception {
+        mockMvc.perform(post("/estudiantes/1/qr/regenerar")).andExpect(status().isForbidden());
     }
 
     @Test

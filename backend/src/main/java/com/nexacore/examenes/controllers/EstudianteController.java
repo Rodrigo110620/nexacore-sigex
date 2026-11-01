@@ -219,8 +219,9 @@ public class EstudianteController {
         return ResponseEntity.status(HttpStatus.CREATED).body(estudianteService.registrar(request));
     }
 
-    @Operation(summary = "Regenerar y reenviar QR", description = "Revoca el QR anterior y envía uno nuevo. Solo ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @Operation(summary = "Regenerar y reenviar QR",
+            description = "Revoca el QR anterior y envía uno nuevo. ADMIN con cualquier estudiante; DOCENTE, solo con los suyos.")
+    @PreAuthorize("@estudianteAlcance.puedeRegenerarQr(#id, authentication)")
     @PostMapping("/{id}/qr/regenerar")
     public ResponseEntity<Void> regenerarQr(@PathVariable Integer id) {
         estudianteService.regenerarYEnviarQr(id);

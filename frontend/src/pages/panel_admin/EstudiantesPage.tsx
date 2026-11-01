@@ -186,7 +186,8 @@ export default function EstudiantesPage() {
             <FichaEstudianteModal
               open={Boolean(fichaEstudiante)}
               estudiante={fichaEstudiante}
-              puedeRegenerarQr={puedeEditar}
+              // El DOCENTE también, con sus estudiantes (los únicos que ve); el servidor lo verifica.
+              puedeRegenerarQr={puedeEditar || soloSusEstudiantes}
               onClose={() => setFichaEstudiante(null)}
             />
 

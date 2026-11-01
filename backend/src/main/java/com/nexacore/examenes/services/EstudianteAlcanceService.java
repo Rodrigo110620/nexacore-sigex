@@ -3,6 +3,8 @@ package com.nexacore.examenes.services;
 import com.nexacore.examenes.models.Usuario;
 import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
+import com.nexacore.examenes.security.Permiso;
+import com.nexacore.examenes.security.Permisos;
 import com.nexacore.examenes.security.SesionActual;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -47,6 +49,16 @@ public class EstudianteAlcanceService {
         if (!SesionActual.esSoloDocente()) return true;
         Integer idDocente = idUsuario(authentication);
         return idEstudiante != null && idDocente != null && estudianteRepository.esDelDocente(idEstudiante, idDocente);
+    }
+
+    /**
+     * Regenerar y reenviar el QR: quien gestiona estudiantes (ADMIN), con cualquiera; el DOCENTE, solo con
+     * los suyos, para resolver el día del examen un QR que no llegó o se perdió. El QR nuevo va al correo
+     * del estudiante.
+     */
+    public boolean puedeRegenerarQr(Integer idEstudiante, Authentication authentication) {
+        if (Permisos.tiene(authentication, Permiso.ESTUDIANTES_GESTIONAR)) return true;
+        return SesionActual.esSoloDocente() && puedeVer(idEstudiante, authentication);
     }
 
     private Integer idUsuario(Authentication authentication) {
