@@ -90,6 +90,9 @@ describe('InicioAdminPage', () => {
     for (const [titulo, valor] of [['Asociados hoy', '120'], ['Ingresaron', '82'], ['Por ingresar', '20'], ['Ausentes', '6'], ['Incidencias', '3']]) {
       expect(within(within(resumen).getByRole('article', { name: titulo })).getByText(valor)).toBeInTheDocument()
     }
+    // Con incidencias, "Revisar" lleva a Reportes.
+    expect(within(within(resumen).getByRole('article', { name: 'Incidencias' })).getByRole('link', { name: 'Revisar las incidencias en Reportes' }))
+      .toHaveAttribute('href', '/dashboard/reportes')
     // 82 de 108 habilitados (ingresaron + por ingresar + ausentes).
     expect(screen.getAllByText('75,9 %').length).toBeGreaterThan(0)
   })

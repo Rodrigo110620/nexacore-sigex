@@ -134,19 +134,19 @@ export default function InicioAdminPage() {
           ) : (
             <>
               <Indicadores datos={datos} />
-              <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <TarjetaIngresosHora datos={datos} ahora={ahora} />
                 <TarjetaEstado datos={datos} />
               </div>
-              <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <TablaExamenesHoy examenes={deHoy} />
                 <ProximoExamen proximo={proximo} />
               </div>
-              <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
                 <TarjetaSemana datos={datos} />
                 <TarjetaMotivos datos={datos} />
               </div>
-              <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3">
                 <Pendientes datos={datos} />
                 <ActividadReciente actividad={actividad} />
                 <AccesosRapidos auth={auth} />
@@ -251,7 +251,12 @@ function Indicadores({ datos }: { datos: InicioAdmin }) {
             <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] bg-gradient-to-br ${fondo} ${color}`}>
               <Icono size={18} aria-hidden="true" />
             </span>
-            {alerta && <span className="rounded-full bg-[#FFE4E6] px-2 py-0.5 text-[10px] font-bold text-[#BE123C]">Revisar</span>}
+            {alerta && (
+              <Link to="/dashboard/reportes" aria-label="Revisar las incidencias en Reportes"
+                className="inline-flex items-center gap-1 rounded-full bg-[#FFE4E6] px-2 py-0.5 text-[10px] font-bold text-[#BE123C] hover:bg-[#FECDD3]">
+                Revisar <ArrowRight size={11} aria-hidden="true" />
+              </Link>
+            )}
           </div>
           <p className="text-[26px] font-bold leading-none tabular-nums text-[#011140] sm:text-[30px]">{valor}</p>
           <div>
@@ -306,7 +311,7 @@ function TarjetaEstado({ datos }: { datos: InicioAdmin }) {
     ['Ausentes', '#FCD34D', '#F97316', ausentes],
   ]
   return (
-    <section aria-label="Estado de los asociados" className={`${TARJETA} p-4 sm:p-[22px]`}>
+    <section aria-label="Estado de los asociados" className={`${TARJETA} min-w-0 p-4 sm:p-[22px]`}>
       <Cabecera titulo="Estado de los asociados" detalle={`${asociados} ${asociados === 1 ? 'estudiante asociado' : 'estudiantes asociados'} a los exámenes de hoy`} />
       <div className="mt-4 flex flex-col items-center gap-4 max-xl:sm:flex-row">
         <Anillo tam={168} grosor={22} etiqueta={`Asistencia de hoy: ${formatoPct(porcentaje(ingresados, total))}`}
@@ -394,7 +399,7 @@ function ProximoExamen({ proximo }: { proximo: { examen: ExamenDto; aulas: strin
     [UserRound, proximo.habilitados != null ? `${examen.docente} · ${proximo.habilitados} habilitados` : examen.docente],
   ]
   return (
-    <section aria-label="Próximo examen" className={`${TARJETA} flex flex-col gap-3 p-4 sm:p-5`}>
+    <section aria-label="Próximo examen" className={`${TARJETA} flex min-w-0 flex-col gap-3 p-4 sm:p-5`}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-bold uppercase tracking-wide text-[#0439D9]">Próximo examen</h2>
         <span className="rounded-md bg-[#E0E9FF] px-2 py-1 text-[10px] font-bold uppercase text-[#0439D9]">{proximo.texto}</span>
@@ -476,7 +481,7 @@ function Pendientes({ datos }: { datos: InicioAdmin }) {
   ]
   const total = fotos + qrDuplicados + intentosHoy
   return (
-    <section aria-label="Incidencias por revisar" className={`${TARJETA} flex flex-col p-4 sm:p-5`}>
+    <section aria-label="Incidencias por revisar" className={`${TARJETA} flex min-w-0 flex-col p-4 sm:p-5`}>
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-wide text-[#011140]">Incidencias por revisar</h2>
         <span className="rounded-full bg-[#FEE2E2] px-2 py-0.5 text-[11px] font-bold text-[#DC2626]">{total}</span>
@@ -512,7 +517,7 @@ const ICONOS_AVISO: Record<string, [LucideIcon, string]> = {
 function ActividadReciente({ actividad }: { actividad: Notificacion[] }) {
   const recientes = [...actividad].sort((a, b) => b.creadaEn.localeCompare(a.creadaEn)).slice(0, 4)
   return (
-    <section aria-label="Actividad reciente" className={`${TARJETA} flex flex-col p-4 sm:p-5`}>
+    <section aria-label="Actividad reciente" className={`${TARJETA} flex min-w-0 flex-col p-4 sm:p-5`}>
       <h2 className="text-xs font-bold uppercase tracking-wide text-[#011140]">Actividad reciente</h2>
       {recientes.length === 0 ? (
         <p className="mt-4 flex-1 text-sm text-[#627A9B]">Sin actividad reciente.</p>
@@ -547,7 +552,7 @@ function AccesosRapidos({ auth }: { auth: Parameters<typeof tienePermiso>[0] }) 
     [Settings, 'Configuración', 'Roles y respaldo', '/dashboard/configuracion', 'bg-[#EEF2F6] text-[#475569]', tienePermiso(auth, 'ROLES_GESTIONAR')],
   ]
   return (
-    <section aria-label="Accesos rápidos" className={`${TARJETA} p-4 sm:p-5`}>
+    <section aria-label="Accesos rápidos" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
       <h2 className="text-xs font-bold uppercase tracking-wide text-[#011140]">Accesos rápidos</h2>
       <ul className="mt-3 grid grid-cols-2 gap-2.5">
         {accesos.filter((a) => a[5]).map(([Icono, t1, t2, a, clase]) => (
