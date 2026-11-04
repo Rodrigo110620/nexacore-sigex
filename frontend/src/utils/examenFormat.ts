@@ -109,3 +109,10 @@ export function etiquetaAulas(examen: Pick<ExamenDto, 'aulas' | 'ambienteNombre'
   if (numericos) return `${nombres.length === 1 ? 'Aula' : 'Aulas'} ${lista}`
   return nombres.map((n) => (/^\d/.test(n.trim()) ? `Aula ${n}` : n)).join(', ')
 }
+
+/** "Doc. Diego Pardo": antepone "Doc." si el nombre no trae ya un título (Lic., Ing., Dr., MSc., Mgr., Doc.). */
+export function etiquetaDocente(nombre?: string | null): string {
+  const limpio = (nombre ?? '').trim()
+  if (!limpio) return 'Sin docente asignado'
+  return /^(doc|lic|ing|dr|dra|msc|mgr|mg|ph\.?d|prof)\.?\s/i.test(limpio) ? limpio : `Doc. ${limpio}`
+}

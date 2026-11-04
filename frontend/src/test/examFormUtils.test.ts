@@ -211,3 +211,15 @@ describe('etiquetaAulas', () => {
       .toBe('Aula 607, Laboratorio 1')
   })
 })
+
+describe('etiquetaDocente', () => {
+  it('antepone "Doc." si el nombre no trae un título', async () => {
+    const { etiquetaDocente } = await import('../utils/examenFormat')
+    expect(etiquetaDocente('Diego Pardo')).toBe('Doc. Diego Pardo')
+    expect(etiquetaDocente('Lic. Ana Torrez')).toBe('Lic. Ana Torrez')
+    expect(etiquetaDocente('Ing Carlos Vega')).toBe('Ing Carlos Vega')
+    expect(etiquetaDocente('Doc. Juan Pérez')).toBe('Doc. Juan Pérez')
+    expect(etiquetaDocente('Dora Rojas')).toBe('Doc. Dora Rojas')
+    expect(etiquetaDocente('')).toBe('Sin docente asignado')
+  })
+})

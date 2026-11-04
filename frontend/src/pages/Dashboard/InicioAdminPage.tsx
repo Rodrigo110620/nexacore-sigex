@@ -13,7 +13,7 @@ import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { obtenerInicioAdmin, type InicioAdmin } from '../../services/inicioService'
 import { alRecibirNotificacion, listarNotificaciones, type Notificacion } from '../../services/notificacionService'
 import { ahoraServidorMs } from '../../services/tiempoService'
-import { addMinutes, estadoDelExamen, etiquetaAulas, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
 
 const TARJETA = 'rounded-2xl border border-[#E8EDF5] bg-white shadow-[0_4px_16px_rgba(13,26,77,0.07)]'
@@ -355,29 +355,54 @@ function TablaExamenesHoy({ examenes }: { examenes: ExamenDeHoy[] }) {
             const [etiqueta, clase] = FASES[e.fase]
             const avance = e.fase === 'proximo' ? e.texto : `${e.ingresados} de ${e.habilitados} ingresaron`
             const colores = e.fase === 'finalizado' ? ['#CBD5E1', '#94A3B8'] : e.fase === 'en-curso' ? ['#34D399', '#059669'] : ['#60A5FA', '#4F46E5']
+            const horario = `${horaCorta(e.examen.horaInicio)} – ${addMinutes(e.examen.horaInicio, e.examen.duracionMinutos)}`
+            const docente = etiquetaDocente(e.examen.docente)
+            const detalle = `/dashboard/examenes/${e.examen.idExamen}/${e.examen.idParalelo}`
             return (
-              <li key={e.examen.idExamen} className="grid gap-2 py-3 sm:grid-cols-[96px_minmax(0,1fr)_112px_minmax(0,120px)_150px_auto] sm:items-center sm:gap-3">
-                <span className={`w-fit rounded-md px-2.5 py-1 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-[#011140]">{e.examen.asignatura}</p>
-                  <p className="truncate text-[11px] text-[#627A9B]">{e.examen.docente}</p>
-                </div>
-                <p className="flex items-center gap-1.5 text-xs text-[#011140]">
-                  <Clock3 size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
-                  <span><span className="sr-only">Horario: </span>{horaCorta(e.examen.horaInicio)} – {addMinutes(e.examen.horaInicio, e.examen.duracionMinutos)}</span>
-                </p>
-                <p className="flex min-w-0 items-center gap-1.5 text-xs text-[#011140]" title={e.aulas}>
-                  <MapPin size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
-                  <span className="truncate">{e.aulas}</span>
-                </p>
-                <div className="min-w-0">
-                  <p className="mb-1.5 truncate text-[11px] font-medium text-[#011140]">{avance}</p>
-                  <BarraDegradado valor={e.ingresados} max={e.habilitados} desde={colores[0]} hasta={colores[1]} etiqueta={`Avance de ${e.examen.asignatura}`} />
-                </div>
-                <Link to={`/dashboard/examenes/${e.examen.idExamen}/${e.examen.idParalelo}`}
-                  className="w-fit rounded-lg border border-[#CFDAF0] px-2.5 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
-                  Ver detalle
+              <li key={e.examen.idExamen}>
+                {/* Celular: 4 líneas y toda la fila abre el detalle. */}
+                <Link to={detalle} aria-label={`Ver detalle de ${e.examen.asignatura}`} className="block py-2.5 sm:hidden">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[13px] font-semibold text-[#011140]">{e.examen.asignatura}</span>
+                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
+                  </span>
+                  <span className="block truncate text-[11px] text-[#627A9B]">{docente}</span>
+                  <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[#011140]">
+                    <Clock3 size={12} className="shrink-0 text-[#45628D]" aria-hidden="true" />{horario}
+                    <MapPin size={12} className="ml-2 shrink-0 text-[#45628D]" aria-hidden="true" /><span className="truncate">{e.aulas}</span>
+                  </span>
+                  <span className="mt-1.5 flex items-center gap-2">
+                    {e.fase === 'proximo'
+                      ? <span className="text-[11px] font-medium text-[#0439D9]">{e.texto}</span>
+                      : <>
+                          <span className="min-w-0 flex-1"><BarraDegradado valor={e.ingresados} max={e.habilitados} desde={colores[0]} hasta={colores[1]} etiqueta={`Avance de ${e.examen.asignatura}`} /></span>
+                          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-[#011140]">{e.ingresados} de {e.habilitados}</span>
+                        </>}
+                  </span>
                 </Link>
+                {/* Escritorio: tabla. */}
+                <div className="hidden gap-3 py-3 sm:grid sm:grid-cols-[96px_minmax(0,1fr)_112px_minmax(0,120px)_150px_auto] sm:items-center">
+                  <span className={`w-fit rounded-md px-2.5 py-1 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-[#011140]">{e.examen.asignatura}</p>
+                    <p className="truncate text-[11px] text-[#627A9B]">{docente}</p>
+                  </div>
+                  <p className="flex items-center gap-1.5 text-xs text-[#011140]">
+                    <Clock3 size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
+                    <span><span className="sr-only">Horario: </span>{horario}</span>
+                  </p>
+                  <p className="flex min-w-0 items-center gap-1.5 text-xs text-[#011140]" title={e.aulas}>
+                    <MapPin size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
+                    <span className="truncate">{e.aulas}</span>
+                  </p>
+                  <div className="min-w-0">
+                    <p className="mb-1.5 truncate text-[11px] font-medium text-[#011140]">{avance}</p>
+                    <BarraDegradado valor={e.ingresados} max={e.habilitados} desde={colores[0]} hasta={colores[1]} etiqueta={`Avance de ${e.examen.asignatura}`} />
+                  </div>
+                  <Link to={detalle} className="w-fit rounded-lg border border-[#CFDAF0] px-2.5 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
+                    Ver detalle
+                  </Link>
+                </div>
               </li>
             )
           })}
@@ -399,10 +424,9 @@ function ProximoExamen({ proximo }: { proximo: { examen: ExamenDto; aulas: strin
   const { examen } = proximo
   const fecha = fechaDe(examen.fecha)
   const datos: [LucideIcon, string][] = [
-    [CalendarDays, `${DIAS_LARGOS[fecha.getDay()]} ${formatFecha(examen.fecha)}`],
-    [Clock3, `${horaCorta(examen.horaInicio)} – ${addMinutes(examen.horaInicio, examen.duracionMinutos)}`],
+    [CalendarDays, `${DIAS_LARGOS[fecha.getDay()]} ${formatFecha(examen.fecha)} · ${horaCorta(examen.horaInicio)} – ${addMinutes(examen.horaInicio, examen.duracionMinutos)}`],
     [MapPin, proximo.aulas],
-    [UserRound, proximo.habilitados != null ? `${examen.docente} · ${proximo.habilitados} habilitados` : examen.docente],
+    [UserRound, proximo.habilitados != null ? `${etiquetaDocente(examen.docente)} · ${proximo.habilitados} habilitados` : etiquetaDocente(examen.docente)],
   ]
   return (
     <section aria-label="Próximo examen" className={`${TARJETA} flex min-w-0 flex-col gap-3 p-4 sm:p-5`}>
