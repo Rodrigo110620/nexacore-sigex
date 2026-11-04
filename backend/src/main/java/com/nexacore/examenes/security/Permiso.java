@@ -24,6 +24,7 @@ public enum Permiso {
     FOTOS_REPORTAR("Estudiantes", "Reportar una foto que no coincide con la persona"),
     FOTOS_REVISAR("Estudiantes", "Revisar, aprobar y rechazar fotos"),
     REPORTES_VER("Reportes", "Ver los reportes de intentos, expulsiones y excepciones"),
+    REPORTES_EXPORTAR("Reportes", "Exportar el acta de asistencia en PDF y la asistencia en Excel"),
     NOTIFICACIONES_TODAS("Reportes", "Recibir los avisos de todos los exámenes"),
     USUARIOS_GESTIONAR("Administración", "Gestionar los usuarios del personal"),
     ROLES_GESTIONAR("Administración", "Crear roles y asignar sus permisos");
