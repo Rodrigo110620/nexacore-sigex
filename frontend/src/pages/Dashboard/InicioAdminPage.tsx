@@ -13,7 +13,7 @@ import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { obtenerInicioAdmin, type InicioAdmin } from '../../services/inicioService'
 import { alRecibirNotificacion, listarNotificaciones, type Notificacion } from '../../services/notificacionService'
 import { ahoraServidorMs } from '../../services/tiempoService'
-import { addMinutes, estadoDelExamen, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, estadoDelExamen, etiquetaAulas, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
 
 const TARJETA = 'rounded-2xl border border-[#E8EDF5] bg-white shadow-[0_4px_16px_rgba(13,26,77,0.07)]'
@@ -106,7 +106,7 @@ export default function InicioAdminPage() {
       .map((examen) => {
         const c = conteos.get(examen.idExamen)
         const estado = estadoDelExamen(examen, ahora)
-        const aulas = examen.aulas?.length ? examen.aulas.map((a) => a.nombre).join(', ') : examen.ambienteNombre
+        const aulas = etiquetaAulas(examen)
         return { examen, aulas, fase: estado.fase, texto: estado.texto, asociados: c?.asociados ?? 0, habilitados: c?.habilitados ?? 0, ingresados: c?.ingresados ?? 0 }
       })
   }, [datos, examenes, hoy, ahora])
@@ -117,7 +117,7 @@ export default function InicioAdminPage() {
     const futuro = examenes
       .filter((e) => e.fecha > hoy && e.estado?.toLowerCase() !== 'cancelado')
       .sort((a, b) => `${a.fecha}${a.horaInicio}`.localeCompare(`${b.fecha}${b.horaInicio}`))[0]
-    return futuro ? { examen: futuro, aulas: futuro.aulas?.map((a) => a.nombre).join(', ') || futuro.ambienteNombre, texto: 'Programado', habilitados: null } : null
+    return futuro ? { examen: futuro, aulas: etiquetaAulas(futuro), texto: 'Programado', habilitados: null } : null
   }, [deHoy, examenes, hoy])
 
   const primerNombre = nombre?.trim().split(/\s+/)[0]
@@ -356,14 +356,20 @@ function TablaExamenesHoy({ examenes }: { examenes: ExamenDeHoy[] }) {
             const avance = e.fase === 'proximo' ? e.texto : `${e.ingresados} de ${e.habilitados} ingresaron`
             const colores = e.fase === 'finalizado' ? ['#CBD5E1', '#94A3B8'] : e.fase === 'en-curso' ? ['#34D399', '#059669'] : ['#60A5FA', '#4F46E5']
             return (
-              <li key={e.examen.idExamen} className="grid gap-2 py-3 sm:grid-cols-[96px_minmax(0,1fr)_96px_minmax(0,110px)_150px_auto] sm:items-center sm:gap-3">
+              <li key={e.examen.idExamen} className="grid gap-2 py-3 sm:grid-cols-[96px_minmax(0,1fr)_112px_minmax(0,120px)_150px_auto] sm:items-center sm:gap-3">
                 <span className={`w-fit rounded-md px-2.5 py-1 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-semibold text-[#011140]">{e.examen.asignatura}</p>
                   <p className="truncate text-[11px] text-[#627A9B]">{e.examen.docente}</p>
                 </div>
-                <p className="text-xs text-[#011140]">{horaCorta(e.examen.horaInicio)} – {addMinutes(e.examen.horaInicio, e.examen.duracionMinutos)}</p>
-                <p className="truncate text-xs text-[#011140]" title={e.aulas}>{e.aulas}</p>
+                <p className="flex items-center gap-1.5 text-xs text-[#011140]">
+                  <Clock3 size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
+                  <span><span className="sr-only">Horario: </span>{horaCorta(e.examen.horaInicio)} – {addMinutes(e.examen.horaInicio, e.examen.duracionMinutos)}</span>
+                </p>
+                <p className="flex min-w-0 items-center gap-1.5 text-xs text-[#011140]" title={e.aulas}>
+                  <MapPin size={14} className="shrink-0 text-[#45628D]" aria-hidden="true" />
+                  <span className="truncate">{e.aulas}</span>
+                </p>
                 <div className="min-w-0">
                   <p className="mb-1.5 truncate text-[11px] font-medium text-[#011140]">{avance}</p>
                   <BarraDegradado valor={e.ingresados} max={e.habilitados} desde={colores[0]} hasta={colores[1]} etiqueta={`Avance de ${e.examen.asignatura}`} />
