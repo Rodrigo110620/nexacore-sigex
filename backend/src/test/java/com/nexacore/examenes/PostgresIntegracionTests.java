@@ -115,6 +115,14 @@ class PostgresIntegracionTests {
     }
 
     @Test
+    void elCatalogoDePermisosDeLaBaseCoincideConElDelCodigo() {
+        // rol_permiso apunta a permiso: un permiso del código que falte en la base no se podría asignar.
+        List<String> enBase = jdbc.queryForList("SELECT codigo || '|' || modulo || '|' || descripcion FROM permiso", String.class);
+        assertThat(enBase).containsExactlyInAnyOrderElementsOf(Arrays.stream(com.nexacore.examenes.security.Permiso.values())
+                .map(p -> p.name() + "|" + p.modulo() + "|" + p.descripcion()).toList());
+    }
+
+    @Test
     void lasConsultasIgnoreCaseFuncionanEnPostgres() {
         jdbc.update("""
                 INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email)
