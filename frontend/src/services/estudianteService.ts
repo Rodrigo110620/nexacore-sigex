@@ -28,6 +28,8 @@ export async function getEstudiantes(
       idFacultad: params.idFacultad || undefined,
       idCarrera: params.idCarrera || undefined,
       idExamen: params.idExamen,
+      idMateria: params.idMateria || undefined,
+      idParalelo: params.idParalelo || undefined,
     },
     signal,
   })
@@ -121,5 +123,10 @@ export async function quitarFotoEstudiante(id: number): Promise<void> {
 /** La foto se pide con el token (un <img src> no lo enviaría). */
 export async function descargarFotoEstudiante(fotoUrl: string, signal?: AbortSignal): Promise<Blob> {
   const { data } = await api.get<Blob>(fotoUrl, { responseType: 'blob', signal })
+  return data
+}
+
+export async function getMateriasDocente(signal?: AbortSignal) {
+  const { data } = await api.get<import('../types/estudiante').MateriaDocenteInfo[]>('/estudiantes/materias-docente', { signal })
   return data
 }

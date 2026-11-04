@@ -172,12 +172,21 @@ public class EstudianteController {
             @RequestParam(required = false) Integer idFacultad,
             @RequestParam(required = false) Integer idCarrera,
             @RequestParam(required = false) Integer idExamen,
+            @RequestParam(required = false) Integer idMateria,
+            @RequestParam(required = false) Integer idParalelo,
             Authentication authentication
     ) {
         Integer idDocente = estudianteAlcance.docenteParaFiltrar(idExamen, authentication);
         return ResponseEntity.ok(
-                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente)
+                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente, idMateria, idParalelo)
         );
+    }
+
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
+    @GetMapping("/materias-docente")
+    public ResponseEntity<List<com.nexacore.examenes.dto.MateriaDocenteResponse>> materiasDocente(Authentication authentication) {
+        return ResponseEntity.ok(estudianteService.materiasDelDocente(
+                estudianteAlcance.docenteParaFiltrar(null, authentication)));
     }
 
     @Operation(summary = "Listar carreras",
@@ -194,8 +203,9 @@ public class EstudianteController {
             description = "Devuelve un estudiante con sus carreras. ADMIN, DOCENTE y CONTROL.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER') and @estudianteAlcance.puedeVer(#id, authentication)")
     @GetMapping("/{id}")
-    public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id) {
-        return ResponseEntity.ok(estudianteService.obtenerPorId(id));
+    public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(estudianteService.conMaterias(estudianteService.obtenerPorId(id),
+                estudianteAlcance.docenteParaFiltrar(null, authentication)));
     }
 
     @Operation(summary = "Actualizar estudiante",

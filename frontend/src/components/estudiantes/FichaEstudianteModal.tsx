@@ -1,3 +1,4 @@
+import MateriasDocente from './MateriasDocente'
 import { useState } from 'react'
 import { Building2, GraduationCap, Mail, Phone, QrCode, X } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
@@ -138,6 +139,11 @@ export default function FichaEstudianteModal({ open, estudiante, onClose, puedeR
               </div>
             </div>
           </section>
+
+          {estudiante.materiasDocente != null && <section className="rounded-lg border border-[#D8E3F5] bg-[#F8FAFC] p-4" aria-label="Materias con este docente">
+            <h3 className="mb-3 text-sm font-bold text-[#011140]">Matriculado en tus materias</h3>
+            <MateriasDocente materias={estudiante.materiasDocente} />
+          </section>}
 
           {/* 2. INFORMACIÓN ACADÉMICA */}
           <section className="mb-5">
