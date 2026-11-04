@@ -71,7 +71,7 @@ describe('UsuariosPage', () => {
     expect(screen.queryByRole('switch', { name: 'Notificar por email' })).not.toBeInTheDocument()
   })
 
-  it('DashboardPage redirige hacia la pantalla unificada', async () => {
+  it('DashboardPage lleva al ADMIN a su inicio', async () => {
     const DashboardPage = (await import('../pages/Dashboard/DashboardPage')).default
 
     render(
@@ -79,13 +79,13 @@ describe('UsuariosPage', () => {
         <MemoryRouter initialEntries={['/dashboard']}>
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/dashboard/examenes" element={<p>Gestión unificada</p>} />
+            <Route path="/dashboard/inicio" element={<p>Inicio del administrador</p>} />
           </Routes>
         </MemoryRouter>
       </AuthProvider>,
     )
 
-    expect(screen.getByText('Gestión unificada')).toBeInTheDocument()
+    expect(screen.getByText('Inicio del administrador')).toBeInTheDocument()
   })
 
   it('conserva el breakpoint original del layout en otras pantallas', () => {

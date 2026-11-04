@@ -6,7 +6,7 @@ import { navItemsFor } from '../../components/navigation/navItems'
 
 /**
  * /dashboard:
- * - ADMIN → pantalla unificada de exámenes
+ * - ADMIN → su inicio con el resumen del día
  * - CONTROL → resumen operativo; desde el menú entra a Control
  * - DOCENTE → inicio de gestión de grupos
  * - Sin rol → aviso (evita bucle con AdminRoute)
@@ -14,11 +14,8 @@ import { navItemsFor } from '../../components/navigation/navItems'
 export default function DashboardPage() {
   const { isAdmin, nombre, roles, permisos } = useAuth()
 
-  if (isAdmin) {
-    return <Navigate to="/dashboard/examenes" replace />
-  }
-  // CONTROL, DOCENTE o un rol extra con algún permiso del personal: a su inicio.
-  if (navItemsFor(roles, permisos).length > 0) {
+  // ADMIN, CONTROL, DOCENTE o un rol extra con algún permiso del personal: a su inicio.
+  if (isAdmin || navItemsFor(roles, permisos).length > 0) {
     return <Navigate to="/dashboard/inicio" replace />
   }
 
