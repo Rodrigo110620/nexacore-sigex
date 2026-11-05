@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown, X, CircleAlert } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import api from '../../services/api'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
-import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
 
 interface Props {
   isOpen: boolean
@@ -41,15 +40,11 @@ const esTextoInconsistente = (texto: string) => {
   const palabras = texto.split(/\s+/);
   for (const palabra of palabras) {
     if (palabra.length >= 5) {
-      // Contamos las vocales de la palabra
       const vocales = (palabra.match(/[aeiouáéíóúü]/ig) || []).length;
-      // Si la palabra es larga pero tiene menos del 25% de vocales, es sospechosa (ej. "Frergregrrergr")
       if (vocales / palabra.length < 0.25) return true;
     }
   }
-  // Si hay 4 o más consonantes seguidas (ej. "strv"), también es sospechoso
   if (/[bcdfghjklmnñpqrstvwxyz]{4,}/i.test(texto)) return true;
-  
   return false;
 }
 
@@ -67,7 +62,6 @@ export default function RegistrarNoHabilitadoModal({
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-
   const [confirmarCierre, setConfirmarCierre] = useState(false)
 
   useEffect(() => {
@@ -102,10 +96,10 @@ export default function RegistrarNoHabilitadoModal({
     }, 150)
   }
 
-
   const hayCambios = accion.trim().length > 0 || observaciones.trim().length > 0
 
   const solicitarCierre = () => {
+    if (isSaving) return
     if (hayCambios) {
       setConfirmarCierre(true)
     } else {
@@ -131,7 +125,6 @@ export default function RegistrarNoHabilitadoModal({
         showError('observaciones', 'Las observaciones no pueden superar los 200 caracteres.')
         return
       }
-
       if (esTextoInconsistente(textoObs)) {
         showError('observaciones', 'El texto ingresado parece no tener sentido (datos inconsistentes). Por favor, escribe una observación real.')
         return
@@ -167,7 +160,6 @@ export default function RegistrarNoHabilitadoModal({
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/25 p-0 sm:p-4">
         <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#D8E3F5] bg-white p-5 sm:p-7 shadow-[0_20px_50px_-15px_rgba(1,17,64,.25)] transition-all">
           
-          {/* Header con botón X */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626]">
@@ -177,7 +169,6 @@ export default function RegistrarNoHabilitadoModal({
                 Registrar Excepción
               </h2>
             </div>
-
             <button
               type="button"
               onClick={solicitarCierre}
@@ -301,14 +292,38 @@ export default function RegistrarNoHabilitadoModal({
         onClose={() => setResultado(null)} 
       />
       
-      <ConfirmDiscardDialog 
-        open={confirmarCierre} 
-        onStay={() => setConfirmarCierre(false)} 
-        onLeave={() => {
-          setConfirmarCierre(false)
-          onClose()
-        }} 
-      />
+      {confirmarCierre && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/25 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <CircleAlert size={22} />
+              </span>
+              <h3 className="text-lg font-bold text-[#011140]">¿Descartar cambios?</h3>
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              Si sales ahora, perderás la información que has ingresado en el formulario.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button 
+                onClick={() => setConfirmarCierre(false)} 
+                className="px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Quedarme
+              </button>
+              <button 
+                onClick={() => {
+                  setConfirmarCierre(false)
+                  onClose()
+                }} 
+                className="px-4 py-2.5 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+              >
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
