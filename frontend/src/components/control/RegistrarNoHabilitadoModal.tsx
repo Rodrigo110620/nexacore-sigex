@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown, X } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import api from '../../services/api'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
+import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
 
 interface Props {
   isOpen: boolean
@@ -36,6 +37,22 @@ const toSentenceCase = (text: string) => {
   return lower.charAt(0).toUpperCase() + lower.slice(1)
 }
 
+const esTextoInconsistente = (texto: string) => {
+  const palabras = texto.split(/\s+/);
+  for (const palabra of palabras) {
+    if (palabra.length >= 5) {
+      // Contamos las vocales de la palabra
+      const vocales = (palabra.match(/[aeiouáéíóúü]/ig) || []).length;
+      // Si la palabra es larga pero tiene menos del 25% de vocales, es sospechosa (ej. "Frergregrrergr")
+      if (vocales / palabra.length < 0.25) return true;
+    }
+  }
+  // Si hay 4 o más consonantes seguidas (ej. "strv"), también es sospechoso
+  if (/[bcdfghjklmnñpqrstvwxyz]{4,}/i.test(texto)) return true;
+  
+  return false;
+}
+
 export default function RegistrarNoHabilitadoModal({
   isOpen, onClose, estudiante, idEstudiante, idExamen, idAmbiente, onGuardadoExitoso,
 }: Props) {
@@ -50,6 +67,8 @@ export default function RegistrarNoHabilitadoModal({
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const [confirmarCierre, setConfirmarCierre] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -83,6 +102,17 @@ export default function RegistrarNoHabilitadoModal({
     }, 150)
   }
 
+
+  const hayCambios = accion.trim().length > 0 || observaciones.trim().length > 0
+
+  const solicitarCierre = () => {
+    if (hayCambios) {
+      setConfirmarCierre(true)
+    } else {
+      onClose()
+    }
+  }
+
   const handleGuardar = async () => {
     const textoAccion = accion.trim();
     const textoObs = observaciones.trim();
@@ -102,20 +132,8 @@ export default function RegistrarNoHabilitadoModal({
         return
       }
 
-      const regexSoloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/;
-      if (!regexSoloLetras.test(textoObs)) {
-        showError('observaciones', 'Solo se permiten letras y espacios. No se admiten números ni símbolos.')
-        return
-      }
-
-      const soloLetras = textoObs.replace(/\s/g, '')
-      if (/^(.)\1+$/.test(soloLetras)) {
-        showError('observaciones', 'Las observaciones no pueden ser una sola letra repetida.')
-        return
-      }
-      // 2. Si hay una misma letra repetida más de 3 veces seguidas (ej: "holaaaa", "reeeetiró")
-      if (/([a-zA-ZáéíóúÁÉÍÓÚüÜñÑ])\1{3,}/.test(textoObs)) {
-        showError('observaciones', 'Las observaciones tienen letras repetidas de forma inconsistente.')
+      if (esTextoInconsistente(textoObs)) {
+        showError('observaciones', 'El texto ingresado parece no tener sentido (datos inconsistentes). Por favor, escribe una observación real.')
         return
       }
     }
@@ -148,6 +166,8 @@ export default function RegistrarNoHabilitadoModal({
     <>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/25 p-0 sm:p-4">
         <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#D8E3F5] bg-white p-5 sm:p-7 shadow-[0_20px_50px_-15px_rgba(1,17,64,.25)] transition-all">
+          
+          {/* Header con botón X */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626]">
@@ -157,6 +177,16 @@ export default function RegistrarNoHabilitadoModal({
                 Registrar Excepción
               </h2>
             </div>
+
+            <button
+              type="button"
+              onClick={solicitarCierre}
+              disabled={isSaving}
+              aria-label="Cerrar"
+              className="rounded-full p-1.5 text-[#627A9B] transition-colors hover:bg-gray-100 disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <div>
@@ -247,7 +277,7 @@ export default function RegistrarNoHabilitadoModal({
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
-              <button onClick={onClose} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
+              <button onClick={solicitarCierre} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
                 <ArrowLeft size={15} /> Cancelar
               </button>
               <button onClick={handleGuardar} disabled={isSaving || !accion} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-[#BA1A1A] px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#B91C1C] disabled:opacity-50 ml-auto">
@@ -269,6 +299,15 @@ export default function RegistrarNoHabilitadoModal({
       <ResultadoModal 
         resultado={resultado} 
         onClose={() => setResultado(null)} 
+      />
+      
+      <ConfirmDiscardDialog 
+        open={confirmarCierre} 
+        onStay={() => setConfirmarCierre(false)} 
+        onLeave={() => {
+          setConfirmarCierre(false)
+          onClose()
+        }} 
       />
     </>
   )
