@@ -5,6 +5,7 @@ import AuthLayout from '../../components/layout/AuthLayout';
 import Login_Information from './Login_Information';
 import Login_Sesion from './Login_Sesion';
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
+import { PIE_CORTO } from '../../utils/version'
 
 const TRANSICION =
   'transition-[opacity,transform,visibility] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none';
@@ -131,8 +132,8 @@ export default function LoginPage() {
 
           {isMobile && (
             <p className="mt-auto text-center text-xs leading-5 text-[#627A9B]">
-              NexaCore Arquitectura de Software S.R.L 2026<br />
-              Laboratorio TIS – UMSS v0.1
+              © 2026 NexaCore Arquitectura de Software S.R.L.<br />
+              {PIE_CORTO}
             </p>
           )}
         </div>

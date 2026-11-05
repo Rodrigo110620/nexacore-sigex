@@ -5,6 +5,7 @@ import AuthLayout from '../../components/layout/AuthLayout'
 import { resetPassword } from '../../services/authService'
 import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/passwordPolicy'
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
+import { PIE_CORTO } from '../../utils/version'
 
 export default function ResetPasswordPage() {
   const isMobile = useIsMobileDevice()
@@ -207,9 +208,9 @@ export default function ResetPasswordPage() {
 
           {isMobile && (
             <p className="mt-auto pt-12 text-center text-xs leading-5 text-[#627A9B]">
-              NexaCore Arquitectura de Software S.R.L 2026
+              © 2026 NexaCore Arquitectura de Software S.R.L.
               <br />
-              Laboratorio TIS – UMSS v0.1
+              {PIE_CORTO}
             </p>
           )}
         </div>
