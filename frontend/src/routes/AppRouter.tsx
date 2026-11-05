@@ -14,6 +14,7 @@ import CambiarFotoPage from '../pages/PortalEstudiante/CambiarFotoPage'
 import PortalEstudianteRoute from './PortalEstudianteRoute'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import InicioDocentePage from '../pages/Dashboard/InicioDocentePage'
+import InicioAdminPage from '../pages/Dashboard/InicioAdminPage'
 import PerfilPage from '../pages/Dashboard/PerfilPage'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
@@ -53,9 +54,9 @@ function NavigateRegistrar() {
 function InicioRoute() {
   const auth = useAuth()
   const { roles } = auth
+  if (roles.includes('ADMIN')) return <InicioAdminPage />
   if (roles.includes('CONTROL')) return <ControlInicioPage />
   if (roles.includes('DOCENTE')) return <InicioDocentePage />
-  if (roles.includes('ADMIN')) return <InicioEnDesarrollo />
   // Rol extra: según su tarea principal (controlar todos los exámenes o los propios como docente).
   if (tienePermiso(auth, 'CONTROL_INGRESO_TODOS')) return <ControlInicioPage />
   if (tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS', 'CONTROL_INGRESO_PROPIOS')) return <InicioDocentePage />
@@ -213,7 +214,7 @@ export default function AppRouter() {
           }
         />
 
-        {/* Inicio general: CONTROL ve su panel operativo; los demás roles ven el módulo en desarrollo. */}
+        {/* Inicio general: ADMIN ve el resumen del día, CONTROL su panel operativo y DOCENTE sus grupos. */}
         <Route
           path="/dashboard/inicio"
           element={

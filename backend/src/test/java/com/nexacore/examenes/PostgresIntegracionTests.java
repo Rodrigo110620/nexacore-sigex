@@ -78,6 +78,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
     @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
+    @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -726,6 +727,73 @@ class PostgresIntegracionTests {
         assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
         assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
         assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
+    }
+
+    @Test
+    void elInicioDelAdminResumeElDiaYLaSemana() {
+        prepararCatalogo();
+        var antes = inicioAdminService.resumen();
+        var ahora = antes.ahora();
+        int pa = materiaYParalelo("TST-INI1");
+        int pb = materiaYParalelo("TST-INI2");
+        int pc = materiaYParalelo("TST-INI3");
+        int enCurso = examen(pa, "08:00", 120);
+        int porIniciar = examen(pb, "08:00", 60);
+        int deAyer = examen(pc, "08:00", 60);
+        var inicioA = ahora.minusMinutes(30);
+        var inicioB = ahora.plusMinutes(2);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioA.toLocalDate(), inicioA.toLocalTime(), enCurso);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioB.toLocalDate(), inicioB.toLocalTime(), porIniciar);
+        jdbc.update("UPDATE examen SET fecha = ? WHERE id_examen = ?", ahora.toLocalDate().minusDays(1), deAyer);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?)";
+        var ingreso = java.sql.Timestamp.valueOf(ahora.minusMinutes(1));
+        // En curso: 2 habilitados (uno ingresó) y 1 no habilitado.
+        jdbc.update(asociar, estudiante("209800001", "Ana"), enCurso, pa, true, ingreso);
+        jdbc.update(asociar, estudiante("209800002", "Beto"), enCurso, pa, true, null);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, motivo_inhabilitacion) "
+                + "VALUES (?, ?, ?, FALSE, 'Deuda en biblioteca')", estudiante("209800003", "Ciro"), enCurso, pa);
+        // Por iniciar: 2 habilitados que aún no ingresan.
+        jdbc.update(asociar, estudiante("209800004", "Dora"), porIniciar, pb, true, null);
+        jdbc.update(asociar, estudiante("209800005", "Eva"), porIniciar, pb, true, null);
+        // Ayer: 2 habilitados, uno faltó.
+        jdbc.update(asociar, estudiante("209800006", "Fito"), deAyer, pc, true, java.sql.Timestamp.valueOf(ahora.minusDays(1).withHour(8)));
+        jdbc.update(asociar, estudiante("209800007", "Gabi"), deAyer, pc, true, null);
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, '1', ?, ?)";
+        jdbc.update(intento, enCurso, pa, idDocente, "Ambiente incorrecto: se presentó en el aula 691B", ingreso);
+        // La excepción de un no habilitado también deja un intento: no se cuenta dos veces.
+        jdbc.update(intento, enCurso, pa, idDocente, "Intento ingresar no habilitado ### Ciro", ingreso);
+        sincronizar();
+
+        var despues = inicioAdminService.resumen();
+        var h0 = antes.hoy();
+        var h1 = despues.hoy();
+        assertThat(h1.examenes() - h0.examenes()).isEqualTo(2);
+        assertThat(h1.enCurso() - h0.enCurso()).isEqualTo(1);
+        assertThat(h1.asociados() - h0.asociados()).isEqualTo(5);
+        assertThat(h1.ingresados() - h0.ingresados()).isEqualTo(1);
+        assertThat(h1.porIngresar() - h0.porIngresar()).isEqualTo(2);
+        assertThat(h1.ausentes() - h0.ausentes()).isEqualTo(1);
+        assertThat(h1.incidencias() - h0.incidencias()).isEqualTo(1);
+        assertThat(despues.examenes()).anySatisfy(e -> {
+            assertThat(e.idExamen()).isEqualTo(enCurso);
+            assertThat(List.of(e.asociados(), e.habilitados(), e.ingresados())).containsExactly(3, 2, 1);
+        });
+        assertThat(despues.examenes()).noneMatch(e -> e.idExamen() == deAyer);
+        int hora = ingreso.toLocalDateTime().getHour();
+        assertThat(despues.ingresosPorHora()[hora] - antes.ingresosPorHora()[hora]).isEqualTo(1);
+        assertThat(despues.esperadosPorHora()[inicioB.getHour()] - antes.esperadosPorHora()[inicioB.getHour()]).isEqualTo(2);
+        assertThat(despues.dias()).hasSize(7);
+        assertThat(despues.dias().get(6).fecha()).isEqualTo(ahora.toLocalDate());
+        var ayer0 = antes.dias().get(5);
+        var ayer1 = despues.dias().get(5);
+        assertThat(List.of(ayer1.asociados() - ayer0.asociados(), ayer1.ingresados() - ayer0.ingresados(), ayer1.ausentes() - ayer0.ausentes()))
+                .containsExactly(2, 1, 1);
+        assertThat(despues.motivos()).anySatisfy(m -> {
+            assertThat(m.motivo()).isEqualTo("Aula incorrecta");
+            assertThat(m.cantidad()).isPositive();
+        });
+        assertThat(despues.motivos()).noneMatch(m -> m.motivo().startsWith("Intento ingresar no habilitado"));
+        assertThat(despues.pendientes().intentosHoy() - antes.pendientes().intentosHoy()).isEqualTo(1);
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */
