@@ -11,6 +11,7 @@ import com.nexacore.examenes.dto.EstudianteHabilitacionResponse.EstadoHabilitaci
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
 import com.nexacore.examenes.exceptions.EstudianteNoEncontradoException;
+import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.AsistenciaExamenId;
 import com.nexacore.examenes.models.Estudiante;
@@ -19,6 +20,7 @@ import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExamenId;
 import com.nexacore.examenes.models.InscripcionParalelo;
 import com.nexacore.examenes.models.InscripcionParaleloId;
+import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
 import com.nexacore.examenes.repositories.EstudianteRepository;
@@ -76,6 +78,7 @@ public class HabilitacionService {
     private final RepartoAulasService repartoAulasService;
     private final AuditoriaService auditoriaService;
     private final NormasExamenService normasExamenService;
+    private final AmbienteRepository ambienteRepository;
 
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
@@ -87,7 +90,8 @@ public class HabilitacionService {
                                AuditoriaService auditoriaService,
                                NormasExamenService normasExamenService,
                                NotificacionService notificacionService,
-                               EstudianteFotoRepository fotoRepository) {
+                               EstudianteFotoRepository fotoRepository,
+                               AmbienteRepository ambienteRepository) {
         this.fotoRepository = fotoRepository;
         this.notificacionService = notificacionService;
         this.asistenciaExamenRepository = asistenciaExamenRepository;
@@ -99,6 +103,7 @@ public class HabilitacionService {
         this.repartoAulasService = repartoAulasService;
         this.auditoriaService = auditoriaService;
         this.normasExamenService = normasExamenService;
+        this.ambienteRepository = ambienteRepository;
     }
 
     @Transactional(readOnly = true)
@@ -402,16 +407,32 @@ public class HabilitacionService {
                         Collectors.mapping(this::nombreFacultad,
                                 Collectors.collectingAndThen(Collectors.toCollection(TreeSet::new),
                                         nombres -> String.join(", ", nombres)))));
+        // Nombres de ambiente por id, para mostrar el aula real de quien ya ingresó/fue reasignado,
+        // en lugar del cálculo alfabético del reparto (que ignora idAmbienteIngreso en modo alfabético).
+        Set<Integer> ambientesIngreso = asistencias.stream()
+                .map(AsistenciaExamen::getIdAmbienteIngreso)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Integer, String> nombresAmbientes = ambienteRepository.findAllById(ambientesIngreso).stream()
+                .collect(Collectors.toMap(Ambiente::getId, Ambiente::getNombre, (a, b) -> a));
         return asistencias.stream().map(a -> {
             Estudiante e = a.getEstudiante();
             EstadoHabilitacion estado = a.getHabilitado() == null
                     ? EstadoHabilitacion.PENDIENTE
                     : a.getHabilitado() ? EstadoHabilitacion.HABILITADO : EstadoHabilitacion.NO_HABILITADO;
-            RepartoAulasService.Aula aula = reparto.aulaDe(e.getId());
+            // Prioriza el aula donde el estudiante realmente está (ingreso o reasignación).
+            String aulaNombre = null;
+            if (a.getIdAmbienteIngreso() != null) {
+                aulaNombre = nombresAmbientes.get(a.getIdAmbienteIngreso());
+            }
+            if (aulaNombre == null) {
+                RepartoAulasService.Aula aulaReparto = reparto.aulaDe(e.getId());
+                aulaNombre = aulaReparto != null ? aulaReparto.nombre() : null;
+            }
             
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
-                    aula != null ? aula.nombre() : null, a.getFechaHoraIngreso() != null, cruces.get(e.getId()),
+                    aulaNombre, a.getFechaHoraIngreso() != null, cruces.get(e.getId()),
                     e.getEstadoMatricula(), conFoto.contains(e.getId()));
         }).toList();
     }
