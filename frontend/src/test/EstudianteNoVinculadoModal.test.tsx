@@ -97,7 +97,7 @@ it('BUG 9: confirma antes de perder datos y permite continuar editando', () => {
   const cerrar = vi.fn()
   render(<EstudianteNoVinculadoModal estudiante={estudiante} idExamen={7} onCerrar={cerrar} />)
   fireEvent.change(screen.getByLabelText('Motivo del intento'), { target: { value: 'Examen equivocado' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
   expect(screen.getByText('¿Descartar los datos?')).toBeInTheDocument()
   expect(cerrar).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Seguir editando' }))

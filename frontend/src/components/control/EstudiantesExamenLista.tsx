@@ -88,7 +88,7 @@ function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen:
           <Ban size={14} aria-hidden="true" /> Expulsar
         </button>
       )}
-      {estudiante.ingresado && onReasignar && (
+      {estudiante.ingresado && !estudiante.expulsado && onReasignar && (
         <button
           type="button"
           onClick={onReasignar}
@@ -108,9 +108,7 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
   return (
     <span
       className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-        ingresado && !expulsado
-          ? 'bg-[#DCFCE7] text-[#166534]'
-          : 'bg-[#FDECEC] text-[#B91C1C]'
+        expulsado ? 'bg-[#FDECEC] text-[#B91C1C]' : ingresado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#FEF3C7] text-[#92400E]'
       }`}
     >
       {expulsado ? 'EXPULSADO' : ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
@@ -124,6 +122,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
   // personal de control reporta el incidente y la notificación les llega a ellos.
   const puedeExpulsar = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
+  const puedeReasignar = auth.roles?.some(rol => rol === 'ADMIN' || rol === 'DOCENTE') ?? false
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
     puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
@@ -178,7 +177,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
+                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} /></td>
               </tr>
             )
           })}
@@ -214,7 +213,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                       <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>
                       {estudiante.carrera && <p className="mt-0.5 truncate text-[#627A9B]">{estudiante.carrera}</p>}
                     </div>
-                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} />
+                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} />
                   </div>
                   {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </div>
