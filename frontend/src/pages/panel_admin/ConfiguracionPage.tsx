@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { Check, DatabaseBackup, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
-import { PLANTILLAS_ROL, permisosFaltantes } from '../../utils/plantillasRol'
+import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
@@ -36,6 +36,11 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
   const asignables = catalogo.filter((p) => !p.soloAdmin)
   const seccion = useRef<HTMLElement>(null)
   const [plantilla, setPlantilla] = useState<string | null>(null)
+  const [verTodas, setVerTodas] = useState(false)
+  // Las sugerencias aparecen recién al escribir el nombre o la descripción; no se aplican solas.
+  const sugeridas = sugerirPlantillas(nombre, descripcion)
+  const plantillasVisibles = verTodas ? PLANTILLAS_ROL : sugeridas
+  const escrito = (nombre || descripcion).trim()
   const disponibles = new Set(asignables.map((p) => p.codigo))
   const descripcionDe = new Map(catalogo.map((p) => [p.codigo, p.descripcion]))
   const faltantes = permisosFaltantes(elegidos, disponibles)
@@ -109,23 +114,33 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
       </div>
       {!rol && (
         <div className="mt-4">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-[#011140]">
-            <Lightbulb size={14} className="text-[#D97706]" aria-hidden="true" /> Empieza con una plantilla (opcional)
-          </p>
-          <p className="mt-0.5 text-[11px] text-[#627A9B]">Marca los permisos más comunes para ese trabajo; después puedes quitar o agregar.</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {PLANTILLAS_ROL.map((x) => (
-              <button key={x.id} type="button" onClick={() => usarPlantilla(x.id)} aria-pressed={plantilla === x.id}
-                className={`rounded-lg border p-3 text-left transition-colors ${plantilla === x.id ? 'border-[#0439D9] bg-[#EEF3FF]' : 'border-[#E4E9F2] bg-white hover:border-[#B8CBEF] hover:bg-[#F8FAFF]'}`}>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#011140]">{x.titulo}</span>
-                  {plantilla === x.id && <Check size={15} className="shrink-0 text-[#0439D9]" aria-hidden="true" />}
-                </span>
-                <span className="mt-0.5 block text-[11px] leading-snug text-[#627A9B]">{x.descripcion}</span>
-                <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-wide text-[#45628D]">{x.permisos.filter((c) => disponibles.has(c)).length} permisos</span>
-              </button>
-            ))}
-          </div>
+          {plantillasVisibles.length > 0 && (
+            <>
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-[#011140]">
+                <Lightbulb size={14} className="text-[#D97706]" aria-hidden="true" />
+                {verTodas || !escrito ? 'Plantillas' : `Sugerencias para «${escrito}»`}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#627A9B]">Elige una para marcar los permisos más comunes de ese trabajo; después puedes quitar o agregar.</p>
+              <div aria-label="Plantillas sugeridas" role="group" className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {plantillasVisibles.map((x) => (
+                  <button key={x.id} type="button" onClick={() => usarPlantilla(x.id)} aria-pressed={plantilla === x.id}
+                    className={`rounded-lg border p-3 text-left transition-colors ${plantilla === x.id ? 'border-[#0439D9] bg-[#EEF3FF]' : 'border-[#E4E9F2] bg-white hover:border-[#B8CBEF] hover:bg-[#F8FAFF]'}`}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-[#011140]">{x.titulo}</span>
+                      {plantilla === x.id && <Check size={15} className="shrink-0 text-[#0439D9]" aria-hidden="true" />}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] leading-snug text-[#627A9B]">{x.descripcion}</span>
+                    <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-wide text-[#45628D]">{x.permisos.filter((c) => disponibles.has(c)).length} permisos</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <button type="button" onClick={() => setVerTodas((v) => !v)}
+            className={`${plantillasVisibles.length > 0 ? 'mt-2' : ''} inline-flex items-center gap-1 text-xs font-semibold text-[#0439D9] hover:underline`}>
+            <Lightbulb size={13} aria-hidden="true" />
+            {verTodas ? 'Ver solo las sugerencias' : sugeridas.length > 0 ? 'Ver todas las plantillas' : 'Ver plantillas'}
+          </button>
         </div>
       )}
       <fieldset className="mt-4">
