@@ -115,7 +115,7 @@ class CuentaEstudianteTests {
     @Test
     void noSeRegistraPersonalConElRolEstudiante() {
         RegisterUserRequest request = new RegisterUserRequest(
-            "Ana", "Pérez", "1234567", "ana.cuenta@umss.edu.bo", "estudiante", true, true);
+            "Ana", "Pérez", "1234567", "ana.cuenta@umss.edu.bo", "estudiante", true, true, null);
         assertThatThrownBy(() -> usuarioService.registrar(request))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("solo para la cuenta de un estudiante");

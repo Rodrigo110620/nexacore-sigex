@@ -1,9 +1,11 @@
 import { X, Info, Check, CircleAlert, Mail, Dot, UserRoundPen } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import PersonalInfoSection from '../admin/PersonalInfoSection';
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
 import CredentialsSection from '../admin/CredentialsSection';
+import SelectorMaterias from '../admin/SelectorMaterias';
+import { asignarMateriasAlDocente, materiasDelDocente, type MateriaDto } from '../../services/materiaService';
 import {
   type FormErrors,
   type RegisterUserFormState,
@@ -58,8 +60,31 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   const [success, setSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [descartar, setDescartar] = useState(false);
+  // IMP-12: materias del docente (null mientras se cargan o si no es docente).
+  const [materias, setMaterias] = useState<MateriaDto[] | null>(null);
+  const [materiasIniciales, setMateriasIniciales] = useState<MateriaDto[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !user?.id || user.rol !== 'DOCENTE') return;
+    let vigente = true;
+    materiasDelDocente(Number(user.id))
+      .then((lista) => {
+        if (!vigente) return;
+        setMaterias(lista);
+        setMateriasIniciales(lista);
+      })
+      .catch(() => {
+        if (vigente) setMaterias([]);
+      });
+    return () => { vigente = false; };
+  }, [isOpen, user?.id, user?.rol]);
 
   if (!isOpen) return null;
+
+  const esDocente = form.rol === 'DOCENTE';
+  const listaMaterias = materias ?? [];
+  const idsDe = (l: MateriaDto[]) => l.map((m) => m.id).sort((a, b) => a - b).join(',');
+  const cambianMaterias = esDocente && idsDe(listaMaterias) !== idsDe(materiasIniciales);
 
   const handleChange = (field: keyof RegisterUserFormState, value: string | boolean | Rol) => {
     setForm({ ...form, [field]: value });
@@ -94,7 +119,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   };
 
   // BUG 11 (2.º test run): con cambios sin guardar, la X y Cancelar piden confirmar antes de descartar.
-  const hayCambios = !success && JSON.stringify(form) !== JSON.stringify(buildFormFromUser(user));
+  const hayCambios = !success && (JSON.stringify(form) !== JSON.stringify(buildFormFromUser(user)) || cambianMaterias);
   const pedirCerrar = () => {
     if (loading) return;
     if (hayCambios) setDescartar(true);
@@ -124,6 +149,11 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       setGeneralError('Por favor, completa todos los campos obligatorios');
       return;
     }
+    if (esDocente && listaMaterias.length === 0) {
+      setErrors({ ...formErrors, materias: 'Elige al menos una materia para el docente.' });
+      setGeneralError('Elige al menos una materia para el docente.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -136,6 +166,10 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
         activo: cleanForm.activo,
         notificarEmail: false,
       }, { _skipAutoLogout: true } as object);
+      if (esDocente && (cambianMaterias || user?.rol !== 'DOCENTE')) {
+        await asignarMateriasAlDocente(Number(user?.id), listaMaterias.map((m) => m.id));
+        setMateriasIniciales(listaMaterias);
+      }
       setRegisteredEmail(cleanForm.email);
       setSuccess(true);
       onSaveSuccess?.(cleanForm);
@@ -236,6 +270,18 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                 showPasswordNotice={false}
               />
             </div>
+
+            {esDocente && (
+              <section aria-labelledby="materias-docente" className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5">
+                <div>
+                  <h3 id="materias-docente" className="text-xs font-bold tracking-wide text-[#011140]">MATERIAS DEL DOCENTE</h3>
+                  <p className="mt-0.5 text-xs text-[#627A9B]">Solo podrá programar exámenes y ver estudiantes de estas materias.</p>
+                </div>
+                {materias === null && user?.rol === 'DOCENTE'
+                  ? <p className="text-xs text-[#627A9B]">Cargando sus materias…</p>
+                  : <SelectorMaterias value={listaMaterias} onChange={(l) => { setMaterias(l); if (generalError) setGeneralError(''); }} error={errors.materias} />}
+              </section>
+            )}
 
             <div className="mt-4 hidden sm:block">
               <div className="flex items-start gap-3 rounded-lg border border-[#DBEAFE] bg-[#EFF6FF] p-3">

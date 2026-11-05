@@ -68,6 +68,7 @@ public class ExamenService {
     private final MateriaRepository materiaRepository;
     private final DocenteRepository docenteRepository;
     private final ParaleloRepository paraleloRepository;
+    private final DocenteMateriaService docenteMateriaService;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final SesionExamenService sesionExamenService;
@@ -97,7 +98,9 @@ public class ExamenService {
             AuditoriaService auditoriaService,
             NormasExamenService normasExamenService,
             NotificacionService notificacionService,
-            SesionExamenService sesionExamenService) {
+            SesionExamenService sesionExamenService,
+            DocenteMateriaService docenteMateriaService) {
+        this.docenteMateriaService = docenteMateriaService;
         this.sesionExamenService = sesionExamenService;
         this.notificacionService = notificacionService;
         this.examenRepository = examenRepository;
@@ -159,6 +162,8 @@ public class ExamenService {
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocenteParaRegistro(request);
+        // IMP-12: el docente solo programa exámenes de sus materias.
+        docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente);
@@ -226,6 +231,10 @@ public class ExamenService {
                 ? docenteRepository.findById(examen.getIdDocente())
                         .orElseThrow(() -> new IllegalArgumentException("El docente del examen no está registrado como DOCENTE."))
                 : resolverDocente(request.idDocente(), request.docente().trim());
+        // IMP-12: si el docente cambia la materia, la nueva tiene que ser suya (la actual se puede mantener).
+        if (!materia.getId().equals(examen.getIdMateria())) {
+            docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
+        }
         // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
         List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
                 ? request.idAmbientesAdicionales()

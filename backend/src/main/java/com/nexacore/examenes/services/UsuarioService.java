@@ -64,6 +64,7 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final EstudianteRepository estudianteRepository;
+    private final DocenteMateriaService docenteMateriaService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -73,7 +74,8 @@ public class UsuarioService {
                           DocenteRepository docenteRepository,
                           PasswordEncoder passwordEncoder,
                           EmailService emailService,
-                          EstudianteRepository estudianteRepository) {
+                          EstudianteRepository estudianteRepository,
+                          DocenteMateriaService docenteMateriaService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
@@ -81,6 +83,7 @@ public class UsuarioService {
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.estudianteRepository = estudianteRepository;
+        this.docenteMateriaService = docenteMateriaService;
     }
     /**
      * Registra un nuevo usuario y le asigna el rol indicado.
@@ -94,6 +97,9 @@ public class UsuarioService {
         // Valida contra la BD: si el rol no existe en la tabla rol → 400.
         // No hay lista fija: cualquier rol que se inserte en BD pasa a ser válido.
         Rol rol = buscarRolDePersonal(rolNombre);
+        // IMP-12: un docente registrado desde el formulario necesita al menos una materia.
+        boolean conMaterias = "DOCENTE".equals(rolNombre) && request.idMaterias() != null;
+        if (conMaterias) docenteMateriaService.validar(request.idMaterias());
         String email = normalizarEmail(request.email());
         String ci = request.ci().trim();
         if (usuarioRepository.findByEmail(email).isPresent()) {
@@ -122,6 +128,7 @@ public class UsuarioService {
         usuarioRolRepository.save(usuarioRol);
         // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
         sincronizarDocente(usuario, rolNombre);
+        if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         // Si el envío falla, la excepción revierte el registro.

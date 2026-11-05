@@ -1,14 +1,17 @@
 import { Check, Dot, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { PasoRegistro } from './useRegisterUserForm';
 
 interface Props {
-  step: 1 | 2;
+  step: PasoRegistro;
+  /** Texto del botón final, según el rol: «Registrar docente»… */
+  textoRegistrar?: string;
   loading: boolean;
   onClose: () => void;
   onBack: () => void;
   onNext: () => void;
 }
 
-export default function RegisterUserFooter({ step, loading, onClose, onBack, onNext }: Props) {
+export default function RegisterUserFooter({ step, loading, onClose, onBack, onNext, textoRegistrar = 'Registrar usuario' }: Props) {
   return (
     <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -30,7 +33,7 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
               </>
             )}
           </button>
-          {step === 1 ? (
+          {step < 4 ? (
             <button
               type="button"
               onClick={onNext}
@@ -46,13 +49,10 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"
             >
               {loading ? 'Registrando...' : (
-                <>
-                  <span className="sm:hidden">+ Registrar Usuario</span>
-                  <span className="hidden sm:flex sm:items-center gap-2">
-                    <Check size={18} strokeWidth={4} aria-hidden="true" className="shrink-0" />
-                    Guardar y Registrar usuario
-                  </span>
-                </>
+                <span className="flex items-center gap-2">
+                  <Check size={18} strokeWidth={4} aria-hidden="true" className="shrink-0" />
+                  {textoRegistrar}
+                </span>
               )}
             </button>
           )}
