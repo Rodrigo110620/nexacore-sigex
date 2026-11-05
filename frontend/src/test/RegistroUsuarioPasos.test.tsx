@@ -56,10 +56,18 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     const encontradas = await screen.findByRole('list', { name: 'Materias encontradas' })
     fireEvent.click(within(encontradas).getByRole('button', { name: /Programación Web/ }))
     expect(within(screen.getByRole('list', { name: 'Materias elegidas' })).getByText('Programación Web')).toBeInTheDocument()
+    // En el navegador, si «Siguiente» se reutilizara como «Registrar» (submit) durante el mismo clic, el
+    // formulario se enviaría solo. Tienen que ser botones distintos.
+    const botonSiguiente = screen.getByRole('button', { name: /Siguiente paso/ })
     siguiente()
+    expect(screen.getByRole('button', { name: /Registrar docente/ })).not.toBe(botonSiguiente)
+    expect(botonSiguiente.isConnected).toBe(false)
 
     expect(screen.getByText('Paso 4 de 4')).toBeInTheDocument()
     expect(screen.getByText('Programación Web (SIS-301)')).toBeInTheDocument()
+    // Llegar al resumen no registra: hay que pulsar «Registrar docente».
+    await act(() => vi.advanceTimersByTimeAsync(50))
+    expect(api.post).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /Registrar docente/ }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalled())
@@ -81,6 +89,9 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     expect(screen.getAllByText('Confirma que esta persona debe tener acceso total al sistema.').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que esta persona/ }))
     siguiente()
+    expect(screen.getByText('Paso 4 de 4')).toBeInTheDocument()
+    await act(() => vi.advanceTimersByTimeAsync(50))
+    expect(api.post).not.toHaveBeenCalled()
 
     // Desde el resumen se puede volver a corregir un dato.
     fireEvent.click(screen.getByRole('button', { name: 'Cambiar correo' }))

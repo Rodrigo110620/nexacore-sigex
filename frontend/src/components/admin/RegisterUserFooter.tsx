@@ -33,10 +33,16 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
               </>
             )}
           </button>
+          {/* Claves distintas: si React reutilizara el botón, el clic en «Siguiente» del paso 3 terminaría
+              sobre el botón de registrar (submit) y enviaría el formulario sin que el usuario lo confirme. */}
           {step < 4 ? (
             <button
+              key="siguiente"
               type="button"
-              onClick={onNext}
+              onClick={(e) => {
+                e.preventDefault()
+                onNext()
+              }}
               className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#0027a2] sm:w-auto sm:px-6 sm:py-2.5"
             >
               Siguiente paso
@@ -44,6 +50,7 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
             </button>
           ) : (
             <button
+              key="registrar"
               type="submit"
               disabled={loading}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-5 sm:py-2.5"

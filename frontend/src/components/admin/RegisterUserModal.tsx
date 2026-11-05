@@ -113,6 +113,11 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Solo se registra desde el paso 4, con el botón «Registrar»; Enter en los pasos anteriores avanza.
+    if (step !== 4) {
+      handleNext();
+      return;
+    }
     const stepErrors = await handleSubmit(e);
     if (stepErrors) showFirstError(stepErrors);
   };
