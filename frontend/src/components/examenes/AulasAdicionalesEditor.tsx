@@ -12,7 +12,7 @@ interface AulasAdicionalesEditorProps {
   idPrincipal: string
   value: number[]
   onChange: (ids: number[]) => void
-  /** Solo ADMIN registra el aforo; el resto ve el aviso para pedírselo. */
+  /** Quien programa exámenes registra el aforo que falta; cambiar uno ya registrado es solo del ADMIN. */
   esAdmin: boolean
   onAforoGuardado: (ambiente: AmbienteDto) => void
   modoReparto: ModoReparto
@@ -70,8 +70,10 @@ export default function AulasAdicionalesEditor({
       onAforoGuardado(await actualizarAforo(aula.id, capacidad))
       setErrores((e) => ({ ...e, [aula.id]: '' }))
       setEditando(null)
-    } catch {
-      setErrores((e) => ({ ...e, [aula.id]: 'No se pudo guardar el aforo. Intenta de nuevo.' }))
+    } catch (err) {
+      // El servidor explica por qué (p. ej. el aforo ya está registrado y solo el ADMIN lo cambia).
+      const mensaje = (err as { response?: { data?: { mensaje?: string } } })?.response?.data?.mensaje
+      setErrores((e) => ({ ...e, [aula.id]: mensaje ?? 'No se pudo guardar el aforo. Intenta de nuevo.' }))
     } finally {
       setGuardando(null)
     }
@@ -85,7 +87,8 @@ export default function AulasAdicionalesEditor({
 
   const filaAula = (aula: AmbienteDto, indice: number) => {
     const falta = !aula.capacidad
-    const mostrarCampo = esAdmin && (editando === aula.id || falta)
+    // BUG 1 (QA): el docente registra el aforo que falta sin depender del ADMIN; cambiarlo, solo el ADMIN.
+    const mostrarCampo = falta || (esAdmin && editando === aula.id)
     return (
       <li key={aula.id} className="rounded-lg border border-[#D8E3F5] bg-white px-3 py-2">
         <div className="flex items-center gap-2 text-xs text-[#011140]">
@@ -156,7 +159,7 @@ export default function AulasAdicionalesEditor({
           </div>
         )}
         {!esAdmin && falta && (
-          <p className="mt-1 text-[10px] text-red-600">Pide al administrador que registre el aforo de esta aula.</p>
+          <p className="mt-1 text-[10px] text-[#627A9B]">Registra cuántos estudiantes caben. Después, solo el administrador podrá cambiarlo.</p>
         )}
       </li>
     )
