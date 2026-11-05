@@ -28,6 +28,7 @@ import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.InscripcionParaleloRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.security.SesionActual;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -80,6 +81,7 @@ public class HabilitacionService {
     private final NormasExamenService normasExamenService;
     private final AmbienteRepository ambienteRepository;
 
+    @Autowired
     public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
                                EstudianteRepository estudianteRepository,
                                EstudianteCarreraRepository estudianteCarreraRepository,
@@ -104,6 +106,27 @@ public class HabilitacionService {
         this.auditoriaService = auditoriaService;
         this.normasExamenService = normasExamenService;
         this.ambienteRepository = ambienteRepository;
+    }
+
+    /**
+     * Constructor de compatibilidad para pruebas existentes que aún no inyectan
+     * {@link AmbienteRepository}. Se delega al constructor principal pasando
+     * {@code null} en ese repositorio.
+     */
+    public HabilitacionService(AsistenciaExamenRepository asistenciaExamenRepository,
+                               EstudianteRepository estudianteRepository,
+                               EstudianteCarreraRepository estudianteCarreraRepository,
+                               ExamenRepository examenRepository,
+                               InscripcionParaleloRepository inscripcionParaleloRepository,
+                               UsuarioRepository usuarioRepository,
+                               RepartoAulasService repartoAulasService,
+                               AuditoriaService auditoriaService,
+                               NormasExamenService normasExamenService,
+                               NotificacionService notificacionService,
+                               EstudianteFotoRepository fotoRepository) {
+        this(asistenciaExamenRepository, estudianteRepository, estudianteCarreraRepository,
+             examenRepository, inscripcionParaleloRepository, usuarioRepository, repartoAulasService,
+             auditoriaService, normasExamenService, notificacionService, fotoRepository, null);
     }
 
     @Transactional(readOnly = true)

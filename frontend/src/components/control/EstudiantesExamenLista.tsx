@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, CameraOff, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -140,14 +140,18 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
-  /** Copia local de la lista para reflejar inmediatamente el cambio de aula tras la reasignación,
-   *  sin depender únicamente del refetch del servidor. */
-  const [estudiantesLocales, setEstudiantesLocales] = useState<EstudianteAsignado[]>(estudiantes)
-
-  // Mantener la copia local sincronizada con el prop que llega del servidor
-  useEffect(() => {
-    setEstudiantesLocales(estudiantes)
-  }, [estudiantes])
+  /** Lista mostrada. Parte de lo que llega del servidor y se sobreecribe con los cambios de aula
+   *  optimistas de la reasignación, para que el cambio se vea al instante sin esperar al refetch.
+   *  Se deriva durante el render (useMemo), no en un efecto: así evitamos setState en el cuerpo del
+   *  efecto (react-hooks/set-state-in-effect) y el acceso a refs durante el render (react-hooks/refs). */
+  const [reasignacionesOptimistas, setReasignacionesOptimistas] = useState<Map<number, { idAmbienteIngreso: number; trasladadoA: string }>>(new Map())
+  const estudiantesLocales = useMemo(() =>
+    estudiantes.map((e) => {
+      const ov = reasignacionesOptimistas.get(e.idEstudiante)
+      return ov ? { ...e, idAmbienteIngreso: ov.idAmbienteIngreso, trasladadoA: ov.trasladadoA } : e
+    }),
+    [estudiantes, reasignacionesOptimistas]
+  )
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
     setEstudianteSeleccionado(estudiante)
@@ -258,13 +262,18 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
           onSuccess={(idAmbienteDestino, aulaDestinoNombre) => {
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
-            // Actualizar optimistamente la lista local para que el cambio de aula se vea al instante,
+            // Actualizar optimistamente la lista mostrada para que el cambio de aula se vea al instante,
             // sin depender únicamente del refetch del servidor.
-            setEstudiantesLocales(prev => prev.map(e =>
-                e.idEstudiante === estudianteSeleccionado?.idEstudiante
-                    ? { ...e, idAmbienteIngreso: idAmbienteDestino, trasladadoA: aulaDestinoNombre }
-                    : e
-            ))
+            if (estudianteSeleccionado) {
+              setReasignacionesOptimistas((prev) => {
+                const siguiente = new Map(prev)
+                siguiente.set(estudianteSeleccionado.idEstudiante, {
+                  idAmbienteIngreso: idAmbienteDestino,
+                  trasladadoA: aulaDestinoNombre,
+                })
+                return siguiente
+              })
+            }
             // Refrescar desde el servidor para consistencia a largo plazo
             onExito?.()
           }}
