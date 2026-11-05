@@ -28,3 +28,16 @@ export async function descargarRespaldo(): Promise<string> {
     throw new Error('No se pudo descargar el respaldo. Inténtalo de nuevo.')
   }
 }
+
+/** IMP-10: estado del respaldo para Configuración (GET /admin/respaldo/estado). */
+export interface EstadoRespaldo {
+  baseDatos: string | null
+  tamanoBytes: number | null
+  automatico: boolean
+  historial: { fecha: string; usuario: string | null; archivo: string | null; bytes: number | null }[]
+}
+
+export async function obtenerEstadoRespaldo(): Promise<EstadoRespaldo> {
+  const { data } = await api.get<EstadoRespaldo>('/admin/respaldo/estado')
+  return data
+}

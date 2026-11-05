@@ -81,6 +81,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
+    @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -850,6 +851,22 @@ class PostgresIntegracionTests {
         // Sin la lista (importación por archivo) se registra igual; sus materias se asignan después.
         int importado = usuarioService.registrar(docente.apply("7000003", null)).id();
         assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
+    }
+
+    // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.
+    @Test
+    void elEstadoDelRespaldoMuestraLaBaseYLasDescargas() {
+        prepararCatalogo();
+        jdbc.update("INSERT INTO auditoria_operacion (id_usuario, accion, detalles, fecha_hora) VALUES (?, 'RESPALDO_DESCARGADO', ?, ?)",
+                idDocente, "{\"archivo\":\"sigex-respaldo-20991231-2359.sql\",\"bytes\":4200000}", java.sql.Timestamp.valueOf("2099-12-31 23:59:00"));
+        var estado = respaldoEstadoService.estado();
+        assertThat(estado.baseDatos()).startsWith("PostgreSQL 15");
+        assertThat(estado.tamanoBytes()).isPositive();
+        assertThat(estado.historial()).first().satisfies(r -> {
+            assertThat(r.archivo()).isEqualTo("sigex-respaldo-20991231-2359.sql");
+            assertThat(r.bytes()).isEqualTo(4200000L);
+            assertThat(r.usuario()).isEqualTo("Luis Paz");
+        });
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

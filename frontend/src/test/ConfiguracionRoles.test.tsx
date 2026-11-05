@@ -11,6 +11,10 @@ vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { c
 vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null }))
 // Sesión de ADMIN: la sección de respaldo de la base solo la ve el ADMIN.
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: ['ADMIN'], permisos: null }) }))
+vi.mock('../services/respaldoService', () => ({
+  descargarRespaldo: vi.fn(),
+  obtenerEstadoRespaldo: vi.fn().mockResolvedValue({ baseDatos: 'PostgreSQL 18.6', tamanoBytes: 1024, automatico: false, historial: [] }),
+}))
 vi.mock('../services/rolesService', () => ({
   listarRolesConPermisos: vi.fn(), listarPermisos: vi.fn(), crearRolConPermisos: vi.fn(), actualizarRol: vi.fn(), eliminarRol: vi.fn(),
 }))
@@ -31,6 +35,15 @@ describe('Configuración → Roles y permisos', () => {
     vi.mocked(servicio.listarRolesConPermisos).mockResolvedValue(ROLES)
     vi.mocked(servicio.listarPermisos).mockResolvedValue(CATALOGO)
     vi.mocked(servicio.crearRolConPermisos).mockReset()
+  })
+
+  it('IMP-10: el ADMIN pasa a la pestaña Respaldo', async () => {
+    render(<ConfiguracionPage />)
+    expect(await screen.findByRole('tab', { name: /Roles y permisos/, selected: true })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Respaldo/ }))
+    expect(screen.getByRole('heading', { name: 'Respaldo de la base de datos' })).toBeInTheDocument()
+    expect(await screen.findByText('PostgreSQL 18.6')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Roles y permisos' })).not.toBeInTheDocument()
   })
 
   it('los roles del sistema se ven con candado y los extra se pueden editar o borrar', async () => {

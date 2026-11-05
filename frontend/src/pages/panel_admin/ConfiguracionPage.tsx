@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
+import { Check, DatabaseBackup, Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
@@ -148,6 +148,8 @@ export default function ConfiguracionPage() {
   }, [recarga])
 
   const esAdmin = useAuth().roles.includes('ADMIN')
+  // IMP-10: el ADMIN tiene dos pestañas; con #respaldo en la dirección se abre la del respaldo.
+  const [pestana, setPestana] = useState<'roles' | 'respaldo'>(() => (window.location.hash === '#respaldo' ? 'respaldo' : 'roles'))
   const descripcionDe = useMemo(() => new Map(catalogo.map((p) => [p.codigo, p.descripcion])), [catalogo])
 
   const borrar = async (rol: RolConPermisos) => {
@@ -168,6 +170,21 @@ export default function ConfiguracionPage() {
         <section aria-labelledby="configuracion-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
             <h1 id="configuracion-titulo" className="sr-only">Configuración</h1>
+            {esAdmin && (
+              <div role="tablist" aria-label="Secciones de Configuración" className="mb-4 flex gap-2 overflow-x-auto">
+                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup]] as const).map(([id, texto, Icono]) => (
+                  <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => setPestana(id)}
+                    className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
+                      pestana === id ? 'bg-[#0439D9] text-white shadow-sm' : 'border border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F1F6FF]'}`}>
+                    <Icono size={16} aria-hidden="true" /> {texto}
+                  </button>
+                ))}
+              </div>
+            )}
+            {esAdmin && pestana === 'respaldo' ? (
+              // El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles.
+              <RespaldoBase />
+            ) : (<>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-[#011140]">Roles y permisos</h2>
@@ -238,8 +255,7 @@ export default function ConfiguracionPage() {
                 ))}
               </ul>
             )}
-            {/* El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles. */}
-            {esAdmin && <RespaldoBase />}
+            </>)}
           </div>
         </section>
       </div>
