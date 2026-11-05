@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, DatabaseBackup, Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
+import { Check, DatabaseBackup, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { PLANTILLAS_ROL, permisosFaltantes } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
@@ -9,6 +10,7 @@ import {
   actualizarRol, crearRolConPermisos, eliminarRol, listarPermisos, listarRolesConPermisos,
   type PermisoCatalogo, type RolConPermisos,
 } from '../../services/rolesService'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 const mensajeDe = (err: unknown, porDefecto: string) => {
   if (!axios.isAxiosError(err)) return porDefecto
@@ -33,6 +35,21 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
   const [guardando, setGuardando] = useState(false)
   const asignables = catalogo.filter((p) => !p.soloAdmin)
   const seccion = useRef<HTMLElement>(null)
+  const [plantilla, setPlantilla] = useState<string | null>(null)
+  const disponibles = new Set(asignables.map((p) => p.codigo))
+  const descripcionDe = new Map(catalogo.map((p) => [p.codigo, p.descripcion]))
+  const faltantes = permisosFaltantes(elegidos, disponibles)
+
+  /** Plantilla: marca sus permisos y, si están vacíos, propone el nombre y la descripción. */
+  const usarPlantilla = (id: string) => {
+    const elegida = PLANTILLAS_ROL.find((x) => x.id === id)
+    if (!elegida) return
+    setPlantilla(id)
+    setElegidos(new Set(elegida.permisos.filter((c) => disponibles.has(c))))
+    if (!nombre.trim()) setNombre(elegida.nombre)
+    if (!descripcion.trim()) setDescripcion(elegida.descripcion)
+    setError('')
+  }
 
   // Al abrirse, se muestra y enfoca en su lugar (dentro de la tarjeta del rol que se edita).
   useEffect(() => {
@@ -90,6 +107,27 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
             className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/20 text-[#011140]" />
         </label>
       </div>
+      {!rol && (
+        <div className="mt-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-[#011140]">
+            <Lightbulb size={14} className="text-[#D97706]" aria-hidden="true" /> Empieza con una plantilla (opcional)
+          </p>
+          <p className="mt-0.5 text-[11px] text-[#627A9B]">Marca los permisos más comunes para ese trabajo; después puedes quitar o agregar.</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {PLANTILLAS_ROL.map((x) => (
+              <button key={x.id} type="button" onClick={() => usarPlantilla(x.id)} aria-pressed={plantilla === x.id}
+                className={`rounded-lg border p-3 text-left transition-colors ${plantilla === x.id ? 'border-[#0439D9] bg-[#EEF3FF]' : 'border-[#E4E9F2] bg-white hover:border-[#B8CBEF] hover:bg-[#F8FAFF]'}`}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-[#011140]">{x.titulo}</span>
+                  {plantilla === x.id && <Check size={15} className="shrink-0 text-[#0439D9]" aria-hidden="true" />}
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-[#627A9B]">{x.descripcion}</span>
+                <span className="mt-1.5 block text-[10px] font-semibold uppercase tracking-wide text-[#45628D]">{x.permisos.filter((c) => disponibles.has(c)).length} permisos</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <fieldset className="mt-4">
         <legend className="text-xs font-semibold text-[#011140]">Permisos ({elegidos.size})</legend>
         <div className="mt-2 grid gap-3 md:grid-cols-2">
@@ -116,6 +154,22 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
           Los permisos "propios" valen solo para los exámenes del usuario como docente.
         </p>
       </fieldset>
+      {faltantes.length > 0 && (
+        <ul aria-label="Permisos que faltan" className="mt-3 space-y-2">
+          {faltantes.map((f) => (
+            <li key={f.permiso} className="flex flex-col gap-2 rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-3 text-xs text-[#92400E] sm:flex-row sm:items-center">
+              <span className="flex flex-1 items-start gap-2">
+                <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>«{descripcionDe.get(f.permiso) ?? f.permiso}» necesita «{descripcionDe.get(f.sugerido) ?? f.sugerido}» para {f.para}.</span>
+              </span>
+              <button type="button" onClick={() => { setElegidos((prev) => new Set(prev).add(f.sugerido)); setError('') }}
+                className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#F59E0B] bg-white px-3 font-semibold text-[#92400E] hover:bg-[#FEF3C7]">
+                <Plus size={13} aria-hidden="true" /> Agregar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <button type="button" onClick={onCancelar} className="min-h-11 rounded-lg border border-[#D8E3F5] px-4 text-sm font-semibold text-[#45628D]">Cancelar</button>
@@ -208,7 +262,7 @@ export default function ConfiguracionPage() {
               </div>
             )}
 
-            {error && <p role="alert" className="mt-4 text-sm text-[#B91C1C]">{error}</p>}
+            {error && <ErrorCarga className="mt-4" mensaje={error} onReintentar={() => { setError(''); setRecarga((n) => n + 1) }} />}
             {!roles && !error && <p role="status" className="mt-4 text-sm text-[#627A9B]">Cargando roles…</p>}
             {roles && (
               <ul className="mt-4 grid gap-3 lg:grid-cols-2">

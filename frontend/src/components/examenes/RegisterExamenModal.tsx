@@ -55,6 +55,7 @@ import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialo
 import { useAuth } from '../../context/AuthContext'
 import FechaInput from './FechaInput'
 import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../ui/ErrorCarga'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -76,6 +77,8 @@ const STEP_DESCRIPCION: Record<Step, string> = {
   3: 'Revise las normas del examen y confirme los datos antes de registrar.',
 }
 
+const ERROR_AMBIENTES = 'No se pudo cargar el catálogo de ambientes.'
+
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
   const auth = useAuth()
   const { nombre } = auth
@@ -87,6 +90,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
+  const [recargaAmbientes, setRecargaAmbientes] = useState(0)
   const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
@@ -156,7 +160,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           if (!cancelled) setAmbientes((prev) => (prev.some((a) => a.disponible !== undefined) ? prev : data))
         })
         .catch(() => {
-          if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
+          if (!cancelled) setGeneralError(ERROR_AMBIENTES)
         })
         .finally(() => {
           if (!cancelled) setLoadingAmbientes(false)
@@ -166,7 +170,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       cancelled = true
       window.clearTimeout(handle)
     }
-  }, [isOpen])
+  }, [isOpen, recargaAmbientes])
 
   // Refrescar disponibilidad cuando cambian fecha, hora o duración
   useEffect(() => {
@@ -1027,7 +1031,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           </div>
 
           <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
-            {generalError && (
+            {generalError === ERROR_AMBIENTES ? (
+              <ErrorCarga className="mb-2" mensaje={generalError} onReintentar={() => { setGeneralError(''); setRecargaAmbientes((n) => n + 1) }} />
+            ) : generalError && (
               <div role="alert" className="mb-2 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-2.5">
                 <CircleAlert className="mr-2 mt-0.5 shrink-0 text-[#B91C1C]" size={16} />
                 <p className="text-xs text-[#B91C1C]">{generalError}</p>

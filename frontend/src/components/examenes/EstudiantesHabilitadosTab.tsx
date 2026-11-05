@@ -24,6 +24,7 @@ import {
   type RepartoAulasDto,
 } from '../../services/habilitacionService'
 import useEnVivo from '../../hooks/useEnVivo'
+import ErrorCarga from '../ui/ErrorCarga'
 
 const PAGE_SIZE = 5
 /** Sin tildes y en minúsculas, para que "Pérez" y "perez" coincidan. */
@@ -386,9 +387,7 @@ export default function EstudiantesHabilitadosTab({
         </div>
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
-      )}
+      {error && <ErrorCarga mensaje={error} onReintentar={() => void load()} />}
 
       {loading ? (
         <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">

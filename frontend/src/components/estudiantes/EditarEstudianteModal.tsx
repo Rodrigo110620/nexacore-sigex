@@ -32,6 +32,7 @@ import {
     validateTelefono,
 } from '../../utils/validators'
 import { tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../ui/ErrorCarga'
 
 interface Props {
     open: boolean
@@ -83,6 +84,8 @@ function FieldError({ children }: { children?: string }) {
     return children ? <p className="mt-1 text-xs font-medium text-red-600">{children}</p> : null
 }
 
+const ERROR_DATOS = 'No se pudieron cargar los datos del estudiante.'
+
 export default function EditarEstudianteModal({ open, estudianteId, onClose, onSaved }: Props) {
     // La foto subida aquí queda oficial sin revisión: solo el ADMIN la cambia o la quita.
     const isAdmin = tienePermiso(useAuth(), 'FOTOS_REVISAR')
@@ -97,6 +100,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
     const [changedFields, setChangedFields] = useState<string[]>([])
     const [errors, setErrors] = useState<Record<string, string>>({})
     const [apiError, setApiError] = useState('')
+    const [recargaDatos, setRecargaDatos] = useState(0)
     const [savedNombre, setSavedNombre] = useState('')
     const [fotoNueva, setFotoNueva] = useState<Blob | null>(null)
     const [fotoPreview, setFotoPreview] = useState<string | null>(null)
@@ -141,13 +145,13 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 setOriginalForm(loadedForm)
             })
             .catch(() => {
-                if (!cancelled) setApiError('No se pudieron cargar los datos del estudiante.')
+                if (!cancelled) setApiError(ERROR_DATOS)
             })
             .finally(() => {
                 if (!cancelled) setLoading(false)
             })
         return () => { cancelled = true }
-    }, [open, estudianteId])
+    }, [open, estudianteId, recargaDatos])
 
     useEffect(() => {
         if (!form.idFacultad) return
@@ -342,7 +346,9 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                         </div>
                     ) : (
                         <>
-                            {apiError && (
+                            {apiError === ERROR_DATOS ? (
+                                <ErrorCarga className="mb-4" mensaje={apiError} onReintentar={() => { setApiError(''); setRecargaDatos((n) => n + 1) }} />
+                            ) : apiError && (
                                 <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                                     <CircleAlert size={16} className="mt-0.5 shrink-0" />
                                     {apiError}

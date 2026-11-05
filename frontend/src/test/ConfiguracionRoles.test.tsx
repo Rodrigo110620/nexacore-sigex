@@ -86,4 +86,39 @@ describe('permisos en el frontend', () => {
     expect(tienePermiso({ roles: ['ADMIN'] }, 'ROLES_GESTIONAR')).toBe(true)
     expect(navItemsFor(['ADMIN']).map((i) => i.label)).toContain('Configuración')
   })
+
+  it('sugiere plantillas al crear un rol y avisa qué permiso falta para que funcione', async () => {
+    vi.mocked(servicio.listarPermisos).mockResolvedValue([
+      { codigo: 'EXAMENES_VER_TODOS', modulo: 'Exámenes', descripcion: 'Ver todos los exámenes', soloAdmin: false },
+      { codigo: 'HABILITACION_VER', modulo: 'Habilitación', descripcion: 'Ver los estudiantes asociados a un examen', soloAdmin: false },
+      ...CATALOGO,
+      { codigo: 'FOTOS_REPORTAR', modulo: 'Estudiantes', descripcion: 'Reportar una foto', soloAdmin: false },
+      { codigo: 'EXPULSAR_TODOS', modulo: 'Control de ingreso', descripcion: 'Expulsar en cualquier examen', soloAdmin: false },
+    ])
+    render(<MemoryRouter><ConfiguracionPage /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: /Nuevo rol/ }))
+    const form = screen.getByRole('region', { name: 'Nuevo rol' })
+
+    fireEvent.click(within(form).getByRole('button', { name: /Auxiliar de control/ }))
+    expect(within(form).getByLabelText('Nombre del rol')).toHaveValue('AUXILIAR_CONTROL')
+    expect(within(form).getByLabelText('Registrar ingresos e incidencias en cualquier examen')).toBeChecked()
+    expect(within(form).getByLabelText('Ver todos los exámenes')).toBeChecked()
+    expect(within(form).queryByRole('list', { name: 'Permisos que faltan' })).not.toBeInTheDocument()
+
+    // Sin ver los exámenes, controlar el ingreso no sirve: se avisa y se puede agregar con un clic.
+    fireEvent.click(within(form).getByLabelText('Ver todos los exámenes'))
+    fireEvent.click(within(form).getByLabelText('Ver los estudiantes asociados a un examen'))
+    const faltan = within(form).getByRole('list', { name: 'Permisos que faltan' })
+    expect(faltan).toHaveTextContent('«Registrar ingresos e incidencias en cualquier examen» necesita «Ver todos los exámenes»')
+    fireEvent.click(within(faltan).getByRole('button', { name: /Agregar/ }))
+    expect(within(form).getByLabelText('Ver todos los exámenes')).toBeChecked()
+    expect(within(form).queryByRole('list', { name: 'Permisos que faltan' })).not.toBeInTheDocument()
+  })
+
+  it('si no se pueden cargar los roles, se puede reintentar', async () => {
+    vi.mocked(servicio.listarRolesConPermisos).mockRejectedValueOnce(new Error('caído'))
+    render(<MemoryRouter><ConfiguracionPage /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Reintentar' }))
+    expect(await screen.findByText('AUXILIAR')).toBeInTheDocument()
+  })
 })

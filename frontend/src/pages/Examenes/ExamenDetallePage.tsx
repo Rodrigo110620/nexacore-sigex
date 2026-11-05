@@ -39,6 +39,7 @@ import useTiempoExamen from '../../hooks/useTiempoExamen'
 import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
 import { tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -185,9 +186,7 @@ export default function ExamenDetallePage() {
               <p className="mt-3 text-sm font-semibold">Cargando examen...</p>
             </div>
           ) : error || !examen ? (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error || 'No se encontró el examen.'}
-            </p>
+            <ErrorCarga mensaje={error || 'No se encontró el examen.'} onReintentar={() => void load()} />
           ) : (
             <div className="flex flex-col gap-4">
               <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">

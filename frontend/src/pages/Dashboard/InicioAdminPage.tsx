@@ -15,6 +15,7 @@ import { alRecibirNotificacion, listarNotificaciones, type Notificacion } from '
 import { ahoraServidorMs } from '../../services/tiempoService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 const TARJETA = 'rounded-2xl border border-[#E8EDF5] bg-white shadow-[0_4px_16px_rgba(13,26,77,0.07)]'
 const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO'])
@@ -86,7 +87,7 @@ export default function InicioAdminPage() {
         setDatos(resumen.value)
         setError('')
       } else {
-        setError('No se pudo cargar el resumen del día. Se reintentará en un minuto.')
+        setError('No se pudo cargar el resumen del día. Se vuelve a intentar solo cada minuto.')
       }
       if (lista.status === 'fulfilled') setExamenes(lista.value)
       if (avisos.status === 'fulfilled') setActividad(avisos.value)
@@ -127,7 +128,7 @@ export default function InicioAdminPage() {
     <PanelLayout compactDesktop title="PANEL DE SUPERVISIÓN" description="Monitoreo en tiempo real de exámenes y control de ingreso">
       <div className="min-h-full bg-[#F5F7FB] px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6 min-[960px]:pb-8 xl:px-8">
         <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 sm:gap-5">
-          {error && <p role="alert" className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>}
+          {error && <ErrorCarga mensaje={error} onReintentar={() => setRecarga((n) => n + 1)} />}
           <Banner nombre={primerNombre} fecha={fechaTexto} datos={datos} hora={ahora} />
           {!datos ? (
             <p className="py-16 text-center text-sm text-[#627A9B]">Cargando el resumen del día…</p>

@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getFacultades } from '../../services/estudianteService'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import type { FacultadOption } from '../../types/estudiante'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 /** Punto de entrada del docente: permite elegir un grupo propio antes de ir a sus exámenes. */
 export default function InicioDocentePage() {
@@ -19,6 +20,7 @@ export default function InicioDocentePage() {
   const [grupo, setGrupo] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     let vigente = true
@@ -30,13 +32,13 @@ export default function InicioDocentePage() {
         setExamenes(listaExamenes.filter((examen) => examen.estado?.toLowerCase() !== 'cancelado'))
       })
       .catch(() => {
-        if (vigente) setError('No se pudieron cargar tus grupos. Intenta nuevamente desde Exámenes.')
+        if (vigente) setError('No se pudieron cargar tus grupos.')
       })
       .finally(() => {
         if (vigente) setCargando(false)
       })
     return () => { vigente = false }
-  }, [])
+  }, [recarga])
 
   const materias = useMemo(() => {
     const unicas = new Map<string, string>()
@@ -99,7 +101,7 @@ export default function InicioDocentePage() {
                 </SelectorCard>
               </div>
 
-              {error && <p role="alert" className="mt-4 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>}
+              {error && <ErrorCarga className="mt-4" mensaje={error} onReintentar={() => { setError(''); setRecarga((n) => n + 1) }} />}
               {!error && examenes.length === 0 && <p className="mt-4 text-sm text-[#627A9B]">Aún no tienes exámenes o grupos asignados.</p>}
 
               <div className="mt-5 flex justify-end">
