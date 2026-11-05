@@ -49,5 +49,11 @@ export default function usePanelControl() {
     }
   }, [])
 
-  return { examenes, error, ahora }
+  /** Vuelve a pedir los exámenes (botón Reintentar). */
+  const recargar = () => {
+    setError(undefined)
+    setRecarga((n) => n + 1)
+  }
+
+  return { examenes, error, ahora, recargar }
 }

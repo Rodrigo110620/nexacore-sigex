@@ -79,6 +79,9 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
+    @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
+    @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
+    @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -794,6 +797,76 @@ class PostgresIntegracionTests {
         });
         assertThat(despues.motivos()).noneMatch(m -> m.motivo().startsWith("Intento ingresar no habilitado"));
         assertThat(despues.pendientes().intentosHoy() - antes.pendientes().intentosHoy()).isEqualTo(1);
+    }
+
+    // IMP-12: el docente se registra con sus materias y solo programa exámenes de ellas.
+    @Test
+    void elDocenteSoloProgramaExamenesDeSusMaterias() {
+        prepararCatalogo();
+        int suya = materiaYParalelo("TST-DM1");
+        int ajena = materiaYParalelo("TST-DM2");
+        Integer idSuya = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, suya);
+        Integer idAjena = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, ajena);
+
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of())).hasMessageContaining("al menos una materia");
+        assertThat(docenteMateriaService.asignar(idDocente, List.of(idSuya, idSuya))).extracting(m -> m.id()).containsExactly(idSuya);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM docente_materia WHERE id_docente = ?", Integer.class, idDocente)).isEqualTo(1);
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(5);
+        java.util.function.Function<Integer, com.nexacore.examenes.dto.CrearExamenRequest> pedido = (idMateria) ->
+                new com.nexacore.examenes.dto.CrearExamenRequest("Materia", "Luis Paz", fecha, java.time.LocalTime.of(idMateria.equals(idSuya) ? 10 : 14, 0),
+                        90, idAmbiente, List.of(), List.of(), idMateria, idDocente);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            assertThatThrownBy(() -> examenService.crear(pedido.apply(idAjena))).hasMessageContaining("Solo puedes programar exámenes de tus materias");
+            assertThat(examenService.crear(pedido.apply(idSuya)).idMateria()).isEqualTo(idSuya);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        // El ADMIN sí puede programar en cualquier materia.
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            assertThat(examenService.crear(pedido.apply(idAjena)).idMateria()).isEqualTo(idAjena);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void elDocenteSeRegistraConAlMenosUnaMateria() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-DM3"));
+        java.util.function.BiFunction<String, List<Integer>, com.nexacore.examenes.dto.RegisterUserRequest> docente = (ci, materias) ->
+                new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", ci, "rosa" + ci + "@umss.edu", "DOCENTE", true, false, materias);
+
+        assertThatThrownBy(() -> usuarioService.registrar(docente.apply("7000001", List.of()))).hasMessageContaining("al menos una materia");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM usuario WHERE ci = '7000001'", Integer.class)).isZero();
+
+        int id = usuarioService.registrar(docente.apply("7000002", List.of(idMateria))).id();
+        assertThat(docenteMateriaService.materiasDe(id)).extracting(m -> m.id()).containsExactly(idMateria);
+        // Sin la lista (importación por archivo) se registra igual; sus materias se asignan después.
+        int importado = usuarioService.registrar(docente.apply("7000003", null)).id();
+        assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
+    }
+
+    // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.
+    @Test
+    void elEstadoDelRespaldoMuestraLaBaseYLasDescargas() {
+        prepararCatalogo();
+        jdbc.update("INSERT INTO auditoria_operacion (id_usuario, accion, detalles, fecha_hora) VALUES (?, 'RESPALDO_DESCARGADO', ?, ?)",
+                idDocente, "{\"archivo\":\"sigex-respaldo-20991231-2359.sql\",\"bytes\":4200000}", java.sql.Timestamp.valueOf("2099-12-31 23:59:00"));
+        var estado = respaldoEstadoService.estado();
+        assertThat(estado.baseDatos()).startsWith("PostgreSQL 15");
+        assertThat(estado.tamanoBytes()).isPositive();
+        assertThat(estado.historial()).first().satisfies(r -> {
+            assertThat(r.archivo()).isEqualTo("sigex-respaldo-20991231-2359.sql");
+            assertThat(r.bytes()).isEqualTo(4200000L);
+            assertThat(r.usuario()).isEqualTo("Luis Paz");
+        });
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

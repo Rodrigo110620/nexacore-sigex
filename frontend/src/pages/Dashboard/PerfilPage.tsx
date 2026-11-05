@@ -21,11 +21,13 @@ import {
   getMiPerfil,
   type PerfilUsuario,
 } from '../../services/profileService'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 export default function PerfilPage() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null)
   const [loadingPerfil, setLoadingPerfil] = useState(true)
   const [perfilError, setPerfilError] = useState('')
+  const [recargaPerfil, setRecargaPerfil] = useState(0)
 
   const [passwordActual, setPasswordActual] = useState('')
   const [passwordNueva, setPasswordNueva] = useState('')
@@ -47,7 +49,7 @@ export default function PerfilPage() {
         const data = await getMiPerfil()
         if (!cancelled) setPerfil(data)
       } catch {
-        if (!cancelled) setPerfilError('No se pudo cargar tu perfil. Intenta más tarde.')
+        if (!cancelled) setPerfilError('No se pudo cargar tu perfil.')
       } finally {
         if (!cancelled) setLoadingPerfil(false)
       }
@@ -56,7 +58,7 @@ export default function PerfilPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [recargaPerfil])
 
   const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault()
@@ -136,9 +138,7 @@ export default function PerfilPage() {
               <p className="mt-3 text-sm font-semibold">Cargando perfil...</p>
             </div>
           ) : perfilError ? (
-            <div role="alert" className="rounded-2xl border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-sm text-[#B91C1C]">
-              {perfilError}
-            </div>
+            <ErrorCarga mensaje={perfilError} onReintentar={() => setRecargaPerfil((n) => n + 1)} />
           ) : perfil ? (
             <div className="rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
               <div className="flex items-start gap-4">

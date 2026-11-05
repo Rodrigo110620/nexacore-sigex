@@ -1,14 +1,17 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.AsignarMateriasRequest;
 import com.nexacore.examenes.dto.CambiarEstadoUsuarioRequest;
 import com.nexacore.examenes.dto.CrearRolRequest;
 import com.nexacore.examenes.dto.ImportarUsuariosResponse;
+import com.nexacore.examenes.dto.MateriaResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.models.Rol;
+import com.nexacore.examenes.services.DocenteMateriaService;
 import com.nexacore.examenes.services.ImportacionUsuariosService;
 import com.nexacore.examenes.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +48,10 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final ImportacionUsuariosService importacionUsuariosService;
-    public UsuarioController(UsuarioService usuarioService, ImportacionUsuariosService importacionUsuariosService) {
+    private final DocenteMateriaService docenteMateriaService;
+    public UsuarioController(UsuarioService usuarioService, ImportacionUsuariosService importacionUsuariosService,
+                             DocenteMateriaService docenteMateriaService) {
+        this.docenteMateriaService = docenteMateriaService;
         this.usuarioService = usuarioService;
         this.importacionUsuariosService = importacionUsuariosService;
     }
@@ -160,5 +166,19 @@ public class UsuarioController {
         @PathVariable Integer id, 
             @Valid @RequestBody RegisterUserRequest request) {
         return ResponseEntity.ok(usuarioService.actualizar(id, request));
+    }
+
+    @Operation(summary = "Materias del docente", description = "IMP-12: las materias que el docente puede usar al programar exámenes. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{id}/materias")
+    public List<MateriaResponse> materias(@PathVariable Integer id) {
+        return docenteMateriaService.materiasDe(id);
+    }
+
+    @Operation(summary = "Asignar materias al docente", description = "IMP-12: reemplaza sus materias (al menos una). Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @PutMapping("/{id}/materias")
+    public List<MateriaResponse> asignarMaterias(@PathVariable Integer id, @Valid @RequestBody AsignarMateriasRequest request) {
+        return docenteMateriaService.asignar(id, request.idMaterias());
     }
 }

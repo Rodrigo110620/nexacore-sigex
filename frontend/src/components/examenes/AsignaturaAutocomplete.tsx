@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { BookOpen, Loader2 } from 'lucide-react'
 import { buscarMaterias, type MateriaDto } from '../../services/materiaService'
 import { sanitizeCatalogQuery, toTitleCaseTexto } from '../../utils/examFormUtils'
+import { useAuth } from '../../context/AuthContext'
+import { tienePermiso } from '../../utils/permisos'
 
 interface AsignaturaAutocompleteProps {
   id: string
@@ -29,6 +31,9 @@ export default function AsignaturaAutocomplete({
   const [searchedQuery, setSearchedQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const boxRef = useRef<HTMLDivElement | null>(null)
+  // IMP-12: el docente solo encuentra las materias que el ADMIN le asignó.
+  const auth = useAuth()
+  const soloSusMaterias = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS') && !tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS')
 
   useEffect(() => {
     const q = query.trim()
@@ -114,7 +119,9 @@ export default function AsignaturaAutocomplete({
         >
           {results.length === 0 || (pending && searchedQuery === '') ? (
             <li className="px-3 py-2 text-xs text-gray-400">
-              {pending ? 'Buscando asignaturas…' : 'No hay asignaturas con ese nombre'}
+              {pending ? 'Buscando asignaturas…' : soloSusMaterias
+                ? 'No tienes asignada una materia con ese nombre. Pídela al administrador.'
+                : 'No hay asignaturas con ese nombre'}
             </li>
           ) : (
             results.map((m) => (
@@ -138,6 +145,7 @@ export default function AsignaturaAutocomplete({
           )}
         </ul>
       )}
+      {soloSusMaterias && <p className="mt-1 text-[11px] text-[#627A9B]">Solo aparecen tus materias asignadas.</p>}
     </div>
   )
 }

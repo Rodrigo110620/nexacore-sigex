@@ -1,7 +1,9 @@
 package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.dto.EstadoRespaldoResponse;
 import com.nexacore.examenes.services.AuditoriaService;
+import com.nexacore.examenes.services.RespaldoEstadoService;
 import com.nexacore.examenes.services.RespaldoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,10 +37,18 @@ public class RespaldoController {
 
     private final RespaldoService respaldoService;
     private final AuditoriaService auditoriaService;
+    private final RespaldoEstadoService respaldoEstadoService;
 
-    public RespaldoController(RespaldoService respaldoService, AuditoriaService auditoriaService) {
+    public RespaldoController(RespaldoService respaldoService, AuditoriaService auditoriaService, RespaldoEstadoService respaldoEstadoService) {
         this.respaldoService = respaldoService;
         this.auditoriaService = auditoriaService;
+        this.respaldoEstadoService = respaldoEstadoService;
+    }
+
+    @Operation(summary = "Estado del respaldo", description = "Versión y tamaño de la base, respaldo automático y los últimos respaldos descargados (IMP-10).")
+    @GetMapping("/estado")
+    public EstadoRespaldoResponse estado() {
+        return respaldoEstadoService.estado();
     }
 
     @Operation(summary = "Descargar un respaldo de la base (SQL de pg_dump, se restaura con psql)")

@@ -73,4 +73,23 @@ class RespaldoControllerTests {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("No se pudo ejecutar pg_dump.")));
     }
+
+    @Test
+    void elAdminVeElEstadoDelRespaldoYLosDemasNo() throws Exception {
+        mockMvc.perform(get("/admin/respaldo/estado").with(user("admin@sigex.test").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.baseDatos").isString())
+                .andExpect(jsonPath("$.automatico").isBoolean())
+                .andExpect(jsonPath("$.historial").isArray());
+        for (String rol : new String[] {"DOCENTE", "CONTROL"}) {
+            mockMvc.perform(get("/admin/respaldo/estado").with(user("otro@sigex.test").roles(rol))).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void laVersionDeLaBaseSeMuestraCorta() {
+        org.assertj.core.api.Assertions.assertThat(com.nexacore.examenes.services.RespaldoEstadoService.version("PostgreSQL 18.6 (Debian 18.6-1.pgdg)"))
+                .isEqualTo("PostgreSQL 18.6");
+        org.assertj.core.api.Assertions.assertThat(com.nexacore.examenes.services.RespaldoEstadoService.version("H2")).isEqualTo("H2");
+    }
 }
