@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import usePanelControl from '../../hooks/usePanelControl'
 import { estaEnCurso } from '../../utils/examenFormat'
 import { Building2 } from 'lucide-react'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 
 /**
  * Inicio de CONTROL y ADMIN (ControlRoute deja pasar solo a esos roles): exámenes en curso
@@ -13,7 +14,7 @@ import { Building2 } from 'lucide-react'
  */
 export default function ControlInicioPage() {
   const { nombre } = useAuth()
-  const { examenes, error, ahora } = usePanelControl()
+  const { examenes, error, ahora, recargar } = usePanelControl()
   const enCurso = examenes?.filter((e) => estaEnCurso(e, ahora)) ?? []
   const ambienteActual = enCurso[0] ?? examenes?.[0]
   const ubicacion = ambienteActual && [ambienteActual.ambienteUbicacion, ambienteActual.ambienteNombre].filter(Boolean).join(' · ')
@@ -46,7 +47,7 @@ export default function ControlInicioPage() {
             )}
           </h2>
           {error ? (
-            <p role="alert" className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>
+            <ErrorCarga mensaje={error} onReintentar={recargar} />
           ) : !examenes ? (
             <p className="py-10 text-center text-sm text-gray-500">Cargando exámenes…</p>
           ) : enCurso.length === 0 ? (

@@ -8,6 +8,8 @@ interface CredentialsSectionProps {
   onBlur: (field: keyof RegisterUserFormState) => string;
   onFieldError?: (field: string, message: string) => void;
   showPasswordNotice?: boolean;
+  /** Registro por pasos: solo el correo (el rol y el estado van en otros pasos). */
+  soloCorreo?: boolean;
 }
 
 export default function CredentialsSection({
@@ -16,6 +18,7 @@ export default function CredentialsSection({
   onBlur,
   onFieldError,
   showPasswordNotice = true,
+  soloCorreo = false,
 }: CredentialsSectionProps) {
   const handleBlurWithError = (field: keyof RegisterUserFormState) => {
     const error = onBlur(field);
@@ -33,12 +36,12 @@ export default function CredentialsSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="hidden items-center gap-2 sm:flex">
+      {!soloCorreo && <div className="hidden items-center gap-2 sm:flex">
         <span className="w-1.5 h-1.5 rounded-full bg-[#0439D9]"></span>
         <h3 className="text-[#011140] font-bold text-xs tracking-wide">
           CREDENCIALES Y ACCESO
         </h3>
-      </div>
+      </div>}
 
              {/* Email */}
       <div className="flex flex-col gap-1">
@@ -79,6 +82,7 @@ export default function CredentialsSection({
         </p>
       </div>
 
+      {!soloCorreo && <>
       {/* Selector de Rol */}
       <RoleSelector
         value={form.rol}
@@ -125,6 +129,7 @@ export default function CredentialsSection({
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 }

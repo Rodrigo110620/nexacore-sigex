@@ -198,3 +198,28 @@ describe('nuevo ambiente', () => {
     expect(mensajeErrorCrearAmbiente({ response: { status: 500 } })).not.toMatch(/duplicad|Ya existe/)
   })
 })
+
+describe('etiquetaAulas', () => {
+  it('a un ambiente que es solo un número le antepone "Aula"', async () => {
+    const { etiquetaAulas } = await import('../utils/examenFormat')
+    expect(etiquetaAulas({ ambienteNombre: '607' })).toBe('Aula 607')
+    expect(etiquetaAulas({ ambienteNombre: '607', aulas: [{ idAmbiente: 1, nombre: '607', orden: 1 }, { idAmbiente: 2, nombre: '608', orden: 2 }] }))
+      .toBe('Aulas 607 y 608')
+    expect(etiquetaAulas({ ambienteNombre: 'Laboratorio 1' })).toBe('Laboratorio 1')
+    expect(etiquetaAulas({ ambienteNombre: 'Aula 690A' })).toBe('Aula 690A')
+    expect(etiquetaAulas({ ambienteNombre: 'x', aulas: [{ idAmbiente: 1, nombre: '607', orden: 1 }, { idAmbiente: 2, nombre: 'Laboratorio 1', orden: 2 }] }))
+      .toBe('Aula 607, Laboratorio 1')
+  })
+})
+
+describe('etiquetaDocente', () => {
+  it('antepone "Doc." si el nombre no trae un título', async () => {
+    const { etiquetaDocente } = await import('../utils/examenFormat')
+    expect(etiquetaDocente('Diego Pardo')).toBe('Doc. Diego Pardo')
+    expect(etiquetaDocente('Lic. Ana Torrez')).toBe('Lic. Ana Torrez')
+    expect(etiquetaDocente('Ing Carlos Vega')).toBe('Ing Carlos Vega')
+    expect(etiquetaDocente('Doc. Juan Pérez')).toBe('Doc. Juan Pérez')
+    expect(etiquetaDocente('Dora Rojas')).toBe('Doc. Dora Rojas')
+    expect(etiquetaDocente('')).toBe('Sin docente asignado')
+  })
+})

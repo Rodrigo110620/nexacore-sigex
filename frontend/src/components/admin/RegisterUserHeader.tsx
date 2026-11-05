@@ -1,11 +1,23 @@
 import { X, UserRoundPlus, Check } from 'lucide-react';
+import type { PasoRegistro } from './useRegisterUserForm';
 
 interface Props {
-  step: 1 | 2;
+  step: PasoRegistro;
+  /** Nombre del paso 3 según el rol: Materias (DOCENTE), Acceso (ADMIN) o Control. */
+  pasoDelRol: string;
   onClose: () => void;
 }
 
-export default function RegisterUserHeader({ step, onClose }: Props) {
+const DESCRIPCION: Record<PasoRegistro, string> = {
+  1: 'Elige el rol: cada uno pide sus propios datos.',
+  2: 'Completa los datos personales y el correo institucional.',
+  3: 'Completa lo propio del rol elegido.',
+  4: 'Revisa los datos y confirma el registro.',
+};
+
+/** Registro de usuario en 4 pasos: Rol · Datos · lo propio del rol · Confirmar. */
+export default function RegisterUserHeader({ step, pasoDelRol, onClose }: Props) {
+  const pasos = ['Rol', 'Datos', pasoDelRol, 'Confirmar'];
   return (
     <>
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-4 pb-3 pt-2 sm:px-6 sm:pb-4 sm:pt-5">
@@ -21,14 +33,10 @@ export default function RegisterUserHeader({ step, onClose }: Props) {
                   Registrar Usuario
                 </h2>
                 <span className="rounded bg-[#E9F1FF] px-2 py-0.5 text-xs font-bold text-[#0439D9]">
-                  Paso {step} de 2
+                  Paso {step} de 4
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-gray-500">
-                {step === 1
-                  ? 'Completa los datos personales del nuevo usuario.'
-                  : 'Asigna el correo y rol de acceso.'}
-              </p>
+              <p className="mt-0.5 text-xs text-gray-500">{DESCRIPCION[step]}</p>
             </div>
           </div>
         </div>
@@ -43,26 +51,26 @@ export default function RegisterUserHeader({ step, onClose }: Props) {
         </button>
       </div>
 
-      <div className="grid shrink-0 grid-cols-2 border-b border-gray-100 px-4 pt-3 sm:px-6">
-        <div className={`flex items-center gap-2 border-b-2 pb-3 ${step === 1 ? 'border-[#0439D9] text-[#011140]' : 'border-emerald-400 bg-emerald-50 text-emerald-700'}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${step === 1 ? 'bg-[#0439D9] text-white' : 'bg-emerald-500 text-white'}`}>
-            {step === 2 ? <Check size={12} /> : '1'}
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold">Información Personal</p>
-            <p className="text-[11px] text-gray-500">{step === 1 ? 'EN CURSO' : 'PASO 1 COMPLETADO'}</p>
-          </div>
-        </div>
-        <div className={`flex items-center gap-2 border-b-2 pb-3 pl-3 ${step === 2 ? 'border-[#0439D9] text-[#011140]' : 'border-gray-200 text-gray-400'}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${step === 2 ? 'bg-[#0439D9] text-white' : 'bg-gray-200 text-gray-500'}`}>
-            2
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold">Credenciales y Acceso</p>
-            <p className="text-[11px] text-gray-500">{step === 2 ? 'EN CURSO' : 'Pendiente'}</p>
-          </div>
-        </div>
-      </div>
+      <ol aria-label="Pasos del registro" className="flex shrink-0 items-center gap-1.5 border-b border-gray-100 px-4 py-3 sm:gap-2 sm:px-6">
+        {pasos.map((nombre, i) => {
+          const num = (i + 1) as PasoRegistro;
+          const hecho = num < step;
+          const actual = num === step;
+          return (
+            <li key={nombre} aria-current={actual ? 'step' : undefined} className={`flex min-w-0 items-center gap-1.5 ${actual ? '' : 'max-sm:shrink-0'}`}>
+              <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                actual ? 'bg-gradient-to-br from-[#2563EB] to-[#6D28D9] text-white' : hecho ? 'bg-[#0439D9] text-white' : 'bg-[#E2E8F0] text-[#64748B]'
+              }`}>
+                {hecho ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : num}
+              </span>
+              <span className={`truncate text-[11px] font-semibold ${actual ? 'text-[#011140]' : hecho ? 'text-[#011140] max-sm:hidden' : 'text-[#94A3B8] max-sm:hidden'}`}>
+                {nombre}
+              </span>
+              {i < pasos.length - 1 && <span aria-hidden="true" className={`h-0.5 w-4 shrink-0 rounded sm:w-6 ${hecho ? 'bg-[#0439D9]' : 'bg-[#E2E8F0]'}`} />}
+            </li>
+          );
+        })}
+      </ol>
     </>
   );
 }

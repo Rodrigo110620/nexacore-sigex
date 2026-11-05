@@ -56,7 +56,7 @@ class UsuarioRegistroTests {
     }
 
     private static RegisterUserRequest request(String email, String ci) {
-        return new RegisterUserRequest("Ana", "Pérez", ci, email, "ADMIN", true, true);
+        return new RegisterUserRequest("Ana", "Pérez", ci, email, "ADMIN", true, true, null);
     }
 
     @Test

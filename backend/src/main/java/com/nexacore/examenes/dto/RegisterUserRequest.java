@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 /**
  * Datos para registrar o actualizar un usuario del sistema.
  *
@@ -53,5 +55,11 @@ public record RegisterUserRequest(
         Boolean activo,
 
         /** Si true, se envía la contraseña temporal por correo. Null se trata como false. */
-        Boolean notificarEmail
+        Boolean notificarEmail,
+
+        /**
+         * IMP-12: materias del DOCENTE (al menos una). Null cuando no se envían (importación por archivo
+         * o edición): sus materias se asignan aparte desde Usuarios.
+         */
+        List<Integer> idMaterias
 ) {}

@@ -78,6 +78,10 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
     @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
+    @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
+    @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
+    @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
+    @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -112,6 +116,14 @@ class PostgresIntegracionTests {
                 "SELECT max(version::int) FROM flyway_schema_history WHERE success AND version ~ '^[0-9]+$'",
                 Integer.class);
         assertThat(aplicada).isEqualTo(ultima);
+    }
+
+    @Test
+    void elCatalogoDePermisosDeLaBaseCoincideConElDelCodigo() {
+        // rol_permiso apunta a permiso: un permiso del código que falte en la base no se podría asignar.
+        List<String> enBase = jdbc.queryForList("SELECT codigo || '|' || modulo || '|' || descripcion FROM permiso", String.class);
+        assertThat(enBase).containsExactlyInAnyOrderElementsOf(Arrays.stream(com.nexacore.examenes.security.Permiso.values())
+                .map(p -> p.name() + "|" + p.modulo() + "|" + p.descripcion()).toList());
     }
 
     @Test
@@ -755,6 +767,143 @@ class PostgresIntegracionTests {
         assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
         assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
         assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
+    }
+
+    @Test
+    void elInicioDelAdminResumeElDiaYLaSemana() {
+        prepararCatalogo();
+        var antes = inicioAdminService.resumen();
+        var ahora = antes.ahora();
+        int pa = materiaYParalelo("TST-INI1");
+        int pb = materiaYParalelo("TST-INI2");
+        int pc = materiaYParalelo("TST-INI3");
+        int enCurso = examen(pa, "08:00", 120);
+        int porIniciar = examen(pb, "08:00", 60);
+        int deAyer = examen(pc, "08:00", 60);
+        var inicioA = ahora.minusMinutes(30);
+        var inicioB = ahora.plusMinutes(2);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioA.toLocalDate(), inicioA.toLocalTime(), enCurso);
+        jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioB.toLocalDate(), inicioB.toLocalTime(), porIniciar);
+        jdbc.update("UPDATE examen SET fecha = ? WHERE id_examen = ?", ahora.toLocalDate().minusDays(1), deAyer);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?)";
+        var ingreso = java.sql.Timestamp.valueOf(ahora.minusMinutes(1));
+        // En curso: 2 habilitados (uno ingresó) y 1 no habilitado.
+        jdbc.update(asociar, estudiante("209800001", "Ana"), enCurso, pa, true, ingreso);
+        jdbc.update(asociar, estudiante("209800002", "Beto"), enCurso, pa, true, null);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, motivo_inhabilitacion) "
+                + "VALUES (?, ?, ?, FALSE, 'Deuda en biblioteca')", estudiante("209800003", "Ciro"), enCurso, pa);
+        // Por iniciar: 2 habilitados que aún no ingresan.
+        jdbc.update(asociar, estudiante("209800004", "Dora"), porIniciar, pb, true, null);
+        jdbc.update(asociar, estudiante("209800005", "Eva"), porIniciar, pb, true, null);
+        // Ayer: 2 habilitados, uno faltó.
+        jdbc.update(asociar, estudiante("209800006", "Fito"), deAyer, pc, true, java.sql.Timestamp.valueOf(ahora.minusDays(1).withHour(8)));
+        jdbc.update(asociar, estudiante("209800007", "Gabi"), deAyer, pc, true, null);
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, '1', ?, ?)";
+        jdbc.update(intento, enCurso, pa, idDocente, "Ambiente incorrecto: se presentó en el aula 691B", ingreso);
+        // La excepción de un no habilitado también deja un intento: no se cuenta dos veces.
+        jdbc.update(intento, enCurso, pa, idDocente, "Intento ingresar no habilitado ### Ciro", ingreso);
+        sincronizar();
+
+        var despues = inicioAdminService.resumen();
+        var h0 = antes.hoy();
+        var h1 = despues.hoy();
+        assertThat(h1.examenes() - h0.examenes()).isEqualTo(2);
+        assertThat(h1.enCurso() - h0.enCurso()).isEqualTo(1);
+        assertThat(h1.asociados() - h0.asociados()).isEqualTo(5);
+        assertThat(h1.ingresados() - h0.ingresados()).isEqualTo(1);
+        assertThat(h1.porIngresar() - h0.porIngresar()).isEqualTo(2);
+        assertThat(h1.ausentes() - h0.ausentes()).isEqualTo(1);
+        assertThat(h1.incidencias() - h0.incidencias()).isEqualTo(1);
+        assertThat(despues.examenes()).anySatisfy(e -> {
+            assertThat(e.idExamen()).isEqualTo(enCurso);
+            assertThat(List.of(e.asociados(), e.habilitados(), e.ingresados())).containsExactly(3, 2, 1);
+        });
+        assertThat(despues.examenes()).noneMatch(e -> e.idExamen() == deAyer);
+        int hora = ingreso.toLocalDateTime().getHour();
+        assertThat(despues.ingresosPorHora()[hora] - antes.ingresosPorHora()[hora]).isEqualTo(1);
+        assertThat(despues.esperadosPorHora()[inicioB.getHour()] - antes.esperadosPorHora()[inicioB.getHour()]).isEqualTo(2);
+        assertThat(despues.dias()).hasSize(7);
+        assertThat(despues.dias().get(6).fecha()).isEqualTo(ahora.toLocalDate());
+        var ayer0 = antes.dias().get(5);
+        var ayer1 = despues.dias().get(5);
+        assertThat(List.of(ayer1.asociados() - ayer0.asociados(), ayer1.ingresados() - ayer0.ingresados(), ayer1.ausentes() - ayer0.ausentes()))
+                .containsExactly(2, 1, 1);
+        assertThat(despues.motivos()).anySatisfy(m -> {
+            assertThat(m.motivo()).isEqualTo("Aula incorrecta");
+            assertThat(m.cantidad()).isPositive();
+        });
+        assertThat(despues.motivos()).noneMatch(m -> m.motivo().startsWith("Intento ingresar no habilitado"));
+        assertThat(despues.pendientes().intentosHoy() - antes.pendientes().intentosHoy()).isEqualTo(1);
+    }
+
+    // IMP-12: el docente se registra con sus materias y solo programa exámenes de ellas.
+    @Test
+    void elDocenteSoloProgramaExamenesDeSusMaterias() {
+        prepararCatalogo();
+        int suya = materiaYParalelo("TST-DM1");
+        int ajena = materiaYParalelo("TST-DM2");
+        Integer idSuya = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, suya);
+        Integer idAjena = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, ajena);
+
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of())).hasMessageContaining("al menos una materia");
+        assertThat(docenteMateriaService.asignar(idDocente, List.of(idSuya, idSuya))).extracting(m -> m.id()).containsExactly(idSuya);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM docente_materia WHERE id_docente = ?", Integer.class, idDocente)).isEqualTo(1);
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(5);
+        java.util.function.Function<Integer, com.nexacore.examenes.dto.CrearExamenRequest> pedido = (idMateria) ->
+                new com.nexacore.examenes.dto.CrearExamenRequest("Materia", "Luis Paz", fecha, java.time.LocalTime.of(idMateria.equals(idSuya) ? 10 : 14, 0),
+                        90, idAmbiente, List.of(), List.of(), idMateria, idDocente);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            assertThatThrownBy(() -> examenService.crear(pedido.apply(idAjena))).hasMessageContaining("Solo puedes programar exámenes de tus materias");
+            assertThat(examenService.crear(pedido.apply(idSuya)).idMateria()).isEqualTo(idSuya);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        // El ADMIN sí puede programar en cualquier materia.
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            assertThat(examenService.crear(pedido.apply(idAjena)).idMateria()).isEqualTo(idAjena);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void elDocenteSeRegistraConAlMenosUnaMateria() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-DM3"));
+        java.util.function.BiFunction<String, List<Integer>, com.nexacore.examenes.dto.RegisterUserRequest> docente = (ci, materias) ->
+                new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", ci, "rosa" + ci + "@umss.edu", "DOCENTE", true, false, materias);
+
+        assertThatThrownBy(() -> usuarioService.registrar(docente.apply("7000001", List.of()))).hasMessageContaining("al menos una materia");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM usuario WHERE ci = '7000001'", Integer.class)).isZero();
+
+        int id = usuarioService.registrar(docente.apply("7000002", List.of(idMateria))).id();
+        assertThat(docenteMateriaService.materiasDe(id)).extracting(m -> m.id()).containsExactly(idMateria);
+        // Sin la lista (importación por archivo) se registra igual; sus materias se asignan después.
+        int importado = usuarioService.registrar(docente.apply("7000003", null)).id();
+        assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
+    }
+
+    // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.
+    @Test
+    void elEstadoDelRespaldoMuestraLaBaseYLasDescargas() {
+        prepararCatalogo();
+        jdbc.update("INSERT INTO auditoria_operacion (id_usuario, accion, detalles, fecha_hora) VALUES (?, 'RESPALDO_DESCARGADO', ?, ?)",
+                idDocente, "{\"archivo\":\"sigex-respaldo-20991231-2359.sql\",\"bytes\":4200000}", java.sql.Timestamp.valueOf("2099-12-31 23:59:00"));
+        var estado = respaldoEstadoService.estado();
+        assertThat(estado.baseDatos()).startsWith("PostgreSQL 15");
+        assertThat(estado.tamanoBytes()).isPositive();
+        assertThat(estado.historial()).first().satisfies(r -> {
+            assertThat(r.archivo()).isEqualTo("sigex-respaldo-20991231-2359.sql");
+            assertThat(r.bytes()).isEqualTo(4200000L);
+            assertThat(r.usuario()).isEqualTo("Luis Paz");
+        });
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

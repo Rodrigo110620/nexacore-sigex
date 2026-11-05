@@ -3,6 +3,7 @@ import EstudiantesExamenLista from './EstudiantesExamenLista'
 import type { EstudianteAsignado, FiltroEstado, ResumenEstudiantes } from '../../services/controlExamenService'
 import type { PageResponse } from '../../types/userApi'
 import type { ExamenDto } from '../../services/examenService'
+import ErrorCarga from '../ui/ErrorCarga'
 
 const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstudiantes }[] = [
   { valor: 'TODOS', label: 'Todos', cuenta: 'total' },
@@ -78,9 +79,9 @@ export default function EstudiantesExamenSeccion({
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">
-          {error}
-        </p>
+        refetch ? <ErrorCarga mensaje={error} onReintentar={refetch} /> : (
+          <p role="alert" className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>
+        )
       ) : cargando || !pagina ? (
         <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
       ) : pagina.contenido.length === 0 ? (

@@ -46,6 +46,8 @@ describe('BUG 11 (2.º test run): la X y Cancelar piden confirmar antes de desca
 
     const onClose = vi.fn()
     render(<RegisterUserModal isOpen onClose={onClose} onSuccess={vi.fn()} />)
+    // Los datos personales van en el paso 2 (el 1 es el rol).
+    fireEvent.click(screen.getByRole('button', { name: /Siguiente paso/ }))
     fireEvent.change(screen.getByPlaceholderText('Ej. Roberto Carlos'), { target: { value: 'Juan Manuel' } })
     confirmaAntesDeCerrar(() => fireEvent.click(screen.getByRole('button', { name: 'Cerrar' })), onClose)
   })

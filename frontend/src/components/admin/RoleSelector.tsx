@@ -1,4 +1,4 @@
-import { BookOpen, Eye, ShieldCheck } from 'lucide-react';
+import { BookOpen, Eye, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ROLES_OPTIONS, type Rol } from '../../types/usuario.types';
 import { useRoles } from '../../hooks/useRoles';
@@ -107,7 +107,7 @@ export default function RoleSelector({ value, onChange, error }: RoleSelectorPro
         con sus permisos.
       </p>
 
-      {error && <p className="text-[#B91C1C] text-[0.65rem]">⚠️ {error}</p>}
+      {error && <p className="flex items-center gap-1 text-[#B91C1C] text-[0.65rem]"><TriangleAlert size={12} className="shrink-0" aria-hidden="true" />{error}</p>}
     </div>
   );
 }

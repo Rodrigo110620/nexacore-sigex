@@ -51,8 +51,9 @@ public class AmbienteController {
     }
 
     @Operation(summary = "Registrar el aforo de un ambiente",
-            description = "Necesario para repartir a los estudiantes de un examen en varias aulas. Solo ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'AMBIENTES_GESTIONAR')")
+            description = "Necesario para repartir a los estudiantes de un examen en varias aulas. Quien programa "
+                    + "exámenes (también el DOCENTE) registra el de un aula que no lo tiene; cambiar uno ya registrado es solo del ADMIN.")
+    @PreAuthorize("@permisos.alguno(authentication, 'AMBIENTES_GESTIONAR', 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @PatchMapping("/{id}/aforo")
     public ResponseEntity<AmbienteResponse> actualizarAforo(
             @PathVariable Integer id, @Valid @RequestBody ActualizarAforoRequest request) {

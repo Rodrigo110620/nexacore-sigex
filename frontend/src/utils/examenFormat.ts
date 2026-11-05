@@ -96,3 +96,23 @@ export function initialsOfName(nombre: string): string {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase()
 }
+
+/**
+ * Aulas del examen para mostrar: un ambiente que se llama solo con su número ("607") se muestra como
+ * "Aula 607"; con varios, "Aulas 607 y 608". Los demás nombres (p. ej. "Laboratorio 1") quedan igual.
+ */
+export function etiquetaAulas(examen: Pick<ExamenDto, 'aulas' | 'ambienteNombre'>): string {
+  const nombres = (examen.aulas?.length ? examen.aulas.map((a) => a.nombre) : [examen.ambienteNombre]).filter(Boolean)
+  if (nombres.length === 0) return 'Sin aula asignada'
+  const numericos = nombres.every((n) => /^\d/.test(n.trim()))
+  const lista = nombres.length === 1 ? nombres[0] : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+  if (numericos) return `${nombres.length === 1 ? 'Aula' : 'Aulas'} ${lista}`
+  return nombres.map((n) => (/^\d/.test(n.trim()) ? `Aula ${n}` : n)).join(', ')
+}
+
+/** "Doc. Diego Pardo": antepone "Doc." si el nombre no trae ya un título (Lic., Ing., Dr., MSc., Mgr., Doc.). */
+export function etiquetaDocente(nombre?: string | null): string {
+  const limpio = (nombre ?? '').trim()
+  if (!limpio) return 'Sin docente asignado'
+  return /^(doc|lic|ing|dr|dra|msc|mgr|mg|ph\.?d|prof)\.?\s/i.test(limpio) ? limpio : `Doc. ${limpio}`
+}
