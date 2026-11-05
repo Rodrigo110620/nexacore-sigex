@@ -53,7 +53,7 @@ jobs:
             echo
             migraciones=$(git diff --name-only --diff-filter=A origin/main origin/develop -- backend/src/main/resources/db/migration | sed 's#.*/##' | sort -V)
             if [ -n "$migraciones" ]; then
-              echo "## ⚠️ Migraciones nuevas"
+              echo "## Migraciones nuevas"
               echo
               for m in $migraciones; do printf -- '- \x60%s\x60\n' "$m"; done
               echo

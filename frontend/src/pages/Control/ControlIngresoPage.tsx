@@ -72,7 +72,7 @@ function vibrar(autorizado: boolean) {
   try { navigator.vibrate?.(autorizado ? 40 : [60, 50, 60]) } catch { /* sin vibración */ }
 }
 
-/** Ícono de "autorizado": el ✓ se dibuja al aparecer (sin animación si se pidió reducir movimiento). */
+/** Ícono de "autorizado": la marca de verificación se dibuja al aparecer (sin animación si se pidió reducir movimiento). */
 function CheckAnimado() {
   return (
     <svg className="control-check" width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
+import { Check, Lock, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
@@ -209,7 +209,7 @@ export default function ConfiguracionPage() {
                         {rol.delSistema ? 'Del sistema' : 'Rol extra'}
                       </span>
                       {guardadoId === rol.id && (
-                        <span role="status" className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-semibold text-[#15803D]">✓ Cambios guardados</span>
+                        <span role="status" className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-semibold text-[#15803D]"><Check size={11} aria-hidden="true" />Cambios guardados</span>
                       )}
                       <span className="ml-auto text-xs text-[#627A9B]">{rol.usuarios} {rol.usuarios === 1 ? 'usuario' : 'usuarios'}</span>
                     </div>
