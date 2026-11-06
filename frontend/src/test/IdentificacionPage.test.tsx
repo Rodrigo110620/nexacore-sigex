@@ -177,7 +177,7 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeEnabled()
   })
 
-  it('no_vinculado abre el modal con el estudiante, el foco en Cerrar y Continuar deshabilitado', async () => {
+  it('no_vinculado abre el modal con el estudiante, el foco en Cancelar y Continuar deshabilitado', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('NO_VINCULADO'))
     renderPage()
     await buscarEstudiante()
@@ -185,12 +185,12 @@ describe('IdentificacionPage', () => {
     const modal = screen.getByRole('dialog', { name: 'Estudiante no vinculado' })
     expect(within(modal).getByText('María José González Flores')).toBeInTheDocument()
     expect(within(modal).getByText('202104010')).toBeInTheDocument()
-    expect(within(modal).getByRole('button', { name: 'Cerrar' })).toHaveFocus()
+    expect(within(modal).getByRole('button', { name: 'Cancelar' })).toHaveFocus()
     expect(continuar()).toBeDisabled()
   })
 
   it.each([
-    ['Cerrar', () => fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))],
+    ['Cancelar', () => fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))],
     ['Escape', () => fireEvent.keyDown(document, { key: 'Escape' })],
   ])('%s cierra el modal y deja el input vacío', async (_accion, cerrar) => {
     mockedIdentificar.mockResolvedValue(estudiante('NO_VINCULADO'))

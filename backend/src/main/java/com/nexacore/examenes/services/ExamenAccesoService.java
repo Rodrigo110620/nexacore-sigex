@@ -53,6 +53,16 @@ public class ExamenAccesoService {
         return segunPermiso(idExamen, authentication, Permiso.CONTROL_INGRESO_TODOS, Permiso.CONTROL_INGRESO_PROPIOS);
     }
 
+    /** Reasignar está reservado al administrador o al docente titular del examen. */
+    public boolean puedeReasignar(Integer idExamen, Authentication authentication) {
+        if (idExamen == null || authentication == null || !authentication.isAuthenticated()) return false;
+        boolean admin = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (admin) return true;
+        boolean docente = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_DOCENTE"));
+        return docente && usuarioRepository.findByEmail(authentication.getName())
+                .map(Usuario::getId).map(id -> examenRepository.perteneceADocente(idExamen, id)).orElse(false);
+    }
+
     /** Ver los reportes de expulsiones y excepciones de un examen: quien lo controla o tiene REPORTES_VER. */
     public boolean puedeVerReportes(Integer idExamen, Authentication authentication) {
         return idExamen != null && (Permisos.tiene(authentication, Permiso.REPORTES_VER) || puedeControlar(idExamen, authentication));

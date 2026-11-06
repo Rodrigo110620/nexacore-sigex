@@ -10,6 +10,7 @@ public final class MotivoIntento {
         if (texto == null || texto.isBlank()) throw invalido("El motivo del intento es obligatorio.");
         if (texto.length() > 65) throw invalido("El motivo no puede superar 65 caracteres.");
         if (!texto.matches("[\\p{L}0-9 .,;]+")) throw invalido("El motivo solo admite letras, números, espacios, punto, coma y punto y coma.");
+        if (java.util.regex.Pattern.compile("[.,;]{2}").matcher(texto).find()) throw invalido("No se permiten signos consecutivos.");
         if (texto.startsWith(" ") || texto.endsWith(" ") || texto.contains("  ")) throw invalido("Usa un solo espacio entre palabras, sin espacios iniciales ni finales.");
         if (texto.codePoints().noneMatch(Character::isLetter)) throw invalido("El motivo debe incluir palabras, no solo números o signos.");
         if (texto.length() < 10) throw invalido("El motivo debe tener al menos 10 caracteres.");

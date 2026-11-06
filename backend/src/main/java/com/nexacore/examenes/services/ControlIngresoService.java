@@ -71,7 +71,7 @@ public class ControlIngresoService {
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
-    public static final int DETALLE_DENEGACION_MAX = 500;
+    public static final int DETALLE_DENEGACION_MAX = 100;
     /** Observaciones opcionales del control (ACCS-02 CA-53/54): de 10 a 100 caracteres. */
     public static final int OBSERVACIONES_MIN = 10;
     public static final int OBSERVACIONES_MAX = 100;
@@ -422,6 +422,14 @@ public class ControlIngresoService {
         }
         String detalle = ValidacionTextoLibre.validarOpcional(
                 request.detalleDenegacion(), "El detalle adicional", 10, DETALLE_DENEGACION_MAX);
+        if (detalle != null) {
+            if (!detalle.matches("[\\p{L}\\p{N} ]+") || detalle.contains("  "))
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El detalle adicional solo permite letras, números y un espacio entre palabras");
+            validarTextoLibre(detalle);
+            detalle = detalle.toLowerCase(java.util.Locale.forLanguageTag("es"));
+            var primera = java.util.regex.Pattern.compile("\\p{L}").matcher(detalle);
+            if (primera.find()) detalle = detalle.substring(0, primera.start()) + primera.group().toUpperCase(java.util.Locale.forLanguageTag("es")) + detalle.substring(primera.end());
+        }
         if (detalle == null && razon.startsWith(OTRA_RAZON)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
         }
@@ -906,6 +914,18 @@ public class ControlIngresoService {
         if (esSoloUnaLetraRepetida(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
         }
+        if (TextoTraslado.tieneRepetidosConsecutivos(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede contener más de 3 caracteres iguales seguidos");
+        }
+        if (!TextoTraslado.tieneAlMenosUnaVocal(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos una vocal");
+        }
+        if (TextoTraslado.maxConsonantesSeguidas(motivoLimpio) >= 3) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo contiene demasiadas consonantes seguidas; escribe una frase con sentido");
+        }
+        if (motivoLimpio.length() > 8 && TextoTraslado.proporcionVocales(motivoLimpio) < 0.3) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo parece no tener sentido; escribe una frase con palabras completas");
+        }
         // Formato de oración; los códigos de aula ("690B") quedan en mayúscula.
         motivoLimpio = TextoTraslado.formatoOracion(motivoLimpio);
 
@@ -928,6 +948,18 @@ public class ControlIngresoService {
             }
             if (!TextoTraslado.observacionValida(observacionLimpia)) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            if (TextoTraslado.tieneRepetidosConsecutivos(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación no puede contener más de 3 caracteres iguales seguidos");
+            }
+            if (!TextoTraslado.tieneAlMenosUnaVocal(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación debe contener al menos una vocal");
+            }
+            if (TextoTraslado.maxConsonantesSeguidas(observacionLimpia) >= 3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación contiene demasiadas consonantes seguidas; escribe una frase con sentido");
+            }
+            if (observacionLimpia.length() > 8 && TextoTraslado.proporcionVocales(observacionLimpia) < 0.3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación parece no tener sentido; escribe una frase con palabras completas");
             }
             observacionLimpia = TextoTraslado.formatoOracion(observacionLimpia);
         }

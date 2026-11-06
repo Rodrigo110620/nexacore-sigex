@@ -64,6 +64,14 @@ describe('ControlExamenPage', () => {
     })
   })
 
+  it('oculta acciones del examen cuando el servidor niega el acceso', async () => {
+    vi.mocked(listarEstudiantesExamen).mockRejectedValue({ isAxiosError: true, response: { status: 403 } })
+    renderPage()
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para acceder a este examen')
+    expect(screen.queryByRole('link', { name: /Iniciar Control de Ingreso/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Volver a Control' })).toHaveAttribute('href', '/dashboard/control')
+  })
+
   it('muestra las estadísticas del resumen y las filas con su estado', async () => {
     renderPage()
     const filas = within(await screen.findByRole('table')).getAllByRole('row')

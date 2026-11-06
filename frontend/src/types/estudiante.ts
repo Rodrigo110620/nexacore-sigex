@@ -1,3 +1,10 @@
+export interface MateriaDocenteInfo {
+  idMateria: number
+  materia: string
+  idParalelo: number
+  paralelo: string
+}
+
 export interface CarreraInfo {
   idCarrera: number
   nombreCarrera: string
@@ -17,6 +24,7 @@ export interface EstudianteListItem {
   ci: string
   telefono?: string | null 
   email?: string | null
+  materiasDocente?: MateriaDocenteInfo[] | null
   carreras: CarreraInfo[]
   condicion?: CondicionEstudiante
   estadoMatricula?: EstadoMatricula
@@ -27,6 +35,8 @@ export interface EstudianteListItem {
 }
 
 export interface EstudianteFilterParams {
+  idMateria?: string
+  idParalelo?: string
   search: string
   idFacultad: string | ''
   idCarrera: string | ''

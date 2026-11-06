@@ -20,6 +20,13 @@ export default function ControlExamenPage() {
     ? /^aula\b/i.test(examen.ambienteNombre) ? examen.ambienteNombre : `Aula ${examen.ambienteNombre}`
     : 'Aula'
 
+  if (datos.accesoDenegado) {
+    return <PanelLayout compactDesktop topBarVariant="controlMinimal" title="CONTROL DE INGRESO" description="Acceso al examen">
+      <div className="p-6" role="alert"><p className="text-sm text-[#B91C1C]">No tienes permiso para acceder a este examen.</p><Link to="/dashboard/control" className="mt-3 inline-block text-sm font-semibold text-[#0439D9]">Volver a Control</Link></div>
+      <MobileBottomNav variant="controlDetail" />
+    </PanelLayout>
+  }
+
   return (
     <PanelLayout compactDesktop topBarVariant="controlMinimal" locationLabel={ubicacion} title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 min-[960px]:pb-6">
