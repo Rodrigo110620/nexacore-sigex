@@ -7,8 +7,10 @@ import AvisoFotoReportada from '../components/estudiantes/AvisoFotoReportada'
 import * as service from '../services/notificacionService'
 import type { Notificacion } from '../services/notificacionService'
 
-const reporteFoto = vi.hoisted(() => ({ idExamen: 6, examen: 'Base de Datos I', motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz',
-  reportadoEn: '2026-11-06T15:53:07', fotoNuevaUrl: null, puedeRevisar: false }))
+const reporteFoto = vi.hoisted(() => ({ idExamen: 6, examen: 'Base de Datos I', puedeRevisar: false, solicitud: {
+  idEstudiante: 3, codigoSis: '202100001', nombre: 'Ana', apellidos: 'Rojas', carrera: null, origen: 'REPORTE', estado: 'ESPERANDO_FOTO',
+  enviadaEn: null, fotoUrl: null, fotoActualUrl: '/estudiantes/3/foto',
+  reporte: { motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz', reportadoEn: '2026-11-06T15:53:07' } } }))
 vi.mock('../services/fotoRevisionService', async (original) => ({
   ...(await original<typeof import('../services/fotoRevisionService')>()),
   obtenerRevisionReporte: vi.fn().mockResolvedValue(reporteFoto),
@@ -163,8 +165,8 @@ describe('AvisoFotoReportada', () => {
     await user.click(screen.getByRole('button', { name: (nombre) => nombre.includes('Foto reportada: Ana Rojas') && !nombre.startsWith('Quitar') }))
 
     const ventana = screen.getByRole('dialog', { name: 'Foto reportada' })
-    expect(await within(ventana).findByText(/: Tiene barba en la foto$/)).toBeInTheDocument()
-    expect(within(ventana).getByText('Luis Paz')).toBeInTheDocument()
+    expect(await within(ventana).findByText(/Tiene barba en la foto/)).toBeInTheDocument()
+    expect(within(ventana).getByText(/Reporte de control · Luis Paz/)).toBeInTheDocument()
     expect(within(ventana).getByRole('link', { name: /Ir al control del examen/ })).toHaveAttribute('href', '/dashboard/control/6')
     expect(service.marcarNotificacionLeida).toHaveBeenCalledWith(4)
     await user.click(within(ventana).getByRole('button', { name: 'Cerrar' }))

@@ -34,10 +34,46 @@ public class AuthController {
 
     private final AuthService authService;
     private final com.nexacore.examenes.services.PerfilRolService perfilRolService;
+    private final com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
+    private final com.nexacore.examenes.repositories.UsuarioRepository usuarioRepository;
 
-    public AuthController(AuthService authService, com.nexacore.examenes.services.PerfilRolService perfilRolService) {
+    public AuthController(AuthService authService, com.nexacore.examenes.services.PerfilRolService perfilRolService,
+                          com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService,
+                          com.nexacore.examenes.repositories.UsuarioRepository usuarioRepository) {
         this.authService = authService;
         this.perfilRolService = perfilRolService;
+        this.usuarioFotoService = usuarioFotoService;
+        this.usuarioRepository = usuarioRepository;
+    }
+
+    private Integer yo(Authentication authentication) {
+        return usuarioRepository.findByEmail(authentication.getName()).map(com.nexacore.examenes.models.Usuario::getId)
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Sesión no válida"));
+    }
+
+    /** Foto de perfil opcional del personal (V54). 404 si no tiene. */
+    @GetMapping("/me/foto")
+    public ResponseEntity<byte[]> miFoto(Authentication authentication) {
+        return usuarioFotoService.obtener(yo(authentication))
+                .map(f -> ResponseEntity.ok()
+                        .contentType(org.springframework.http.MediaType.parseMediaType(f.tipoContenido()))
+                        .cacheControl(org.springframework.http.CacheControl.noStore())
+                        .header("X-Content-Type-Options", "nosniff")
+                        .body(f.contenido()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Sube o cambia su foto de perfil (hasta 150 KB, JPEG/PNG/WebP). */
+    @PutMapping(value = "/me/foto", consumes = "multipart/form-data")
+    public ResponseEntity<Void> subirMiFoto(Authentication authentication, @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        usuarioFotoService.guardar(yo(authentication), file);
+        return ResponseEntity.noContent().build();
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/me/foto")
+    public ResponseEntity<Void> quitarMiFoto(Authentication authentication) {
+        usuarioFotoService.quitar(yo(authentication));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/login")

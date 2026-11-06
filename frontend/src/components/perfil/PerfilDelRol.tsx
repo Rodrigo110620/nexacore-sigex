@@ -1,8 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, CalendarDays, Clock3, GraduationCap, KeyRound, MapPin, ShieldCheck } from 'lucide-react'
-import ErrorCarga from '../ui/ErrorCarga'
-import { getPerfilDelRol, type PerfilDelRol as Datos } from '../../services/profileService'
+import type { PerfilDelRol as Datos } from '../../services/profileService'
 import { addMinutes, formatFecha, horaCorta } from '../../utils/examenFormat'
 
 const CATEGORIA: Record<string, string> = { INTERINO: 'Interino', TITULAR: 'Titular', INVITADO: 'Invitado', AUXILIAR: 'Auxiliar' }
@@ -35,22 +34,7 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string | null }) {
  * Mi perfil, lo propio de cada rol: los datos y las materias (con sus grupos) del DOCENTE, los exámenes asignados al
  * CONTROL y, para todos, lo que pueden hacer en el sistema según sus permisos.
  */
-export default function PerfilDelRol({ esAdmin }: { esAdmin: boolean }) {
-  const [datos, setDatos] = useState<Datos | null>(null)
-  const [error, setError] = useState(false)
-  const [intento, setIntento] = useState(0)
-
-  useEffect(() => {
-    let vigente = true
-    getPerfilDelRol()
-      .then((d) => { if (vigente) { setDatos(d); setError(false) } })
-      .catch(() => { if (vigente) setError(true) })
-    return () => { vigente = false }
-  }, [intento])
-
-  if (error) return <ErrorCarga className="mt-5" mensaje="No se pudo cargar la información de tu rol." onReintentar={() => setIntento((n) => n + 1)} />
-  if (!datos) return <p role="status" className="mt-5 text-sm text-[#627A9B]">Cargando la información de tu rol…</p>
-
+export default function PerfilDelRol({ datos, esAdmin }: { datos: Datos; esAdmin: boolean }) {
   const porModulo = datos.permisos.reduce<Record<string, string[]>>((acc, p) => {
     (acc[p.modulo] ??= []).push(p.descripcion)
     return acc

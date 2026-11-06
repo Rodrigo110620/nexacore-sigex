@@ -87,7 +87,7 @@ public class EstudianteFotoService {
     }
 
     /** Lee el archivo y comprueba tamaño y tipo real de imagen. */
-    private static byte[] leerImagen(MultipartFile archivo) {
+    public static byte[] leerImagen(MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()) {
             throw new IllegalArgumentException("Selecciona una fotografía.");
         }
@@ -252,19 +252,14 @@ public class EstudianteFotoService {
                 r.getCreadoEn()));
     }
 
-    /** El reporte abierto para revisarlo desde el aviso (DOCENTE y CONTROL en sus exámenes, o el ADMIN). */
+    /** El reporte abierto para revisarlo desde el aviso (DOCENTE y CONTROL en sus exámenes, o el ADMIN): igual que en la revisión del ADMIN. */
     @Transactional(readOnly = true)
     public Optional<com.nexacore.examenes.dto.RevisionReporteFotoResponse> revisionDelReporte(Integer idEstudiante, boolean puedeRevisar) {
         verificarEstudiante(idEstudiante);
-        return reporteAbierto(idEstudiante).map(r -> new com.nexacore.examenes.dto.RevisionReporteFotoResponse(
-                r.getIdExamen(), r.getIdExamen() == null ? null : notificacionService.materia(r.getIdExamen()),
-                r.getMotivo(), r.getDetalle(),
-                usuarioRepository.findById(r.getIdUsuario()).map(u -> (u.getNombre() + " " + u.getApellidos()).trim()).orElse(null),
-                r.getCreadoEn(),
-                solicitudRepository.findById(idEstudiante)
-                        .filter(s -> EstudianteFotoSolicitud.PENDIENTE.equals(s.getEstado()))
-                        .map(s -> "/estudiantes/" + idEstudiante + "/foto-solicitud").orElse(null),
-                puedeRevisar));
+        return reporteAbierto(idEstudiante).flatMap(r -> revision(Set.of(idEstudiante)).stream().findFirst()
+                .map(solicitud -> new com.nexacore.examenes.dto.RevisionReporteFotoResponse(
+                        r.getIdExamen(), r.getIdExamen() == null ? null : notificacionService.materia(r.getIdExamen()),
+                        puedeRevisar, solicitud)));
     }
 
     @Transactional(readOnly = true)
@@ -285,9 +280,16 @@ public class EstudianteFotoService {
      */
     @Transactional(readOnly = true)
     public List<FotoPendienteResponse> listarRevision() {
+        return revision(null);
+    }
+
+    /** Las solicitudes de revisión; con {@code soloEstudiantes}, solo las de esos estudiantes (null = todas). */
+    private List<FotoPendienteResponse> revision(Set<Integer> soloEstudiantes) {
         Map<Integer, EstudianteFotoSolicitud> pendientes = listarPendientes().stream()
+                .filter(s -> soloEstudiantes == null || soloEstudiantes.contains(s.getIdEstudiante()))
                 .collect(Collectors.toMap(EstudianteFotoSolicitud::getIdEstudiante, Function.identity()));
         Map<Integer, ReporteFoto> reportes = reporteRepository.findByEstadoOrderByCreadoEnAsc(ReporteFoto.ABIERTO).stream()
+                .filter(r -> soloEstudiantes == null || soloEstudiantes.contains(r.getIdEstudiante()))
                 .collect(Collectors.toMap(ReporteFoto::getIdEstudiante, Function.identity(), (a, b) -> a));
         Set<Integer> ids = new HashSet<>(pendientes.keySet());
         ids.addAll(reportes.keySet());

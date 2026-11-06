@@ -27,6 +27,19 @@ export interface PerfilDelRol {
   } | null
   /** Exámenes de hoy en adelante donde está asignado como personal de control; null si no controla. */
   examenesAsignados: { idExamen: number; materia: string; fecha: string; horaInicio: string; duracionMinutos: number; aula: string | null; estado: string }[] | null
+  /** Ruta de su foto de perfil (opcional), o null si no tiene. */
+  fotoUrl: string | null
+}
+
+/** Sube o cambia su foto de perfil (ya reducida en el navegador). */
+export async function subirMiFoto(foto: Blob): Promise<void> {
+  const datos = new FormData()
+  datos.append('file', foto, 'perfil.jpg')
+  await api.put('/auth/me/foto', datos)
+}
+
+export async function quitarMiFoto(): Promise<void> {
+  await api.delete('/auth/me/foto')
 }
 
 export async function getPerfilDelRol(): Promise<PerfilDelRol> {

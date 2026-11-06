@@ -24,10 +24,12 @@ public class PerfilRolService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final UsuarioRepository usuarioRepository;
+    private final UsuarioFotoService usuarioFotoService;
 
-    public PerfilRolService(NamedParameterJdbcTemplate jdbc, UsuarioRepository usuarioRepository) {
+    public PerfilRolService(NamedParameterJdbcTemplate jdbc, UsuarioRepository usuarioRepository, UsuarioFotoService usuarioFotoService) {
         this.jdbc = jdbc;
         this.usuarioRepository = usuarioRepository;
+        this.usuarioFotoService = usuarioFotoService;
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +62,8 @@ public class PerfilRolService {
 
         boolean controla = Permisos.tiene(authentication, Permiso.CONTROL_INGRESO_TODOS);
         return new PerfilRolResponse(permisos, docente.isEmpty() ? null : docente.get(0),
-                controla || !asignados.isEmpty() ? asignados : null);
+                controla || !asignados.isEmpty() ? asignados : null,
+                usuarioFotoService.tiene(yo) ? "/auth/me/foto" : null);
     }
 
     /** Sus materias (IMP-12) con los grupos que tiene en cada una. */

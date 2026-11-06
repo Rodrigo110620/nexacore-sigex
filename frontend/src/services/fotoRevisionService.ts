@@ -57,18 +57,13 @@ export async function reportarFoto(
   await api.post(`/estudiantes/${idEstudiante}/foto/reportes`, payload)
 }
 
-/** El reporte abierto para revisarlo desde el aviso o desde Reportes (GET /estudiantes/{id}/foto/reporte/revision). */
+/** El reporte abierto para revisarlo desde el aviso o desde Reportes: la misma solicitud que ve el ADMIN. */
 export interface RevisionReporteFoto {
   idExamen: number | null
   examen: string | null
-  motivo: string
-  detalle: string | null
-  reportadoPor: string | null
-  reportadoEn: string
-  /** Ruta de la foto nueva del estudiante; null si aún no la envió. */
-  fotoNuevaUrl: string | null
   /** El ADMIN, o el DOCENTE y el CONTROL si el reporte es de uno de sus exámenes. */
   puedeRevisar: boolean
+  solicitud: SolicitudRevisionFoto
 }
 
 /** null si la foto ya no tiene un reporte abierto. */

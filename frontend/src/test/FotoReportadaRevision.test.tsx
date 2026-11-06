@@ -18,9 +18,14 @@ vi.mock('../services/fotoRevisionService', async (original) => ({
 vi.mock('../services/estudianteService', () => ({ descargarFotoEstudiante: vi.fn().mockRejectedValue(new Error('sin foto en la prueba')) }))
 vi.mock('../hooks/useEnVivo', () => ({ default: () => undefined }))
 
-const revision = (extra: Partial<RevisionReporteFoto> = {}): RevisionReporteFoto => ({
-  idExamen: 6, examen: 'Base de Datos I', motivo: 'NO_CLARA', detalle: null, reportadoPor: 'Diego Pardo',
-  reportadoEn: '2026-11-06T15:53:07', fotoNuevaUrl: null, puedeRevisar: true, ...extra,
+const solicitud = (enviada: boolean) => ({
+  idEstudiante: 3, codigoSis: '124331610', nombre: 'Fernando', apellidos: 'Figueroa', carrera: 'Ing. de Sistemas',
+  origen: 'REPORTE' as const, estado: enviada ? 'PENDIENTE' as const : 'ESPERANDO_FOTO' as const,
+  enviadaEn: enviada ? '2026-11-06T16:10:00' : null, fotoUrl: enviada ? '/estudiantes/3/foto-solicitud' : null, fotoActualUrl: '/estudiantes/3/foto',
+  reporte: { motivo: 'NO_CLARA' as const, detalle: null, reportadoPor: 'Diego Pardo', reportadoEn: '2026-11-06T15:53:07' },
+})
+const revision = (extra: { enviada?: boolean; puedeRevisar?: boolean } = {}): RevisionReporteFoto => ({
+  idExamen: 6, examen: 'Base de Datos I', puedeRevisar: extra.puedeRevisar ?? true, solicitud: solicitud(extra.enviada ?? false),
 })
 const abrir = () => render(<MemoryRouter><FotoReportadaModal idEstudiante={3} nombre="Fernando Figueroa" idExamen={6} onClose={() => undefined} /></MemoryRouter>)
 
@@ -35,29 +40,27 @@ describe('Revisión de una foto reportada (DOCENTE y CONTROL en sus exámenes)',
   it('sin foto nueva, confirma que la foto actual está bien', async () => {
     vi.mocked(obtenerRevisionReporte).mockResolvedValue(revision())
     abrir()
-    fireEvent.click(await screen.findByRole('button', { name: 'La foto actual está bien' }))
-    expect(await screen.findByText('Listo: la foto está bien y el reporte quedó cerrado.')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Descartar reporte' }))
+    expect(await screen.findByText(/Se descartó el reporte de Fernando Figueroa/)).toBeInTheDocument()
     expect(descartarReporteFoto).toHaveBeenCalledWith(3)
-    expect(screen.queryByRole('button', { name: /Aprobar foto nueva/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Aprobar foto/ })).not.toBeInTheDocument()
   })
 
   it('con foto nueva, la aprueba o la rechaza con un motivo', async () => {
-    vi.mocked(obtenerRevisionReporte).mockResolvedValue(revision({ fotoNuevaUrl: '/estudiantes/3/foto-solicitud' }))
+    vi.mocked(obtenerRevisionReporte).mockResolvedValue(revision({ enviada: true }))
     abrir()
     fireEvent.click(await screen.findByRole('button', { name: 'Rechazar' }))
-    const rechazar = screen.getByRole('button', { name: 'Rechazar foto nueva' })
-    expect(rechazar).toBeDisabled()
-    fireEvent.change(screen.getByLabelText(/Por qué rechazas la foto nueva/), { target: { value: 'Sale borrosa' } })
-    fireEvent.click(rechazar)
-    expect(await screen.findByText(/se rechazó la foto nueva/)).toBeInTheDocument()
-    expect(rechazarFoto).toHaveBeenCalledWith(3, 'Sale borrosa')
+    fireEvent.change(screen.getByLabelText('Motivo del rechazo'), { target: { value: 'La foto sale borrosa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rechazar foto' }))
+    expect(await screen.findByText(/Se rechazó la foto de Fernando Figueroa/)).toBeInTheDocument()
+    expect(rechazarFoto).toHaveBeenCalledWith(3, expect.stringMatching(/borrosa/))
   })
 
   it('quien no es del examen solo ve el reporte, sin poder resolverlo', async () => {
     vi.mocked(obtenerRevisionReporte).mockResolvedValue(revision({ puedeRevisar: false }))
     abrir()
-    expect(await screen.findByText('Diego Pardo')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'La foto actual está bien' })).not.toBeInTheDocument()
+    expect(await screen.findByText(/Reporte de control · Diego Pardo/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Descartar reporte' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Ir al control del examen/ })).toHaveAttribute('href', '/dashboard/control/6')
   })
 })

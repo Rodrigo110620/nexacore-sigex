@@ -83,6 +83,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
     @Autowired com.nexacore.examenes.services.PerfilRolService perfilRolService;
+    @Autowired com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
     @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
     @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
     @Autowired com.nexacore.examenes.services.EstudianteFotoService estudianteFotoService;
@@ -1066,6 +1067,13 @@ class PostgresIntegracionTests {
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isTrue();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAjeno, sesionCtrl)).isFalse();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionReemplazo)).isFalse();
+        // La revisión del docente y el control trae la misma solicitud que ve el ADMIN.
+        assertThat(estudianteFotoService.revisionDelReporte(fotoAsignado, true)).hasValueSatisfying(r -> {
+            assertThat(r.idExamen()).isEqualTo(asignado);
+            assertThat(r.solicitud().origen()).isEqualTo("REPORTE");
+            assertThat(r.solicitud().estado()).isEqualTo("ESPERANDO_FOTO");
+            assertThat(r.solicitud().reporte().reportadoPor()).isEqualTo("Rene Reemplazo");
+        });
         estudianteFotoService.descartarReporte(fotoAsignado);
         sincronizar();
         assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
@@ -1106,6 +1114,19 @@ class PostgresIntegracionTests {
             assertThat(m.grupos()).containsExactly("1");
         });
         assertThat(docente.examenesAsignados()).isNull();
+        assertThat(docente.fotoUrl()).isNull();
+        // Foto de perfil opcional (V54): se sube, se ve en el perfil y se quita.
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0, 1};
+        usuarioFotoService.guardar(idDocente, new org.springframework.mock.web.MockMultipartFile("file", "yo.jpg", "image/jpeg", jpeg));
+        assertThat(usuarioFotoService.obtener(idDocente)).hasValueSatisfying(f -> assertThat(f.tipoContenido()).isEqualTo("image/jpeg"));
+        assertThat(perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")))).fotoUrl())
+                .isEqualTo("/auth/me/foto");
+        assertThatThrownBy(() -> usuarioFotoService.guardar(idDocente,
+                new org.springframework.mock.web.MockMultipartFile("file", "x.txt", "image/jpeg", "no es imagen".getBytes())))
+                .isInstanceOf(IllegalArgumentException.class);
+        usuarioFotoService.quitar(idDocente);
+        assertThat(usuarioFotoService.tiene(idDocente)).isFalse();
         assertThat(docente.permisos()).extracting(x -> x.codigo()).contains("EXAMENES_GESTIONAR_PROPIOS").doesNotContain("USUARIOS_GESTIONAR");
 
         var control = perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
