@@ -38,6 +38,14 @@ public class ExamenController {
         this.sesionExamenService = sesionExamenService;
     }
 
+    @Operation(summary = "Mis exámenes (para Reportes)",
+            description = "Con REPORTES_VER, todos. El DOCENTE, los suyos; el CONTROL, en los que está asignado como personal de control.")
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')")
+    @GetMapping("/mios")
+    public ResponseEntity<List<ExamenResponse>> listarMios() {
+        return ResponseEntity.ok(examenService.listarMios());
+    }
+
     @Operation(summary = "Listar exámenes", description = "ADMIN y CONTROL ven todos. DOCENTE solo los que tiene asignados.")
     @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'REPORTES_VER')")
     @GetMapping

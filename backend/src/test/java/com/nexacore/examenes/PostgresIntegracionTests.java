@@ -65,7 +65,6 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
-    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
     @Autowired com.nexacore.examenes.repositories.MateriaRepository materiaRepository;
     @Autowired EstudianteService estudianteService;
     @Autowired EstudianteRepository estudianteRepository;
@@ -76,13 +75,16 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
-    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
+    @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
+    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
+    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
+    @Autowired com.nexacore.examenes.repositories.NotificacionRepository notificacionRepository;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -947,6 +949,57 @@ class PostgresIntegracionTests {
                 assertThat(r.codigo()).isEqualTo("209600002");
                 assertThat(r.examen()).isEqualTo("Materia TST-CTRL");
             });
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    // V53: el personal de control asignado define "sus" exámenes (reportes y notificaciones); un control no
+    // asignado puede registrar como reemplazo y queda marcado.
+    @Test
+    void elPersonalDeControlAsignadoDefineSusExamenesYElReemplazoQuedaMarcado() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-V53");
+        int asignado = examen(paralelo, "08:00", 120);
+        int ajeno = examen(paralelo, "14:00", 120);
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Carla", "Control", "7000001", "carla.control@umss.edu");
+        Integer reemplazo = jdbc.queryForObject(usuario, Integer.class, "Rene", "Reemplazo", "7000002", "rene.reemplazo@umss.edu");
+        Integer sinRol = jdbc.queryForObject(usuario, Integer.class, "Sin", "Rol", "7000003", "sin.rol@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?), (?, ?)", ctrl, rolControl, reemplazo, rolControl);
+
+        assertThat(examenControlService.disponibles()).extracting(p -> p.idUsuario()).contains(ctrl, reemplazo).doesNotContain(sinRol);
+        assertThatThrownBy(() -> examenControlService.asignar(asignado, List.of(sinRol)))
+                .hasMessageContaining("Solo se puede asignar personal de control");
+        assertThat(examenControlService.asignar(asignado, List.of(ctrl))).extracting(p -> p.nombre()).containsExactly("Carla");
+
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion) VALUES (?, ?, ?, ?, 'No está inscrito')";
+        jdbc.update(intento, asignado, paralelo, ctrl, "1111111");
+        jdbc.update(intento, ajeno, paralelo, reemplazo, "2222222");
+        jdbc.update("INSERT INTO notificacion (tipo, titulo, detalle, id_examen) VALUES ('INTENTO_INGRESO', 'Intento', 'd', ?), ('INTENTO_INGRESO', 'Intento', 'd', ?)",
+                asignado, ajeno);
+        int est = estudiante("209800001", "Dora");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, CURRENT_TIMESTAMP)",
+                est, asignado, paralelo);
+        jdbc.update("INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, resultado_autorizacion, tipo_ingreso) "
+                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', 'NORMAL')", asignado, paralelo, est, reemplazo);
+        sincronizar();
+
+        // Reportes: solo los intentos de sus exámenes.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, ctrl).contenido()).extracting(f -> f.idExamen()).containsOnly(asignado);
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null).contenido()).extracting(f -> f.idExamen()).contains(asignado, ajeno);
+        // Notificaciones: solo las de sus exámenes asignados.
+        assertThat(notificacionRepository.deDocente(ctrl, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getIdExamen()).containsOnly(asignado);
+        // El ingreso que registró un control no asignado queda marcado como reemplazo.
+        assertThat(controlIngresoService.consultarRegistrosExamen(asignado)).singleElement().satisfies(r -> assertThat(r.reemplazo()).isTrue());
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("carla.control@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        try {
+            assertThat(examenService.listarMios()).extracting(e -> e.idExamen()).containsOnly(asignado);
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }

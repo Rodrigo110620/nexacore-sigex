@@ -5,7 +5,9 @@ import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
 import ExcepcionesNoHabilitadoReporte from '../../components/control/ExcepcionesNoHabilitadoReporte'
 import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
-import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
+import { useAuth } from '../../context/AuthContext'
+import { tienePermiso } from '../../utils/permisos'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
@@ -145,22 +147,26 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
   )
 }
 
-/** Reportes del ADMIN (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. */
+/**
+ * Reportes (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. El ADMIN
+ * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
+ */
 export default function ReportesPage() {
+  const soloMios = !tienePermiso(useAuth(), 'REPORTES_VER')
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
 
   useEffect(() => {
     let vigente = true
-    listarExamenes()
+    ;(soloMios ? listarMisExamenes() : listarExamenes())
       .then((lista) => {
         if (!vigente) return
         setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))
       })
       .catch(() => { if (vigente) setExamenes([]) })
     return () => { vigente = false }
-  }, [])
+  }, [soloMios])
 
   // Registros del control del examen elegido: dan el nombre y el código SIS de los expulsados.
   const [controles, setControles] = useState<{ idExamen: number; registros: RegistroControlIngresoExamen[] }>()
@@ -195,10 +201,17 @@ export default function ReportesPage() {
                 onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
                 className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
               >
-                <option value="">Todos los exámenes</option>
+                <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
                 {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
               </select>
             </div>
+            {soloMios && (
+              <p className="mt-2 text-xs text-[#627A9B]">
+                {examenes.length === 0
+                  ? 'Aún no tienes exámenes: aquí aparecen los tuyos y aquellos donde te asignaron como personal de control.'
+                  : 'Solo ves tus exámenes: los tuyos y aquellos donde te asignaron como personal de control.'}
+              </p>
+            )}
 
             {/* En el celular: control segmentado de 3, con áreas táctiles de 44 px; en pantallas anchas, pestañas. */}
             <div role="tablist" aria-label="Tipo de reporte"

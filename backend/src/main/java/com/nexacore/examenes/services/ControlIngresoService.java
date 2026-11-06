@@ -95,6 +95,12 @@ public class ControlIngresoService {
     private final TrasladoAmbienteRepository trasladoAmbienteRepository;
     private final AmbienteRepository ambienteRepository;
 
+    /** Personal de control asignado (V53), para marcar los reemplazos; por campo para no cambiar los constructores. */
+    @Autowired(required = false)
+    private com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
+    @Autowired(required = false)
+    private com.nexacore.examenes.repositories.ExamenRepository examenRepositorioReemplazo;
+
     @Autowired
     public ControlIngresoService(
             AsistenciaExamenRepository asistenciaRepository,
@@ -567,6 +573,10 @@ public class ControlIngresoService {
 
         Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasPorEstudiante =
                 incidenciasDelExamen(idExamen);
+        java.util.Set<Integer> asignados = examenControlRepository == null ? java.util.Set.of()
+                : new java.util.HashSet<>(examenControlRepository.asignadosA(idExamen));
+        Integer docenteDelExamen = examenRepositorioReemplazo == null ? null
+                : examenRepositorioReemplazo.findFirstByIdIdExamen(idExamen).map(com.nexacore.examenes.models.Examen::getIdDocente).orElse(null);
         return registroRepository.listarPorExamen(idExamen).stream()
                 .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
@@ -616,9 +626,19 @@ public class ControlIngresoService {
                             motivoTraslado, observacionTraslado,
                             registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
                                     .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
-                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()));
+                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()),
+                            esReemplazo(control, asignados, docenteDelExamen));
                 })
                 .toList();
+    }
+
+    /** Un CONTROL que registra en un examen con personal asignado, sin estar asignado ni ser su docente. */
+    private static boolean esReemplazo(Usuario control, java.util.Set<Integer> asignados, Integer docenteDelExamen) {
+        if (control == null || asignados.isEmpty() || asignados.contains(control.getId()) || control.getId().equals(docenteDelExamen)) {
+            return false;
+        }
+        return control.getUsuarioRoles() != null && control.getUsuarioRoles().stream()
+                .anyMatch(ur -> ur.getIdRol() != null && "CONTROL".equals(ur.getIdRol().getNombre()));
     }
 
     private AutorizarIngresoResponse crearRespuesta(

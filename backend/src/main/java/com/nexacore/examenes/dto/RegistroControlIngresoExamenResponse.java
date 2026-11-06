@@ -25,5 +25,7 @@ public record RegistroControlIngresoExamenResponse(
         String motivoTraslado,
         /** INCI-03: observación opcional del traslado de ambiente; null si no hubo reasignación. */
         String observacionTraslado,
-        List<IncidenciaRegistradaResponse> incidencias
+        List<IncidenciaRegistradaResponse> incidencias,
+        /** V53: lo registró un CONTROL que no está asignado al examen (un reemplazo). */
+        boolean reemplazo
 ) {}
