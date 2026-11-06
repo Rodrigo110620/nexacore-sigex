@@ -27,6 +27,79 @@ public final class TextoTraslado {
     }
 
     /**
+     * Devuelve true si el texto contiene 4 o más caracteres idénticos consecutivos
+     * (ej: "rrrr", "WWWW", "aaaab"). Se usa para rechazar secuencias de teclado sin sentido.
+     */
+    public static boolean tieneRepetidosConsecutivos(String texto) {
+        if (texto == null || texto.length() < 4) {
+            return false;
+        }
+        for (int i = 0; i < texto.length() - 3; i++) {
+            char c = texto.charAt(i);
+            if (c == texto.charAt(i + 1) && c == texto.charAt(i + 2) && c == texto.charAt(i + 3)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Devuelve true si el texto contiene al menos una vocal (incluye tildes y ü).
+     * Se usa para evitar cadenas compuestas solo por consonantes sin significado.
+     */
+    public static boolean tieneAlMenosUnaVocal(String texto) {
+        if (texto == null || texto.isEmpty()) {
+            return false;
+        }
+        return texto.toLowerCase(ES).matches(".*[aeiouáéíóúü].*");
+    }
+
+    /**
+     * Devuelve el máximo de consonantes seguidas (sin vocal entre medio).
+     * Se usa para rechazar cadenas como "sdwq" dentro de "Assdwqsasda".
+     */
+    public static int maxConsonantesSeguidas(String texto) {
+        if (texto == null || texto.isEmpty()) {
+            return 0;
+        }
+        int max = 0;
+        int actual = 0;
+        for (int i = 0; i < texto.length(); i++) {
+            char c = texto.charAt(i);
+            if (esConsonante(c)) {
+                actual += 1;
+                max = Math.max(max, actual);
+            } else {
+                actual = 0;
+            }
+        }
+        return max;
+    }
+
+    private static boolean esConsonante(char c) {
+        return "bcdfghjklmñpqrstvwxyzBCDFGHJKLMÑPQRSTVWXYZ".indexOf(c) >= 0;
+    }
+
+    /**
+     * Devuelve la proporción de vocales sobre el total de letras (ignora espacios y dígitos).
+     * Se usa para rechazar cadenas sin sentido como "Sdadsasasds".
+     */
+    public static double proporcionVocales(String texto) {
+        if (texto == null || texto.isEmpty()) {
+            return 0;
+        }
+        String soloLetras = texto.replaceAll("[^a-zA-ZáéíóúüÁÉÍÓÚÜñÑ]", "");
+        if (soloLetras.isEmpty()) {
+            return 0;
+        }
+        long vocales = soloLetras.chars()
+                .mapToObj(ch -> (char) ch)
+                .filter(ch -> "aeiouáéíóúüAEIOUÁÉÍÓÚÜ".indexOf(ch) >= 0)
+                .count();
+        return (double) vocales / soloLetras.length();
+    }
+
+    /**
      * Formato oración: primera letra en mayúscula y el resto en minúscula, salvo las palabras con
      * números, que son códigos de aula y se dejan en mayúscula ("Se trasladó al aula 690B").
      */

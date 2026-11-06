@@ -12,7 +12,8 @@ interface Props {
   aulas?: AmbienteDto[]
   aulaActualId?: number | null
   onClose: () => void
-  onSuccess: () => void
+  /** Se llama con el id y nombre del aula destino tras una reasignación exitosa. */
+  onSuccess: (idAmbienteDestino: number, aulaDestinoNombre: string) => void
 }
 
 /** Límites del traslado, iguales a los del servidor (TextoTraslado). */
@@ -96,6 +97,42 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     return letras.split('').every(c => c === primera)
   }
 
+  const tieneRepetidosConsecutivos = (texto: string) => {
+    if (texto.length < 4) return false
+    for (let i = 0; i < texto.length - 3; i++) {
+      const c = texto[i]
+      if (c === texto[i + 1] && c === texto[i + 2] && c === texto[i + 3]) {
+        return true
+      }
+    }
+    return false
+  }
+
+  const tieneAlMenosUnaVocal = (texto: string) => /[aeiouáéíóúü]/i.test(texto)
+
+  /** Máximo de consonantes seguidas (sin vocal entre medio). */
+  const maxConsonantesSeguidas = (texto: string): number => {
+    let max = 0
+    let actual = 0
+    for (const c of texto) {
+      if (/[bcdfghjklmñpqrstvwxyzBCDFGHJKLMÑPQRSTVWXYZ]/.test(c)) {
+        actual += 1
+        max = Math.max(max, actual)
+      } else {
+        actual = 0
+      }
+    }
+    return max
+  }
+
+  /** Proporción de vocales sobre el total de letras (ignora espacios y dígitos). */
+  const proporcionVocales = (texto: string): number => {
+    const letras = texto.replace(/[^a-zA-ZáéíóúüÁÉÍÓÚÜñÑ]/g, '')
+    if (letras.length === 0) return 0
+    const vocales = (letras.match(/[aeiouáéíóúüAEIOUÁÉÍÓÚÜ]/g) || []).length
+    return vocales / letras.length
+  }
+
   /** Formato oración: primera letra mayúscula, resto minúsculas; códigos de aula con dígitos en mayúscula (ej. "690B"). */
   const formatoOracion = (texto: string): string => {
     if (!texto) return texto
@@ -123,6 +160,16 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ0-9 ]+$/.test(limpio)) return 'El motivo solo permite letras, números y espacios simples entre palabras'
     // No permitir que el motivo sea solo el mismo carácter repetido (ej: "SSS SSSSS", "AAAAA")
     if (esSoloUnaLetraRepetida(limpio)) return 'El motivo no puede ser solo el mismo carácter repetido'
+    // No permitir secuencias de teclado con 4 o más caracteres iguales seguidos (ej: "rrrr", "WWWW")
+    if (tieneRepetidosConsecutivos(limpio)) return 'El motivo no puede contener más de 3 caracteres iguales seguidos'
+    // Requerir al menos una vocal para evitar cadenas sin sentido (ej: "Wwwrrrrrr")
+    if (!tieneAlMenosUnaVocal(limpio)) return 'El motivo debe contener al menos una vocal'
+    // No permitir 3 o más consonantes seguidas (ej: "sdwq" en "Assdwqsasda")
+    if (maxConsonantesSeguidas(limpio) >= 3) return 'El motivo contiene demasiadas consonantes seguidas; escribe una frase con sentido'
+    // Para textos largos, exigir una proporción mínima de vocales (ej: "Sdadsasasds")
+    if (limpio.length > 8 && proporcionVocales(limpio) < 0.3) {
+      return 'El motivo parece no tener sentido; escribe una frase con palabras completas'
+    }
     return null
   }
 
@@ -133,6 +180,14 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
     if (limpia.length < MOTIVO_MIN) return 'La observación debe contener al menos 10 caracteres'
     if (limpia.length > TEXTO_MAX) return 'La observación no puede superar 65 caracteres'
     if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ ]+$/.test(limpia)) return 'La observación solo permite letras y espacios simples entre palabras'
+    if (tieneRepetidosConsecutivos(limpia)) return 'La observación no puede contener más de 3 caracteres iguales seguidos'
+    if (!tieneAlMenosUnaVocal(limpia)) return 'La observación debe contener al menos una vocal'
+    // No permitir 3 o más consonantes seguidas
+    if (maxConsonantesSeguidas(limpia) >= 3) return 'La observación contiene demasiadas consonantes seguidas; escribe una frase con sentido'
+    // Para textos largos, exigir una proporción mínima de vocales
+    if (limpia.length > 8 && proporcionVocales(limpia) < 0.3) {
+      return 'La observación parece no tener sentido; escribe una frase con palabras completas'
+    }
     return null
   }
 
@@ -177,7 +232,10 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
       setSuccessGeneral('El estudiante fue reasignado exitosamente al nuevo ambiente.')
       // Mostrar el mensaje de éxito brevemente antes de cerrar el modal.
       await new Promise(resolve => setTimeout(resolve, 1500))
-      onSuccess()
+      const aulaDestino = [...(aulas ?? []), ...ambientes].find(
+        (a: AmbienteDto) => a.id === Number(idAmbienteDestino)
+      )
+      onSuccess(Number(idAmbienteDestino), aulaDestino?.nombre ?? '')
       onClose()
     } catch (err: any) {
       const data = err?.response?.data
@@ -257,10 +315,13 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
           </div>
 
           {/* Motivo */}
-          <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-1 text-xs font-bold text-[#011140] uppercase tracking-wider">
-              <ShieldAlert size={10} /> Motivo (obligatorio)
-            </label>
+          <div className="flex flex-col gap-0">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1 text-xs font-bold text-[#011140] uppercase tracking-wider">
+                <ShieldAlert size={10} /> Motivo (obligatorio)
+              </label>
+              <span className="text-[10px] text-[#758EBF]">{motivo.length}/{TEXTO_MAX}</span>
+            </div>
             <textarea
               value={motivo}
               onChange={(e) => setMotivo(formatoOracion(e.target.value))}
@@ -273,24 +334,22 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               placeholder="Ej. Computadora dañada, corte de red..."
               disabled={cargando}
             />
-            <div className="flex justify-between mt-1">
-              <span className="text-[10px] text-[#758EBF]">{motivo.length}/{TEXTO_MAX}</span>
-            </div>
             {errorMotivo && (
-              <div className="flex items-start mt-1">
+              <div className="flex items-start gap-1 mt-1">
                 <ShieldAlert size={10} className="mt-0.5 shrink-0" />
-                <p className="text-[10px] text-[#B91C1C] leading-tight m-0 pl-3">
-                  {errorMotivo}
-                </p>
+                <p className="text-[10px] text-[#B91C1C] leading-tight m-0">{errorMotivo}</p>
               </div>
             )}
           </div>
 
           {/* Observación */}
-          <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-1 text-xs font-bold text-[#011140] uppercase tracking-wider">
-              <Info size={10} /> Observación (opcional)
-            </label>
+          <div className="flex flex-col gap-0">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1 text-xs font-bold text-[#011140] uppercase tracking-wider">
+                <Info size={10} /> Observación (opcional)
+              </label>
+              <span className="text-[10px] text-[#758EBF]">{observacion.length}/{TEXTO_MAX}</span>
+            </div>
             <textarea
               value={observacion}
               onChange={(e) => setObservacion(formatoOracion(e.target.value))}
@@ -303,13 +362,10 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               placeholder="Observaciones adicionales del traslado..."
               disabled={cargando}
             />
-            <span className="mt-1 text-[10px] text-[#758EBF]">{observacion.length}/{TEXTO_MAX}</span>
             {errorObservacion && (
-              <div className="flex items-start mt-1">
+              <div className="flex items-start gap-1 mt-1">
                 <ShieldAlert size={10} className="mt-0.5 shrink-0" />
-                <p className="text-[10px] text-[#B91C1C] leading-tight m-0 pl-3">
-                  {errorObservacion}
-                </p>
+                <p className="text-[10px] text-[#B91C1C] leading-tight m-0">{errorObservacion}</p>
               </div>
             )}
           </div>
