@@ -65,7 +65,7 @@ export default function GruposDocente({ elegido, onElegir }: { elegido: GrupoEle
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0439D9] text-white"><UsersRound size={18} aria-hidden="true" /></span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-bold text-[#011140]">Todos mis estudiantes</span>
-              <span className="block text-xs text-[#627A9B]">{cantidad('todos')}</span>
+              <span className="block text-xs text-[#45628D]">{cantidad('todos')}</span>
             </span>
             <ChevronRight size={16} className="shrink-0 text-[#9DB4E8] group-hover:text-[#0439D9]" aria-hidden="true" />
           </button>
@@ -73,7 +73,7 @@ export default function GruposDocente({ elegido, onElegir }: { elegido: GrupoEle
         {grupos.map((g) => {
           const clave = `${g.idMateria}-${g.idParalelo}`
           const activo = elegido.idMateria === String(g.idMateria) && elegido.idParalelo === String(g.idParalelo)
-          const titulo = `${g.materia} · Grupo ${g.paralelo}`
+          const titulo = `${g.materia} · ${g.paralelo}`
           return (
             <li key={clave}>
               <button type="button" aria-pressed={activo} aria-label={`${titulo}: ${cantidad(clave)}`}
@@ -81,7 +81,7 @@ export default function GruposDocente({ elegido, onElegir }: { elegido: GrupoEle
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><BookOpen size={18} aria-hidden="true" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-[#011140]" title={g.materia}>{g.materia}</span>
-                  <span className="block text-xs text-[#627A9B]">Grupo {g.paralelo} · {cantidad(clave)}</span>
+                  <span className="block text-xs text-[#45628D]"><span className="font-semibold text-[#0439D9]">{g.paralelo}</span> · {cantidad(clave)}</span>
                 </span>
                 <ChevronRight size={16} className="shrink-0 text-[#9DB4E8] group-hover:text-[#0439D9]" aria-hidden="true" />
               </button>

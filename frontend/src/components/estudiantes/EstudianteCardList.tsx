@@ -7,6 +7,8 @@ import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface EstudianteCardListProps {
   estudiantes: EstudianteListItem[]
+  /** El docente eligió un grupo: sus materias sobran (son todas esa) y se muestra la carrera. */
+  ocultarMaterias?: boolean
   onViewClick?: (estudiante: EstudianteListItem) => void
   onEditClick?: (estudiante: EstudianteListItem) => void
   puedeEditar?: boolean
@@ -27,6 +29,7 @@ export default function EstudianteCardList({
   onViewClick,
   onEditClick,
   puedeEditar = true,
+  ocultarMaterias = false,
 }: EstudianteCardListProps) {
   return (
     <ul className="grid grid-cols-1 gap-3 sm:gap-4">
@@ -66,10 +69,10 @@ export default function EstudianteCardList({
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EDF1F7] pt-2">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-[#011140]">
-                {e.materiasDocente != null ? 'Materias con este docente' : formatCarreras(e.carreras)}
+                {(!ocultarMaterias && e.materiasDocente != null) ? 'Materias con este docente' : formatCarreras(e.carreras)}
               </p>
-              {e.materiasDocente != null && <MateriasDocente materias={e.materiasDocente} compacto />}
-              {e.materiasDocente == null && e.carreras?.[0]?.nombreFacultad && (
+              {(!ocultarMaterias && e.materiasDocente != null) && <MateriasDocente materias={e.materiasDocente!} compacto />}
+              {(ocultarMaterias || e.materiasDocente == null) && e.carreras?.[0]?.nombreFacultad && (
                 <p className="truncate text-[11px] text-[#627A9B]">
                   {formatFacultad(e.carreras)}
                 </p>

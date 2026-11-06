@@ -40,10 +40,20 @@ describe('materias del docente en Estudiantes', () => {
   it('muestra ambas materias en tabla, tarjetas y ficha sin duplicar al estudiante', () => {
     const { unmount } = render(<EstudianteTable estudiantes={[estudiante]} puedeEditar={false} />)
     expect(screen.getAllByRole('row')).toHaveLength(2)
+    // En la lista se pliegan: "2 materias" y, al tocarlo, se despliegan.
+    const plegadas = screen.getByRole('button', { name: /2 materias/ })
+    expect(screen.queryByText('Base de datos')).not.toBeInTheDocument()
+    fireEvent.click(plegadas)
     expect(screen.getByText('Base de datos')).toBeInTheDocument()
     expect(screen.getByText('Programacion funcional')).toBeInTheDocument()
     unmount()
+    // Con un grupo elegido, las materias sobran y se ve la carrera.
+    const conGrupo = render(<EstudianteTable estudiantes={[estudiante]} puedeEditar={false} ocultarMaterias />)
+    expect(screen.queryByRole('button', { name: /materias/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Carrera Profesional' })).toBeInTheDocument()
+    conGrupo.unmount()
     const cards = render(<EstudianteCardList estudiantes={[estudiante]} puedeEditar={false} />)
+    fireEvent.click(screen.getByRole('button', { name: /2 materias/ }))
     expect(screen.getByText('Base de datos')).toBeInTheDocument()
     cards.unmount()
     render(<FichaEstudianteModal open estudiante={estudiante} onClose={() => {}} />)

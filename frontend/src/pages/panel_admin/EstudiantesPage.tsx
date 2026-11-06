@@ -233,6 +233,7 @@ export default function EstudiantesPage() {
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
                       puedeEditar={puedeEditar}
+                      ocultarMaterias={Boolean(grupo.idMateria)}
                     />
                   </div>
                   {/* Desktop */}
@@ -242,6 +243,7 @@ export default function EstudiantesPage() {
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
                       puedeEditar={puedeEditar}
+                      ocultarMaterias={Boolean(grupo.idMateria)}
                     />
                   </div>
                   {/* Paginación */}

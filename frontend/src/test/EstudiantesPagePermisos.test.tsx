@@ -56,13 +56,13 @@ describe('acciones de la página Estudiantes según el rol', () => {
     pagina(['DOCENTE'])
     const todos = await screen.findByRole('button', { name: /Todos mis estudiantes/ })
     expect(todos).toHaveAttribute('aria-pressed', 'true')
-    expect(await screen.findByRole('button', { name: 'Base de Datos I · Grupo 2: 32 estudiantes' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'Taller de Programación · Grupo 1: 28 estudiantes' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Base de Datos I · 2: 32 estudiantes' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Taller de Programación · 1: 28 estudiantes' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Todos mis estudiantes' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Base de Datos I · Grupo 2/ }))
-    expect(screen.getByRole('button', { name: /Base de Datos I · Grupo 2/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('heading', { name: 'Base de Datos I · Grupo 2' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Base de Datos I · 2/ }))
+    expect(screen.getByRole('button', { name: /Base de Datos I · 2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Base de Datos I · 2' })).toBeInTheDocument()
     expect(screen.getByLabelText('Buscar estudiante')).toBeInTheDocument()
   })
 
