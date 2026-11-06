@@ -159,7 +159,8 @@ export default function PerfilPage() {
               <CabeceraPerfil nombre={nombreCompleto} iniciales={initials} email={perfil.email} roles={perfil.roles}
                 fotoUrl={rol?.fotoUrl ?? null} onFotoCambiada={() => setRecargaRol((n) => n + 1)} />
               <section aria-label="Datos personales" className="mt-5 rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
-                <h2 className="mb-4 text-base font-bold text-[#011140]">Datos personales</h2>
+                <h2 className="text-base font-bold text-[#011140]">Datos personales</h2>
+                <p className="mb-4 mt-1 text-sm text-gray-600">Para cambiarlos, pide al administrador.</p>
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex items-start gap-3">
                     <UserRound size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />

@@ -128,6 +128,7 @@ public class UsuarioService {
         usuarioRolRepository.save(usuarioRol);
         // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
         sincronizarDocente(usuario, rolNombre);
+        guardarDatosDocente(usuario.getId(), rolNombre, request.docente());
         if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
@@ -184,6 +185,7 @@ public class UsuarioService {
         usuarioRolRepository.save(usuarioRol);
         // Si el nuevo rol es DOCENTE, crear/mantener fila en tabla docente
         sincronizarDocente(usuario, rolNombre);
+        guardarDatosDocente(usuario.getId(), rolNombre, request.docente());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         return new RegisterUserResponse(
                 usuario.getId(),
@@ -456,6 +458,33 @@ public class UsuarioService {
                 "INSERT INTO docente (id_usuario, categoria) VALUES (:id, 'INTERINO') ON CONFLICT (id_usuario) DO NOTHING")
                 .setParameter("id", usuario.getId())
                 .executeUpdate();
+    }
+
+    /** Título, especialidad y categoría del DOCENTE (solo el ADMIN los registra o cambia). Vacío = sin dato. */
+    private void guardarDatosDocente(Integer idUsuario, String rolNombre, com.nexacore.examenes.dto.DatosDocenteRequest datos) {
+        if (datos == null || !"DOCENTE".equals(rolNombre)) return;
+        entityManager.createNativeQuery("UPDATE docente SET titulo = :titulo, especialidad = :especialidad, "
+                        + "categoria = COALESCE(:categoria, categoria) WHERE id_usuario = :id")
+                .setParameter("titulo", vacioANull(datos.titulo()))
+                .setParameter("especialidad", vacioANull(datos.especialidad()))
+                .setParameter("categoria", vacioANull(datos.categoria()))
+                .setParameter("id", idUsuario)
+                .executeUpdate();
+    }
+
+    private static String vacioANull(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.strip();
+    }
+
+    /** Datos profesionales del docente, para editarlos (null si el usuario no es docente). */
+    @Transactional(readOnly = true)
+    public com.nexacore.examenes.dto.DatosDocenteRequest datosDocente(Integer idUsuario) {
+        // Con SQL directo, igual que al guardar: así no se lee una copia vieja en memoria.
+        List<?> filas = entityManager.createNativeQuery("SELECT titulo, especialidad, categoria FROM docente WHERE id_usuario = :id")
+                .setParameter("id", idUsuario).getResultList();
+        if (filas.isEmpty()) return null;
+        Object[] f = (Object[]) filas.get(0);
+        return new com.nexacore.examenes.dto.DatosDocenteRequest((String) f[0], (String) f[1], (String) f[2]);
     }
 
     /** Primera letra mayúscula y resto minúsculas por palabra (respeta ' y -). */

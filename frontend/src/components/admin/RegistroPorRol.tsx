@@ -2,6 +2,8 @@ import { BookOpen, Check, Info, ScanLine, ShieldCheck, TriangleAlert } from 'luc
 import type { MateriaDto } from '../../services/materiaService'
 import type { RegisterUserFormState } from '../../types/usuario.types'
 import SelectorMaterias from './SelectorMaterias'
+import DatosDocenteCampos from './DatosDocenteCampos'
+import { textoCategoria, type DatosDocente } from '../../utils/datosDocente'
 
 function Titulo({ icono: Icono, titulo, detalle }: { icono: typeof BookOpen; titulo: string; detalle: string }) {
   return (
@@ -21,16 +23,19 @@ interface PasoDelRolProps {
   rol: string
   materias: MateriaDto[]
   onMaterias: (m: MateriaDto[]) => void
+  datosDocente: DatosDocente
+  onDatosDocente: (d: DatosDocente) => void
   confirmaAdmin: boolean
   onConfirmaAdmin: (v: boolean) => void
   errores: Record<string, string | undefined>
 }
 
 /** Paso 3: DOCENTE elige sus materias; ADMIN confirma el acceso total; CONTROL y los roles extra, sus permisos. */
-export function PasoDelRol({ rol, materias, onMaterias, confirmaAdmin, onConfirmaAdmin, errores }: PasoDelRolProps) {
+export function PasoDelRol({ rol, materias, onMaterias, datosDocente, onDatosDocente, confirmaAdmin, onConfirmaAdmin, errores }: PasoDelRolProps) {
   if (rol === 'DOCENTE') {
     return (
       <div className="flex flex-col gap-4">
+        <DatosDocenteCampos value={datosDocente} onChange={onDatosDocente} />
         <Titulo icono={BookOpen} titulo="Materias del docente"
           detalle="Elige al menos una. Solo podrá programar exámenes y ver estudiantes de estas materias. Después se pueden cambiar desde Usuarios." />
         <SelectorMaterias value={materias} onChange={onMaterias} error={errores.materias} />
@@ -73,18 +78,22 @@ export function PasoDelRol({ rol, materias, onMaterias, confirmaAdmin, onConfirm
 interface ResumenProps {
   form: RegisterUserFormState
   materias: MateriaDto[]
+  datosDocente?: DatosDocente
   onActivo: (v: boolean) => void
   onEditar: (paso: 1 | 2 | 3) => void
 }
 
 /** Paso 4: resumen de lo ingresado, estado de la cuenta y aviso de credenciales. */
-export function ResumenRegistro({ form, materias, onActivo, onEditar }: ResumenProps) {
+export function ResumenRegistro({ form, materias, datosDocente, onActivo, onEditar }: ResumenProps) {
   const filas: [string, string, 1 | 2 | 3][] = [
     ['Rol', form.rol, 1],
     ['Nombre', `${form.nombre.trim()} ${form.apellidos.trim()}`, 2],
     ['CI', form.documento.trim(), 2],
     ['Correo', form.email.trim().toLowerCase(), 2],
   ]
+  if (form.rol === 'DOCENTE' && datosDocente) {
+    filas.push(['Docente', [datosDocente.titulo.trim(), datosDocente.especialidad.trim(), textoCategoria(datosDocente.categoria)].filter(Boolean).join(' · '), 3])
+  }
   if (form.rol === 'DOCENTE') filas.push(['Materias', materias.map((m) => `${m.nombre} (${m.sigla})`).join(', '), 3])
   if (form.rol === 'ADMIN') filas.push(['Acceso', 'Total, confirmado', 3])
   return (

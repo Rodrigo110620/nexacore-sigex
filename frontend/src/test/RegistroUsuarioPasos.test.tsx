@@ -47,6 +47,10 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
 
     expect(screen.getByText('Paso 3 de 4')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Materias del docente' })).toBeInTheDocument()
+    // Título, especialidad y categoría del docente (opcionales salvo la categoría, que viene en Interino).
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Lic.' } })
+    fireEvent.change(screen.getByLabelText('Especialidad'), { target: { value: 'Bases de datos' } })
+    fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'TITULAR' } })
     siguiente()
     expect(screen.getAllByText('Elige al menos una materia para el docente.').length).toBeGreaterThan(0)
     expect(screen.getByText('Paso 3 de 4')).toBeInTheDocument()
@@ -65,6 +69,7 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
 
     expect(screen.getByText('Paso 4 de 4')).toBeInTheDocument()
     expect(screen.getByText('Programación Web (SIS-301)')).toBeInTheDocument()
+    expect(screen.getByText('Lic. · Bases de datos · Titular')).toBeInTheDocument()
     // Llegar al resumen no registra: hay que pulsar «Registrar docente».
     await act(() => vi.advanceTimersByTimeAsync(50))
     expect(api.post).not.toHaveBeenCalled()
@@ -73,7 +78,8 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     await waitFor(() => expect(api.post).toHaveBeenCalled())
     const [ruta, cuerpo] = vi.mocked(api.post).mock.calls[0]
     expect(ruta).toBe('/usuarios')
-    expect(cuerpo).toMatchObject({ nombre: 'Juan', apellidos: 'Pérez Quispe', ci: '5544332', email: 'juan.perez@umss.edu', rol: 'DOCENTE', idMaterias: [11] })
+    expect(cuerpo).toMatchObject({ nombre: 'Juan', apellidos: 'Pérez Quispe', ci: '5544332', email: 'juan.perez@umss.edu', rol: 'DOCENTE', idMaterias: [11],
+      docente: { titulo: 'Lic.', especialidad: 'Bases de datos', categoria: 'TITULAR' } })
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
   })
 

@@ -898,6 +898,26 @@ class PostgresIntegracionTests {
         assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
     }
 
+    // Título, especialidad y categoría del docente: los registra y los cambia solo el ADMIN.
+    @Test
+    void elDocenteSeRegistraConSuTituloEspecialidadYCategoria() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-DD1"));
+        var datos = new com.nexacore.examenes.dto.DatosDocenteRequest("Lic.", "Bases de datos", "TITULAR");
+        int id = usuarioService.registrar(new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, List.of(idMateria), datos)).id();
+        assertThat(usuarioService.datosDocente(id)).isEqualTo(datos);
+
+        // Al editar: se cambia la especialidad; un texto vacío deja el dato sin registrar.
+        usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, null, new com.nexacore.examenes.dto.DatosDocenteRequest(" ", "Redes", "INVITADO")));
+        assertThat(usuarioService.datosDocente(id)).isEqualTo(new com.nexacore.examenes.dto.DatosDocenteRequest(null, "Redes", "INVITADO"));
+        // Sin el bloque (por ejemplo, la importación), no se tocan.
+        usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, null));
+        assertThat(usuarioService.datosDocente(id).especialidad()).isEqualTo("Redes");
+    }
+
     // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.
     @Test
     void elEstadoDelRespaldoMuestraLaBaseYLasDescargas() {

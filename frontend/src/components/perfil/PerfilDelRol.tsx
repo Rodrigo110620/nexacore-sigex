@@ -43,7 +43,7 @@ export default function PerfilDelRol({ datos, esAdmin }: { datos: Datos; esAdmin
   return (
     <>
       {datos.docente && (
-        <Tarjeta icono={<GraduationCap size={18} aria-hidden="true" />} titulo="Datos del docente">
+        <Tarjeta icono={<GraduationCap size={18} aria-hidden="true" />} titulo="Datos del docente" detalle="Para cambiarlos, pide al administrador.">
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Dato etiqueta="Título" valor={datos.docente.titulo} />
             <Dato etiqueta="Especialidad" valor={datos.docente.especialidad} />
