@@ -12,6 +12,7 @@ import {
   quitarNotificacion,
   type Notificacion,
 } from '../../services/notificacionService'
+import FotoReportadaModal from './FotoReportadaModal'
 
 const ETIQUETA: Record<string, string> = {
   FOTO_REPORTADA: 'Foto reportada',
@@ -93,6 +94,8 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
 
   /** La revisión de fotos es solo del ADMIN; el resto de reportes se abre en el control del examen. */
   const destino = (n: Notificacion) => (n.tipo === 'FOTO_REPORTADA' && !esAdmin ? null : n.enlace)
+  // El DOCENTE y el CONTROL ven la foto reportada en una ventana, sin la revisión.
+  const [fotoReportada, setFotoReportada] = useState<Notificacion | null>(null)
 
   const abrir = (n: Notificacion) => {
     setEmergente(null)
@@ -100,6 +103,10 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
     if (!n.leida) {
       setLista((actual) => actual.map((x) => (x.id === n.id ? { ...x, leida: true } : x)))
       void marcarNotificacionLeida(n.id).catch(() => undefined)
+    }
+    if (n.tipo === 'FOTO_REPORTADA' && !esAdmin && n.idEstudiante != null) {
+      setFotoReportada(n)
+      return
     }
     const ruta = destino(n)
     if (ruta) navigate(ruta)
@@ -220,6 +227,7 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
           </div>
         </div>
       )}
+      {fotoReportada && <FotoReportadaModal notificacion={fotoReportada} onClose={() => setFotoReportada(null)} />}
     </div>
   )
 }
