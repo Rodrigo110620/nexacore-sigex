@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, CameraOff, Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -80,6 +80,16 @@ function textoTraslado(estudiante: EstudianteAsignado) {
     : `Trasladado desde ${estudiante.trasladadoDesde}`
 }
 
+/** Nombre del aula asignada al estudiante: prefiere trasladoA (traslado de la sesión) o busca en el catálogo. */
+function nombreAulaEstudiante(estudiante: EstudianteAsignado, aulas: AmbienteDto[]): string {
+  if (estudiante.trasladadoA) return estudiante.trasladadoA
+  if (estudiante.idAmbienteIngreso != null) {
+    const a = aulas.find((amb) => amb.id === estudiante.idAmbienteIngreso)
+    if (a) return a.nombre
+  }
+  return '—'
+}
+
 function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
   return (
     <span className="inline-flex items-center gap-2">
@@ -130,6 +140,18 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
+  /** Lista mostrada. Parte de lo que llega del servidor y se sobreecribe con los cambios de aula
+   *  optimistas de la reasignación, para que el cambio se vea al instante sin esperar al refetch.
+   *  Se deriva durante el render (useMemo), no en un efecto: así evitamos setState en el cuerpo del
+   *  efecto (react-hooks/set-state-in-effect) y el acceso a refs durante el render (react-hooks/refs). */
+  const [reasignacionesOptimistas, setReasignacionesOptimistas] = useState<Map<number, { idAmbienteIngreso: number; trasladadoA: string }>>(new Map())
+  const estudiantesLocales = useMemo(() =>
+    estudiantes.map((e) => {
+      const ov = reasignacionesOptimistas.get(e.idEstudiante)
+      return ov ? { ...e, idAmbienteIngreso: ov.idAmbienteIngreso, trasladadoA: ov.trasladadoA } : e
+    }),
+    [estudiantes, reasignacionesOptimistas]
+  )
 
   const handleReasignarClick = (estudiante: EstudianteAsignado) => {
     setEstudianteSeleccionado(estudiante)
@@ -159,11 +181,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
             <th scope="col" className="px-4 py-3 font-semibold">Carnet / CI</th>
             <th scope="col" className="px-4 py-3 font-semibold">Carrera</th>
             <th scope="col" className="px-4 py-3 font-semibold">Estado de ingreso</th>
+            <th scope="col" className="px-4 py-3 font-semibold text-left">Aula</th>
             <th scope="col" className="px-4 py-3"><span className="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
-          {estudiantes.map((estudiante) => {
+          {estudiantesLocales.map((estudiante) => {
             const habilitado = estudiante.estado === 'HABILITADO'
             return (
               <tr key={estudiante.idEstudiante} className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'}`}>
@@ -178,6 +201,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                   )}
                 </td>
+                <td className="px-4 py-3 text-sm text-[#011140] font-medium">{nombreAulaEstudiante(estudiante, aulasExamen)}</td>
                 <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={() => handleReasignarClick(estudiante)} /></td>
               </tr>
             )
@@ -186,7 +210,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
       </table>
 
       <ul className="flex flex-col gap-3 md:hidden">
-        {estudiantes.map((estudiante) => {
+        {estudiantesLocales.map((estudiante) => {
           const habilitado = estudiante.estado === 'HABILITADO'
           return (
             <li
@@ -208,6 +232,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     )}
                   </div>
                   <p className="mt-0.5 text-[10px] text-[#627A9B]">Cód. {estudiante.codigoSis}</p>
+                  <p className="mt-0.5 text-[10px] text-[#627A9B]">Aula: {nombreAulaEstudiante(estudiante, aulasExamen)}</p>
                   <SinFoto estudiante={estudiante} />
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-[#EDF1F7] pt-2">
                     <div className="min-w-0 text-[10px]">
@@ -234,10 +259,22 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
           }}
-          onSuccess={() => {
+          onSuccess={(idAmbienteDestino, aulaDestinoNombre) => {
             setModalReasignarAbierto(false)
             setEstudianteSeleccionado(null)
-            // Refrescar la lista para que se vea el nuevo aula asignado sin recargar la página.
+            // Actualizar optimistamente la lista mostrada para que el cambio de aula se vea al instante,
+            // sin depender únicamente del refetch del servidor.
+            if (estudianteSeleccionado) {
+              setReasignacionesOptimistas((prev) => {
+                const siguiente = new Map(prev)
+                siguiente.set(estudianteSeleccionado.idEstudiante, {
+                  idAmbienteIngreso: idAmbienteDestino,
+                  trasladadoA: aulaDestinoNombre,
+                })
+                return siguiente
+              })
+            }
+            // Refrescar desde el servidor para consistencia a largo plazo
             onExito?.()
           }}
         />

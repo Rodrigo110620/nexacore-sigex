@@ -17,7 +17,7 @@ const aTexto = (iso: string) => {
 }
 
 /** "dd/mm/aaaa" → ISO; "" si no es una fecha real (p. ej. 31/02/2026). */
-export function fechaTextoAIso(texto: string): string {
+function fechaTextoAIso(texto: string): string {
   const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto)
   if (!partes) return ''
   const [, d, m, y] = partes

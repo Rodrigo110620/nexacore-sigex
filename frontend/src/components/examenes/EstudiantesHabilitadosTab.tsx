@@ -177,7 +177,7 @@ export default function EstudiantesHabilitadosTab({
     return () => { cancelado = true }
   }, [estudiantes, idExamen, idParalelo])
 
-  const mostrarAulas = Boolean(reparto && (reparto.aulas.length > 1 || reparto.sinAula > 0))
+  const mostrarAulas = Boolean(reparto && reparto.aulas.length > 0)
 
   // Sin foto y todavía sin ingresar (a los no habilitados no se los autoriza igual).
   const sinFoto = estudiantes.filter((e) => e.tieneFoto === false && !e.ingresado && e.estadoHabilitacion !== 'NO_HABILITADO').length

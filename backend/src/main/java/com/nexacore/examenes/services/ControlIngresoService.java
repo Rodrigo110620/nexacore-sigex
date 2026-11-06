@@ -886,6 +886,18 @@ public class ControlIngresoService {
         if (esSoloUnaLetraRepetida(motivoLimpio)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
         }
+        if (TextoTraslado.tieneRepetidosConsecutivos(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede contener más de 3 caracteres iguales seguidos");
+        }
+        if (!TextoTraslado.tieneAlMenosUnaVocal(motivoLimpio)) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos una vocal");
+        }
+        if (TextoTraslado.maxConsonantesSeguidas(motivoLimpio) >= 3) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo contiene demasiadas consonantes seguidas; escribe una frase con sentido");
+        }
+        if (motivoLimpio.length() > 8 && TextoTraslado.proporcionVocales(motivoLimpio) < 0.3) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo parece no tener sentido; escribe una frase con palabras completas");
+        }
         // Formato de oración; los códigos de aula ("690B") quedan en mayúscula.
         motivoLimpio = TextoTraslado.formatoOracion(motivoLimpio);
 
@@ -908,6 +920,18 @@ public class ControlIngresoService {
             }
             if (!TextoTraslado.observacionValida(observacionLimpia)) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            if (TextoTraslado.tieneRepetidosConsecutivos(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación no puede contener más de 3 caracteres iguales seguidos");
+            }
+            if (!TextoTraslado.tieneAlMenosUnaVocal(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación debe contener al menos una vocal");
+            }
+            if (TextoTraslado.maxConsonantesSeguidas(observacionLimpia) >= 3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación contiene demasiadas consonantes seguidas; escribe una frase con sentido");
+            }
+            if (observacionLimpia.length() > 8 && TextoTraslado.proporcionVocales(observacionLimpia) < 0.3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación parece no tener sentido; escribe una frase con palabras completas");
             }
             observacionLimpia = TextoTraslado.formatoOracion(observacionLimpia);
         }
