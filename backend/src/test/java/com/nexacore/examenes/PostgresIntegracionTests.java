@@ -979,6 +979,8 @@ class PostgresIntegracionTests {
         jdbc.update(intento, ajeno, paralelo, reemplazo, "2222222");
         jdbc.update("INSERT INTO notificacion (tipo, titulo, detalle, id_examen) VALUES ('INTENTO_INGRESO', 'Intento', 'd', ?), ('INTENTO_INGRESO', 'Intento', 'd', ?)",
                 asignado, ajeno);
+        // La foto reportada la ven el ADMIN, el docente del examen y su personal de control asignado.
+        jdbc.update("INSERT INTO notificacion (tipo, titulo, detalle, id_examen) VALUES ('FOTO_REPORTADA', 'Foto', 'd', ?)", asignado);
         int est = estudiante("209800001", "Dora");
         jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, CURRENT_TIMESTAMP)",
                 est, asignado, paralelo);
@@ -992,6 +994,10 @@ class PostgresIntegracionTests {
         // Notificaciones: solo las de sus exámenes asignados.
         assertThat(notificacionRepository.deDocente(ctrl, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
                 .extracting(n -> n.getIdExamen()).containsOnly(asignado);
+        assertThat(notificacionRepository.deDocente(ctrl, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getTipo()).contains("FOTO_REPORTADA");
+        assertThat(notificacionRepository.deDocente(idDocente, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getTipo()).contains("FOTO_REPORTADA");
         // El ingreso que registró un control no asignado queda marcado como reemplazo.
         assertThat(controlIngresoService.consultarRegistrosExamen(asignado)).singleElement().satisfies(r -> assertThat(r.reemplazo()).isTrue());
 
