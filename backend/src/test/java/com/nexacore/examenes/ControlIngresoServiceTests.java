@@ -173,9 +173,9 @@ class ControlIngresoServiceTests {
     @Test
     void deniegaConDetalleAdicionalEntreLaRazonYLasObservaciones() {
         var request = new AutorizarIngresoRequest(10, 20, "Documento inválido — Se informó al estudiante", false,
-                List.of(), List.of(), "  CI vencido (2019),\n¿renovado? No.  ");
+                List.of(), List.of(), "  CI vencido 2019 sin renovar  ");
         var response = service.denegar(request, "control@umss.edu.bo");
-        String causa = "Documento inválido — CI vencido (2019),\n¿renovado? No. — Se informó al estudiante";
+        String causa = "Documento inválido — Ci vencido 2019 sin renovar — Se informó al estudiante";
         assertEquals(causa, response.causa());
         assertEquals("Ingreso denegado por CONTROL: " + causa, asistencia.getMotivoInhabilitacion());
         verify(registroRepository).registrar(20, 40, 10, 7, "DENEGADO", causa, "[]", causa);
@@ -184,7 +184,7 @@ class ControlIngresoServiceTests {
     @Test
     void deniegaConDetalleAdicionalSinObservaciones() {
         var request = new AutorizarIngresoRequest(10, 20, "Documento inválido", false, List.of(), List.of(), "CI vencido");
-        assertEquals("Documento inválido — CI vencido", service.denegar(request, "control@umss.edu.bo").causa());
+        assertEquals("Documento inválido — Ci vencido", service.denegar(request, "control@umss.edu.bo").causa());
     }
 
     @Test
@@ -244,7 +244,7 @@ class ControlIngresoServiceTests {
         var error = assertThrows(IllegalArgumentException.class,
                 () -> service.denegar(request, "control@umss.edu.bo"));
 
-        assertTrue(error.getMessage().contains("no puede superar 500 caracteres"));
+        assertTrue(error.getMessage().contains("no puede superar 100 caracteres"));
         verifyNoInteractions(asistenciaRepository, usuarioRepository, registroRepository, incidenciaRepository);
     }
 

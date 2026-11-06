@@ -1,3 +1,4 @@
+import MateriasDocente from './MateriasDocente'
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
@@ -65,9 +66,10 @@ export default function EstudianteCardList({
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EDF1F7] pt-2">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-[#011140]">
-                {formatCarreras(e.carreras)}
+                {e.materiasDocente != null ? 'Materias con este docente' : formatCarreras(e.carreras)}
               </p>
-              {e.carreras?.[0]?.nombreFacultad && (
+              {e.materiasDocente != null && <MateriasDocente materias={e.materiasDocente} compacto />}
+              {e.materiasDocente == null && e.carreras?.[0]?.nombreFacultad && (
                 <p className="truncate text-[11px] text-[#627A9B]">
                   {formatFacultad(e.carreras)}
                 </p>

@@ -480,12 +480,49 @@ class PostgresIntegracionTests {
         sincronizar();
 
         assertThat(estudianteService.listar(0, 50, "209999", null, null, idDocente).contenido())
-                .extracting(e -> e.id()).containsExactlyInAnyOrder(inscrito, asociado);
+                .extracting(e -> e.id()).containsExactlyInAnyOrder(inscrito);
         assertThat(estudianteService.listar(0, 50, "209999", null, null, null).contenido())
                 .extracting(e -> e.id()).containsExactlyInAnyOrder(inscrito, asociado, ajeno);
         assertThat(estudianteRepository.esDelDocente(inscrito, idDocente)).isTrue();
-        assertThat(estudianteRepository.esDelDocente(asociado, idDocente)).isTrue();
+        assertThat(estudianteRepository.esDelDocente(asociado, idDocente)).isFalse();
         assertThat(estudianteRepository.esDelDocente(ajeno, idDocente)).isFalse();
+    }
+
+    @Test
+    void materiasDelDocenteFiltranSinDuplicarNiExponerMateriasAjenas() {
+        prepararCatalogo();
+        int docente = idDocente;
+        int p1 = materiaYParalelo("FILTRO-A");
+        int p2 = materiaYParalelo("FILTRO-B");
+        int m1 = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo=?", Integer.class, p1);
+        int m2 = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo=?", Integer.class, p2);
+        int ana = estudiante("209998101", "Ana");
+        int beto = estudiante("209998102", "Beto");
+        int retirado = estudiante("209998103", "Ciro");
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante,id_paralelo,id_materia,id_docente) VALUES (?,?,?,?),(?,?,?,?),(?,?,?,?),(?,?,?,?)",
+                ana,p1,m1,docente, ana,p2,m2,docente, beto,p2,m2,docente, retirado,p1,m1,docente);
+        jdbc.update("UPDATE inscripcion_paralelo SET estado='retirado' WHERE id_estudiante=?", retirado);
+        idDocente = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) VALUES ('Otro','Docente','88888881','otro.filtro@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario,categoria) VALUES (?,'INTERINO')", idDocente);
+        int p3 = materiaYParalelo("FILTRO-AJENA");
+        int m3 = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo=?", Integer.class,p3);
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante,id_paralelo,id_materia,id_docente) VALUES (?,?,?,?)",ana,p3,m3,idDocente);
+        sincronizar();
+        var pagina = estudianteService.listar(0,1,"209998",null,null,docente,null,null);
+        assertThat(pagina.totalRegistros()).isEqualTo(2);
+        assertThat(pagina.totalPaginas()).isEqualTo(2);
+        assertThat(pagina.contenido()).extracting(e -> e.id()).containsExactly(ana);
+        assertThat(pagina.contenido().get(0).materiasDocente()).extracting(m -> m.idMateria()).containsExactly(m1,m2);
+        assertThat(estudianteService.listar(0,10,"209998",null,null,docente,m1,p1).contenido()).extracting(e -> e.id()).containsExactly(ana);
+        assertThat(estudianteService.listar(0,10,"209998",null,null,docente,m2,p2).contenido()).hasSize(2);
+        assertThat(estudianteService.listar(0,10,"209998",null,null,docente,m1,p2).contenido()).isEmpty();
+        assertThat(estudianteService.listar(0,10,"209998",null,null,docente,m3,null).contenido()).isEmpty();
+        assertThat(estudianteRepository.esDelDocente(retirado,docente)).isFalse();
+        assertThat(estudianteService.materiasDelDocente(docente)).extracting(m -> m.idMateria()).containsExactly(m1,m2);
+        jdbc.update("UPDATE estudiante SET estado_matricula='NO_MATRICULADO' WHERE id_estudiante=?",ana);
+        sincronizar();
+        assertThat(estudianteRepository.esDelDocente(ana,docente)).isFalse();
+        assertThat(estudianteService.listar(0,10,"209998",null,null,docente,m1,null).contenido()).isEmpty();
     }
 
     private int materiaYParalelo(String sigla) {

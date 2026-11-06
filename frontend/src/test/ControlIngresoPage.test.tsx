@@ -366,7 +366,7 @@ describe('ControlIngresoPage', () => {
     await screen.findByText('Laura Paredes')
     expect(screen.queryByRole('navigation', { name: 'Navegación principal móvil' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Denegar' }))
-    expect(screen.getByLabelText(/Detalle adicional/)).toHaveAttribute('maxLength', '500')
+    expect(screen.getByLabelText(/Detalle adicional/)).toHaveAttribute('maxLength', '100')
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal móvil' })
     expect(within(navigation).getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
     expect(within(navigation).getByRole('link', { name: 'Control' })).toBeInTheDocument()
@@ -438,22 +438,22 @@ describe('ControlIngresoPage', () => {
     await waitFor(() => expect(service.autorizarIngreso).toHaveBeenCalledWith(expect.objectContaining({ observaciones: observacion })))
   })
 
-  it('BUG-D02: el detalle adicional inválido muestra el motivo, no deja confirmar y se corta en 500', async () => {
+  it('BUG-D02: el detalle adicional inválido muestra el motivo, no deja confirmar y se corta en 100', async () => {
     renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
     fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
     fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Deuda pendiente' } })
     const detalle = screen.getByLabelText(/Detalle adicional/)
 
     fireEvent.change(detalle, { target: { value: '???????' } })
-    expect(screen.getByText('El detalle adicional debe tener letras o números, no solo signos')).toBeInTheDocument()
+    expect(screen.getByText('El detalle adicional solo permite letras, números y espacios')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirmar Denegación' })).toBeDisabled()
 
     fireEvent.change(detalle, { target: { value: 'Sin credencial ’oficial’' } })
-    expect(screen.getByText('El detalle adicional tiene caracteres no permitidos: ’')).toBeInTheDocument()
+    expect(screen.getByText('El detalle adicional solo permite letras, números y espacios')).toBeInTheDocument()
 
     fireEvent.change(detalle, { target: { value: 'a'.repeat(520) } })
-    expect(detalle).toHaveValue('a'.repeat(500))
-    expect(screen.getByText('500/500')).toBeInTheDocument()
+    expect(detalle).toHaveValue('a'.repeat(100))
+    expect(screen.getByText('100/100')).toBeInTheDocument()
     expect(service.denegarIngreso).not.toHaveBeenCalled()
   })
 
@@ -465,12 +465,12 @@ describe('ControlIngresoPage', () => {
     renderPage({ ...contextoBase, habilitado: false, motivoInhabilitacion: 'Deuda pendiente' })
     fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
     fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Deuda pendiente' } })
-    fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: '  Debe 2 libros\nde la biblioteca  ' } })
+    fireEvent.change(screen.getByLabelText(/Detalle adicional/), { target: { value: '  Debe 2 libros de la biblioteca  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
 
     await waitFor(() => expect(service.denegarIngreso).toHaveBeenCalledWith(expect.objectContaining({
       observaciones: 'Deuda pendiente',
-      detalleDenegacion: 'Debe 2 libros\nde la biblioteca',
+      detalleDenegacion: 'Debe 2 libros de la biblioteca',
     })))
   })
 

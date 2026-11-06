@@ -23,8 +23,8 @@ class ReprogramarAccesoTests {
     private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
     private final ExamenAccesoService acceso = new ExamenAccesoService(examenes, usuarios);
 
-    private static Authentication sesion(String email, String rol) {
-        return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority("ROLE_" + rol)));
+    private static Authentication sesion(String email, String... roles) {
+        return new UsernamePasswordAuthenticationToken(email, null, java.util.Arrays.stream(roles).map(rol -> new SimpleGrantedAuthority("ROLE_" + rol)).toList());
     }
 
     private void docente(String email, int id) {
@@ -102,5 +102,16 @@ class ReprogramarAccesoTests {
         assertThat(acceso.puedeEditar(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
         assertThat(acceso.puedeEditar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
         assertThat(acceso.puedeEditar(3, sesion("est@umss.edu", "ESTUDIANTE"))).isFalse();
+    }
+    @Test
+    void reasignarSoloAdminODocenteTitularInclusoConRolControl() {
+        docente("propio@umss.edu", 7);
+        docente("ajeno@umss.edu", 8);
+        when(examenes.perteneceADocente(3, 7)).thenReturn(true);
+        when(examenes.perteneceADocente(3, 8)).thenReturn(false);
+        assertThat(acceso.puedeReasignar(3, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(acceso.puedeReasignar(3, sesion("propio@umss.edu", "DOCENTE", "CONTROL"))).isTrue();
+        assertThat(acceso.puedeReasignar(3, sesion("ajeno@umss.edu", "DOCENTE", "CONTROL"))).isFalse();
+        assertThat(acceso.puedeReasignar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
     }
 }

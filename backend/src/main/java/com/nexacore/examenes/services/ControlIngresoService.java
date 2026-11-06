@@ -71,7 +71,7 @@ public class ControlIngresoService {
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
-    public static final int DETALLE_DENEGACION_MAX = 500;
+    public static final int DETALLE_DENEGACION_MAX = 100;
     /** Observaciones opcionales del control (ACCS-02 CA-53/54): de 10 a 100 caracteres. */
     public static final int OBSERVACIONES_MIN = 10;
     public static final int OBSERVACIONES_MAX = 100;
@@ -416,6 +416,14 @@ public class ControlIngresoService {
         }
         String detalle = ValidacionTextoLibre.validarOpcional(
                 request.detalleDenegacion(), "El detalle adicional", 10, DETALLE_DENEGACION_MAX);
+        if (detalle != null) {
+            if (!detalle.matches("[\\p{L}\\p{N} ]+") || detalle.contains("  "))
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El detalle adicional solo permite letras, números y un espacio entre palabras");
+            validarTextoLibre(detalle);
+            detalle = detalle.toLowerCase(java.util.Locale.forLanguageTag("es"));
+            var primera = java.util.regex.Pattern.compile("\\p{L}").matcher(detalle);
+            if (primera.find()) detalle = detalle.substring(0, primera.start()) + primera.group().toUpperCase(java.util.Locale.forLanguageTag("es")) + detalle.substring(primera.end());
+        }
         if (detalle == null && razon.startsWith(OTRA_RAZON)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
         }

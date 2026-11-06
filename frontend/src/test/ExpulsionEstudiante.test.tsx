@@ -172,3 +172,11 @@ it('una respuesta válida de otro estudiante no confirma ni solicita recarga', a
     window.removeEventListener(EVENTO_CAMBIO, avisos)
   }
 })
+
+
+it.each([['ADMIN', true], ['DOCENTE', true], ['CONTROL', false]])('reasignar: %s = %s', (rol, visible) => {
+  const { container } = montar(rol)
+  for (const selector of ['table', 'ul']) {
+    expect(within(container.querySelector(selector)!).queryAllByRole('button', { name: 'Reasignar' })).toHaveLength(visible ? 1 : 0)
+  }
+})

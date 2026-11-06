@@ -1,3 +1,4 @@
+import EstudianteDocenteFilters from '../../components/estudiantes/EstudianteDocenteFilters'
 import { useEffect, useState } from 'react'
 import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -25,7 +26,7 @@ const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idC
 export default function EstudiantesPage() {
   const auth = useAuth()
   // Registrar, editar e importar: ESTUDIANTES_GESTIONAR (ADMIN). DOCENTE y CONTROL solo consultan.
-  const puedeEditar = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
+  const puedeEditar = !auth.roles.includes('DOCENTE') && tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
   // El DOCENTE (solo ve sus exámenes) solo ve a los estudiantes de sus paralelos y exámenes; lo filtra el servidor.
   const soloSusEstudiantes = tienePermiso(auth, 'EXAMENES_VER_PROPIOS') && !tienePermiso(auth, 'EXAMENES_VER_TODOS', 'REPORTES_VER')
   const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR')
@@ -61,10 +62,12 @@ export default function EstudiantesPage() {
   useEffect(() => {
     updateFilters({
       search: debouncedSearch.trim(),
+      idMateria: draftFilters.idMateria,
+      idParalelo: draftFilters.idParalelo,
       idFacultad: draftFilters.idFacultad,
       idCarrera: draftFilters.idCarrera,
     })
-  }, [debouncedSearch, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
+  }, [debouncedSearch, draftFilters.idMateria, draftFilters.idParalelo, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
 
   useEffect(() => {
     if (!esAdmin) return
@@ -98,7 +101,7 @@ export default function EstudiantesPage() {
     retry()
   }
 
-  const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
+  const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
   return (
@@ -117,14 +120,14 @@ export default function EstudiantesPage() {
             </div>
             {soloSusEstudiantes && (
               <p className="mb-4 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 text-xs text-[#45628D] sm:text-sm">
-                Ves a los estudiantes inscritos en tus paralelos o asociados a tus exámenes.
+                Ves a los estudiantes matriculados en tus materias y paralelos.
               </p>
             )}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
                 <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
-                  <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
+                  {soloSusEstudiantes ? <EstudianteDocenteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} /> : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
                 </div>
                 <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
                   {esAdmin && (
@@ -246,7 +249,7 @@ export default function EstudiantesPage() {
                   />
                 </div>
               ) : (
-                <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes registrados.'} />
+                <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes para mostrar.'} />
               )}
             </div>
           </div>
