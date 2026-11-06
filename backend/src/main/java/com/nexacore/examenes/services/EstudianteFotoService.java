@@ -252,6 +252,21 @@ public class EstudianteFotoService {
                 r.getCreadoEn()));
     }
 
+    /** El reporte abierto para revisarlo desde el aviso (DOCENTE y CONTROL en sus exámenes, o el ADMIN). */
+    @Transactional(readOnly = true)
+    public Optional<com.nexacore.examenes.dto.RevisionReporteFotoResponse> revisionDelReporte(Integer idEstudiante, boolean puedeRevisar) {
+        verificarEstudiante(idEstudiante);
+        return reporteAbierto(idEstudiante).map(r -> new com.nexacore.examenes.dto.RevisionReporteFotoResponse(
+                r.getIdExamen(), r.getIdExamen() == null ? null : notificacionService.materia(r.getIdExamen()),
+                r.getMotivo(), r.getDetalle(),
+                usuarioRepository.findById(r.getIdUsuario()).map(u -> (u.getNombre() + " " + u.getApellidos()).trim()).orElse(null),
+                r.getCreadoEn(),
+                solicitudRepository.findById(idEstudiante)
+                        .filter(s -> EstudianteFotoSolicitud.PENDIENTE.equals(s.getEstado()))
+                        .map(s -> "/estudiantes/" + idEstudiante + "/foto-solicitud").orElse(null),
+                puedeRevisar));
+    }
+
     @Transactional(readOnly = true)
     public Optional<ReporteFoto> reporteAbierto(Integer idEstudiante) {
         return reporteRepository.findFirstByIdEstudianteAndEstado(idEstudiante, ReporteFoto.ABIERTO);

@@ -3,6 +3,7 @@ import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
 import ExcepcionesNoHabilitadoReporte from '../../components/control/ExcepcionesNoHabilitadoReporte'
+import FotosReportadasReporte from '../../components/control/FotosReportadasReporte'
 import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
@@ -12,11 +13,12 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones'
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
+  { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
 ]
 const TAMANO = 20
 
@@ -215,7 +217,7 @@ export default function ReportesPage() {
 
             {/* En el celular: control segmentado de 3, con áreas táctiles de 44 px; en pantallas anchas, pestañas. */}
             <div role="tablist" aria-label="Tipo de reporte"
-              className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
+              className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
                 <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} aria-label={p.texto} onClick={() => setPestana(p.id)}
                   className={`min-h-11 rounded-lg px-1 text-[13px] transition-colors sm:min-h-0 sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
@@ -228,7 +230,8 @@ export default function ReportesPage() {
 
             <div className="mt-4">
               {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} />}
-              {pestana !== 'intentos' && idExamen == null && (
+              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} />}
+              {pestana !== 'intentos' && pestana !== 'fotos' && idExamen == null && (
                 <p className="rounded-xl border border-dashed border-[#B8CBEF] bg-white/70 p-8 text-center text-sm text-[#627A9B]">
                   Elige un examen para ver sus {pestana === 'expulsiones' ? 'expulsiones' : 'excepciones de no habilitados'}.
                 </p>

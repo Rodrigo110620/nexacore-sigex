@@ -82,6 +82,9 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
+    @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
+    @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
+    @Autowired com.nexacore.examenes.services.EstudianteFotoService estudianteFotoService;
     @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
     @Autowired com.nexacore.examenes.repositories.NotificacionRepository notificacionRepository;
@@ -1004,6 +1007,35 @@ class PostgresIntegracionTests {
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
                 new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("carla.control@umss.edu", null,
                         List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        // Foto reportada en su examen: el control asignado la revisa; el reemplazo (no asignado), no.
+        int fotoAsignado = estudiante("209800002", "Eli");
+        int fotoAjeno = estudiante("209800003", "Fito");
+        String reportar = "INSERT INTO reporte_foto (id_estudiante, id_usuario, id_examen, motivo) VALUES (?, ?, ?, 'NO_SE_PARECE')";
+        jdbc.update(reportar, fotoAsignado, reemplazo, asignado);
+        jdbc.update(reportar, fotoAjeno, ctrl, ajeno);
+        sincronizar();
+        assertThat(reporteFotosService.listar(null, ctrl)).extracting(f -> f.idEstudiante()).containsExactly(fotoAsignado);
+        assertThat(reporteFotosService.listar(null, null)).extracting(f -> f.idEstudiante()).contains(fotoAsignado, fotoAjeno);
+        assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("PENDIENTE");
+            assertThat(f.reportadoPor()).isEqualTo("Rene Reemplazo");
+            assertThat(f.examen()).isEqualTo("Materia TST-V53");
+        });
+        var sesionCtrl = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("carla.control@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        var sesionReemplazo = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("rene.reemplazo@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isTrue();
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAjeno, sesionCtrl)).isFalse();
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionReemplazo)).isFalse();
+        estudianteFotoService.descartarReporte(fotoAsignado);
+        sincronizar();
+        assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("DESCARTADO");
+            assertThat(f.resueltoEn()).isNotNull();
+        });
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isFalse();
+
         try {
             assertThat(examenService.listarMios()).extracting(e -> e.idExamen()).containsOnly(asignado);
         } finally {

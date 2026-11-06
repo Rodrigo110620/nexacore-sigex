@@ -227,7 +227,10 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
           </div>
         </div>
       )}
-      {fotoReportada && <FotoReportadaModal notificacion={fotoReportada} onClose={() => setFotoReportada(null)} />}
+      {fotoReportada && fotoReportada.idEstudiante != null && (
+        <FotoReportadaModal idEstudiante={fotoReportada.idEstudiante} nombre={fotoReportada.titulo.replace(/^Foto reportada:\s*/, '')}
+          detalle={fotoReportada.detalle} idExamen={fotoReportada.idExamen} onClose={() => setFotoReportada(null)} />
+      )}
     </div>
   )
 }

@@ -7,10 +7,11 @@ import AvisoFotoReportada from '../components/estudiantes/AvisoFotoReportada'
 import * as service from '../services/notificacionService'
 import type { Notificacion } from '../services/notificacionService'
 
-const reporteFoto = vi.hoisted(() => ({ motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz', reportadoEn: '2026-11-06T15:53:07' }))
+const reporteFoto = vi.hoisted(() => ({ idExamen: 6, examen: 'Base de Datos I', motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz',
+  reportadoEn: '2026-11-06T15:53:07', fotoNuevaUrl: null, puedeRevisar: false }))
 vi.mock('../services/fotoRevisionService', async (original) => ({
   ...(await original<typeof import('../services/fotoRevisionService')>()),
-  obtenerReporteFoto: vi.fn().mockResolvedValue(reporteFoto),
+  obtenerRevisionReporte: vi.fn().mockResolvedValue(reporteFoto),
 }))
 vi.mock('../services/estudianteService', () => ({ descargarFotoEstudiante: vi.fn().mockRejectedValue(new Error('sin foto en la prueba')) }))
 
