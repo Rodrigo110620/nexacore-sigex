@@ -8,6 +8,7 @@ import { getFacultades } from '../../services/estudianteService'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import type { FacultadOption } from '../../types/estudiante'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import ExamenesHoyDocente from '../../components/inicio/ExamenesHoyDocente'
 
 /** Punto de entrada del docente: permite elegir un grupo propio antes de ir a sus exámenes. */
 export default function InicioDocentePage() {
@@ -70,6 +71,8 @@ export default function InicioDocentePage() {
       description="Administra, controla exámenes y revisa reportes estadísticos."
     >
       <div className="min-h-full bg-[#F8FAFC] px-4 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7 min-[960px]:px-6 min-[960px]:py-5 min-[960px]:pb-8 xl:px-8">
+        {/* DASH-01: sus exámenes de hoy con los contadores en vivo. */}
+        {!cargando && !error && <ExamenesHoyDocente examenes={examenes} />}
         <section aria-labelledby="docente-grupo-title" className="mx-auto max-w-6xl rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:p-5">
           <h1 id="docente-grupo-title" className="text-xl font-extrabold tracking-tight text-[#011140]">¿Qué grupo deseas gestionar hoy?</h1>
           <p className="mt-1 text-xs text-[#627A9B]">Selecciona la facultad, materia y grupo para registrar y revisar detalles de exámenes.</p>

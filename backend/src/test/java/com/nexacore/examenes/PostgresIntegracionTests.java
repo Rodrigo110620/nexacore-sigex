@@ -869,6 +869,34 @@ class PostgresIntegracionTests {
         });
     }
 
+    // DASH-01: el expulsado sigue contando como ingresado (con su marca) y el trasladado cuenta una sola vez.
+    @Test
+    void elResumenDelExamenCuentaExpulsadosYTrasladadosSinVolverlosAusentes() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-DASH01");
+        int examen = examen(paralelo, "08:00", 120);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
+        var ingreso = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(5));
+        int expulsado = estudiante("209700001", "Ana");
+        int trasladado = estudiante("209700002", "Beto");
+        jdbc.update(asociar, expulsado, examen, paralelo, ingreso);
+        jdbc.update(asociar, trasladado, examen, paralelo, ingreso);
+        jdbc.update(asociar, estudiante("209700003", "Ciro"), examen, paralelo, null);
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
+                expulsado, examen, idDocente, ingreso);
+        jdbc.update("INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, id_usuario_admin, fecha_hora_traslado, motivo) "
+                + "VALUES (?, ?, ?, ?, ?, ?, 'El aula se llenó durante el ingreso')", examen, trasladado, idAmbiente,
+                jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente), idDocente, ingreso);
+        sincronizar();
+
+        var resumen = identificacionService.resumir(examen);
+        assertThat(resumen.habilitados()).isEqualTo(3);
+        assertThat(resumen.ingresados()).isEqualTo(2);
+        assertThat(resumen.ausentes()).isEqualTo(1);
+        assertThat(resumen.expulsados()).isEqualTo(1);
+        assertThat(resumen.trasladados()).isEqualTo(1);
+    }
+
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */
     private String cuentaDeEstudiante(int idEstudiante, String correo) {
         Integer idUsuario = jdbc.queryForObject("""
