@@ -82,6 +82,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
+    @Autowired com.nexacore.examenes.services.PerfilRolService perfilRolService;
     @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
     @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
     @Autowired com.nexacore.examenes.services.EstudianteFotoService estudianteFotoService;
@@ -1078,6 +1079,42 @@ class PostgresIntegracionTests {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // Mi perfil: el docente ve sus datos y sus materias con sus grupos; el control, sus exámenes asignados.
+    @Test
+    void elPerfilMuestraLoPropioDeCadaRol() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-PERF");
+        int examen = examen(paralelo, "09:00", 90);
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        jdbc.update("UPDATE docente SET titulo = 'Lic.', especialidad = 'Bases de datos' WHERE id_usuario = ?", idDocente);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?) ON CONFLICT DO NOTHING", idDocente, idMateria);
+        Integer ctrl = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                + "VALUES ('Pia', 'Control', '7100001', 'pia.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) SELECT ?, id_rol FROM rol WHERE nombre = 'CONTROL'", ctrl);
+        jdbc.update("INSERT INTO examen_control (id_examen, id_usuario) VALUES (?, ?)", examen, ctrl);
+        sincronizar();
+
+        var docente = perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        assertThat(docente.docente()).isNotNull();
+        assertThat(docente.docente().titulo()).isEqualTo("Lic.");
+        assertThat(docente.docente().categoria()).isEqualTo("INTERINO");
+        assertThat(docente.docente().materias()).anySatisfy(m -> {
+            assertThat(m.sigla()).isEqualTo("TST-PERF");
+            assertThat(m.grupos()).containsExactly("1");
+        });
+        assertThat(docente.examenesAsignados()).isNull();
+        assertThat(docente.permisos()).extracting(x -> x.codigo()).contains("EXAMENES_GESTIONAR_PROPIOS").doesNotContain("USUARIOS_GESTIONAR");
+
+        var control = perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "pia.control@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        assertThat(control.docente()).isNull();
+        assertThat(control.examenesAsignados()).singleElement().satisfies(x -> {
+            assertThat(x.idExamen()).isEqualTo(examen);
+            assertThat(x.materia()).isEqualTo("Materia TST-PERF");
+        });
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

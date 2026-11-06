@@ -33,9 +33,11 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.nexacore.examenes.services.PerfilRolService perfilRolService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, com.nexacore.examenes.services.PerfilRolService perfilRolService) {
         this.authService = authService;
+        this.perfilRolService = perfilRolService;
     }
 
     @PostMapping("/login")
@@ -61,6 +63,12 @@ public class AuthController {
     public ResponseEntity<PerfilResponse> miPerfil(Authentication authentication) {
         String email = authentication.getName();
         return ResponseEntity.ok(authService.obtenerPerfil(email));
+    }
+
+    /** Mi perfil: lo propio de cada rol (permisos, datos y materias del docente, exámenes asignados al control). */
+    @GetMapping("/me/rol")
+    public ResponseEntity<com.nexacore.examenes.dto.PerfilRolResponse> miPerfilDelRol(Authentication authentication) {
+        return ResponseEntity.ok(perfilRolService.deLaSesion(authentication));
     }
 
     @PutMapping("/cambiar-password")

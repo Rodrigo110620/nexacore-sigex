@@ -22,6 +22,7 @@ import {
   type PerfilUsuario,
 } from '../../services/profileService'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import PerfilDelRol from '../../components/perfil/PerfilDelRol'
 
 export default function PerfilPage() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null)
@@ -117,7 +118,7 @@ export default function PerfilPage() {
         <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
           <div className="mb-6">
             <Link
-              to="/dashboard/usuarios"
+              to="/dashboard/inicio"
               className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
             >
               <ArrowLeft size={16} aria-hidden="true" />
@@ -125,7 +126,7 @@ export default function PerfilPage() {
             </Link>
             <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">Mi perfil</h1>
             <p className="mt-1 text-sm text-gray-600">
-              Consulta tus datos y cambia tu contraseña de acceso.
+              Tus datos, lo propio de tu rol y el cambio de contraseña.
             </p>
           </div>
 
@@ -200,6 +201,9 @@ export default function PerfilPage() {
               </dl>
             </div>
           ) : null}
+
+          {/* Lo propio de cada rol: datos y materias del docente, exámenes del control, permisos. */}
+          {perfil && <PerfilDelRol esAdmin={perfil.roles.includes('ADMIN')} />}
 
           <div className="mt-5 rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-start gap-3">

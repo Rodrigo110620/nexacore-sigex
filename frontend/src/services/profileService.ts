@@ -16,6 +16,24 @@ export interface CambiarPasswordPayload {
   passwordConfirmacion: string
 }
 
+/** Lo propio de cada rol (GET /auth/me/rol): lo que no aplica llega null. */
+export interface PerfilDelRol {
+  permisos: { codigo: string; modulo: string; descripcion: string }[]
+  docente: {
+    titulo: string | null
+    especialidad: string | null
+    categoria: string | null
+    materias: { idMateria: number; sigla: string; nombre: string; grupos: string[] }[]
+  } | null
+  /** Exámenes de hoy en adelante donde está asignado como personal de control; null si no controla. */
+  examenesAsignados: { idExamen: number; materia: string; fecha: string; horaInicio: string; duracionMinutos: number; aula: string | null; estado: string }[] | null
+}
+
+export async function getPerfilDelRol(): Promise<PerfilDelRol> {
+  const { data } = await api.get<PerfilDelRol>('/auth/me/rol')
+  return data
+}
+
 export async function getMiPerfil(): Promise<PerfilUsuario> {
   const { data } = await api.get<PerfilUsuario>('/auth/me')
   return data
