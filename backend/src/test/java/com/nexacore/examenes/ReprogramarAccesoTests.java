@@ -132,4 +132,18 @@ class ReprogramarAccesoTests {
         org.assertj.core.api.Assertions.assertThat(acceso.puedeControlar(6, sesion)).isTrue();
         org.assertj.core.api.Assertions.assertThat(acceso.veTodosLosReportes(sesion)).isFalse();
     }
+
+    // El ADMIN exporta cualquier examen; el DOCENTE solo los suyos; el CONTROL no exporta.
+    @Test
+    void exportarElAdminCualquieraYElDocenteSoloLosSuyos() {
+        docente("propio@umss.edu", 7);
+        docente("ajeno@umss.edu", 8);
+        when(examenes.perteneceADocente(3, 7)).thenReturn(true);
+        when(examenes.perteneceADocente(3, 8)).thenReturn(false);
+        assertThat(acceso.puedeExportar(3, sesion("admin@umss.edu", "ADMIN"))).isTrue();
+        assertThat(acceso.puedeExportar(3, sesion("propio@umss.edu", "DOCENTE"))).isTrue();
+        assertThat(acceso.puedeExportar(3, sesion("ajeno@umss.edu", "DOCENTE"))).isFalse();
+        assertThat(acceso.puedeExportar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
+        assertThat(acceso.puedeExportar(null, sesion("admin@umss.edu", "ADMIN"))).isFalse();
+    }
 }
