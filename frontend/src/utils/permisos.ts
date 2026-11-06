@@ -21,8 +21,9 @@ export const TODOS_LOS_PERMISOS: Permiso[] = [
 ]
 
 const POR_DEFECTO: Record<string, Permiso[]> = {
+  // El DOCENTE descarga el acta y la asistencia de sus exámenes (el servidor limita a los suyos).
   DOCENTE: ['EXAMENES_VER_PROPIOS', 'EXAMENES_GESTIONAR_PROPIOS', 'HABILITACION_VER', 'HABILITACION_GESTIONAR_PROPIOS',
-    'CONTROL_INGRESO_PROPIOS', 'EXPULSAR_PROPIOS', 'ESTUDIANTES_VER', 'FOTOS_REPORTAR'],
+    'CONTROL_INGRESO_PROPIOS', 'EXPULSAR_PROPIOS', 'ESTUDIANTES_VER', 'FOTOS_REPORTAR', 'REPORTES_EXPORTAR'],
   // Desde la V53 el CONTROL recibe los avisos solo de los exámenes donde está asignado.
   CONTROL: ['EXAMENES_VER_TODOS', 'HABILITACION_VER', 'CONTROL_INGRESO_TODOS', 'ESTUDIANTES_VER', 'FOTOS_REPORTAR'],
   ESTUDIANTE: [],

@@ -60,7 +60,7 @@ class RolesYPermisosTests {
         assertThat(Permisos.deRoles(List.of("ADMIN"))).containsAll(Permisos.todos());
         assertThat(Permisos.deRoles(List.of("DOCENTE"))).containsExactlyInAnyOrder(
                 "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "HABILITACION_GESTIONAR_PROPIOS",
-                "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
+                "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR", "REPORTES_EXPORTAR");
         assertThat(Permisos.deRoles(List.of("CONTROL"))).containsExactlyInAnyOrder(
                 "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
         assertThat(Set.of(Permiso.values())).allSatisfy(p ->
@@ -123,9 +123,11 @@ class RolesYPermisosTests {
     }
 
     @Test
-    void elPermisoDeExportarEsDelAdminYSePuedeDarAUnRolExtra() throws Exception {
+    void elPermisoDeExportarEsDelAdminYDelDocenteYSePuedeDarAUnRolExtra() throws Exception {
+        // El DOCENTE exporta solo sus exámenes (ExamenAccesoService.puedeExportar); el CONTROL no exporta.
         assertThat(Permisos.deRoles(List.of("ADMIN"))).contains("REPORTES_EXPORTAR");
-        assertThat(Permisos.deRoles(List.of("DOCENTE", "CONTROL"))).doesNotContain("REPORTES_EXPORTAR");
+        assertThat(Permisos.deRoles(List.of("DOCENTE"))).contains("REPORTES_EXPORTAR");
+        assertThat(Permisos.deRoles(List.of("CONTROL"))).doesNotContain("REPORTES_EXPORTAR");
         mockMvc.perform(get("/roles/permisos").with(user("admin@sigex.test").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.codigo == 'REPORTES_EXPORTAR')].modulo").value("Reportes"))
