@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ArrowRight, X } from 'lucide-react'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
@@ -32,9 +33,10 @@ export default function FotoReportadaModal({ notificacion, onClose }: { notifica
     return () => document.removeEventListener('keydown', alPresionar)
   }, [onClose])
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="foto-reportada-titulo" onClick={onClose}>
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+  // En un portal: la campana vive en la barra superior y, dentro de ella, la ventana quedaba recortada.
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="foto-reportada-titulo" onClick={onClose}>
+      <div className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="foto-reportada-titulo" className="text-base font-bold text-[#011140]">Foto reportada</h2>
@@ -74,6 +76,7 @@ export default function FotoReportadaModal({ notificacion, onClose }: { notifica
           </Link>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
