@@ -7,10 +7,11 @@ import usePanelControl from '../../hooks/usePanelControl'
 import { estaEnCurso } from '../../utils/examenFormat'
 import { Building2 } from 'lucide-react'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import MisRegistrosControl from '../../components/inicio/MisRegistrosControl'
 
 /**
  * Inicio de CONTROL y ADMIN (ControlRoute deja pasar solo a esos roles): exámenes en curso
- * con su aforo en vivo y los exámenes del día. CONTROL lo usa para trabajar y ADMIN para supervisar.
+ * con su aforo en vivo, sus propios registros de hoy y los exámenes del día. CONTROL lo usa para trabajar y ADMIN para supervisar.
  */
 export default function ControlInicioPage() {
   const { nombre } = useAuth()
@@ -58,6 +59,8 @@ export default function ControlInicioPage() {
             enCurso.map((e) => <ExamenEnCursoCard key={`${e.idExamen}-${e.idParalelo}`} examen={e} ahora={ahora} />)
           )}
         </section>
+        {/* Lo suyo: lo que registró hoy. Va después del examen en curso, que es lo que usa en la puerta. */}
+        <MisRegistrosControl />
         {examenes && <ExamenesDelDia examenes={examenes} ahora={ahora} />}
       </div>
       <MobileBottomNav variant="controlHome" />

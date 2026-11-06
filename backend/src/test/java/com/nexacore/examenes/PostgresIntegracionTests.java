@@ -82,6 +82,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
+    @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -895,6 +896,58 @@ class PostgresIntegracionTests {
         assertThat(resumen.ausentes()).isEqualTo(1);
         assertThat(resumen.expulsados()).isEqualTo(1);
         assertThat(resumen.trasladados()).isEqualTo(1);
+    }
+
+    // Inicio de CONTROL: solo cuenta lo que registró quien inició sesión, no lo de otros controles.
+    @Test
+    void elInicioDelControlMuestraSoloSusRegistrosDeHoy() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-CTRL");
+        int examen = examen(paralelo, "08:00", 120);
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                + "VALUES ('Otro', 'Control', '6666666', 'otro.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+        var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        var hace = java.sql.Timestamp.valueOf(ahora.minusMinutes(3));
+        var antes = java.sql.Timestamp.valueOf(ahora.minusMinutes(10));
+        int ana = estudiante("209600001", "Ana");
+        int beto = estudiante("209600002", "Beto");
+        int ciro = estudiante("209600003", "Ciro");
+        for (int e : new int[]{ana, beto, ciro}) {
+            jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)",
+                    e, examen, paralelo, hace);
+        }
+        String ingreso = "INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, "
+                + "resultado_autorizacion, fecha_hora, tipo_ingreso, justificacion_manual) VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, ?, ?)";
+        jdbc.update(ingreso, examen, paralelo, ana, idDocente, antes, "NORMAL", null);
+        jdbc.update(ingreso, examen, paralelo, beto, idDocente, hace, "MANUAL", "Su QR no se lee; presentó su carnet");
+        jdbc.update(ingreso, examen, paralelo, ciro, otro, hace, "NORMAL", null);
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?)";
+        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(ahora.minusMinutes(1)));
+        jdbc.update(intento, examen, paralelo, idDocente, "209600003", "Intento ingresar no habilitado ### Ciro", hace);
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
+                ana, examen, otro, hace);
+        sincronizar();
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        try {
+            var mios = inicioControlService.misRegistros();
+            assertThat(mios.ingresos()).isEqualTo(2);
+            assertThat(mios.ingresosManuales()).isEqualTo(1);
+            assertThat(mios.intentosIncorrectos()).isEqualTo(1);
+            assertThat(mios.expulsiones()).isZero();
+            assertThat(java.util.Arrays.stream(mios.ingresosPorHora()).sum()).isEqualTo(2);
+            assertThat(mios.recientes()).extracting(r -> r.tipo()).containsExactly("INTENTO", "INGRESO_MANUAL", "INGRESO");
+            assertThat(mios.recientes().get(0).codigo()).isEqualTo("9999999");
+            assertThat(mios.recientes().get(1)).satisfies(r -> {
+                assertThat(r.estudiante()).isEqualTo("Beto Prueba");
+                assertThat(r.codigo()).isEqualTo("209600002");
+                assertThat(r.examen()).isEqualTo("Materia TST-CTRL");
+            });
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

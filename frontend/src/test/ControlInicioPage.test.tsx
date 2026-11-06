@@ -23,6 +23,8 @@ const examenes = vi.hoisted(() => {
 
 vi.mock('../services/controlExamenService')
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue(examenes) }))
+vi.mock('../services/inicioService', () => ({ obtenerInicioControl: vi.fn().mockResolvedValue({ ahora: '2026-10-15T10:30:00', ingresos: 0,
+  ingresosManuales: 0, intentosIncorrectos: 0, fotosReportadas: 0, qrDuplicados: 0, expulsiones: 0, ingresosPorHora: Array(24).fill(0), recientes: [] }) }))
 
 function Destino() {
   return <p>Destino {useLocation().pathname}</p>

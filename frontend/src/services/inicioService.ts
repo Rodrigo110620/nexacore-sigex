@@ -26,3 +26,22 @@ export async function obtenerInicioAdmin(): Promise<InicioAdmin> {
   const { data } = await api.get<InicioAdmin>('/inicio/admin')
   return data
 }
+
+/** Inicio de CONTROL (GET /inicio/control): solo lo que registró hoy quien inició sesión. */
+export interface InicioControl {
+  ahora: string
+  ingresos: number
+  ingresosManuales: number
+  intentosIncorrectos: number
+  fotosReportadas: number
+  qrDuplicados: number
+  expulsiones: number
+  ingresosPorHora: number[]
+  recientes: { fecha: string; tipo: 'INGRESO' | 'INGRESO_MANUAL' | 'INTENTO' | 'FOTO_REPORTADA' | 'QR_DUPLICADO' | 'EXPULSION'
+    estudiante: string | null; codigo: string | null; examen: string | null }[]
+}
+
+export async function obtenerInicioControl(): Promise<InicioControl> {
+  const { data } = await api.get<InicioControl>('/inicio/control')
+  return data
+}
