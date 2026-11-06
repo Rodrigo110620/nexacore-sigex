@@ -3,13 +3,11 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, Clock3, MapPin } from 'lucide-react'
 import { BarraDegradado } from './Graficas'
 import ErrorCarga from '../ui/ErrorCarga'
-import useEnVivo from '../../hooks/useEnVivo'
-import { obtenerResumenExamen, type ResumenEstudiantes } from '../../services/controlExamenService'
+import useResumenesExamenes from '../../hooks/useResumenesExamenes'
 import type { ExamenDto } from '../../services/examenService'
 import { ahoraServidorMs } from '../../services/tiempoService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 
-const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN'])
 const ESTADO: Record<string, [string, string]> = {
   'en-curso': ['EN CURSO', 'bg-[#DCFCE7] text-[#15803D]'],
   proximo: ['PRÓXIMO', 'bg-[#E0E9FF] text-[#0439D9]'],
@@ -34,8 +32,6 @@ function Cifra({ color, valor, texto }: { color: string; valor: number | string;
  */
 export default function ExamenesHoyDocente({ examenes }: { examenes: ExamenDto[] }) {
   const [ahora, setAhora] = useState(() => new Date(ahoraServidorMs()))
-  const [resumenes, setResumenes] = useState<Record<number, ResumenEstudiantes | 'error'>>({})
-  const [recarga, setRecarga] = useState(0)
 
   const hoy = fechaLocal(ahora)
   const deHoy = useMemo(() => {
@@ -45,26 +41,12 @@ export default function ExamenesHoyDocente({ examenes }: { examenes: ExamenDto[]
     }
     return [...unicos.values()].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio))
   }, [examenes, hoy])
-  const ids = deHoy.map((e) => e.idExamen).join(',')
+  const { resumenes, recargar } = useResumenesExamenes(deHoy.map((e) => e.idExamen), ahora)
 
   useEffect(() => {
     const id = window.setInterval(() => setAhora(new Date(ahoraServidorMs())), 30_000)
     return () => window.clearInterval(id)
   }, [])
-
-  // Un ingreso o cambio en uno de estos exámenes vuelve a pedir los contadores (sin recargar la página).
-  useEnVivo((c) => CAMBIOS.has(c.tipo) && (c.idExamen == null || ids.split(',').includes(String(c.idExamen))), () => setRecarga((n) => n + 1))
-
-  useEffect(() => {
-    if (!ids) return
-    let vigente = true
-    for (const id of ids.split(',').map(Number)) {
-      obtenerResumenExamen(id)
-        .then((r) => { if (vigente) setResumenes((prev) => ({ ...prev, [id]: r })) })
-        .catch(() => { if (vigente) setResumenes((prev) => (prev[id] && prev[id] !== 'error' ? prev : { ...prev, [id]: 'error' })) })
-    }
-    return () => { vigente = false }
-  }, [ids, recarga, ahora])
 
   const proximo = useMemo(() => examenes
     .filter((e) => e.fecha > hoy && e.estado?.toLowerCase() !== 'cancelado')
@@ -112,7 +94,7 @@ export default function ExamenesHoyDocente({ examenes }: { examenes: ExamenDto[]
                   <span className="inline-flex min-w-0 items-center gap-1"><MapPin size={13} className="shrink-0 text-[#45628D]" aria-hidden="true" /><span className="truncate">{etiquetaAulas(e)}</span></span>
                 </p>
                 {r === 'error' ? (
-                  <ErrorCarga mensaje="No se pudieron cargar los contadores de este examen." onReintentar={() => setRecarga((n) => n + 1)} />
+                  <ErrorCarga mensaje="No se pudieron cargar los contadores de este examen." onReintentar={recargar} />
                 ) : !datos ? (
                   <p role="status" className="text-xs text-[#627A9B]">Cargando contadores…</p>
                 ) : (

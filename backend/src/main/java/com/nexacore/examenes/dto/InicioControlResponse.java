@@ -18,6 +18,10 @@ public record InicioControlResponse(
         int expulsiones,
         /** Ingresos que autorizó hoy, por hora (índice 0 a 23). */
         int[] ingresosPorHora,
+        /** Intentos incorrectos, fotos reportadas y QR duplicados que registró hoy, por hora (0 a 23). */
+        int[] intentosPorHora,
+        int[] fotosPorHora,
+        int[] qrPorHora,
         /** Sus últimos registros de hoy, del más reciente al más antiguo. */
         List<Registro> recientes) {
 

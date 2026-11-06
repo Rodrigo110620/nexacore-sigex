@@ -938,6 +938,8 @@ class PostgresIntegracionTests {
             assertThat(mios.intentosIncorrectos()).isEqualTo(1);
             assertThat(mios.expulsiones()).isZero();
             assertThat(java.util.Arrays.stream(mios.ingresosPorHora()).sum()).isEqualTo(2);
+            assertThat(java.util.Arrays.stream(mios.intentosPorHora()).sum()).isEqualTo(1);
+            assertThat(mios.qrPorHora()).hasSize(24);
             assertThat(mios.recientes()).extracting(r -> r.tipo()).containsExactly("INTENTO", "INGRESO_MANUAL", "INGRESO");
             assertThat(mios.recientes().get(0).codigo()).isEqualTo("9999999");
             assertThat(mios.recientes().get(1)).satisfies(r -> {

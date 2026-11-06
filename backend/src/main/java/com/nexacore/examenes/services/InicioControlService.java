@@ -21,7 +21,7 @@ import java.util.List;
 @Service
 public class InicioControlService {
 
-    static final int RECIENTES = 8;
+    static final int RECIENTES = 30;
     /** La excepción de un no habilitado (INCI-04) también deja un intento: ese no se cuenta dos veces. */
     private static final String MARCA_EXCEPCION = "Intento ingresar no habilitado ###%";
 
@@ -58,10 +58,13 @@ public class InicioControlService {
             ingresos[0] += rs.getInt(2);
             ingresos[1] += rs.getInt(3);
         });
-        int intentos = contar("SELECT COUNT(*) FROM intento_ingreso WHERE id_usuario_control = :yo AND fecha_hora >= :desde AND fecha_hora < :hasta"
-                + " AND (observacion IS NULL OR observacion NOT LIKE :marca)", p);
-        int fotos = contar("SELECT COUNT(*) FROM reporte_foto WHERE id_usuario = :yo AND creado_en >= :desde AND creado_en < :hasta", p);
-        int qr = contar("SELECT COUNT(*) FROM reporte_qr_duplicado WHERE id_usuario_control = :yo AND fecha_hora_servidor >= :desde AND fecha_hora_servidor < :hasta", p);
+        int[] intentosPorHora = porHora("intento_ingreso", "fecha_hora", "id_usuario_control",
+                " AND (observacion IS NULL OR observacion NOT LIKE :marca)", p);
+        int[] fotosPorHora = porHora("reporte_foto", "creado_en", "id_usuario", "", p);
+        int[] qrPorHora = porHora("reporte_qr_duplicado", "fecha_hora_servidor", "id_usuario_control", "", p);
+        int intentos = java.util.Arrays.stream(intentosPorHora).sum();
+        int fotos = java.util.Arrays.stream(fotosPorHora).sum();
+        int qr = java.util.Arrays.stream(qrPorHora).sum();
         int expulsiones = contar("SELECT COUNT(*) FROM expulsion WHERE id_usuario_responsable = :yo AND fecha_hora >= :desde AND fecha_hora < :hasta AND anulada_en IS NULL", p);
 
         List<InicioControlResponse.Registro> recientes = jdbc.query("""
@@ -93,7 +96,17 @@ public class InicioControlService {
             return new InicioControlResponse.Registro(rs.getTimestamp(1).toLocalDateTime(), rs.getString(2),
                     nombre == null || nombre.isBlank() ? null : nombre, rs.getString(4), rs.getString(5));
         });
-        return new InicioControlResponse(ahora, ingresos[0], ingresos[1], intentos, fotos, qr, expulsiones, porHora, recientes);
+        return new InicioControlResponse(ahora, ingresos[0], ingresos[1], intentos, fotos, qr, expulsiones, porHora,
+                intentosPorHora, fotosPorHora, qrPorHora, recientes);
+    }
+
+    /** Registros de hoy de quien inició sesión en una tabla, por hora (las columnas son constantes del código). */
+    private int[] porHora(String tabla, String fecha, String usuario, String filtro, MapSqlParameterSource p) {
+        int[] horas = new int[24];
+        jdbc.query("SELECT EXTRACT(HOUR FROM " + fecha + "), COUNT(*) FROM " + tabla + " WHERE " + usuario + " = :yo AND "
+                + fecha + " >= :desde AND " + fecha + " < :hasta" + filtro + " GROUP BY EXTRACT(HOUR FROM " + fecha + ")", p,
+                rs -> { horas[rs.getInt(1)] = rs.getInt(2); });
+        return horas;
     }
 
     private int contar(String sql, MapSqlParameterSource p) {

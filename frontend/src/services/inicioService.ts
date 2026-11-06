@@ -37,6 +37,9 @@ export interface InicioControl {
   qrDuplicados: number
   expulsiones: number
   ingresosPorHora: number[]
+  intentosPorHora: number[]
+  fotosPorHora: number[]
+  qrPorHora: number[]
   recientes: { fecha: string; tipo: 'INGRESO' | 'INGRESO_MANUAL' | 'INTENTO' | 'FOTO_REPORTADA' | 'QR_DUPLICADO' | 'EXPULSION'
     estudiante: string | null; codigo: string | null; examen: string | null }[]
 }

@@ -27,6 +27,7 @@ class InicioControlTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.ingresos").value(0))
                     .andExpect(jsonPath("$.ingresosPorHora.length()").value(24))
+                    .andExpect(jsonPath("$.intentosPorHora.length()").value(24))
                     .andExpect(jsonPath("$.recientes").isArray());
         }
         mockMvc.perform(get("/inicio/control").with(user("e@est.umss.edu").roles("ESTUDIANTE"))).andExpect(status().isForbidden());
