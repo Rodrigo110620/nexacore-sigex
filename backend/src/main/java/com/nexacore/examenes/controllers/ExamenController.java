@@ -2,6 +2,7 @@ package com.nexacore.examenes.controllers;
 
 import org.springframework.security.core.Authentication;
 import com.nexacore.examenes.services.SesionExamenService;
+import com.nexacore.examenes.services.AsistenciaExportService;
 import com.nexacore.examenes.dto.SesionExamenResponse;
 import com.nexacore.examenes.dto.ReprogramarExamenRequest;
 import com.nexacore.examenes.dto.ActualizarExamenRequest;
@@ -23,6 +24,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Tag(name = "Exámenes", description = "Registro y consulta de exámenes")
@@ -32,10 +37,12 @@ public class ExamenController {
 
     private final ExamenService examenService;
     private final SesionExamenService sesionExamenService;
+    private final AsistenciaExportService asistenciaExportService;
 
-    public ExamenController(ExamenService examenService, SesionExamenService sesionExamenService) {
+    public ExamenController(ExamenService examenService, SesionExamenService sesionExamenService, AsistenciaExportService asistenciaExportService) {
         this.examenService = examenService;
         this.sesionExamenService = sesionExamenService;
+        this.asistenciaExportService = asistenciaExportService;
     }
 
     @Operation(summary = "Mis exámenes (para Reportes)",
@@ -99,5 +106,27 @@ public class ExamenController {
             @PathVariable Integer idParalelo) {
         examenService.cancelar(idExamen, idParalelo);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Descargar asistencia en CSV", description = "Exporta la lista de estudiantes habilitados con su hora de ingreso.")
+    @PreAuthorize("@examenAccesoService.puedeExportar(#idExamen, authentication)")
+    @GetMapping("/{idExamen}/asistencia.csv")
+    public ResponseEntity<byte[]> descargarAsistenciaCsv(@PathVariable Integer idExamen) {
+        byte[] data = asistenciaExportService.generarCsv(idExamen);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("asistencia.csv").build().toString())
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(data);
+    }
+
+    @Operation(summary = "Descargar asistencia en Excel", description = "Exporta la lista de estudiantes habilitados con su hora de ingreso.")
+    @PreAuthorize("@examenAccesoService.puedeExportar(#idExamen, authentication)")
+    @GetMapping("/{idExamen}/asistencia.xlsx")
+    public ResponseEntity<byte[]> descargarAsistenciaExcel(@PathVariable Integer idExamen) {
+        byte[] data = asistenciaExportService.generarExcel(idExamen);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("asistencia.xlsx").build().toString())
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(data);
     }
 }

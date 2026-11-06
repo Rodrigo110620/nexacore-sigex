@@ -13,6 +13,9 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
 
+import { Download, FileSpreadsheet } from 'lucide-react'
+import api from '../../services/api'
+
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
@@ -154,7 +157,10 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
  * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
  */
 export default function ReportesPage() {
-  const soloMios = !tienePermiso(useAuth(), 'REPORTES_VER')
+  const auth = useAuth() 
+  const soloMios = !tienePermiso(auth, 'REPORTES_VER')
+  const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR') 
+  
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
@@ -170,7 +176,6 @@ export default function ReportesPage() {
     return () => { vigente = false }
   }, [soloMios])
 
-  // Registros del control del examen elegido: dan el nombre y el código SIS de los expulsados.
   const [controles, setControles] = useState<{ idExamen: number; registros: RegistroControlIngresoExamen[] }>()
   useEffect(() => {
     if (idExamen == null || pestana !== 'expulsiones') return
@@ -184,6 +189,25 @@ export default function ReportesPage() {
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
+  const descargarAsistencia = async (formato: 'csv' | 'xlsx') => {
+    if (!idExamen) return
+    try {
+      const response = await api.get(`/examenes/${idExamen}/asistencia.${formato}`, {
+        responseType: 'blob', 
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `asistencia_${idExamen}.${formato}`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      alert('No se pudo descargar el archivo. Revisa tus permisos o la conexión.')
+    }
+  }
+
   return (
     <PanelLayout compactDesktop>
       <div
@@ -192,21 +216,43 @@ export default function ReportesPage() {
       >
         <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            {/* El título visible ya está en la barra superior ("REPORTES"); aquí queda para lectores de pantalla. */}
             <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
 
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <label htmlFor="reportes-examen" className="text-xs font-semibold text-[#011140]">Examen</label>
-              <select
-                id="reportes-examen"
-                value={idExamen ?? ''}
-                onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
-                className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
-              >
-                <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
-                {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
-              </select>
+              
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  id="reportes-examen"
+                  value={idExamen ?? ''}
+                  onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
+                  className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
+                >
+                  <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
+                  {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
+                </select>
+
+                {idExamen != null && puedeExportar && (
+                  <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
+                    <button
+                      onClick={() => descargarAsistencia('xlsx')}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] sm:w-auto"
+                    >
+                      <FileSpreadsheet size={16} />
+                      Descargar Excel
+                    </button>
+                    <button
+                      onClick={() => descargarAsistencia('csv')}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] sm:w-auto"
+                    >
+                      <Download size={16} />
+                      Descargar CSV
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+            
             {soloMios && (
               <p className="mt-2 text-xs text-[#627A9B]">
                 {examenes.length === 0
@@ -215,7 +261,6 @@ export default function ReportesPage() {
               </p>
             )}
 
-            {/* En el celular: control segmentado de 3, con áreas táctiles de 44 px; en pantallas anchas, pestañas. */}
             <div role="tablist" aria-label="Tipo de reporte"
               className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
