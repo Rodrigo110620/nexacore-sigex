@@ -54,6 +54,8 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
         page,
         size,
         search: filters.search,
+        idMateria: filters.idMateria,
+        idParalelo: filters.idParalelo,
         idFacultad: filters.idFacultad,
         idCarrera: filters.idCarrera,
       },
@@ -84,6 +86,8 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
     setFilters((current) => {
       const didChange =
         current.search !== nextFilters.search ||
+        current.idMateria !== nextFilters.idMateria ||
+        current.idParalelo !== nextFilters.idParalelo ||
         current.idFacultad !== nextFilters.idFacultad ||
         current.idCarrera !== nextFilters.idCarrera
       return didChange ? nextFilters : current

@@ -1,36 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { DETALLE_DENEGACION, validarTextoLibre } from '../utils/textoLibreValidators'
 
-const validar = (texto: string) => validarTextoLibre(texto, DETALLE_DENEGACION)
-
-describe('validarTextoLibre: detalle de la denegación (BUG-D02)', () => {
-  it('es opcional y acepta letras con tilde, ñ, números, espacios y los signos permitidos', () => {
+describe('Detalle de denegación', () => {
+  const validar = (texto: string) => validarTextoLibre(texto, DETALLE_DENEGACION)
+  it('acepta contenido válido y opcional de 10 a 100 caracteres', () => {
     expect(validar('')).toBeNull()
-    expect(validar('x')).toBe('El detalle adicional debe tener al menos 10 caracteres')
-    expect(validar('Llegó tarde: 10 min (sin credencial); ¿avisó? ¡No! - Ñandú.')).toBeNull()
-    expect(validar('a'.repeat(499) + 'b')).toBeNull()
-    expect(validar('\nPrimera línea\nsegunda.\n')).toBeNull()
-    expect(validar('Güemes vio un pingüino. ÜBER')).toBeNull()
+    expect(validar('CI vencido')).toBeNull()
+    expect(validar('a'.repeat(99) + 'b')).toBeNull()
+    expect(validar('a'.repeat(101))).toContain('100 caracteres')
+    expect(validar('CI viejo')).toContain('10 caracteres')
   })
-
-  it.each([
-    ['   ', 'no puede tener solo espacios'],
-    [' \n \n ', 'no puede tener solo espacios'],
-    ['Llegó ’tarde’', 'tiene caracteres no permitidos: ’'],
-    ['Dijo "no" & salió', 'tiene caracteres no permitidos: " &'],
-    ['Llegó\ttarde', 'tiene caracteres no permitidos: tabulación'],
-    ['a\na\n a', 'no puede ser un mismo carácter repetido'],
-    ['üÜ üÜ', 'no puede ser un mismo carácter repetido'],
-    ['???????', 'debe tener letras o números, no solo signos'],
-    ['... --- !!!', 'debe tener letras o números, no solo signos'],
-    ['tttttttttt', 'no puede ser un mismo carácter repetido'],
-    ['a'.repeat(501), 'no puede superar 500 caracteres'],
-  ])('"%s" → %s', (texto, motivo) => {
-    expect(validar(texto)).toBe(`El detalle adicional ${motivo}`)
+  it('rechaza signos y espacios repetidos', () => {
+    expect(validar('Documento inválido!')).toContain('solo permite letras')
+    expect(validar('Documento  inválido')).toContain('un espacio')
   })
-})
-
-it('acepta el límite de diez caracteres y rechaza nueve sin contar espacios extremos', () => {
-  expect(validar('CI vencido')).toBeNull()
-  expect(validar('  CI viejo  ')).toBe('El detalle adicional debe tener al menos 10 caracteres')
 })

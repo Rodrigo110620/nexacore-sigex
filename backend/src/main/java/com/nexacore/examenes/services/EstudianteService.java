@@ -72,12 +72,27 @@ public class EstudianteService {
     public PageResponse<EstudianteListResponse> listar(
             int page, int size, String search, Integer idFacultad, Integer idCarrera, Integer idDocente
     ) {
+        return listar(page, size, search, idFacultad, idCarrera, idDocente, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<EstudianteListResponse> listar(int page, int size, String search,
+            Integer idFacultad, Integer idCarrera, Integer idDocente, Integer idMateria, Integer idParalelo) {
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
-                normalizarBusqueda(search), idFacultad, idCarrera, idDocente, pageable
+                normalizarBusqueda(search), idFacultad, idCarrera, idDocente, idMateria, idParalelo, pageable
         );
 
-        return PageResponse.de(pagina.map(this::toResponse));
+        return PageResponse.de(pagina.map(e -> conMaterias(toResponse(e), idDocente)));
+    }
+
+    public List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelDocente(Integer idDocente) {
+        return idDocente == null ? List.of() : estudianteRepository.materiasDelDocente(idDocente);
+    }
+
+    public EstudianteListResponse conMaterias(EstudianteListResponse estudiante, Integer idDocente) {
+        return idDocente == null ? estudiante : estudiante.conMateriasDocente(
+                estudianteRepository.materiasDelEstudiante(idDocente, estudiante.id()));
     }
 
     static String normalizarBusqueda(String search) {

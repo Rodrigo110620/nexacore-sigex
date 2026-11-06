@@ -15,7 +15,7 @@ export interface ReglaTextoLibre {
 }
 
 export const DETALLE_INCIDENCIA: ReglaTextoLibre = { campo: 'El detalle de incidencia', min: 1, max: 1000 }
-export const DETALLE_DENEGACION: ReglaTextoLibre = { campo: 'El detalle adicional', min: 10, max: 500 }
+export const DETALLE_DENEGACION: ReglaTextoLibre = { campo: 'El detalle adicional', min: 10, max: 100 }
 /** Observaciones del control de ingreso (ACCS-02 CA-53/54): opcionales, de 10 a 100 caracteres. */
 export const OBSERVACIONES_CONTROL: ReglaTextoLibre = { campo: 'La observación', min: 10, max: 100 }
 
@@ -25,6 +25,8 @@ export function validarTextoLibre(texto: string, { campo, min, max }: ReglaTexto
   if (!texto.trim()) return `${campo} no puede tener solo espacios`
   if (texto.length > max) return `${campo} no puede superar ${max} caracteres`
   const limpio = texto.trim()
+  if (campo === "El detalle adicional" && /[^\p{L}\p{N} ]/u.test(limpio)) return `${campo} solo permite letras, números y espacios`
+  if (campo === "El detalle adicional" && / {2}/.test(limpio)) return `${campo} solo permite un espacio entre palabras`
   const noPermitidos = [...new Set(limpio.match(NO_PERMITIDO) ?? [])].map((c) => (c === '\t' ? 'tabulación' : c))
   if (noPermitidos.length > 0) return `${campo} tiene caracteres no permitidos: ${noPermitidos.join(' ')}`
   if (!LETRA_O_NUMERO.test(limpio)) return `${campo} debe tener letras o números, no solo signos`
