@@ -84,6 +84,10 @@ public class ExamenService {
     @PersistenceContext
     private EntityManager entityManager;
 
+    /** Personal de control asignado (V53), solo para listarMios; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
+
     public ExamenService(
             ExamenRepository examenRepository,
             AmbienteRepository ambienteRepository,
@@ -124,6 +128,26 @@ public class ExamenService {
         return examenes.stream()
                 .map(examen -> toResponse(examen, catalogos))
                 .toList();
+    }
+
+    /**
+     * Los exámenes para Reportes: con REPORTES_VER (ADMIN), todos; si no, solo "los suyos": los que tiene
+     * como docente y aquellos en los que está asignado como personal de control (V53).
+     */
+    @Transactional(readOnly = true)
+    public List<ExamenResponse> listarMios() {
+        if (com.nexacore.examenes.security.Permisos.tiene(
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
+                com.nexacore.examenes.security.Permiso.REPORTES_VER)) {
+            return listar();
+        }
+        Integer yo = usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);
+        java.util.Set<Integer> asignados = new java.util.HashSet<>(examenControlRepository.examenesDe(yo));
+        List<Examen> examenes = examenRepository.findAllByOrderByFechaDescHoraInicioDesc().stream()
+                .filter(e -> yo.equals(e.getIdDocente()) || asignados.contains(e.getId().getIdExamen()))
+                .toList();
+        Catalogos catalogos = catalogosDe(examenes);
+        return examenes.stream().map(examen -> toResponse(examen, catalogos)).toList();
     }
 
     private List<Examen> examenesVisibles() {

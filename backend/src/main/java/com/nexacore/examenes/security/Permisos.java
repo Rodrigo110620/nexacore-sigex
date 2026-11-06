@@ -31,8 +31,8 @@ public final class Permisos {
             // Desde la V49 el DOCENTE asocia estudiantes en sus exámenes y ya no edita el registro de estudiantes.
             "DOCENTE", EnumSet.of(EXAMENES_VER_PROPIOS, EXAMENES_GESTIONAR_PROPIOS, HABILITACION_VER, HABILITACION_GESTIONAR_PROPIOS,
                     CONTROL_INGRESO_PROPIOS, EXPULSAR_PROPIOS, ESTUDIANTES_VER, FOTOS_REPORTAR),
-            "CONTROL", EnumSet.of(EXAMENES_VER_TODOS, HABILITACION_VER, CONTROL_INGRESO_TODOS, ESTUDIANTES_VER, FOTOS_REPORTAR,
-                    NOTIFICACIONES_TODAS),
+            // Desde la V53 el CONTROL recibe los avisos solo de los exámenes donde está asignado.
+            "CONTROL", EnumSet.of(EXAMENES_VER_TODOS, HABILITACION_VER, CONTROL_INGRESO_TODOS, ESTUDIANTES_VER, FOTOS_REPORTAR),
             "ESTUDIANTE", EnumSet.noneOf(Permiso.class));
 
     /** Roles del sistema: siempre existen, no se borran y sus permisos son fijos. */

@@ -1,6 +1,7 @@
 package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.models.Usuario;
+import com.nexacore.examenes.repositories.ExamenControlRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.security.Permiso;
@@ -13,10 +14,38 @@ import org.springframework.stereotype.Service;
 public class ExamenAccesoService {
     private final ExamenRepository examenRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ExamenControlRepository examenControlRepository;
 
-    public ExamenAccesoService(ExamenRepository examenRepository, UsuarioRepository usuarioRepository) {
+    public ExamenAccesoService(ExamenRepository examenRepository, UsuarioRepository usuarioRepository,
+                               ExamenControlRepository examenControlRepository) {
         this.examenRepository = examenRepository;
         this.usuarioRepository = usuarioRepository;
+        this.examenControlRepository = examenControlRepository;
+    }
+
+    /** Ver un examen: con EXAMENES_VER_TODOS cualquiera; con _PROPIOS, los suyos como docente. */
+    public boolean puedeVer(Integer idExamen, Authentication authentication) {
+        return segunPermiso(idExamen, authentication, Permiso.EXAMENES_VER_TODOS, Permiso.EXAMENES_VER_PROPIOS);
+    }
+
+    /** Ve los reportes de todos los exámenes (REPORTES_VER); si no, solo los de "sus" exámenes. */
+    public boolean veTodosLosReportes(Authentication authentication) {
+        return Permisos.tiene(authentication, Permiso.REPORTES_VER);
+    }
+
+    /**
+     * "Sus" exámenes, para reportes y notificaciones: los que tiene como docente o en los que está asignado
+     * como personal de control (V53). Controlar otro examen como reemplazo no lo vuelve suyo.
+     */
+    public boolean esMio(Integer idExamen, Authentication authentication) {
+        Integer yo = idUsuario(authentication);
+        return idExamen != null && yo != null
+                && (examenRepository.perteneceADocente(idExamen, yo) || examenControlRepository.estaAsignado(idExamen, yo));
+    }
+
+    public Integer idUsuario(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) return null;
+        return usuarioRepository.findByEmail(authentication.getName()).map(Usuario::getId).orElse(null);
     }
 
     /** Registrar ingresos e incidencias: con CONTROL_INGRESO_TODOS en cualquiera; con _PROPIOS, en los suyos. */

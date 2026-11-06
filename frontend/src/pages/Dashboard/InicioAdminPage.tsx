@@ -16,11 +16,11 @@ import { ahoraServidorMs } from '../../services/tiempoService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import { EnVivo } from '../../components/inicio/Comun'
+import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
 
-const TARJETA = 'rounded-2xl border border-[#E8EDF5] bg-white shadow-[0_4px_16px_rgba(13,26,77,0.07)]'
 const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO'])
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const DIAS_LARGOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const COLORES_MOTIVOS: [string, string, string, string][] = [
   ['#F43F5E', '#E11D48', '#FFE4E6', 'text-[#E11D48]'],
   ['#FB923C', '#EA580C', '#FFEDD5', 'text-[#EA580C]'],
@@ -29,14 +29,7 @@ const COLORES_MOTIVOS: [string, string, string, string][] = [
   ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]'],
 ]
 
-const porcentaje = (parte: number, total: number) => (total > 0 ? Math.round((parte / total) * 1000) / 10 : 0)
-const formatoPct = (valor: number) => `${valor.toLocaleString('es-BO', { maximumFractionDigits: 1 })} %`
 
-function saludo(hora: number) {
-  if (hora < 12) return 'Buenos días'
-  if (hora < 19) return 'Buenas tardes'
-  return 'Buenas noches'
-}
 
 function fechaDe(iso: string) {
   const [a, m, d] = iso.split('-').map(Number)
@@ -161,14 +154,6 @@ export default function InicioAdminPage() {
   )
 }
 
-function EnVivo({ texto, oscuro }: { texto: string; oscuro?: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${oscuro ? 'bg-white/15 text-white' : 'bg-[#DCFCE7] text-[#15803D]'}`}>
-      <span className={`h-2 w-2 rounded-full ${oscuro ? 'bg-[#4ADE80] shadow-[0_0_8px_#4ADE80]' : 'bg-[#16A34A] shadow-[0_0_6px_rgba(22,163,74,0.6)]'}`} aria-hidden="true" />
-      {texto}
-    </span>
-  )
-}
 
 function Banner({ nombre, fecha, datos, hora }: { nombre?: string; fecha: string; datos?: InicioAdmin; hora: Date }) {
   const h = datos?.hoy

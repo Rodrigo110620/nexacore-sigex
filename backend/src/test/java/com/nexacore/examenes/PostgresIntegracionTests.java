@@ -65,7 +65,6 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.repositories.ExpulsionRepository expulsionRepository;
     @Autowired com.nexacore.examenes.services.ExamenService examenService;
     @Autowired com.nexacore.examenes.services.SesionExamenService sesionExamenService;
-    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
     @Autowired com.nexacore.examenes.repositories.MateriaRepository materiaRepository;
     @Autowired EstudianteService estudianteService;
     @Autowired EstudianteRepository estudianteRepository;
@@ -76,12 +75,19 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.PanelEstudianteService panelEstudianteService;
     @Autowired com.nexacore.examenes.services.ExcepcionService excepcionService;
     @Autowired com.nexacore.examenes.services.IdentificacionService identificacionService;
-    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
+    @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
+    @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
+    @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
+    @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
+    @Autowired com.nexacore.examenes.services.EstudianteFotoService estudianteFotoService;
+    @Autowired com.nexacore.examenes.services.IntentoIngresoService intentoIngresoService;
+    @Autowired com.nexacore.examenes.services.ControlIngresoService controlIngresoService;
+    @Autowired com.nexacore.examenes.repositories.NotificacionRepository notificacionRepository;
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepository;
     @Autowired jakarta.persistence.EntityManager entityManager;
     @Autowired com.nexacore.examenes.repositories.ExcepcionNoHabilitadoRepository excepcionRepository;
@@ -904,6 +910,174 @@ class PostgresIntegracionTests {
             assertThat(r.bytes()).isEqualTo(4200000L);
             assertThat(r.usuario()).isEqualTo("Luis Paz");
         });
+    }
+
+    // DASH-01: el expulsado sigue contando como ingresado (con su marca) y el trasladado cuenta una sola vez.
+    @Test
+    void elResumenDelExamenCuentaExpulsadosYTrasladadosSinVolverlosAusentes() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-DASH01");
+        int examen = examen(paralelo, "08:00", 120);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
+        var ingreso = java.sql.Timestamp.valueOf(java.time.LocalDateTime.now().minusMinutes(5));
+        int expulsado = estudiante("209700001", "Ana");
+        int trasladado = estudiante("209700002", "Beto");
+        jdbc.update(asociar, expulsado, examen, paralelo, ingreso);
+        jdbc.update(asociar, trasladado, examen, paralelo, ingreso);
+        jdbc.update(asociar, estudiante("209700003", "Ciro"), examen, paralelo, null);
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
+                expulsado, examen, idDocente, ingreso);
+        jdbc.update("INSERT INTO traslado_ambiente (id_examen, id_estudiante, id_ambiente_origen, id_ambiente_destino, id_usuario_admin, fecha_hora_traslado, motivo) "
+                + "VALUES (?, ?, ?, ?, ?, ?, 'El aula se llenó durante el ingreso')", examen, trasladado, idAmbiente,
+                jdbc.queryForObject("SELECT min(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente), idDocente, ingreso);
+        sincronizar();
+
+        var resumen = identificacionService.resumir(examen);
+        assertThat(resumen.habilitados()).isEqualTo(3);
+        assertThat(resumen.ingresados()).isEqualTo(2);
+        assertThat(resumen.ausentes()).isEqualTo(1);
+        assertThat(resumen.expulsados()).isEqualTo(1);
+        assertThat(resumen.trasladados()).isEqualTo(1);
+    }
+
+    // Inicio de CONTROL: solo cuenta lo que registró quien inició sesión, no lo de otros controles.
+    @Test
+    void elInicioDelControlMuestraSoloSusRegistrosDeHoy() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-CTRL");
+        int examen = examen(paralelo, "08:00", 120);
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                + "VALUES ('Otro', 'Control', '6666666', 'otro.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+        var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        var hace = java.sql.Timestamp.valueOf(ahora.minusMinutes(3));
+        var antes = java.sql.Timestamp.valueOf(ahora.minusMinutes(10));
+        int ana = estudiante("209600001", "Ana");
+        int beto = estudiante("209600002", "Beto");
+        int ciro = estudiante("209600003", "Ciro");
+        for (int e : new int[]{ana, beto, ciro}) {
+            jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)",
+                    e, examen, paralelo, hace);
+        }
+        String ingreso = "INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, "
+                + "resultado_autorizacion, fecha_hora, tipo_ingreso, justificacion_manual) VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, ?, ?)";
+        jdbc.update(ingreso, examen, paralelo, ana, idDocente, antes, "NORMAL", null);
+        jdbc.update(ingreso, examen, paralelo, beto, idDocente, hace, "MANUAL", "Su QR no se lee; presentó su carnet");
+        jdbc.update(ingreso, examen, paralelo, ciro, otro, hace, "NORMAL", null);
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?)";
+        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(ahora.minusMinutes(1)));
+        jdbc.update(intento, examen, paralelo, idDocente, "209600003", "Intento ingresar no habilitado ### Ciro", hace);
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
+                ana, examen, otro, hace);
+        sincronizar();
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        try {
+            var mios = inicioControlService.misRegistros();
+            assertThat(mios.ingresos()).isEqualTo(2);
+            assertThat(mios.ingresosManuales()).isEqualTo(1);
+            assertThat(mios.intentosIncorrectos()).isEqualTo(1);
+            assertThat(mios.expulsiones()).isZero();
+            assertThat(java.util.Arrays.stream(mios.ingresosPorHora()).sum()).isEqualTo(2);
+            assertThat(java.util.Arrays.stream(mios.intentosPorHora()).sum()).isEqualTo(1);
+            assertThat(mios.qrPorHora()).hasSize(24);
+            assertThat(mios.recientes()).extracting(r -> r.tipo()).containsExactly("INTENTO", "INGRESO_MANUAL", "INGRESO");
+            assertThat(mios.recientes().get(0).codigo()).isEqualTo("9999999");
+            assertThat(mios.recientes().get(1)).satisfies(r -> {
+                assertThat(r.estudiante()).isEqualTo("Beto Prueba");
+                assertThat(r.codigo()).isEqualTo("209600002");
+                assertThat(r.examen()).isEqualTo("Materia TST-CTRL");
+            });
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    // V53: el personal de control asignado define "sus" exámenes (reportes y notificaciones); un control no
+    // asignado puede registrar como reemplazo y queda marcado.
+    @Test
+    void elPersonalDeControlAsignadoDefineSusExamenesYElReemplazoQuedaMarcado() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-V53");
+        int asignado = examen(paralelo, "08:00", 120);
+        int ajeno = examen(paralelo, "14:00", 120);
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Carla", "Control", "7000001", "carla.control@umss.edu");
+        Integer reemplazo = jdbc.queryForObject(usuario, Integer.class, "Rene", "Reemplazo", "7000002", "rene.reemplazo@umss.edu");
+        Integer sinRol = jdbc.queryForObject(usuario, Integer.class, "Sin", "Rol", "7000003", "sin.rol@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?), (?, ?)", ctrl, rolControl, reemplazo, rolControl);
+
+        assertThat(examenControlService.disponibles()).extracting(p -> p.idUsuario()).contains(ctrl, reemplazo).doesNotContain(sinRol);
+        assertThatThrownBy(() -> examenControlService.asignar(asignado, List.of(sinRol)))
+                .hasMessageContaining("Solo se puede asignar personal de control");
+        assertThat(examenControlService.asignar(asignado, List.of(ctrl))).extracting(p -> p.nombre()).containsExactly("Carla");
+
+        String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion) VALUES (?, ?, ?, ?, 'No está inscrito')";
+        jdbc.update(intento, asignado, paralelo, ctrl, "1111111");
+        jdbc.update(intento, ajeno, paralelo, reemplazo, "2222222");
+        jdbc.update("INSERT INTO notificacion (tipo, titulo, detalle, id_examen) VALUES ('INTENTO_INGRESO', 'Intento', 'd', ?), ('INTENTO_INGRESO', 'Intento', 'd', ?)",
+                asignado, ajeno);
+        // La foto reportada la ven el ADMIN, el docente del examen y su personal de control asignado.
+        jdbc.update("INSERT INTO notificacion (tipo, titulo, detalle, id_examen) VALUES ('FOTO_REPORTADA', 'Foto', 'd', ?)", asignado);
+        int est = estudiante("209800001", "Dora");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, CURRENT_TIMESTAMP)",
+                est, asignado, paralelo);
+        jdbc.update("INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, resultado_autorizacion, tipo_ingreso) "
+                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', 'NORMAL')", asignado, paralelo, est, reemplazo);
+        sincronizar();
+
+        // Reportes: solo los intentos de sus exámenes.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, ctrl).contenido()).extracting(f -> f.idExamen()).containsOnly(asignado);
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null).contenido()).extracting(f -> f.idExamen()).contains(asignado, ajeno);
+        // Notificaciones: solo las de sus exámenes asignados.
+        assertThat(notificacionRepository.deDocente(ctrl, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getIdExamen()).containsOnly(asignado);
+        assertThat(notificacionRepository.deDocente(ctrl, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getTipo()).contains("FOTO_REPORTADA");
+        assertThat(notificacionRepository.deDocente(idDocente, 0, org.springframework.data.domain.PageRequest.of(0, 50)))
+                .extracting(n -> n.getTipo()).contains("FOTO_REPORTADA");
+        // El ingreso que registró un control no asignado queda marcado como reemplazo.
+        assertThat(controlIngresoService.consultarRegistrosExamen(asignado)).singleElement().satisfies(r -> assertThat(r.reemplazo()).isTrue());
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("carla.control@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        // Foto reportada en su examen: el control asignado la revisa; el reemplazo (no asignado), no.
+        int fotoAsignado = estudiante("209800002", "Eli");
+        int fotoAjeno = estudiante("209800003", "Fito");
+        String reportar = "INSERT INTO reporte_foto (id_estudiante, id_usuario, id_examen, motivo) VALUES (?, ?, ?, 'NO_SE_PARECE')";
+        jdbc.update(reportar, fotoAsignado, reemplazo, asignado);
+        jdbc.update(reportar, fotoAjeno, ctrl, ajeno);
+        sincronizar();
+        assertThat(reporteFotosService.listar(null, ctrl)).extracting(f -> f.idEstudiante()).containsExactly(fotoAsignado);
+        assertThat(reporteFotosService.listar(null, null)).extracting(f -> f.idEstudiante()).contains(fotoAsignado, fotoAjeno);
+        assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("PENDIENTE");
+            assertThat(f.reportadoPor()).isEqualTo("Rene Reemplazo");
+            assertThat(f.examen()).isEqualTo("Materia TST-V53");
+        });
+        var sesionCtrl = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("carla.control@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        var sesionReemplazo = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("rene.reemplazo@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isTrue();
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAjeno, sesionCtrl)).isFalse();
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionReemplazo)).isFalse();
+        estudianteFotoService.descartarReporte(fotoAsignado);
+        sincronizar();
+        assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("DESCARTADO");
+            assertThat(f.resueltoEn()).isNotNull();
+        });
+        assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isFalse();
+
+        try {
+            assertThat(examenService.listarMios()).extracting(e -> e.idExamen()).containsOnly(asignado);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

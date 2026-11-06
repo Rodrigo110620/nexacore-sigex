@@ -60,6 +60,12 @@ export async function listarExamenes(): Promise<ExamenDto[]> {
   return data
 }
 
+/** Exámenes para Reportes: el ADMIN, todos; el DOCENTE, los suyos; el CONTROL, en los que está asignado. */
+export async function listarMisExamenes(): Promise<ExamenDto[]> {
+  const { data } = await api.get<ExamenDto[]>('/examenes/mios')
+  return data
+}
+
 export async function crearExamen(payload: CrearExamenPayload): Promise<ExamenDto> {
   const { data } = await api.post<ExamenDto>('/examenes', payload)
   return data

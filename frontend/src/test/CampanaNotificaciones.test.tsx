@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,14 @@ import CampanaNotificaciones from '../components/notificaciones/CampanaNotificac
 import AvisoFotoReportada from '../components/estudiantes/AvisoFotoReportada'
 import * as service from '../services/notificacionService'
 import type { Notificacion } from '../services/notificacionService'
+
+const reporteFoto = vi.hoisted(() => ({ idExamen: 6, examen: 'Base de Datos I', motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz',
+  reportadoEn: '2026-11-06T15:53:07', fotoNuevaUrl: null, puedeRevisar: false }))
+vi.mock('../services/fotoRevisionService', async (original) => ({
+  ...(await original<typeof import('../services/fotoRevisionService')>()),
+  obtenerRevisionReporte: vi.fn().mockResolvedValue(reporteFoto),
+}))
+vi.mock('../services/estudianteService', () => ({ descargarFotoEstudiante: vi.fn().mockRejectedValue(new Error('sin foto en la prueba')) }))
 
 vi.mock('../services/notificacionService', async (original) => ({
   ...(await original<typeof import('../services/notificacionService')>()),
@@ -139,5 +147,27 @@ describe('AvisoFotoReportada', () => {
     expect(aviso).toHaveTextContent('Foto reportada · pendiente de revisión del admin')
     expect(aviso).toHaveTextContent('La persona no se parece a la foto: Tiene barba')
     expect(aviso).toHaveTextContent('por Carla Méndez')
+  })
+
+  // El DOCENTE y el CONTROL no revisan fotos: el aviso les abre la foto y el reporte, con el enlace al control.
+  it.each([['DOCENTE'], ['CONTROL']])('%s abre la foto reportada en una ventana', async (rol) => {
+    vi.mocked(service.listarNotificaciones).mockResolvedValue([notificacion(4, {
+      tipo: 'FOTO_REPORTADA', titulo: 'Foto reportada: Ana Rojas (202100001)', detalle: 'No se parece · Cálculo I · Reportada por Luis Paz',
+      idExamen: 6, idEstudiante: 3, enlace: '/dashboard/estudiantes/fotos',
+    })])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(flujoSse().respuesta))
+    const user = userEvent.setup()
+
+    render(<MemoryRouter><CampanaNotificaciones roles={[rol]} /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }))
+    await user.click(screen.getByRole('button', { name: (nombre) => nombre.includes('Foto reportada: Ana Rojas') && !nombre.startsWith('Quitar') }))
+
+    const ventana = screen.getByRole('dialog', { name: 'Foto reportada' })
+    expect(await within(ventana).findByText(/: Tiene barba en la foto$/)).toBeInTheDocument()
+    expect(within(ventana).getByText('Luis Paz')).toBeInTheDocument()
+    expect(within(ventana).getByRole('link', { name: /Ir al control del examen/ })).toHaveAttribute('href', '/dashboard/control/6')
+    expect(service.marcarNotificacionLeida).toHaveBeenCalledWith(4)
+    await user.click(within(ventana).getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

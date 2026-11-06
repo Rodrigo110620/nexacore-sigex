@@ -136,8 +136,11 @@ class NotificacionEnVivoTests {
         mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("ADMIN")))
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].titulo").value("Ingreso manual: Beto"));
-        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("CONTROL")))
+        // Otro usuario que ve todas (V53: ya no el CONTROL, que solo ve las de sus exámenes asignados).
+        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("ADMIN")))
                 .andExpect(jsonPath("$.length()").value(2));
+        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("CONTROL")))
+                .andExpect(jsonPath("$.length()").value(0));
 
         // Limpiar todas: la lista queda vacía, pero las nuevas siguen llegando.
         mockMvc.perform(delete("/notificaciones").with(user(ADMIN).roles("ADMIN")))
@@ -148,8 +151,8 @@ class NotificacionEnVivoTests {
         mockMvc.perform(get("/notificaciones").with(user(ADMIN).roles("ADMIN")))
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].titulo").value("Excepción: Carla"));
-        // El control no limpió nada: sigue viendo las tres.
-        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("CONTROL")))
+        // El otro no limpió nada: sigue viendo las tres.
+        mockMvc.perform(get("/notificaciones").with(user(CONTROL).roles("ADMIN")))
                 .andExpect(jsonPath("$.length()").value(3));
     }
 

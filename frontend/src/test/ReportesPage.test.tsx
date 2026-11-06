@@ -3,13 +3,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportesPage from '../pages/panel_admin/ReportesPage'
-import { listarExamenes, type ExamenDto } from '../services/examenService'
+import { listarExamenes, listarMisExamenes, type ExamenDto } from '../services/examenService'
 import { reporteIntentos, type IntentoReporte } from '../services/intentoIngresoService'
 
 vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null }))
 vi.mock('../hooks/useEnVivo', () => ({ default: () => undefined }))
-vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn() }))
+vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn(), listarMisExamenes: vi.fn() }))
+const sesion = vi.hoisted(() => ({ roles: ['ADMIN'] as string[] }))
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: sesion.roles, isAuthenticated: true }) }))
 vi.mock('../services/intentoIngresoService', () => ({ reporteIntentos: vi.fn() }))
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn().mockResolvedValue([]) }))
 vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Expulsiones del examen {idExamen}</p> }))
@@ -85,5 +87,22 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     expect(screen.getByText('Expulsiones del examen 21')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Excepciones' }))
     expect(screen.getByText('Excepciones del examen 21')).toBeInTheDocument()
+  })
+
+  // V53: el DOCENTE y el CONTROL ven solo sus exámenes (los suyos o donde están asignados).
+  it('el docente y el control eligen solo entre sus exámenes', async () => {
+    sesion.roles = ['CONTROL']
+    try {
+      vi.mocked(listarExamenes).mockClear()
+      vi.mocked(listarMisExamenes).mockResolvedValue([])
+      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+      render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+      expect(await screen.findByText(/Aún no tienes exámenes: aquí aparecen los tuyos/)).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Todos mis exámenes' })).toBeInTheDocument()
+      expect(listarMisExamenes).toHaveBeenCalled()
+      expect(listarExamenes).not.toHaveBeenCalled()
+    } finally {
+      sesion.roles = ['ADMIN']
+    }
   })
 })

@@ -131,9 +131,10 @@ public class IdentificacionService {
         verificarExamen(idExamen);
         ResumenEstudiantesResponse r = estudianteRepository.resumirAsignadosAlExamen(idExamen);
         java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
-        long incidencias = estudianteRepository.contarIncidencias(idExamen,
-                cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre);
-        return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias);
+        java.time.LocalDateTime desde = cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre;
+        long incidencias = estudianteRepository.contarIncidencias(idExamen, desde);
+        return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias,
+                estudianteRepository.contarExpulsados(idExamen, desde), estudianteRepository.contarTrasladados(idExamen, desde));
     }
 
     private void verificarExamen(Integer idExamen) {

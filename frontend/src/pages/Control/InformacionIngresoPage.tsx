@@ -399,6 +399,7 @@ export default function InformacionIngresoPage() {
                     </p>
                     <p className="mt-1 text-xs md:text-sm leading-5 text-[#0439D9]">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${registro.tipoIngreso === 'MANUAL' ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}><ShieldCheck size={13} aria-hidden="true" />{registro.tipoIngreso === 'MANUAL' ? 'Autorizado · Ingreso manual' : 'Autorizado · Ingreso normal'}</span>
+                      {registro.reemplazo && <span className="ml-1.5 inline-flex items-center rounded-full bg-[#FEF3C7] px-2.5 py-1 text-xs font-semibold text-[#B45309]" title="Lo registró un control no asignado a este examen">Reemplazo</span>}
                     </p>
                     <p className="mt-1 break-words text-[11px] md:text-xs leading-5 text-[#627A9B]">
                       {registro.codigoSis ??

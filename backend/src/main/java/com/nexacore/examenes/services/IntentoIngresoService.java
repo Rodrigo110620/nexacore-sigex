@@ -155,6 +155,13 @@ public class IntentoIngresoService {
     @Transactional(readOnly = true)
     public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
             Integer idExamen, int page, int size) {
+        return reporte(idExamen, page, size, null);
+    }
+
+    /** Con {@code soloDe} (un usuario) cuenta solo los exámenes suyos como docente o como personal de control. */
+    @Transactional(readOnly = true)
+    public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
+            Integer idExamen, int page, int size, Integer soloDe) {
         if (page < 0) throw new IllegalArgumentException("La página no puede ser negativa");
         if (size < 1 || size > MAX_TAMANO_REPORTE) {
             throw new IllegalArgumentException("El tamaño de página debe estar entre 1 y " + MAX_TAMANO_REPORTE);
@@ -166,7 +173,7 @@ public class IntentoIngresoService {
             }
             desde = sesionExamenService.ultimoCierre(idExamen);
         }
-        var pagina = intentoRepository.reporte(idExamen, desde, org.springframework.data.domain.PageRequest.of(page, size));
+        var pagina = intentoRepository.reporte(idExamen, desde, soloDe, org.springframework.data.domain.PageRequest.of(page, size));
         return com.nexacore.examenes.dto.PageResponse.de(pagina.map(this::filaReporte));
     }
 

@@ -40,6 +40,7 @@ import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenM
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import PersonalControlSeccion from '../../components/examenes/PersonalControlSeccion'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -367,6 +368,9 @@ export default function ExamenDetallePage() {
                       />
                     </dl>
                   </section>
+
+                  {/* V53: quién controla el ingreso; el docente lo ve y, como el ADMIN, lo asigna. */}
+                  <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado} />
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">

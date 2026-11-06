@@ -21,7 +21,9 @@ class ReprogramarAccesoTests {
 
     private final ExamenRepository examenes = mock(ExamenRepository.class);
     private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
-    private final ExamenAccesoService acceso = new ExamenAccesoService(examenes, usuarios);
+    private final com.nexacore.examenes.repositories.ExamenControlRepository asignados =
+            mock(com.nexacore.examenes.repositories.ExamenControlRepository.class);
+    private final ExamenAccesoService acceso = new ExamenAccesoService(examenes, usuarios, asignados);
 
     private static Authentication sesion(String email, String... roles) {
         return new UsernamePasswordAuthenticationToken(email, null, java.util.Arrays.stream(roles).map(rol -> new SimpleGrantedAuthority("ROLE_" + rol)).toList());
@@ -113,5 +115,21 @@ class ReprogramarAccesoTests {
         assertThat(acceso.puedeReasignar(3, sesion("propio@umss.edu", "DOCENTE", "CONTROL"))).isTrue();
         assertThat(acceso.puedeReasignar(3, sesion("ajeno@umss.edu", "DOCENTE", "CONTROL"))).isFalse();
         assertThat(acceso.puedeReasignar(3, sesion("control@umss.edu", "CONTROL"))).isFalse();
+    }
+
+    // V53: "sus" exámenes (reportes y notificaciones) son los suyos como docente o los asignados como control.
+    @Test
+    void susExamenesSonLosDeDocenteOLosAsignadosComoControl() {
+        var control = new com.nexacore.examenes.models.Usuario();
+        control.setId(30);
+        org.mockito.Mockito.when(usuarios.findByEmail("ctrl@umss.edu")).thenReturn(java.util.Optional.of(control));
+        org.mockito.Mockito.when(asignados.estaAsignado(5, 30)).thenReturn(true);
+        Authentication sesion = sesion("ctrl@umss.edu", "CONTROL");
+
+        org.assertj.core.api.Assertions.assertThat(acceso.esMio(5, sesion)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(acceso.esMio(6, sesion)).isFalse();
+        // Puede controlar cualquier examen (reemplazo), aunque no sea suyo.
+        org.assertj.core.api.Assertions.assertThat(acceso.puedeControlar(6, sesion)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(acceso.veTodosLosReportes(sesion)).isFalse();
     }
 }

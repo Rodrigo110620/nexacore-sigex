@@ -62,8 +62,7 @@ class RolesYPermisosTests {
                 "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "HABILITACION_GESTIONAR_PROPIOS",
                 "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
         assertThat(Permisos.deRoles(List.of("CONTROL"))).containsExactlyInAnyOrder(
-                "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR",
-                "NOTIFICACIONES_TODAS");
+                "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
         assertThat(Set.of(Permiso.values())).allSatisfy(p ->
                 assertThat(p.soloAdmin()).isEqualTo(p == Permiso.USUARIOS_GESTIONAR || p == Permiso.ROLES_GESTIONAR));
     }

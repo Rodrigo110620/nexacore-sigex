@@ -57,6 +57,47 @@ export async function reportarFoto(
   await api.post(`/estudiantes/${idEstudiante}/foto/reportes`, payload)
 }
 
+/** El reporte abierto para revisarlo desde el aviso o desde Reportes (GET /estudiantes/{id}/foto/reporte/revision). */
+export interface RevisionReporteFoto {
+  idExamen: number | null
+  examen: string | null
+  motivo: string
+  detalle: string | null
+  reportadoPor: string | null
+  reportadoEn: string
+  /** Ruta de la foto nueva del estudiante; null si aún no la envió. */
+  fotoNuevaUrl: string | null
+  /** El ADMIN, o el DOCENTE y el CONTROL si el reporte es de uno de sus exámenes. */
+  puedeRevisar: boolean
+}
+
+/** null si la foto ya no tiene un reporte abierto. */
+export async function obtenerRevisionReporte(idEstudiante: number): Promise<RevisionReporteFoto | null> {
+  const { data } = await api.get<RevisionReporteFoto | ''>(`/estudiantes/${idEstudiante}/foto/reporte/revision`)
+  return data || null
+}
+
+/** Una fila de Reportes → Fotos reportadas. */
+export interface FilaFotoReportada {
+  idReporte: number
+  idExamen: number | null
+  examen: string | null
+  idEstudiante: number
+  estudiante: string
+  codigoSis: string | null
+  motivo: string
+  detalle: string | null
+  reportadoPor: string | null
+  reportadoEn: string
+  estado: 'PENDIENTE' | 'APROBADA' | 'DESCARTADO' | string
+  resueltoEn: string | null
+}
+
+export async function listarFotosReportadas(idExamen?: number | null): Promise<FilaFotoReportada[]> {
+  const { data } = await api.get<FilaFotoReportada[]>('/reportes/fotos', { params: idExamen ? { idExamen } : undefined })
+  return data
+}
+
 export async function listarRevisionFotos(): Promise<SolicitudRevisionFoto[]> {
   const { data } = await api.get<SolicitudRevisionFoto[]>('/estudiantes/fotos-pendientes')
   return data

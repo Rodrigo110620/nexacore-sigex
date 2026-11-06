@@ -282,9 +282,9 @@ class ReporteFotoFlujoTests {
                 .andExpect(jsonPath("$[0].titulo").value("Foto reportada: Luis Fernández Quiroga (" + SIS + ")"))
                 .andExpect(jsonPath("$[0].idEstudiante").value(idEstudiante))
                 .andExpect(jsonPath("$[0].leida").value(false));
-        // Quien reportó no tiene su propio aviso pendiente.
+        // V53: el CONTROL solo recibe los avisos de sus exámenes asignados; este reporte no es de un examen.
         mockMvc.perform(get("/notificaciones").with(control()))
-                .andExpect(jsonPath("$[0].leida").value(true));
+                .andExpect(jsonPath("$.length()").value(0));
 
         String id = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(get("/notificaciones").with(admin()))
                 .andReturn().getResponse().getContentAsString(), "$[0].id").toString();

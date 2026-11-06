@@ -23,10 +23,14 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
             """)
     List<Notificacion> visibles(@Param("idUsuario") Integer idUsuario, @Param("desde") Integer desde, Pageable pagina);
 
-    /** Para un DOCENTE: solo las de sus exámenes, sin las que limpió. */
+    /**
+     * Sin NOTIFICACIONES_TODAS: solo las de sus exámenes (como docente o como personal de control asignado,
+     * V53), sin las que limpió.
+     */
     @Query("""
             SELECT n FROM Notificacion n
-            WHERE n.idExamen IN (SELECT e.id.idExamen FROM Examen e WHERE e.idDocente = :idDocente)
+            WHERE (n.idExamen IN (SELECT e.id.idExamen FROM Examen e WHERE e.idDocente = :idDocente)
+                   OR n.idExamen IN (SELECT c.id.idExamen FROM ExamenControl c WHERE c.id.idUsuario = :idDocente))
               AND n.id > :desde
               AND NOT EXISTS (SELECT 1 FROM NotificacionLeida l
                               WHERE l.id.idNotificacion = n.id AND l.id.idUsuario = :idDocente AND l.oculta = true)
