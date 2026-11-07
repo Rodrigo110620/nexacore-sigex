@@ -2,7 +2,8 @@ import api from './api'
 import { validarTextoLibre } from '../utils/textoLibreValidators'
 import { primerGarabato } from '../utils/palabras'
 
-export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 65 }
+// Sección 24 del diseño: de 10 a 200 caracteres.
+export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 200 }
 // Una frase en mayúsculas no distingue palabras de siglas: lista explícita ya reconocida por INCI-01.
 const SIGLAS_EXPULSION = new Set(['CI', 'SIS', 'QR', 'PDF', 'C'])
 
@@ -18,7 +19,7 @@ export function validarMotivoExpulsion(motivo: string): string | null {
   return garabato ? `El motivo contiene contenido no válido: ${garabato}` : null
 }
 
-/** Los 10–65 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
+/** Los 10–200 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
 export function normalizarMotivoExpulsion(motivo: string): string {
   const texto = motivo.trim().replace(/ +/g, ' ')
   const primeraLetra = texto.search(/\p{L}/u)
@@ -73,3 +74,7 @@ export async function anularExpulsion(idExamen: number, idExpulsion: number, mot
   const { data } = await api.post<ExpulsionResponse>(`/control-ingresos/examen/${idExamen}/expulsiones/${idExpulsion}/anular`, { motivo })
   return data
 }
+
+/** Sección 24: motivos frecuentes que el personal elige con un toque y luego puede completar. */
+export const MOTIVOS_FRECUENTES_EXPULSION = ['Uso de celular', 'Copia o plagio', 'Suplantación de identidad', 'Conducta inapropiada']
+

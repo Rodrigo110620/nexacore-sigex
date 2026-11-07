@@ -33,10 +33,10 @@ class ExpulsionValidacionesTests {
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(id, 20, REQUEST.motivo())).isEmpty());
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(10, id, REQUEST.motivo())).isEmpty());
             }
-            for (String motivo : new String[] {null, "", " \n\t ", "Copia ora", "ab".repeat(33)}) {
+            for (String motivo : new String[] {null, "", " \n\t ", "Copia ora", "ab".repeat(100) + "c"}) {
                 assertFalse(validator.validate(new ExpulsarEstudianteRequest(10, 20, motivo)).isEmpty());
             }
-            assertTrue(validator.validate(new ExpulsarEstudianteRequest(10, 20, "ab".repeat(32) + "c")).isEmpty());
+            assertTrue(validator.validate(new ExpulsarEstudianteRequest(10, 20, "ab".repeat(100))).isEmpty());
         }
     }
 
@@ -102,10 +102,12 @@ class ExpulsionValidacionesTests {
     }
 
     @Test
-    void admiteLosLimitesDiezYSesentaYCincoSinBloquearSiglas() {
+    void admiteLosLimitesDiezYDoscientosSinBloquearSiglas() {
         assertEquals("Copia oral", ExpulsionValidaciones.motivo("Copia oral"));
-        String limite = "Uso de celular durante el examen para copiar respuestas de física";
-        assertEquals(65, limite.length());
+        // Sección 24 del diseño: hasta 200 caracteres.
+        String limite = "Uso de celular durante el examen para copiar respuestas de física, consulta de apuntes escondidos "
+                + "en la mochila y conversación con otro estudiante sobre las preguntas del examen pese a la advertencia.";
+        assertEquals(200, limite.length());
         assertEquals(limite.toLowerCase().replaceFirst("u", "U"), ExpulsionValidaciones.motivo(limite));
         assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(limite + "s"));
         assertEquals("Uso de QR durante el examen", ExpulsionValidaciones.motivo("USO DE QR DURANTE EL EXAMEN"));

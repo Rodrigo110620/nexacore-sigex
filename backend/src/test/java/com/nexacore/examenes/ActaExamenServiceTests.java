@@ -191,7 +191,7 @@ class ActaExamenServiceTests {
         assertTrue(texto.contains("10:14:45"), texto);
         assertTrue(texto.contains("09:30:00"), texto);
 
-        // Ausente con "-"
+        // Ausente con "—"
         assertTrue(texto.contains("Ausente"), texto);
     }
 
@@ -211,13 +211,13 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // El estado del ausente aparece y su hora es "-"
+        // El estado del ausente aparece y su hora es "—"
         assertTrue(texto.contains("Ausente"), texto);
         assertFalse(texto.contains(LocalDate.now().toString()), texto);
     }
 
     @Test
-    void noHabilitadosNoSeMarcanComoAusentes() throws Exception {
+    void noHabilitadosNoFiguranEnElActaNiComoAusentes() throws Exception {
         mockExamenValido(examenFinalizado());
 
         var noHabilitado = estudiante(6, "20240006", "Ines", "NoHabilitada");
@@ -232,9 +232,10 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // El no habilitado muestra "No habilitado", no aparece como ausente
-        assertTrue(texto.contains("No habilitado"), texto);
-        assertFalse(texto.contains("Ausentes 1"), texto);
+        // Sección 12: el acta lista solo a los habilitados; el no habilitado no figura ni cuenta como ausente.
+        assertFalse(texto.contains("NoHabilitada"), texto);
+        assertTrue(texto.contains("Habilitados: 0"), texto);
+        assertTrue(texto.contains("Ausentes: 0"), texto);
     }
 
     @Test
@@ -255,7 +256,7 @@ class ActaExamenServiceTests {
 
         // El expulsado muestra "Expulsado", no "Asistió"
         assertTrue(texto.contains("Expulsado"), texto);
-        assertFalse(texto.contains("Asistidos 1"), texto);
+        assertTrue(texto.contains("Asistieron: 0"), texto);
     }
 
     @Test
@@ -278,7 +279,7 @@ class ActaExamenServiceTests {
 
         // Debe contar como Asistió, no como Expulsado
         assertTrue(texto.contains("Asist"), texto);
-        assertFalse(texto.contains("Expulsados 1"), texto);
+        assertFalse(texto.contains("Expulsados:"), texto);
     }
 
     @Test
@@ -330,7 +331,7 @@ class ActaExamenServiceTests {
     }
 
     @Test
-    void totalesAlPie() throws Exception {
+    void resumenYFormatoComoElDisenoA4() throws Exception {
         mockExamenValido(examenFinalizado());
 
         var asistido = estudiante(1, "20240001", "Ana", "Zapata");
@@ -359,9 +360,19 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        assertTrue(texto.contains("Asistidos 1"), texto);
-        assertTrue(texto.contains("Ausentes 1"), texto);
-        assertTrue(texto.contains("No habilitados 1"), texto);
-        assertTrue(texto.contains("Expulsados 1"), texto);
+        // Resumen antes de la tabla (el no habilitado no cuenta), columnas, firmas y pie de la sección 12.
+        assertTrue(texto.contains("Habilitados: 3"), texto);
+        assertTrue(texto.contains("Asistieron: 1"), texto);
+        assertTrue(texto.contains("Ausentes: 1"), texto);
+        assertTrue(texto.contains("Expulsados: 1"), texto);
+        assertTrue(texto.indexOf("Habilitados: 3") < texto.indexOf("Apellidos y nombres"), texto);
+        assertTrue(texto.contains("UNIVERSIDAD MAYOR DE SAN SIMÓN"), texto);
+        assertTrue(texto.contains("N.° 2026-FI-0020"), texto);
+        assertTrue(texto.contains("Hora de ingreso"), texto);
+        assertFalse(texto.contains("Observación"), texto);
+        assertTrue(texto.contains("Firma del docente"), texto);
+        assertTrue(texto.contains("Firma del responsable de control"), texto);
+        assertTrue(texto.contains("Generada por SIGEX el"), texto);
+        assertTrue(texto.contains("Página 1 de 1"), texto);
     }
 }

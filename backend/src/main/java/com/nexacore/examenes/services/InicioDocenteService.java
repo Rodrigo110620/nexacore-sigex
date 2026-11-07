@@ -49,24 +49,19 @@ public class InicioDocenteService {
         jdbc.query("SELECT id_materia, nombre_grupo FROM paralelo WHERE id_docente = :yo ORDER BY nombre_grupo", p,
                 rs -> { grupos.computeIfAbsent(rs.getInt(1), k -> new ArrayList<>()).add(rs.getString(2)); });
 
+        Map<Integer, Integer> asistencia = asistenciaRealizados(p, ahora);
         List<InicioDocenteResponse.Materia> materias = jdbc.query("""
                 SELECT m.id_materia, m.sigla, m.nombre,
                        (SELECT COUNT(DISTINCT i.id_estudiante) FROM inscripcion_paralelo i
-                         WHERE i.id_docente = :yo AND i.id_materia = m.id_materia AND LOWER(i.estado) = 'inscrito'),
-                       (SELECT CASE WHEN SUM(CASE WHEN a.habilitado THEN 1 ELSE 0 END) = 0 THEN NULL
-                               ELSE ROUND(100.0 * SUM(CASE WHEN a.habilitado AND a.fecha_hora_ingreso IS NOT NULL THEN 1 ELSE 0 END)
-                                          / SUM(CASE WHEN a.habilitado THEN 1 ELSE 0 END)) END
-                          FROM asistencia_examen a JOIN examen x ON x.id_examen = a.id_examen AND x.id_paralelo = a.id_paralelo
-                         WHERE x.id_docente = :yo AND x.id_materia = m.id_materia AND x.fecha <= :hoy AND LOWER(x.estado) <> 'cancelado')
+                         WHERE i.id_docente = :yo AND i.id_materia = m.id_materia AND LOWER(i.estado) = 'inscrito')
                 FROM docente_materia dm JOIN materia m ON m.id_materia = dm.id_materia
                 WHERE dm.id_docente = :yo
                 ORDER BY m.nombre
                 """, p, (rs, i) -> {
             int idMateria = rs.getInt(1);
-            Number asistencia = (Number) rs.getObject(5);
             return new InicioDocenteResponse.Materia(idMateria, rs.getString(2), rs.getString(3),
                     grupos.getOrDefault(idMateria, List.of()), rs.getInt(4), proximoExamen(p, idMateria, ahora),
-                    asistencia == null ? null : asistencia.intValue());
+                    asistencia.get(idMateria));
         });
 
         int estudiantes = contar("SELECT COUNT(DISTINCT id_estudiante) FROM inscripcion_paralelo WHERE id_docente = :yo AND LOWER(estado) = 'inscrito'", p);
@@ -117,6 +112,31 @@ public class InicioDocenteService {
         int totalGrupos = grupos.values().stream().mapToInt(List::size).sum();
         return new InicioDocenteResponse(ahora, materias, totalGrupos, estudiantes, expulsionesHoy, ingresosPorHora,
                 expulsionesPorHora, recientes);
+    }
+
+    /**
+     * % de asistencia por materia de sus exámenes ya terminados (ingresaron / habilitados); el examen en curso no
+     * cuenta hasta que termina. La hora de fin se calcula aquí para no depender de la aritmética de fechas de cada BD.
+     */
+    private Map<Integer, Integer> asistenciaRealizados(MapSqlParameterSource p, LocalDateTime ahora) {
+        Map<Integer, int[]> cuentas = new LinkedHashMap<>();
+        jdbc.query("""
+                SELECT x.id_materia, x.fecha, x.hora_inicio, x.duracion_minutos,
+                       SUM(CASE WHEN a.habilitado THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN a.habilitado AND a.fecha_hora_ingreso IS NOT NULL THEN 1 ELSE 0 END)
+                FROM asistencia_examen a JOIN examen x ON x.id_examen = a.id_examen AND x.id_paralelo = a.id_paralelo
+                WHERE x.id_docente = :yo AND x.fecha <= :hoy AND LOWER(x.estado) <> 'cancelado'
+                GROUP BY x.id_examen, x.id_paralelo, x.id_materia, x.fecha, x.hora_inicio, x.duracion_minutos
+                """, p, rs -> {
+            LocalDateTime fin = rs.getDate(2).toLocalDate().atTime(rs.getTime(3).toLocalTime()).plusMinutes(rs.getInt(4));
+            if (fin.isAfter(ahora)) return;
+            int[] c = cuentas.computeIfAbsent(rs.getInt(1), k -> new int[2]);
+            c[0] += rs.getInt(5);
+            c[1] += rs.getInt(6);
+        });
+        Map<Integer, Integer> pct = new LinkedHashMap<>();
+        cuentas.forEach((materia, c) -> { if (c[0] > 0) pct.put(materia, (int) Math.round(100.0 * c[1] / c[0])); });
+        return pct;
     }
 
     /** El próximo examen de la materia que aún no terminó (de hoy en adelante). */

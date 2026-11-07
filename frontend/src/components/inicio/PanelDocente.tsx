@@ -36,7 +36,7 @@ export function BannerDocente({ nombre, fecha, horaActual, saludo, materias, exa
             <EnVivo oscuro texto={`En vivo · ${horaActual}`} />
           </div>
         </div>
-        {habilitados > 0 && (
+        {examenesHoy > 0 && (
           <div className="flex items-center gap-5">
             <Anillo tam={124} grosor={12} pista="#FFFFFF" pistaOpacidad={0.18} etiqueta={`Ingresó hoy el ${formatoPct(pct)} de tus habilitados`}
               partes={[{ valor: ingresados, desde: '#6EE7B7', hasta: '#FFFFFF' }, { valor: faltan, desde: 'transparent', hasta: 'transparent' }]}>

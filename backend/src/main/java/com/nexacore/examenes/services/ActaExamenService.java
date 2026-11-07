@@ -9,8 +9,11 @@ import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPageEventHelper;
+import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.Ambiente;
@@ -62,6 +65,10 @@ public class ActaExamenService {
 
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter HORA_CORTA = DateTimeFormatter.ofPattern("HH:mm");
+    private static final String SIN_HORA = "—";
+    /** Alto reservado al pie de la última hoja para las firmas (sección 12: firmas abajo, sobre el pie). */
+    private static final float ALTO_FIRMAS = 70;
 
     private final AsistenciaExamenRepository asistenciaRepository;
     private final ExamenRepository examenRepository;
@@ -95,8 +102,8 @@ public class ActaExamenService {
     record FilaActa(
             String codigoSis,
             String nombreCompleto,
-            String estado,      // Asistió / Ausente / No habilitado / Expulsado
-            String hora,        // HH:MM:SS o "-"
+            String estado,      // Asistió / Ausente / Expulsado
+            String hora,        // HH:MM:SS o "—"
             String observacion  // Trasladado desde [aula] o null
     ) {}
 
@@ -107,7 +114,8 @@ public class ActaExamenService {
             String docente,
             String fecha,
             String horario,
-            String aulas
+            String aulas,
+            String numero      // N.° del acta: <año>-FI-<examen con 4 cifras>
     ) {}
 
     /** Para el nombre del archivo, el mismo formato que el Excel; por campo para no cambiar el constructor. */
@@ -140,16 +148,13 @@ public class ActaExamenService {
         LocalDateTime desdeSiempre = ExpulsionRepository.DESDE_SIEMPRE;
 
         List<FilaActa> filas = new ArrayList<>();
-        int asistidos = 0, ausentes = 0, noHabilitados = 0, expulsados = 0;
+        int asistidos = 0, ausentes = 0, expulsados = 0;
 
         for (AsistenciaExamen a : asistencias) {
             Estudiante e = a.getEstudiante();
 
-            // No habilitado: no tiene derecho a rendir, no es "Ausente".
+            // Sección 12 del diseño: el acta lista solo a los habilitados; el no habilitado no rinde ni es "Ausente".
             if (!Boolean.TRUE.equals(a.getHabilitado())) {
-                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
-                        "No habilitado", "-", null));
-                noHabilitados++;
                 continue;
             }
 
@@ -179,8 +184,8 @@ public class ActaExamenService {
 
             if (expulsado) {
                 // Expulsión vigente (no anulada): cuenta como expulsado.
-                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
-                        "Expulsado", "-", observacion));
+                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), "Expulsado",
+                        a.getFechaHoraIngreso() == null ? SIN_HORA : a.getFechaHoraIngreso().format(HORA), observacion));
                 expulsados++;
                 continue;
             }
@@ -191,7 +196,7 @@ public class ActaExamenService {
                 asistidos++;
             } else {
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
-                        "Ausente", "-", observacion));
+                        "Ausente", SIN_HORA, observacion));
                 ausentes++;
             }
         }
@@ -201,19 +206,25 @@ public class ActaExamenService {
 
         DatosExamen datos = datosExamen(examen);
 
+        LocalDateTime generada = Objects.requireNonNullElseGet(asistenciaRepository.obtenerFechaHoraServidor(), LocalDateTime::now);
         var out = new ByteArrayOutputStream();
-        var document = new Document(PageSize.A4, 54, 54, 72, 72);
+        var document = new Document(PageSize.A4, 36, 36, 36, 48);
         try {
-            PdfWriter.getInstance(document, out);
-            document.open();
-
             BaseFont base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             BaseFont negrita = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            PdfWriter writer = PdfWriter.getInstance(document, out);
+            writer.setPageEvent(new PieDePagina(base, generada));
+            document.open();
 
             document.add(encabezado(base, negrita, datos));
+            document.add(datosDelExamen(base, negrita, datos, generada));
+            document.add(resumen(filas.size(), asistidos, ausentes, expulsados, base, negrita));
             document.add(tabla(filas, base, negrita));
-            document.add(totales(asistidos, ausentes, noHabilitados, expulsados, base, negrita));
-            document.add(firmas(base, negrita));
+            // Las firmas van al pie de la última hoja; si la tabla ya ocupa ese espacio, pasan a una hoja nueva.
+            if (writer.getVerticalPosition(true) - document.bottom() < ALTO_FIRMAS) {
+                document.newPage();
+            }
+            firmas(writer.getDirectContent(), document, base);
 
             document.close();
         } catch (IOException ex) {
@@ -255,46 +266,110 @@ public class ActaExamenService {
                 docenteNombre,
                 examen.getFecha().format(FECHA),
                 horario,
-                String.join(", ", aulas));
+                String.join(", ", aulas),
+                "%d-FI-%04d".formatted(examen.getFecha().getYear(), examen.getId().getIdExamen()));
     }
 
+    /** Sección 12: logo e institución a la izquierda; "ACTA DE ASISTENCIA" y su N.° a la derecha; una línea abajo. */
     private PdfPTable encabezado(BaseFont base, BaseFont negrita, DatosExamen datos) throws IOException {
-        var tabla = new PdfPTable(new float[]{1, 3});
+        var tabla = new PdfPTable(new float[]{0.9f, 4.6f, 3});
         tabla.setWidthPercentage(100);
-        tabla.setSpacingAfter(14);
 
         try (InputStream logo = new ClassPathResource("planilla/logo.png").getInputStream()) {
             Image imagen = Image.getInstance(logo.readAllBytes());
-            imagen.scaleToFit(110, 32);
+            imagen.scaleToFit(48, 48);
             var celda = new PdfPCell(imagen, false);
-            celda.setBorder(Rectangle.NO_BORDER);
-            celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            sinBorde(celda);
             tabla.addCell(celda);
         }
 
-        var info = new Paragraph();
-        info.add(new Phrase("ACTA DE ASISTENCIA\n", new Font(negrita, 16, Font.NORMAL, TINTA)));
-        info.add(new Phrase(
-                "Materia: " + datos.asignatura() + " (" + datos.sigla() + ")  ·  Docente: " + datos.docente() + "\n",
-                new Font(base, 9, Font.NORMAL, SUAVE)));
-        info.add(new Phrase(
-                "Fecha: " + datos.fecha() + "  ·  Horario: " + datos.horario() + "  ·  Aula(s): " + datos.aulas(),
-                new Font(base, 9, Font.NORMAL, SUAVE)));
-        var celda = new PdfPCell(info);
-        celda.setBorder(Rectangle.NO_BORDER);
-        celda.setHorizontalAlignment(Element.ALIGN_LEFT);
-        celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        tabla.addCell(celda);
+        var institucion = new Paragraph();
+        institucion.setLeading(13);
+        institucion.add(new Phrase("UNIVERSIDAD MAYOR DE SAN SIMÓN\n", new Font(negrita, 9, Font.NORMAL, TINTA)));
+        institucion.add(new Phrase("Facultad de Ciencias y Tecnología", new Font(base, 8, Font.NORMAL, SUAVE)));
+        var celdaInstitucion = new PdfPCell(institucion);
+        sinBorde(celdaInstitucion);
+        tabla.addCell(celdaInstitucion);
+
+        var titulo = new Paragraph();
+        titulo.setLeading(17);
+        titulo.setAlignment(Element.ALIGN_RIGHT);
+        titulo.add(new Phrase("ACTA DE ASISTENCIA\n", new Font(negrita, 14, Font.NORMAL, PRIMARIO)));
+        titulo.add(new Phrase("N.° " + datos.numero(), new Font(base, 8, Font.NORMAL, SUAVE)));
+        var celdaTitulo = new PdfPCell(titulo);
+        sinBorde(celdaTitulo);
+        celdaTitulo.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        tabla.addCell(celdaTitulo);
+
+        var linea = new PdfPCell(new Phrase(" ", new Font(base, 2)));
+        linea.setColspan(3);
+        linea.setBorder(Rectangle.BOTTOM);
+        linea.setBorderColor(BORDE);
+        linea.setBorderWidth(0.75f);
+        linea.setFixedHeight(10);
+        tabla.addCell(linea);
+        return tabla;
+    }
+
+    /** Sección 12: los datos del examen en dos columnas (Materia, Docente, Aula · Fecha, Horario, Generada). */
+    private PdfPTable datosDelExamen(BaseFont base, BaseFont negrita, DatosExamen datos, LocalDateTime generada) {
+        var tabla = new PdfPTable(new float[]{1, 1});
+        tabla.setWidthPercentage(100);
+        tabla.setSpacingBefore(10);
+        tabla.addCell(columnaDeDatos(base, negrita,
+                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")", "Docente:", datos.docente(), "Aula:", datos.aulas())));
+        tabla.addCell(columnaDeDatos(base, negrita,
+                List.of("Fecha:", datos.fecha(), "Horario:", datos.horario(), "Generada:", generada.format(FECHA) + " " + generada.format(HORA))));
+        return tabla;
+    }
+
+    private static PdfPCell columnaDeDatos(BaseFont base, BaseFont negrita, List<String> pares) {
+        var p = new Paragraph();
+        p.setLeading(15);
+        for (int i = 0; i < pares.size(); i += 2) {
+            p.add(new Phrase(pares.get(i) + " ", new Font(negrita, 8.5f, Font.NORMAL, TINTA)));
+            p.add(new Phrase(pares.get(i + 1) + (i + 2 < pares.size() ? "\n" : ""), new Font(base, 8.5f, Font.NORMAL, TINTA)));
+        }
+        var celda = new PdfPCell(p);
+        sinBorde(celda);
+        return celda;
+    }
+
+    /** Sección 12: etiquetas con Habilitados, Asistieron y Ausentes (y Expulsados si los hay), antes de la tabla. */
+    private PdfPTable resumen(int habilitados, int asistidos, int ausentes, int expulsados, BaseFont base, BaseFont negrita) {
+        List<String> etiquetas = new ArrayList<>(List.of(
+                "Habilitados: " + habilitados, "Asistieron: " + asistidos, "Ausentes: " + ausentes));
+        if (expulsados > 0) etiquetas.add("Expulsados: " + expulsados);
+        float[] anchos = new float[etiquetas.size() + 1];
+        for (int i = 0; i < etiquetas.size(); i++) anchos[i] = 1;
+        anchos[etiquetas.size()] = 5 - etiquetas.size();
+        var tabla = new PdfPTable(anchos);
+        tabla.setWidthPercentage(100);
+        tabla.setSpacingBefore(10);
+        tabla.setSpacingAfter(12);
+        var fuente = new Font(negrita, 8.5f, Font.NORMAL, PRIMARIO);
+        for (String etiqueta : etiquetas) {
+            var celda = new PdfPCell(new Phrase(etiqueta, fuente));
+            celda.setBackgroundColor(new Color(0xED, 0xF2, 0xFE));
+            celda.setBorderColor(Color.WHITE);
+            celda.setBorderWidth(2);
+            celda.setPadding(5);
+            celda.setHorizontalAlignment(Element.ALIGN_CENTER);
+            tabla.addCell(celda);
+        }
+        var resto = new PdfPCell(new Phrase(" "));
+        sinBorde(resto);
+        tabla.addCell(resto);
         return tabla;
     }
 
     private PdfPTable tabla(List<FilaActa> filas, BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{0.5f, 1.2f, 2.6f, 1.4f, 1.3f, 2.2f});
+        var tabla = new PdfPTable(new float[]{0.5f, 1.4f, 5.1f, 1.2f, 1.5f});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
 
         var fuenteEncabezado = new Font(negrita, 8, Font.NORMAL, Color.WHITE);
-        for (String columna : List.of("Nro", "Código SIS", "Apellidos y nombres", "Estado", "Hora ingreso", "Observación")) {
+        for (String columna : List.of("N.°", "Código SIS", "Apellidos y nombres", "Estado", "Hora de ingreso")) {
             var celda = celda(columna, fuenteEncabezado);
             celda.setBackgroundColor(PRIMARIO);
             celda.setBorderColor(PRIMARIO);
@@ -304,7 +379,7 @@ public class ActaExamenService {
         var fuente = new Font(base, 8, Font.NORMAL, TINTA);
         if (filas.isEmpty()) {
             var vacia = celda("Sin estudiantes registrados en este examen.", fuente);
-            vacia.setColspan(6);
+            vacia.setColspan(5);
             vacia.setHorizontalAlignment(Element.ALIGN_CENTER);
             vacia.setPadding(12);
             tabla.addCell(vacia);
@@ -314,13 +389,17 @@ public class ActaExamenService {
         int numero = 1;
         for (FilaActa f : filas) {
             Color fondo = numero % 2 == 0 ? FONDO : Color.WHITE;
+            // El traslado (INCI-03) va bajo el nombre, en gris: el diseño no tiene columna de observación.
+            var nombre = new Phrase(f.nombreCompleto(), fuente);
+            if (f.observacion() != null) nombre.add(new Phrase("\n" + f.observacion(), new Font(base, 7, Font.NORMAL, SUAVE)));
+            var celdaNombre = new PdfPCell(nombre);
+            estiloCelda(celdaNombre);
             List<PdfPCell> celdas = List.of(
                     celda(String.valueOf(numero), fuente),
                     celda(f.codigoSis(), fuente),
-                    celda(f.nombreCompleto(), fuente),
+                    celdaNombre,
                     celda(f.estado(), fuente),
-                    celda(f.hora(), fuente),
-                    celda(f.observacion() == null ? "—" : f.observacion(), fuente));
+                    celda(f.hora(), fuente));
             for (PdfPCell celda : celdas) {
                 celda.setBackgroundColor(fondo);
                 tabla.addCell(celda);
@@ -330,53 +409,84 @@ public class ActaExamenService {
         return tabla;
     }
 
-    private PdfPTable totales(int asistidos, int ausentes, int noHabilitados, int expulsados,
-                              BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{1});
-        tabla.setWidthPercentage(100);
-        tabla.setSpacingBefore(10);
+    /** Sección 12: las dos firmas al pie de la última hoja, sobre el pie de página. */
+    private static void firmas(PdfContentByte lienzo, Document document, BaseFont base) {
+        float y = document.bottom() + 24;
+        float ancho = (document.right() - document.left() - 40) / 2;
+        String[] textos = {"Firma del docente", "Firma del responsable de control"};
+        for (int i = 0; i < 2; i++) {
+            float x = document.left() + i * (ancho + 40);
+            lienzo.setColorStroke(TINTA);
+            lienzo.setLineWidth(0.6f);
+            lienzo.moveTo(x, y);
+            lienzo.lineTo(x + ancho, y);
+            lienzo.stroke();
+            lienzo.beginText();
+            lienzo.setFontAndSize(base, 8);
+            lienzo.setColorFill(SUAVE);
+            lienzo.showTextAligned(Element.ALIGN_CENTER, textos[i], x + ancho / 2, y - 11, 0);
+            lienzo.endText();
+        }
+    }
 
-        var texto = new Paragraph();
-        texto.add(new Phrase("Totales:  ", new Font(negrita, 9, Font.NORMAL, TINTA)));
-        texto.add(new Phrase("Asistidos " + asistidos + "   ", new Font(base, 9, Font.NORMAL, TINTA)));
-        texto.add(new Phrase("Ausentes " + ausentes + "   ", new Font(base, 9, Font.NORMAL, TINTA)));
-        texto.add(new Phrase("No habilitados " + noHabilitados + "   ", new Font(base, 9, Font.NORMAL, TINTA)));
-        texto.add(new Phrase("Expulsados " + expulsados, new Font(base, 9, Font.NORMAL, TINTA)));
-        var celda = new PdfPCell(texto);
+    /** Pie de cada hoja: "Generada por SIGEX el … a las …" y "Página N de M" (el total se escribe al cerrar). */
+    private static final class PieDePagina extends PdfPageEventHelper {
+        private final BaseFont base;
+        private final String texto;
+        private PdfTemplate total;
+
+        PieDePagina(BaseFont base, LocalDateTime generada) {
+            this.base = base;
+            this.texto = "Generada por SIGEX el " + generada.format(FECHA) + " a las " + generada.format(HORA_CORTA);
+        }
+
+        @Override
+        public void onOpenDocument(PdfWriter writer, Document document) {
+            total = writer.getDirectContent().createTemplate(30, 10);
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            PdfContentByte lienzo = writer.getDirectContent();
+            float y = document.bottom() - 22;
+            String pagina = "Página " + writer.getPageNumber() + " de ";
+            lienzo.beginText();
+            lienzo.setFontAndSize(base, 7);
+            lienzo.setColorFill(SUAVE);
+            lienzo.showTextAligned(Element.ALIGN_LEFT, texto, document.left(), y, 0);
+            float anchoPagina = base.getWidthPoint(pagina, 7);
+            lienzo.showTextAligned(Element.ALIGN_LEFT, pagina, document.right() - 30 - anchoPagina + 18, y, 0);
+            lienzo.endText();
+            lienzo.addTemplate(total, document.right() - 12, y);
+        }
+
+        @Override
+        public void onCloseDocument(PdfWriter writer, Document document) {
+            total.beginText();
+            total.setFontAndSize(base, 7);
+            total.setColorFill(SUAVE);
+            // Al cerrar, OpenPDF ya avanzó a una hoja más: el total es la anterior.
+            total.showText(String.valueOf(writer.getPageNumber() - 1));
+            total.endText();
+        }
+    }
+
+    private static void sinBorde(PdfPCell celda) {
         celda.setBorder(Rectangle.NO_BORDER);
-        tabla.addCell(celda);
-        return tabla;
+        celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
     }
 
-    private PdfPTable firmas(BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{1, 1});
-        tabla.setWidthPercentage(100);
-        tabla.setSpacingBefore(26);
-
-        var docente = new Paragraph();
-        docente.add(new Phrase("\n_______________________________\n", new Font(base, 9, Font.NORMAL, TINTA)));
-        docente.add(new Phrase("Docente responsable", new Font(negrita, 8, Font.NORMAL, SUAVE)));
-        var c1 = new PdfPCell(docente);
-        c1.setBorder(Rectangle.NO_BORDER);
-
-        var autoridad = new Paragraph();
-        autoridad.add(new Phrase("\n_______________________________\n", new Font(base, 9, Font.NORMAL, TINTA)));
-        autoridad.add(new Phrase("Autoridad académica", new Font(negrita, 8, Font.NORMAL, SUAVE)));
-        var c2 = new PdfPCell(autoridad);
-        c2.setBorder(Rectangle.NO_BORDER);
-
-        tabla.addCell(c1);
-        tabla.addCell(c2);
-        return tabla;
-    }
-
-    private static PdfPCell celda(String texto, Font fuente) {
-        var celda = new PdfPCell(new Phrase(texto, fuente));
+    private static void estiloCelda(PdfPCell celda) {
         celda.setPadding(4);
         celda.setPaddingBottom(6);
         celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
         celda.setBorderColor(BORDE);
         celda.setBorderWidth(0.5f);
+    }
+
+    private static PdfPCell celda(String texto, Font fuente) {
+        var celda = new PdfPCell(new Phrase(texto, fuente));
+        estiloCelda(celda);
         return celda;
     }
 }
