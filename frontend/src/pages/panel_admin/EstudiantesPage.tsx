@@ -154,9 +154,9 @@ export default function EstudiantesPage() {
             {soloSusEstudiantes && <GruposDocente elegido={grupo} onElegir={elegirGrupo} />}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
-              {/* Los filtros piden su ancho (46rem) y los botones bajan de fila si no entran: nada se encima ni se achica. */}
-              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end">
-                <div className="min-w-0 flex-1 min-[960px]:basis-[46rem]">
+              {/* Filtros y botones en una sola fila desde 1280 px; más angosto, los botones bajan para que nada se encime. */}
+              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end min-[1280px]:flex-nowrap">
+                <div className="min-w-0 flex-1 min-[960px]:basis-full min-[1280px]:basis-auto">
                   {soloSusEstudiantes ? (
                     <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
@@ -167,10 +167,10 @@ export default function EstudiantesPage() {
                       to="/dashboard/estudiantes/fotos"
                       aria-label="Revisión de fotos"
                       title="Revisión de fotos"
-                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none 2xl:px-4"
+                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none"
                     >
                       <ImageUp size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
-                      <span className="min-[960px]:hidden 2xl:inline">Revisión de fotos</span>
+                      <span className="min-[960px]:hidden">Revisión de fotos</span>
                       {fotosPorRevisar > 0 && (
                         <span aria-label={`${fotosPorRevisar} por revisar`} className="rounded-full bg-[#B45309] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                           {fotosPorRevisar}

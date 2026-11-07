@@ -78,7 +78,7 @@ export default function EstudianteFilters({ value, onChange, disabled = false, c
       <div
         className={compact
           ? 'flex min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-3'
-          : 'grid min-w-0 grid-cols-2 gap-2 sm:gap-3 min-[960px]:grid-cols-[minmax(16rem,1fr)_14rem_14rem]'}
+          : 'grid min-w-0 grid-cols-2 gap-2 sm:gap-3 min-[960px]:grid-cols-[minmax(9rem,1fr)_10rem_10rem] 2xl:grid-cols-[minmax(12rem,1fr)_11rem_11rem]'}
       >
         <div className={compact ? 'w-full min-w-0' : 'col-span-2 min-w-0 min-[960px]:col-span-1'}>
           <label htmlFor={searchId} className="sr-only">Buscar estudiantes</label>
