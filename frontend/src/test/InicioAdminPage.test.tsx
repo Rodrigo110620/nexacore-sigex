@@ -1,11 +1,11 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../context/AuthContext'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import InicioAdminPage from '../pages/Dashboard/InicioAdminPage'
 import { listarExamenes, type ExamenDto } from '../services/examenService'
-import { obtenerInicioAdmin, type InicioAdmin } from '../services/inicioService'
+import { obtenerIncidenciasHoy, obtenerInicioAdmin, type InicioAdmin } from '../services/inicioService'
 import { listarNotificaciones } from '../services/notificacionService'
 
 const examen = (idExamen: number, asignatura: string, horaInicio: string, fecha = '2026-11-03', estado = 'programado') =>
@@ -90,9 +90,20 @@ describe('InicioAdminPage', () => {
     for (const [titulo, valor] of [['Asociados hoy', '120'], ['Ingresaron', '82'], ['Por ingresar', '20'], ['Ausentes', '6'], ['Incidencias', '3']]) {
       expect(within(within(resumen).getByRole('article', { name: titulo })).getByText(valor)).toBeInTheDocument()
     }
-    // Con incidencias, "Revisar" lleva a Reportes.
-    expect(within(within(resumen).getByRole('article', { name: 'Incidencias' })).getByRole('link', { name: 'Revisar las incidencias en Reportes' }))
-      .toHaveAttribute('href', '/dashboard/reportes')
+    // Con incidencias, "Revisar" muestra aquí mismo cuáles hubo hoy.
+    vi.mocked(obtenerIncidenciasHoy).mockResolvedValue([
+      { tipo: 'TRASLADO', fechaHora: '2026-11-07T18:22:00', idExamen: 4, examen: 'Base de Datos I · G1', estudiante: 'Carla Luna Ortiz', detalle: '608 → 690A' },
+      { tipo: 'INGRESO_MANUAL', fechaHora: '2026-11-07T19:18:00', idExamen: 4, examen: 'Base de Datos I · G1', estudiante: 'Fabio Paz Rivas', detalle: 'Llegó tarde' },
+    ])
+    fireEvent.click(within(within(resumen).getByRole('article', { name: 'Incidencias' })).getByRole('button', { name: 'Revisar las incidencias de hoy' }))
+    const dialogo = await screen.findByRole('dialog', { name: 'Incidencias de hoy' })
+    const filas = within(await within(dialogo).findByRole('list', { name: 'Incidencias de hoy' })).getAllByRole('listitem')
+    expect(filas[0]).toHaveTextContent('Traslado de aula: Carla Luna Ortiz')
+    expect(filas[0]).toHaveTextContent('608 → 690A')
+    expect(filas[1]).toHaveTextContent('Ingreso manual: Fabio Paz Rivas')
+    expect(within(filas[1]).getByRole('link', { name: /Ver en el examen/ })).toHaveAttribute('href', '/dashboard/control/4/informacion')
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // 82 de 108 habilitados (ingresaron + por ingresar + ausentes).
     expect(screen.getAllByText('75,9 %').length).toBeGreaterThan(0)
   })

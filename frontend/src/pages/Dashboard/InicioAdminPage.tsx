@@ -16,6 +16,7 @@ import { ahoraServidorMs } from '../../services/tiempoService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import IncidenciasHoyModal from '../../components/inicio/IncidenciasHoyModal'
 import { EnVivo } from '../../components/inicio/Comun'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
 
@@ -215,6 +216,8 @@ interface Indicador {
 }
 
 function Indicadores({ datos }: { datos: InicioAdmin }) {
+  // «Revisar» muestra aquí mismo qué incidencias hubo hoy (antes llevaba a Reportes, que no tiene todas).
+  const [verIncidencias, setVerIncidencias] = useState(false)
   const { hoy, dias } = datos
   const ayer = dias[dias.length - 2]
   const items: Indicador[] = [
@@ -238,10 +241,10 @@ function Indicadores({ datos }: { datos: InicioAdmin }) {
               <Icono size={18} aria-hidden="true" />
             </span>
             {alerta && (
-              <Link to="/dashboard/reportes" aria-label="Revisar las incidencias en Reportes"
+              <button type="button" onClick={() => setVerIncidencias(true)} aria-label="Revisar las incidencias de hoy"
                 className="inline-flex items-center gap-1 rounded-full bg-[#FFE4E6] px-2 py-0.5 text-[10px] font-bold text-[#BE123C] hover:bg-[#FECDD3]">
                 Revisar <ArrowRight size={11} aria-hidden="true" />
-              </Link>
+              </button>
             )}
           </div>
           <p className="text-[26px] font-bold leading-none tabular-nums text-[#011140] sm:text-[30px]">{valor}</p>
@@ -252,6 +255,7 @@ function Indicadores({ datos }: { datos: InicioAdmin }) {
           <Sparkline valores={serie} desde={linea[0]} hasta={linea[1]} etiqueta={titulo === 'Por ingresar' ? 'Por ingresar: por hora de inicio' : `${titulo}: últimos 7 días`} />
         </article>
       ))}
+      {verIncidencias && <IncidenciasHoyModal onClose={() => setVerIncidencias(false)} />}
     </section>
   )
 }
