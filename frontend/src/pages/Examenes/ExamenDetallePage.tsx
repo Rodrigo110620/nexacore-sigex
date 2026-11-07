@@ -26,7 +26,7 @@ import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabi
 import { useAuth } from '../../context/AuthContext'
 import { getEstudianteById } from '../../services/estudianteService'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
-import { descargarActaPDF, mensajeDescarga } from '../../services/asistenciaService'
+import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import {
   addMinutes,
   codigoExamen,
@@ -166,17 +166,11 @@ export default function ExamenDetallePage() {
   const puedeExportarActa = tienePermiso(auth, 'REPORTES_EXPORTAR')
   const [resultadoActa, setResultadoActa] = useState<Resultado | null>(null)
   const iniciado = examen ? ['en_curso', 'finalizado'].includes(examen.estado?.toLowerCase() ?? '') : false
-  const [descargandoPDF, setDescargandoPDF] = useState(false)
-  const descargarActa = async () => {
+  // Antes de descargar se ve la vista previa del acta (y de la asistencia en Excel).
+  const [previaActa, setPreviaActa] = useState<'pdf' | 'xlsx' | null>(null)
+  const descargarActa = () => {
     if (!idExamen || !iniciado) return
-    setDescargandoPDF(true)
-    try {
-      await descargarActaPDF(idExamen)
-    } catch (err) {
-      setResultadoActa({ tipo: 'error', mensaje: await mensajeDescarga(err) })
-    } finally {
-      setDescargandoPDF(false)
-    }
+    setPreviaActa('pdf')
   }
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
@@ -262,15 +256,11 @@ export default function ExamenDetallePage() {
                         <button
                           type="button"
                           onClick={() => void descargarActa()}
-                          disabled={!iniciado || descargandoPDF}
+                          disabled={!iniciado}
                           title={iniciado ? undefined : 'El examen aún no ha iniciado'}
                           className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         >
-                          {descargandoPDF ? (
-                            <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
-                          ) : (
-                            iniciado ? <Download size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />
-                          )}
+                          {iniciado ? <Download size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
                           Descargar PDF
                         </button>
                       )}
@@ -318,15 +308,11 @@ export default function ExamenDetallePage() {
                       <button
                         type="button"
                         onClick={() => void descargarActa()}
-                        disabled={!iniciado || descargandoPDF}
+                        disabled={!iniciado}
                         title={iniciado ? undefined : 'El examen aún no ha iniciado'}
                         className="inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       >
-                        {descargandoPDF ? (
-                          <LoaderCircle size={15} className="animate-spin" aria-hidden="true" />
-                        ) : (
-                          iniciado ? <Download size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />
-                        )}
+                        {iniciado ? <Download size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
                         Descargar PDF
                       </button>
                     )}
@@ -519,6 +505,7 @@ export default function ExamenDetallePage() {
           )}
         </div>
         <ResultadoModal resultado={resultadoActa} onClose={() => setResultadoActa(null)} />
+        <VistaPreviaExamen idExamen={idExamen ?? null} formato={previaActa} onClose={() => setPreviaActa(null)} />
       <MobileBottomNav />
         {reprogramarOpen && examen && (
           <ReprogramarExamenModal

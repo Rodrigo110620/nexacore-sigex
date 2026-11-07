@@ -13,9 +13,9 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 
-import { Download, LoaderCircle, Lock } from 'lucide-react'
+import { Download, Lock } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
-import { descargarAsistencia, descargarActaPDF, mensajeDescarga } from '../../services/asistenciaService'
+import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
@@ -192,30 +192,16 @@ export default function ReportesPage() {
 
   // DASH-05: solo un examen que ya empezó; el Excel lleva el nombre del servidor y un error se avisa con el modal.
   const iniciado = ['en_curso', 'finalizado'].includes(examen?.estado?.toLowerCase() ?? '')
-  const [descargando, setDescargando] = useState(false)
-  const [descargandoPDF, setDescargandoPDF] = useState(false)
   const [resultadoDescarga, setResultadoDescarga] = useState<Resultado | null>(null)
-  const descargarExcel = async () => {
+  // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
+  const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
+  const descargarExcel = () => {
     if (!idExamen || !iniciado) return
-    setDescargando(true)
-    try {
-      await descargarAsistencia(idExamen)
-    } catch (err) {
-      setResultadoDescarga({ tipo: 'error', mensaje: await mensajeDescarga(err) })
-    } finally {
-      setDescargando(false)
-    }
+    setPrevia('xlsx')
   }
-  const descargarPDF = async () => {
+  const descargarPDF = () => {
     if (!idExamen || !iniciado) return
-    setDescargandoPDF(true)
-    try {
-      await descargarActaPDF(idExamen)
-    } catch (err) {
-      setResultadoDescarga({ tipo: 'error', mensaje: await mensajeDescarga(err) })
-    } finally {
-      setDescargandoPDF(false)
-    }
+    setPrevia('pdf')
   }
 
   return (
@@ -248,14 +234,10 @@ export default function ReportesPage() {
                       <button
                         type="button"
                         onClick={() => void descargarPDF()}
-                        disabled={!iniciado || descargandoPDF}
+                        disabled={!iniciado}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
-                        {descargandoPDF ? (
-                          <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
-                        ) : (
-                          <Download size={16} aria-hidden="true" />
-                        )}
+                        <Download size={16} aria-hidden="true" />
                         Descargar PDF
                       </button>
                     )}
@@ -263,10 +245,10 @@ export default function ReportesPage() {
                       <button
                         type="button"
                         onClick={() => void descargarExcel()}
-                        disabled={!iniciado || descargando}
+                        disabled={!iniciado}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
-                        {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                        <Download size={16} aria-hidden="true" />
                         Descargar Excel
                       </button>
                     )}
@@ -316,6 +298,7 @@ export default function ReportesPage() {
         </section>
       </div>
       <ResultadoModal resultado={resultadoDescarga} onClose={() => setResultadoDescarga(null)} />
+      <VistaPreviaExamen idExamen={idExamen ?? null} formato={previa} onClose={() => setPrevia(null)} />
       <MobileBottomNav />
     </PanelLayout>
   )

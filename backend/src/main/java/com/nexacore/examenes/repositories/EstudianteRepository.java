@@ -149,6 +149,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                  AND LOWER(ip.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         ORDER BY e.apellidos, e.nombre
         """,
         countQuery = """
@@ -169,6 +174,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                  AND LOWER(ip.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         """)
 Page<Estudiante> buscarConFiltros(
     @Param("search") String search,

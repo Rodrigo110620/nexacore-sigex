@@ -290,4 +290,52 @@ class ImportacionEstudiantesServiceTests {
         var otro = new MockMultipartFile("file", "estudiantes.xls", "application/vnd.ms-excel", new byte[] {1, 2});
         assertTrue(assertThrows(IllegalArgumentException.class, () -> service.importar(otro)).getMessage().contains("(.xlsx)"));
     }
+
+    // Sección 22, paso «Revisar»: sin guardar nada, cada error con su fila (como en Excel) y su columna.
+    @Test
+    void laRevisionNoGuardaYDaFilaColumnaYMensaje() throws Exception {
+        var revision = service.revisar(xlsx(ENCABEZADO_XLSX,
+            new Object[] {202404013, "Ana", "Rojas Vargas", 7489211, "202404013@est.umss.edu", 1, 10},
+            new Object[] {202404015, "Ana", "Rojas Vargas", 123456, "202404015@est.umss.edu", 1, 10},
+            new Object[] {202404013, "Luis", "Paz Rivas", 7489299, "202404099@est.umss.edu", 1, 10}));
+
+        assertEquals("Excel", revision.tipo());
+        assertEquals(3, revision.filas());
+        assertEquals(1, revision.listas());
+        assertEquals(2, revision.conErrores());
+        assertEquals(List.of(3, 4), revision.errores().stream().map(e -> e.fila()).toList());
+        assertEquals("CI", revision.errores().get(0).columna());
+        assertEquals("Código SIS", revision.errores().get(1).columna());
+        verify(estudianteService, org.mockito.Mockito.never()).registrar(any());
+        verify(registroLote, org.mockito.Mockito.never()).registrar(any());
+    }
+
+    // Sección 22, paso «Importando»: guarda en segundo plano y el avance llega al total con el resultado.
+    @Test
+    void laImportacionConAvanceTerminaConElResultado() throws Exception {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+            new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@umss.edu", null, List.of()));
+        try {
+            var inicio = service.iniciar(xlsx(ENCABEZADO_XLSX,
+                new Object[] {202404013, "Ana", "Rojas Vargas", 7489211, "202404013@est.umss.edu", 1, 10},
+                new Object[] {20240401, "Luis", "Paz Rivas", 7489212, "202404014@est.umss.edu", 1, 10}));
+            assertEquals(2, inicio.total());
+            var progreso = inicio;
+            for (int i = 0; i < 100 && !"LISTA".equals(progreso.estado()); i++) {
+                Thread.sleep(20);
+                progreso = service.progreso(inicio.id());
+            }
+            assertEquals("LISTA", progreso.estado());
+            assertEquals(2, progreso.procesadas());
+            assertEquals(1, progreso.resultado().insertados());
+            assertEquals(1, progreso.resultado().ignorados());
+            assertTrue(progreso.segundos() >= 1);
+            // Otro usuario no ve el avance ajeno.
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("otro@umss.edu", null, List.of()));
+            org.junit.jupiter.api.Assertions.assertNull(service.progreso(inicio.id()));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
 }

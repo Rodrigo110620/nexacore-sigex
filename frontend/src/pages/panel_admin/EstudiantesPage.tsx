@@ -1,6 +1,6 @@
 import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
-import { useEffect, useState } from 'react'
-import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, CircleAlert, Download, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -8,6 +8,8 @@ import EstudianteTable from '../../components/estudiantes/EstudianteTable'
 import EstudianteFilters from '../../components/estudiantes/EstudianteFilters'
 import RegistrarEstudianteModal from '../../components/estudiantes/RegistrarEstudianteModal'
 import ImportarEstudiantesModal from '../../components/estudiantes/ImportarEstudiantesModal'
+import VistaPreviaDescarga, { type FormatoDescarga } from '../../components/ui/VistaPreviaDescarga'
+import { obtenerArchivo } from '../../services/descargas'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -33,6 +35,8 @@ export default function EstudiantesPage() {
   const soloSusEstudiantes = tienePermiso(auth, 'EXAMENES_VER_PROPIOS') && !tienePermiso(auth, 'EXAMENES_VER_TODOS', 'REPORTES_VER')
   // Revisión de fotos: el ADMIN todas; el DOCENTE y el CONTROL, las reportadas en sus exámenes.
   const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')
+  // La planilla la descargan el ADMIN y el DOCENTE (solo sus estudiantes), con los filtros de la pantalla.
+  const puedeDescargarLista = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
 
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
@@ -45,6 +49,7 @@ export default function EstudiantesPage() {
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [previaLista, setPreviaLista] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [fichaEstudiante, setFichaEstudiante] = useState<EstudianteListItem | null>(null)
   const [editarEstudianteId, setEditarEstudianteId] = useState<number | null>(null)
@@ -110,6 +115,17 @@ export default function EstudiantesPage() {
     retry()
   }
 
+  const filtrosLista = useMemo(() => ({
+    search: debouncedSearch.trim() || undefined,
+    idFacultad: draftFilters.idFacultad || undefined,
+    idCarrera: draftFilters.idCarrera || undefined,
+    idMateria: draftFilters.idMateria || undefined,
+    idParalelo: draftFilters.idParalelo || undefined,
+  }), [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo])
+  const obtenerLista = useCallback((f: FormatoDescarga) =>
+    obtenerArchivo(`/estudiantes/planilla.${f}`, filtrosLista, `planilla_estudiantes.${f}`), [filtrosLista])
+  const obtenerListaCsv = useCallback(() => obtenerArchivo('/estudiantes/planilla.csv', filtrosLista, 'planilla_estudiantes.csv'), [filtrosLista])
+
   const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
@@ -153,6 +169,18 @@ export default function EstudiantesPage() {
                       )}
                     </Link>
                   )}
+                  {puedeDescargarLista && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviaLista(true)}
+                      aria-label="Descargar lista de estudiantes"
+                      title={hasActiveFilters ? 'Descarga la lista con los filtros aplicados' : 'Descarga la lista de estudiantes'}
+                      className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
+                    >
+                      <Download size={16} aria-hidden="true" className="shrink-0" />
+                      <span className="hidden truncate sm:inline">Descargar lista</span>
+                    </button>
+                  )}
                   {/* Registrar e importar: solo quien gestiona estudiantes (ADMIN); a los demás no se les muestra. */}
                   {puedeEditar && (<>
                   <button
@@ -176,6 +204,9 @@ export default function EstudiantesPage() {
                 </div>
               </div>
             </div>
+
+            <VistaPreviaDescarga open={previaLista} titulo="Lista de estudiantes" formatos={FORMATOS_LISTA}
+              obtener={obtenerLista} obtenerCsv={obtenerListaCsv} onClose={() => setPreviaLista(false)} />
 
             {/* Modales: solo se pueden abrir si puedeEditar */}
             {puedeEditar && (
@@ -288,3 +319,5 @@ function BuscadorDelGrupo({ titulo, value, onChange, disabled }: {
     </div>
   )
 }
+
+const FORMATOS_LISTA: FormatoDescarga[] = ['pdf', 'xlsx', 'csv']

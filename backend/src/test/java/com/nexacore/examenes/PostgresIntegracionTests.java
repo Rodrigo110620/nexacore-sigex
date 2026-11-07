@@ -78,6 +78,8 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
+    @Autowired com.nexacore.examenes.services.ImportacionEstudiantesService importacionEstudiantesService;
+    @Autowired com.nexacore.examenes.services.PlanillaEstudiantesService planillaEstudiantesService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -977,6 +979,69 @@ class PostgresIntegracionTests {
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // La planilla de estudiantes se descarga con los filtros de la pantalla (materia y grupo) y la del docente
+    // solo trae a sus estudiantes; la plantilla para importar trae solo encabezados y un ejemplo.
+    @Test
+    void laPlanillaSeFiltraPorMateriaYGrupoYLaPlantillaEsSoloUnEjemplo() throws Exception {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-PLA");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        int ana = estudiante("202499101", "Ana");
+        estudiante("202499102", "Beto");
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente, estado) VALUES (?, ?, ?, ?, 'inscrito')",
+                ana, g1, idMateria, idDocente);
+        sincronizar();
+
+        var deLaMateria = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                null, null, null, null, idMateria, g1));
+        assertThat(deLaMateria).extracting(f -> f.codigoSis()).containsExactly("202499101");
+        var delDocente = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                "2024991", null, null, idDocente, null, null));
+        assertThat(delDocente).extracting(f -> f.codigoSis()).containsExactly("202499101");
+        String pdf = new com.lowagie.text.pdf.parser.PdfTextExtractor(new com.lowagie.text.pdf.PdfReader(
+                planillaEstudiantesService.pdf(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                        null, null, null, null, idMateria, g1)))).getTextFromPage(1);
+        assertThat(pdf).contains("Materia TST-PLA").contains("Grupo 1");
+
+        try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(planillaEstudiantesService.plantillaXlsx()))) {
+            var hoja = libro.getSheetAt(0);
+            assertThat(hoja.getLastRowNum()).isEqualTo(1);
+            assertThat(hoja.getRow(0).getCell(0).getStringCellValue()).isEqualTo("codigoSis");
+            assertThat(hoja.getRow(1).getCell(0).getStringCellValue()).isEqualTo("202100101");
+        }
+        String csv = new String(planillaEstudiantesService.plantillaCsv(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv.strip().split("\n")).hasSize(2);
+    }
+
+    // Sección 22, paso «Revisar»: separa los estudiantes ya registrados y las carreras que no existen, sin guardar.
+    @Test
+    void laRevisionDeLaImportacionSeparaLosYaRegistradosYLasCarrerasInexistentes() {
+        prepararCatalogo();
+        int ana = estudiante("202499001", "Ana");
+        String ciAna = jdbc.queryForObject("SELECT ci FROM estudiante WHERE id_estudiante = ?", String.class, ana);
+        Integer facultad = jdbc.queryForObject("SELECT MIN(id_facultad) FROM facultad", Integer.class);
+        Integer carrera = jdbc.queryForObject("SELECT MIN(id_carrera) FROM carrera", Integer.class);
+        String csv = "codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera\n"
+                + "202499002,Beto,Rojas Paz," + ciAna + ",202499002@est.umss.edu," + facultad + "," + carrera + "\n"
+                + "202499003,Carla,Luna Vera,7712345,202499003@est.umss.edu," + facultad + ",99999\n"
+                + "202499004,Dario,Soto Rios,7712346,202499004@est.umss.edu," + facultad + "," + carrera + "\n";
+        var archivo = new org.springframework.mock.web.MockMultipartFile("file", "estudiantes.csv", "text/csv",
+                csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Integer antes = jdbc.queryForObject("SELECT COUNT(*) FROM estudiante", Integer.class);
+
+        var revision = importacionEstudiantesService.revisar(archivo);
+
+        assertThat(revision.filas()).isEqualTo(3);
+        assertThat(revision.yaRegistradas()).isEqualTo(1);
+        assertThat(revision.listas()).isEqualTo(1);
+        assertThat(revision.errores()).singleElement().satisfies(e -> {
+            assertThat(e.fila()).isEqualTo(3);
+            assertThat(e.columna()).isEqualTo("Carrera");
+            assertThat(e.mensaje()).contains("99999");
+        });
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM estudiante", Integer.class)).isEqualTo(antes);
     }
 
     // Grupos del docente: el ADMIN elige G1, G2… de cada materia; no se repite el grupo de otro docente ni se
