@@ -52,22 +52,22 @@ export default function GruposDocente({ elegido, onElegir }: { elegido: GrupoEle
     return <p className="mb-4 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 text-sm text-[#45628D]">No tienes materias con grupos asignados.</p>
   }
 
-  const card = (activo: boolean) => `group flex min-h-[84px] w-full items-center gap-3 rounded-xl border p-3.5 text-left transition-colors ${activo
+  const card = (activo: boolean) => `group flex h-full w-full items-center gap-2.5 rounded-xl border p-2.5 text-left sm:min-h-[84px] sm:gap-3 sm:p-3.5 transition-colors ${activo
     ? 'border-[#0439D9] bg-[#EEF3FF] ring-1 ring-[#0439D9]'
     : 'border-[#D8E3F5] bg-white hover:border-[#9DB4E8] hover:bg-[#F8FAFF]'}`
 
   return (
     <section aria-label="Mis materias y grupos" className="mb-4">
       <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-[#45628D]">Mis materias y grupos</h2>
-      <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-3 xl:grid-cols-4">
         <li>
           <button type="button" aria-pressed={!elegido.idMateria} onClick={() => onElegir(TODOS_MIS_ESTUDIANTES)} className={card(!elegido.idMateria)}>
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0439D9] text-white"><UsersRound size={18} aria-hidden="true" /></span>
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 bg-[#0439D9] text-white"><UsersRound size={18} aria-hidden="true" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-[#011140]">Todos mis estudiantes</span>
+              <span className="block text-[13px] font-bold leading-tight text-[#011140] sm:truncate sm:text-sm">Todos mis estudiantes</span>
               <span className="block text-xs text-[#45628D]">{cantidad('todos')}</span>
             </span>
-            <ChevronRight size={16} className="shrink-0 text-[#9DB4E8] group-hover:text-[#0439D9]" aria-hidden="true" />
+            <ChevronRight size={16} className="hidden shrink-0 text-[#9DB4E8] sm:block group-hover:text-[#0439D9]" aria-hidden="true" />
           </button>
         </li>
         {grupos.map((g) => {
@@ -78,12 +78,12 @@ export default function GruposDocente({ elegido, onElegir }: { elegido: GrupoEle
             <li key={clave}>
               <button type="button" aria-pressed={activo} aria-label={`${titulo}: ${cantidad(clave)}`}
                 onClick={() => onElegir({ idMateria: String(g.idMateria), idParalelo: String(g.idParalelo), titulo })} className={card(activo)}>
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><BookOpen size={18} aria-hidden="true" /></span>
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 bg-[#E9F1FF] text-[#0439D9]"><BookOpen size={18} aria-hidden="true" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-[#011140]" title={g.materia}>{g.materia}</span>
+                  <span className="block text-[13px] font-bold leading-tight text-[#011140] sm:truncate sm:text-sm" title={g.materia}>{g.materia}</span>
                   <span className="block text-xs text-[#45628D]"><span className="font-semibold text-[#0439D9]">{g.paralelo}</span> · {cantidad(clave)}</span>
                 </span>
-                <ChevronRight size={16} className="shrink-0 text-[#9DB4E8] group-hover:text-[#0439D9]" aria-hidden="true" />
+                <ChevronRight size={16} className="hidden shrink-0 text-[#9DB4E8] sm:block group-hover:text-[#0439D9]" aria-hidden="true" />
               </button>
             </li>
           )

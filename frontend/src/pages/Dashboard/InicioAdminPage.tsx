@@ -454,11 +454,11 @@ function TarjetaMotivos({ datos }: { datos: InicioAdmin }) {
   const total = datos.motivos.reduce((s, m) => s + m.cantidad, 0)
   const max = Math.max(1, ...datos.motivos.map((m) => m.cantidad))
   return (
-    <section aria-label="Intentos incorrectos por motivo" className={`${TARJETA} min-w-0 p-4 sm:p-[22px]`}>
+    <section aria-label="Intentos incorrectos por motivo" className={`${TARJETA} flex min-w-0 flex-col p-4 sm:p-[22px]`}>
       <Cabecera titulo="Intentos incorrectos por motivo" detalle="Últimos 7 días"
         derecha={<div className="text-right"><p className="text-2xl font-bold leading-none text-[#E11D48]">{total}</p><p className="mt-1 text-[11px] text-[#627A9B]">intentos</p></div>} />
       {datos.motivos.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-[#C7D7F5] px-4 py-8 text-center text-sm text-[#627A9B]">Sin intentos incorrectos en la última semana.</p>
+        <p className="mt-4 flex flex-1 items-center justify-center rounded-xl border border-dashed border-[#C7D7F5] px-4 py-8 text-center text-sm text-[#627A9B]">Sin intentos incorrectos en la última semana.</p>
       ) : (
         <ul className="mt-4 space-y-3.5">
           {datos.motivos.map((m, i) => {
@@ -573,10 +573,12 @@ function AccesosRapidos({ auth }: { auth: Parameters<typeof tienePermiso>[0] }) 
       <ul className="mt-3 grid grid-cols-2 gap-2.5">
         {accesos.filter((a) => a[5]).map(([Icono, t1, t2, a, clase]) => (
           <li key={t1}>
-            <Link to={a} className="flex h-full flex-col gap-2 rounded-[10px] border border-[#E6EBF2] p-3 hover:border-[#B8CBEF] hover:bg-[#F8FAFF]">
-              <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${clase}`}><Icono size={16} aria-hidden="true" /></span>
-              <span className="text-xs font-semibold text-[#011140]">{t1}</span>
-              <span className="text-[11px] text-[#627A9B]">{t2}</span>
+            <Link to={a} className="flex h-full items-center gap-2.5 rounded-[10px] border border-[#E6EBF2] p-2.5 hover:border-[#B8CBEF] hover:bg-[#F8FAFF]">
+              <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${clase}`}><Icono size={16} aria-hidden="true" /></span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-[#011140]">{t1}</span>
+                <span className="block text-[11px] leading-tight text-[#627A9B]">{t2}</span>
+              </span>
             </Link>
           </li>
         ))}

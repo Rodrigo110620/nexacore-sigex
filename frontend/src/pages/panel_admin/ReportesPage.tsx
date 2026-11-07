@@ -229,13 +229,13 @@ export default function ReportesPage() {
                 </select>
 
                 {idExamen != null && puedeExportar && (
-                  <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
+                  <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                     {puedeExportar && (
                       <button
                         type="button"
                         onClick={() => void descargarPDF()}
                         disabled={!iniciado}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                        className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
                         <Download size={16} aria-hidden="true" />
                         Descargar PDF
@@ -246,14 +246,14 @@ export default function ReportesPage() {
                         type="button"
                         onClick={() => void descargarExcel()}
                         disabled={!iniciado}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                        className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
                         <Download size={16} aria-hidden="true" />
                         Descargar Excel
                       </button>
                     )}
                     {!iniciado && (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309]">
+                      <span className="flex basis-full items-center gap-1 text-[11px] font-semibold text-[#B45309] sm:basis-auto">
                         <Lock size={12} aria-hidden="true" /> El examen aún no ha iniciado
                       </span>
                     )}

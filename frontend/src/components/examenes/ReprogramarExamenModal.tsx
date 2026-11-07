@@ -189,7 +189,7 @@ export default function ReprogramarExamenModal({ examen, onClose, onReprogramado
               {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
             </div>
 
-            <footer className="flex flex-col-reverse gap-2 border-t border-[#EDF1F7] px-5 py-3 sm:flex-row sm:justify-end">
+            <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-[#EDF1F7] px-5 py-3 sm:flex-row sm:justify-end">
               <button type="button" onClick={cerrar} disabled={guardando} className="h-11 rounded-lg border border-[#D8E3F5] px-4 text-sm font-semibold text-[#011140] hover:bg-[#F1F6FF] disabled:opacity-60">
                 Cancelar
               </button>

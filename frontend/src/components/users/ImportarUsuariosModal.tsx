@@ -181,7 +181,7 @@ export default function ImportarUsuariosModal({ open, onClose, onImported }: Imp
           </form>
         )}
 
-        <footer className="flex flex-col-reverse gap-2 border-t border-[#D8E3F5] px-5 py-3 sm:flex-row sm:justify-end">
+        <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-[#D8E3F5] px-5 py-3 sm:flex-row sm:justify-end">
           {result ? (
             <>
               <button type="button" onClick={reset} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D] hover:bg-gray-50">

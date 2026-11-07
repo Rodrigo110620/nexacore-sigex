@@ -103,7 +103,8 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
         </div>
         <Link to="/dashboard/examenes" className="text-xs font-semibold text-[#0439D9] hover:underline">Ver mis exámenes →</Link>
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Con 1 o 2 materias, ocupan todo el ancho (sin una tercera columna vacía). */}
+      <ul className={`grid gap-3 sm:grid-cols-2 ${datos.materias.length >= 3 ? 'xl:grid-cols-3' : ''}`}>
         {datos.materias.map((m, i) => {
           const px = m.proximoExamen
           const esHoy = px?.fecha === hoy

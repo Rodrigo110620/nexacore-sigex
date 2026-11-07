@@ -93,7 +93,9 @@ export function Sparkline({ valores, desde, hasta, etiqueta }: { valores: number
 }
 
 /** Ingresos de hoy por hora: área suave con degradado, la hora actual marcada y lo esperado en punteado. */
-export function GraficaIngresosHora({ horas, reales, esperados, horaActual }: {
+/** compacta: para tarjetas angostas (380 px): solo una hora de cada dos y sin «:00», para que no se encimen. */
+export function GraficaIngresosHora({ horas, reales, esperados, horaActual, compacta = false }: {
+  compacta?: boolean
   horas: number[]
   reales: number[]
   esperados: number[]
@@ -174,8 +176,8 @@ export function GraficaIngresosHora({ horas, reales, esperados, horaActual }: {
       </div>
       <div className="ml-9 mt-1.5 flex" aria-hidden="true">
         {horas.map((hh, i) => (
-          <span key={hh} className={`flex-1 text-center text-[10px] ${hh === horaActual ? 'font-bold text-[#0439D9]' : 'text-[#94A3B8]'} ${i % 2 ? 'max-sm:invisible' : ''}`}>
-            {String(hh).padStart(2, '0')}<span className="max-sm:hidden">:00</span>
+          <span key={hh} className={`flex-1 text-center text-[10px] ${hh === horaActual ? 'font-bold text-[#0439D9]' : 'text-[#94A3B8]'} ${i % 2 ? (compacta ? 'invisible' : 'max-sm:invisible') : ''}`}>
+            {String(hh).padStart(2, '0')}<span className={compacta ? 'hidden' : 'max-sm:hidden'}>:00</span>
           </span>
         ))}
       </div>

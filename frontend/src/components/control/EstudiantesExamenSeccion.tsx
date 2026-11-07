@@ -9,8 +9,8 @@ const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstud
   { valor: 'TODOS', label: 'Todos', cuenta: 'total' },
   { valor: 'HABILITADOS', label: 'Habilitados', cuenta: 'habilitados' },
   { valor: 'NO_HABILITADOS', label: 'No habilitados', cuenta: 'noHabilitados' },
-  { valor: 'AUSENTES', label: 'Solo ausentes', cuenta: 'ausentes' },
 ]
+// «Solo ausentes» está en la tarjeta «Ingresos recientes» (sección 11 del diseño); el backend sigue aceptando AUSENTES.
 
 interface EstudiantesExamenSeccionProps {
   idExamen: number
@@ -65,14 +65,14 @@ export default function EstudiantesExamenSeccion({
           ))}
         </div>
       </div>
-      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
+      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
         {PESTANAS.map(({ valor, label, cuenta }) => (
           <button
             key={valor}
             type="button"
             aria-pressed={estado === valor}
             onClick={() => cambiarEstado(valor)}
-            className={`min-w-0 rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
+            className={`min-w-0 whitespace-nowrap rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
           >
             {label}
             {cuentas ? ` (${cuentas[cuenta]})` : ''}
@@ -88,8 +88,7 @@ export default function EstudiantesExamenSeccion({
         <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
       ) : pagina.contenido.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
-          {estado === 'AUSENTES' && pagina.totalRegistros === 0 ? 'Todos los estudiantes ingresaron'
-            : estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
+          {estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
         </p>
       ) : (
         <>

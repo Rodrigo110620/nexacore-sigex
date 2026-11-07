@@ -34,6 +34,12 @@ function Destino() {
   return <p>Destino {pathname + search}</p>
 }
 
+/** La tabla completa va oculta tras «Ver todos los estudiantes» de la tarjeta «Ingresos recientes». */
+async function abrirTabla() {
+  fireEvent.click(await screen.findByRole('button', { name: /Ver todos los estudiantes/ }))
+  return screen.findByRole('table')
+}
+
 function renderPage() {
   render(
     <AuthProvider>
@@ -87,7 +93,8 @@ describe('ControlExamenPage', () => {
 
   it('muestra las estadísticas del resumen y las filas con su estado', async () => {
     renderPage()
-    const filas = within(await screen.findByRole('table')).getAllByRole('row')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument() // oculta hasta «Ver todos»
+    const filas = within(await abrirTabla()).getAllByRole('row')
 
     // DASH-01: habilitados, ingresados, ausentes (habilitados que aún no ingresan) e incidencias.
     const habilitados = within(await screen.findByRole('region', { name: 'Habilitados' }))
@@ -120,7 +127,7 @@ describe('ControlExamenPage', () => {
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {
     renderPage()
-    await screen.findByRole('table')
+    await abrirTabla()
     fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
     await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'TODOS', 1, 5))
     await screen.findByRole('table')
@@ -134,7 +141,7 @@ describe('ControlExamenPage', () => {
 
   it('el ojo lleva a la identificación con ?codigo= del estudiante', async () => {
     renderPage()
-    const tabla = await screen.findByRole('table')
+    const tabla = await abrirTabla()
 
     fireEvent.click(within(tabla).getByRole('link', { name: 'Identificar a Luis Flores' }))
 
@@ -146,6 +153,7 @@ describe('ControlExamenPage', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
     try {
       renderPage()
+      await abrirTabla()
       await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 3))
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: anterior })

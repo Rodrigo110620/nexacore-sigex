@@ -117,7 +117,7 @@ export default function InicioDocentePage() {
               ) : (
                 <>
                   {panelDocente && <MisMaterias datos={panelDocente} hoy={hoy} horaActual={horaActual} puedeProgramar={puedeProgramar} />}
-                  <div className="grid gap-[18px] min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                  <div className="grid items-start gap-[18px] min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                     <ExamenesHoyDocente examenes={examenesHoy} resumenes={resumenes} proximo={proximo} />
                     {panelDocente && <RegistrosDocente registros={panelDocente.recientes} />}
                   </div>

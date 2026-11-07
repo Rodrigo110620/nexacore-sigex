@@ -89,21 +89,23 @@ export default function ControlInicioPage() {
               <p role="status" className="py-4 text-center text-sm text-[#627A9B]">Cargando tus registros…</p>
             )}
 
-            <div className="grid gap-3.5 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-              <section aria-labelledby="examenes-en-curso" className="flex min-w-0 flex-col gap-3.5">
-                <h2 id="examenes-en-curso" className="sr-only">Exámenes activos ahora</h2>
-                {enCurso.length === 0 ? (
-                  <SinExamenEnCurso deHoy={deHoy} ahora={ahora} />
-                ) : enCurso.map((e) => (
-                  <ExamenEnCurso key={e.idExamen} examen={e} resumen={resumenes[e.idExamen]} onReintentar={recargarResumenes} />
-                ))}
-              </section>
-              {mios && <IngresosPorHora datos={mios} horaActual={ahora.getHours()} />}
-            </div>
-
-            <div className="grid gap-3.5 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-              {mios && <MisRegistros registros={mios.recientes} />}
-              <ExamenesDeHoy deHoy={deHoy} ahora={ahora} resumenes={resumenes} />
+            {/* Dos columnas que crecen por separado: sin huecos entre filas (desde 1360 px; antes, una debajo de otra). */}
+            <div className="grid items-start gap-3.5 sm:gap-5 min-[1360px]:grid-cols-[minmax(0,1fr)_380px]">
+              <div className="flex min-w-0 flex-col gap-3.5 sm:gap-5">
+                <section aria-labelledby="examenes-en-curso" className="flex min-w-0 flex-col gap-3.5">
+                  <h2 id="examenes-en-curso" className="sr-only">Exámenes activos ahora</h2>
+                  {enCurso.length === 0 ? (
+                    <SinExamenEnCurso deHoy={deHoy} ahora={ahora} />
+                  ) : enCurso.map((e) => (
+                    <ExamenEnCurso key={e.idExamen} examen={e} resumen={resumenes[e.idExamen]} onReintentar={recargarResumenes} />
+                  ))}
+                </section>
+                {mios && <MisRegistros registros={mios.recientes} />}
+              </div>
+              <div className="flex min-w-0 flex-col gap-3.5 sm:gap-5">
+                {mios && <IngresosPorHora datos={mios} horaActual={ahora.getHours()} />}
+                <ExamenesDeHoy deHoy={deHoy} ahora={ahora} resumenes={resumenes} />
+              </div>
             </div>
           </>
         )}
@@ -259,7 +261,7 @@ function ExamenEnCurso({ examen, resumen, onReintentar }: { examen: ExamenDto; r
         </>
       )}
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-[1.3fr_1.3fr_1fr]">
+      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:[&>*]:flex-1 sm:[&>*]:whitespace-nowrap">
         <Link to={`${base}/identificar`} aria-label={`Escanear QR en ${examen.asignatura}`}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-[#0439D9] px-4 text-sm font-bold text-white hover:bg-[#0C41E1]">
           <ScanLine size={16} aria-hidden="true" /> Escanear QR
@@ -298,7 +300,7 @@ function IngresosPorHora({ datos, horaActual }: { datos: InicioControl; horaActu
       <h2 className="text-[15px] font-bold text-[#011140]">Mis ingresos por hora</h2>
       <p className="mt-0.5 text-xs text-[#627A9B]">{datos.ingresos ? `Hoy · ${datos.ingresos} registrados por ti` : 'Hoy todavía no registraste ingresos'}</p>
       <div className="mt-4">
-        <GraficaIngresosHora horas={horas} horaActual={horaActual} reales={horas.map((h) => datos.ingresosPorHora[h] ?? 0)} esperados={horas.map(() => 0)} />
+        <GraficaIngresosHora horas={horas} horaActual={horaActual} reales={horas.map((h) => datos.ingresosPorHora[h] ?? 0)} esperados={horas.map(() => 0)} compacta />
       </div>
     </section>
   )

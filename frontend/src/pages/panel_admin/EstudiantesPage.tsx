@@ -161,13 +161,13 @@ export default function EstudiantesPage() {
                     <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
                 </div>
-                <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
+                <div className={`order-first grid ${puedeEditar ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-2'} gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0`}>
                   {esAdmin && (
                     <Link
                       to="/dashboard/estudiantes/fotos"
                       aria-label="Revisión de fotos"
                       title="Revisión de fotos"
-                      className="order-3 col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none"
+                      className={`order-3 ${puedeEditar ? 'col-span-2' : ''} inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#011140] hover:bg-[#E9F1FF] min-[960px]:order-none`}
                     >
                       <ImageUp size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
                       <span className="min-[960px]:hidden">Revisión de fotos</span>

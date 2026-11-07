@@ -44,7 +44,7 @@ export default function FieldErrorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 sm:flex-row sm:justify-end">
+        <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
