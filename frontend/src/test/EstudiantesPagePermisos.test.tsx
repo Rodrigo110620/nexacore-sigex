@@ -1,6 +1,13 @@
-vi.mock('../services/estudianteService', () => ({ getMateriasDocente: vi.fn().mockResolvedValue([]) }))
+vi.mock('../services/estudianteService', () => ({
+  getMateriasDocente: vi.fn().mockResolvedValue([
+    { idMateria: 5, materia: 'Base de Datos I', idParalelo: 2, paralelo: '2' },
+    { idMateria: 9, materia: 'Taller de Programación', idParalelo: 1, paralelo: '1' },
+  ]),
+  getEstudiantes: vi.fn((p: { idParalelo?: string }) => Promise.resolve({ contenido: [], pagina: 0, tamano: 1, totalPaginas: 1,
+    totalRegistros: p.idParalelo === '2' ? 32 : p.idParalelo === '1' ? 28 : 60 })),
+}))
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
@@ -45,8 +52,22 @@ describe('acciones de la página Estudiantes según el rol', () => {
     expect(screen.queryByRole('button', { name: 'Importar estudiantes' })).not.toBeInTheDocument()
   })
 
-  it('el DOCENTE ve que solo aparecen sus estudiantes', () => {
+  it('el DOCENTE elige una card de materia y grupo y la lista muestra solo ese grupo', async () => {
     pagina(['DOCENTE'])
-    expect(screen.getByText('Ves a los estudiantes matriculados en tus materias y paralelos.')).toBeInTheDocument()
+    const todos = await screen.findByRole('button', { name: /Todos mis estudiantes/ })
+    expect(todos).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: 'Base de Datos I · 2: 32 estudiantes' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Taller de Programación · 1: 28 estudiantes' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Todos mis estudiantes' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Base de Datos I · 2/ }))
+    expect(screen.getByRole('button', { name: /Base de Datos I · 2/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Base de Datos I · 2' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Buscar estudiante')).toBeInTheDocument()
+  })
+
+  it('el ADMIN no ve las cards: sigue con la tabla y sus filtros', () => {
+    pagina(['ADMIN'])
+    expect(screen.queryByRole('region', { name: 'Mis materias y grupos' })).not.toBeInTheDocument()
   })
 })

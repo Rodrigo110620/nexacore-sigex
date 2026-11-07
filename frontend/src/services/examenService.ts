@@ -20,6 +20,8 @@ export interface CrearExamenPayload {
   normasParticulares: NormaParticularDto[]
   idMateria?: number | null
   idDocente?: number | null
+  /** El grupo (G1, G2…) del examen; obligatorio si el docente tiene varios en la materia. */
+  idParalelo?: number | null
   /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
   idAmbientesAdicionales?: number[]
   modoReparto?: ModoReparto
@@ -37,6 +39,8 @@ export interface ExamenDto {
   idExamen: number
   idParalelo: number
   asignatura: string
+  /** Nombre del grupo (G1, G2…) del examen. */
+  grupo?: string | null
   sigla?: string
   docente: string
   fecha: string
@@ -57,6 +61,12 @@ export interface ExamenDto {
 
 export async function listarExamenes(): Promise<ExamenDto[]> {
   const { data } = await api.get<ExamenDto[]>('/examenes')
+  return data
+}
+
+/** Exámenes para Reportes: el ADMIN, todos; el DOCENTE, los suyos; el CONTROL, en los que está asignado. */
+export async function listarMisExamenes(): Promise<ExamenDto[]> {
+  const { data } = await api.get<ExamenDto[]>('/examenes/mios')
   return data
 }
 

@@ -116,3 +116,8 @@ export function etiquetaDocente(nombre?: string | null): string {
   if (!limpio) return 'Sin docente asignado'
   return /^(doc|lic|ing|dr|dra|msc|mgr|mg|ph\.?d|prof)\.?\s/i.test(limpio) ? limpio : `Doc. ${limpio}`
 }
+
+/** La materia con su grupo (Base de Datos I · G2), para distinguir exámenes de la misma materia. */
+export function materiaYGrupo(examen: { asignatura: string; grupo?: string | null }): string {
+  return examen.grupo ? `${examen.asignatura} · ${examen.grupo}` : examen.asignatura
+}

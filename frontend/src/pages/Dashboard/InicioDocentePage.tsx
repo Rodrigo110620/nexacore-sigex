@@ -167,7 +167,7 @@ export default function InicioDocentePage() {
                 </Selector>
                 <Selector label="3. Grupo" name="Grupo" value={grupo} onChange={setGrupo} disabled={!grupos.length}>
                   <option value="">{grupos.length === 0 ? 'Sin grupos disponibles' : 'Selecciona un grupo'}</option>
-                  {grupos.map((examen) => <option key={examen.idParalelo} value={examen.idParalelo}>Grupo {examen.idParalelo}</option>)}
+                  {grupos.map((examen) => <option key={examen.idParalelo} value={examen.idParalelo}>Grupo {examen.grupo ?? examen.idParalelo}</option>)}
                 </Selector>
               </div>
               {examenes.length === 0 && <p className="mt-3 text-sm text-[#42618e]">Aún no tienes exámenes o grupos asignados.</p>}

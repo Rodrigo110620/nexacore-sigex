@@ -31,6 +31,7 @@ import {
   horaCorta,
   initialsOfName,
   semanaDelAnio,
+  materiaYGrupo,
 } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
@@ -40,6 +41,7 @@ import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenM
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import PersonalControlSeccion from '../../components/examenes/PersonalControlSeccion'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -193,7 +195,7 @@ export default function ExamenDetallePage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">{examen.asignatura}</h1>
+                      <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">{materiaYGrupo(examen)}</h1>
                       <span className="rounded-md border border-[#BFD2F8] bg-[#EAF2FF] px-2 py-0.5 text-[11px] font-semibold text-[#0439D9] min-[960px]:border-[#D8E3F5] min-[960px]:bg-[#F8FAFC] min-[960px]:text-[#627A9B]">
                         {codigoExamen(examen)}
                       </span>
@@ -367,6 +369,9 @@ export default function ExamenDetallePage() {
                       />
                     </dl>
                   </section>
+
+                  {/* V53: quién controla el ingreso; el docente lo ve y, como el ADMIN, lo asigna. */}
+                  <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado} />
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">

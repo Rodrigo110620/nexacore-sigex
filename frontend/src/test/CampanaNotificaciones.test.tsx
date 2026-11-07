@@ -1,11 +1,21 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CampanaNotificaciones from '../components/notificaciones/CampanaNotificaciones'
 import AvisoFotoReportada from '../components/estudiantes/AvisoFotoReportada'
 import * as service from '../services/notificacionService'
 import type { Notificacion } from '../services/notificacionService'
+
+const reporteFoto = vi.hoisted(() => ({ idExamen: 6, examen: 'Base de Datos I', puedeRevisar: false, solicitud: {
+  idEstudiante: 3, codigoSis: '202100001', nombre: 'Ana', apellidos: 'Rojas', carrera: null, origen: 'REPORTE', estado: 'ESPERANDO_FOTO',
+  enviadaEn: null, fotoUrl: null, fotoActualUrl: '/estudiantes/3/foto',
+  reporte: { motivo: 'NO_SE_PARECE', detalle: 'Tiene barba en la foto', reportadoPor: 'Luis Paz', reportadoEn: '2026-11-06T15:53:07' } } }))
+vi.mock('../services/fotoRevisionService', async (original) => ({
+  ...(await original<typeof import('../services/fotoRevisionService')>()),
+  obtenerRevisionReporte: vi.fn().mockResolvedValue(reporteFoto),
+}))
+vi.mock('../services/estudianteService', () => ({ descargarFotoEstudiante: vi.fn().mockRejectedValue(new Error('sin foto en la prueba')) }))
 
 vi.mock('../services/notificacionService', async (original) => ({
   ...(await original<typeof import('../services/notificacionService')>()),
@@ -139,5 +149,21 @@ describe('AvisoFotoReportada', () => {
     expect(aviso).toHaveTextContent('Foto reportada · pendiente de revisión del admin')
     expect(aviso).toHaveTextContent('La persona no se parece a la foto: Tiene barba')
     expect(aviso).toHaveTextContent('por Carla Méndez')
+  })
+
+  // La foto reportada abre Revisión de fotos con ese estudiante elegido, para todos los roles.
+  it.each([['DOCENTE'], ['CONTROL'], ['ADMIN']])('%s abre Revisión de fotos desde el aviso de foto reportada', async (rol) => {
+    vi.mocked(service.listarNotificaciones).mockResolvedValue([notificacion(4, {
+      tipo: 'FOTO_REPORTADA', titulo: 'Foto reportada: Ana Rojas (202100001)', detalle: 'No se parece · Cálculo I',
+      idExamen: 6, idEstudiante: 3, enlace: '/dashboard/estudiantes/fotos',
+    })])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(flujoSse().respuesta))
+    const user = userEvent.setup()
+    const Ubicacion = () => <p data-testid="ubicacion">{useLocation().pathname + useLocation().search}</p>
+    render(<MemoryRouter><CampanaNotificaciones roles={[rol]} /><Ubicacion /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }))
+    await user.click(screen.getByRole('button', { name: (nombre) => nombre.includes('Foto reportada: Ana Rojas') && !nombre.startsWith('Quitar') }))
+    await waitFor(() => expect(screen.getByTestId('ubicacion')).toHaveTextContent('/dashboard/estudiantes/fotos?estudiante=3'))
+    expect(service.marcarNotificacionLeida).toHaveBeenCalledWith(4)
   })
 })

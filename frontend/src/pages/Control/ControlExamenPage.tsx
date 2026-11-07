@@ -1,15 +1,19 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock, LoaderCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
-import ControlIngresoHeader from '../../components/control/ControlIngresoHeader'
 import ResumenExamenCards from '../../components/control/ResumenExamenCards'
 import EstudiantesExamenSeccion from '../../components/control/EstudiantesExamenSeccion'
 import useExamen from '../../hooks/useExamen'
 import useEstudiantesExamen from '../../hooks/useEstudiantesExamen'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
+import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
+import { useAuth } from '../../context/AuthContext'
+import { tienePermiso } from '../../utils/permisos'
+import { descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
+import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
-/** "Control del examen": estudiantes asignados, su habilitación y el acceso a la identificación. */
 export default function ControlExamenPage() {
   const idExamen = Number(useParams().idExamen)
   const idValido = Number.isInteger(idExamen) && idExamen > 0
@@ -19,6 +23,28 @@ export default function ControlExamenPage() {
   const ambienteAcceso = examen?.ambienteNombre
     ? /^aula\b/i.test(examen.ambienteNombre) ? examen.ambienteNombre : `Aula ${examen.ambienteNombre}`
     : 'Aula'
+
+  const auth = useAuth()
+  const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR')
+
+  // El estado llega calculado con la hora (programado, en_curso, finalizado, cancelado).
+  const estadoExamen = examen?.estado?.toUpperCase() || 'PROGRAMADO'
+  const examenIniciado = estadoExamen === 'EN_CURSO' || estadoExamen === 'FINALIZADO'
+
+  // DASH-05: el Excel se descarga con el nombre del servidor; si falla (por ejemplo, 409), aviso del sistema.
+  const [descargando, setDescargando] = useState(false)
+  const [resultado, setResultado] = useState<Resultado | null>(null)
+  const descargarExcel = async () => {
+    if (!examenIniciado || !idValido) return
+    setDescargando(true)
+    try {
+      await descargarAsistencia(Number(idExamen))
+    } catch (err) {
+      setResultado({ tipo: 'error', mensaje: await mensajeDescarga(err) })
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   if (datos.accesoDenegado) {
     return <PanelLayout compactDesktop topBarVariant="controlMinimal" title="CONTROL DE INGRESO" description="Acceso al examen">
@@ -30,23 +56,85 @@ export default function ControlExamenPage() {
   return (
     <PanelLayout compactDesktop topBarVariant="controlMinimal" locationLabel={ubicacion} title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 min-[960px]:pb-6">
-        {ubicacion && (
-          <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-full border border-[#E2E6EC] bg-white px-2 py-1 text-[10px] text-[#344158] min-[960px]:hidden">
-            <Building2 size={11} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{ubicacion}</span>
-          </span>
-        )}
-        <section>
-          <ControlIngresoHeader
-            materia={examen?.asignatura}
-            aula={examen?.ambienteNombre}
-            fecha={examen?.fecha}
-            hora={examen?.horaInicio}
-            docente={examen?.docente}
-            duracionMinutos={examen?.duracionMinutos}
-          />
+        
+        <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+
+            {/* Como en el diseño (sección 12): «Panel del examen» con su estado. */}
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <h1 className="text-xl font-bold text-[#011140] text-center sm:text-left">
+                Panel del examen
+              </h1>
+              
+              <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                  estadoExamen === 'EN_CURSO' 
+                    ? 'bg-[#ECFDF3] text-[#15803D]' 
+                    : estadoExamen === 'FINALIZADO'
+                      ? 'bg-slate-100 text-slate-600'
+                      : 'bg-[#EEF2FF] text-[#3730A3]' 
+                }`}>
+                  {estadoExamen === 'EN_CURSO' ? 'En curso' : estadoExamen === 'FINALIZADO' ? 'Finalizado' : 'Programado'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B] sm:justify-start sm:text-xs">
+              {examen && <span className="font-semibold text-[#011140]">{materiaYGrupo(examen)}</span>}
+              {examen?.fecha && (
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays size={14} className="text-[#627A9B]" />
+                  {formatFecha(examen.fecha)}
+                </span>
+              )}
+              {examen?.horaInicio && (
+                <span className="flex items-center gap-1.5">
+                  <Clock size={14} className="text-[#627A9B]" />
+                  {horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}
+                </span>
+              )}
+              {examen?.docente && (
+                <span className="flex items-center gap-1.5">
+                  <User size={14} className="text-[#627A9B]" />
+                  Docente: {examen.docente}
+                </span>
+              )}
+              {examen?.ambienteNombre && (
+                <span className="flex items-center gap-1.5">
+                  <Building2 size={14} className="text-[#627A9B]" />
+                  Aula {examen.ambienteNombre}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {puedeExportar && (
+            <div className="flex w-full shrink-0 flex-col items-center gap-2 sm:w-auto sm:items-end">
+              <button
+                type="button"
+                onClick={() => void descargarExcel()}
+                disabled={!examenIniciado || descargando}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors sm:w-auto ${
+                  !examenIniciado
+                    ? 'cursor-not-allowed border-none bg-slate-100 text-slate-400' 
+                    : 'border border-[#B8CBEF] bg-white text-[#0439D9] shadow-sm hover:bg-[#F1F6FF]' 
+                }`}
+              >
+                {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                Descargar Excel
+              </button>
+              
+              {!examenIniciado && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309] sm:text-xs">
+                  <Lock size={12} /> El examen aún no ha iniciado
+                </span>
+              )}
+            </div>
+          )}
         </section>
+
         {examen && <CronometroExamen examen={examen} />}
+        
         {idValido ? (
           <>
             <section
@@ -62,7 +150,7 @@ export default function ControlExamenPage() {
                   <p className="text-xs font-bold sm:text-base">Apertura de Acceso al {ambienteAcceso}</p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
                 <Link
                   to={`/dashboard/control/${idExamen}/informacion`}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
@@ -89,6 +177,7 @@ export default function ControlExamenPage() {
           <p className="text-sm text-[#B91C1C]">El examen indicado no es válido.</p>
         )}
       </div>
+      <ResultadoModal resultado={resultado} onClose={() => setResultado(null)} />
       <MobileBottomNav variant="controlDetail" />
     </PanelLayout>
   )

@@ -44,8 +44,22 @@ public record ActualizarExamenRequest(
         List<Integer> idAmbientesAdicionales,
 
         /** ALFABETICO o LLEGADA; null conserva el que tenía el examen. */
-        String modoReparto
+        String modoReparto,
+
+        /** Cambiar el examen a otro grupo de la misma materia; null conserva el grupo. */
+        Integer idParalelo
 ) {
+    public ActualizarExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                                   Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                                   List<NormaParticularRequest> normasParticulares, Integer idMateria,
+                                   Integer idDocente, List<String> normasGeneralesEliminadas,
+                                   List<NormaParticularRequest> normasParticularesEliminadas,
+                                   List<Integer> idAmbientesAdicionales, String modoReparto) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, normasGeneralesEliminadas,
+                normasParticularesEliminadas, idAmbientesAdicionales, modoReparto, null);
+    }
+
     public ActualizarExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
                                    Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
                                    List<NormaParticularRequest> normasParticulares, Integer idMateria,

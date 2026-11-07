@@ -141,11 +141,12 @@ export default function AppRouter() {
           }
         />
 
-        {/* Reportes: intentos incorrectos, expulsiones y excepciones (SOLO ADMIN, Épica 5) */}
+        {/* Reportes: intentos incorrectos, expulsiones y excepciones (Épica 5). El ADMIN, de todos los
+            exámenes; el DOCENTE y el CONTROL, solo de los suyos o asignados (V53). */}
         <Route
           path="/dashboard/reportes"
           element={
-            <AdminRoute permiso="REPORTES_VER">
+            <AdminRoute permisos={['REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS']}>
               <ReportesPage />
             </AdminRoute>
           }
@@ -183,7 +184,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard/estudiantes/fotos"
           element={
-            <AdminRoute permiso="FOTOS_REVISAR">
+            <AdminRoute permisos={['FOTOS_REVISAR', 'FOTOS_REPORTAR']}>
               <RevisionFotosPage />
             </AdminRoute>
           }

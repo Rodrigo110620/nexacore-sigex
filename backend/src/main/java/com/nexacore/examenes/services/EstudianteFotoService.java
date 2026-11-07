@@ -87,7 +87,7 @@ public class EstudianteFotoService {
     }
 
     /** Lee el archivo y comprueba tamaño y tipo real de imagen. */
-    private static byte[] leerImagen(MultipartFile archivo) {
+    public static byte[] leerImagen(MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()) {
             throw new IllegalArgumentException("Selecciona una fotografía.");
         }
@@ -252,6 +252,16 @@ public class EstudianteFotoService {
                 r.getCreadoEn()));
     }
 
+    /** El reporte abierto para revisarlo desde el aviso (DOCENTE y CONTROL en sus exámenes, o el ADMIN): igual que en la revisión del ADMIN. */
+    @Transactional(readOnly = true)
+    public Optional<com.nexacore.examenes.dto.RevisionReporteFotoResponse> revisionDelReporte(Integer idEstudiante, boolean puedeRevisar) {
+        verificarEstudiante(idEstudiante);
+        return reporteAbierto(idEstudiante).flatMap(r -> revision(Set.of(idEstudiante)).stream().findFirst()
+                .map(solicitud -> new com.nexacore.examenes.dto.RevisionReporteFotoResponse(
+                        r.getIdExamen(), r.getIdExamen() == null ? null : notificacionService.materia(r.getIdExamen()),
+                        puedeRevisar, solicitud)));
+    }
+
     @Transactional(readOnly = true)
     public Optional<ReporteFoto> reporteAbierto(Integer idEstudiante) {
         return reporteRepository.findFirstByIdEstudianteAndEstado(idEstudiante, ReporteFoto.ABIERTO);
@@ -270,9 +280,30 @@ public class EstudianteFotoService {
      */
     @Transactional(readOnly = true)
     public List<FotoPendienteResponse> listarRevision() {
+        return revision(null);
+    }
+
+    /**
+     * Revisión de fotos del DOCENTE y el CONTROL: solo las fotos reportadas (no los cambios de foto) cuyo reporte es
+     * de uno de sus exámenes.
+     */
+    @Transactional(readOnly = true)
+    public List<FotoPendienteResponse> listarReportesDeExamenes(java.util.function.Predicate<Integer> esMio) {
+        Set<Integer> estudiantes = reporteRepository.findByEstadoOrderByCreadoEnAsc(ReporteFoto.ABIERTO).stream()
+                .filter(r -> r.getIdExamen() != null && esMio.test(r.getIdExamen()))
+                .map(ReporteFoto::getIdEstudiante)
+                .collect(Collectors.toSet());
+        if (estudiantes.isEmpty()) return List.of();
+        return revision(estudiantes).stream().filter(f -> EstudianteFotoSolicitud.REPORTE.equals(f.origen())).toList();
+    }
+
+    /** Las solicitudes de revisión; con {@code soloEstudiantes}, solo las de esos estudiantes (null = todas). */
+    private List<FotoPendienteResponse> revision(Set<Integer> soloEstudiantes) {
         Map<Integer, EstudianteFotoSolicitud> pendientes = listarPendientes().stream()
+                .filter(s -> soloEstudiantes == null || soloEstudiantes.contains(s.getIdEstudiante()))
                 .collect(Collectors.toMap(EstudianteFotoSolicitud::getIdEstudiante, Function.identity()));
         Map<Integer, ReporteFoto> reportes = reporteRepository.findByEstadoOrderByCreadoEnAsc(ReporteFoto.ABIERTO).stream()
+                .filter(r -> soloEstudiantes == null || soloEstudiantes.contains(r.getIdEstudiante()))
                 .collect(Collectors.toMap(ReporteFoto::getIdEstudiante, Function.identity(), (a, b) -> a));
         Set<Integer> ids = new HashSet<>(pendientes.keySet());
         ids.addAll(reportes.keySet());

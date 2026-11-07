@@ -83,7 +83,7 @@ export default function ExamenHoyDocenteCard({ examen, tiempo, horaActual, puede
               </span>
             )}
           </div>
-          <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">{examen.asignatura} · Grupo {examen.idParalelo}</h3>
+          <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">{examen.asignatura} · Grupo {examen.grupo ?? examen.idParalelo}</h3>
           <p className="flex items-center gap-1.5 text-xs"><Clock size={14} className="shrink-0 text-[#42618e]" aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs"><MapPin size={14} className="shrink-0 text-[#42618e]" aria-hidden="true" />{etiquetaAulas(examen)}</p>
         </div>

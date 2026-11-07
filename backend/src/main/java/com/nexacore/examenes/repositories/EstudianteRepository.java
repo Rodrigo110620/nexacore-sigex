@@ -115,6 +115,16 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
             """, nativeQuery = true)
     long contarIncidencias(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
 
+    /** DASH-01: estudiantes expulsados (expulsión vigente) en la sesión actual del examen. */
+    @Query(value = "SELECT COUNT(DISTINCT id_estudiante) FROM expulsion WHERE id_examen = :idExamen AND fecha_hora > :desde AND anulada_en IS NULL",
+            nativeQuery = true)
+    long contarExpulsados(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
+
+    /** DASH-01: estudiantes trasladados de aula en la sesión actual del examen. */
+    @Query(value = "SELECT COUNT(DISTINCT id_estudiante) FROM traslado_ambiente WHERE id_examen = :idExamen AND fecha_hora_traslado > :desde",
+            nativeQuery = true)
+    long contarTrasladados(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
+
 
     /**
  * Listado general de estudiantes con búsqueda y filtros (paginado).

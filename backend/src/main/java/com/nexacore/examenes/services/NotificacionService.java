@@ -81,11 +81,13 @@ public class NotificacionService {
      * Conexión en vivo abierta. Personal: idEstudiante null. Estudiante: su id, y no recibe
      * notificaciones del personal.
      */
-    private record Suscripcion(SseEmitter emitter, Integer idUsuario, boolean veTodo, Integer idEstudiante) {
+    private record Suscripcion(SseEmitter emitter, Integer idUsuario, boolean veTodo, Integer idEstudiante, boolean cambiosDeTodos) {
         boolean esEstudiante() {
             return idEstudiante != null;
         }
     }
+
+    private final com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
 
     public NotificacionService(NotificacionRepository notificacionRepository,
                                NotificacionLeidaRepository leidaRepository,
@@ -93,7 +95,9 @@ public class NotificacionService {
                                ExamenRepository examenRepository,
                                AsistenciaExamenRepository asistenciaRepository,
                                EstudianteRepository estudianteRepository,
-                               NotificacionLimpiezaRepository limpiezaRepository) {
+                               NotificacionLimpiezaRepository limpiezaRepository,
+                               com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository) {
+        this.examenControlRepository = examenControlRepository;
         this.limpiezaRepository = limpiezaRepository;
         this.notificacionRepository = notificacionRepository;
         this.leidaRepository = leidaRepository;
@@ -201,7 +205,7 @@ public class NotificacionService {
     /** Abre la conexión en vivo. Sin límite de tiempo: el latido la mantiene y el cliente reconecta. */
     public SseEmitter suscribir(Authentication authentication) {
         Usuario usuario = usuario(authentication);
-        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), veTodo(authentication), null));
+        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), veTodo(authentication), null, cambiosDeTodos(authentication)));
     }
 
     /** Conexión en vivo del estudiante: solo recibe los cambios suyos o de sus exámenes. */
@@ -210,7 +214,7 @@ public class NotificacionService {
         Integer idEstudiante = estudianteRepository.findByIdUsuario(usuario.getId())
                 .orElseThrow(() -> new AccessDeniedException("Esta cuenta no pertenece a un estudiante."))
                 .getId();
-        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), false, idEstudiante));
+        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), false, idEstudiante, false));
     }
 
     private SseEmitter abrir(Suscripcion s) {
@@ -235,7 +239,8 @@ public class NotificacionService {
             }
             boolean recibe = s.veTodo() || (n.getIdExamen() != null
                     && (docentesDelExamen.contains(s.idUsuario())
-                        || examenRepository.perteneceADocente(n.getIdExamen(), s.idUsuario())));
+                        || examenRepository.perteneceADocente(n.getIdExamen(), s.idUsuario())
+                        || examenControlRepository.estaAsignado(n.getIdExamen(), s.idUsuario())));
             if (!recibe) {
                 continue;
             }
@@ -256,7 +261,9 @@ public class NotificacionService {
                             && asistenciaRepository.existsByIdIdEstudianteAndIdIdExamen(s.idEstudiante(), c.idExamen()));
             } else {
                 // Un cambio general (sin examen) es para todo el personal: solo provoca una recarga.
-                recibe = s.veTodo() || c.idExamen() == null
+                // Quien puede controlar o ver cualquier examen recibe todos los cambios (solo recargan
+                // contadores): así el CONTROL que reemplaza en un examen no asignado ve los datos al día.
+                recibe = s.veTodo() || s.cambiosDeTodos() || c.idExamen() == null
                         || examenRepository.perteneceADocente(c.idExamen(), s.idUsuario());
             }
             if (recibe) {
@@ -283,7 +290,8 @@ public class NotificacionService {
     }
 
     private boolean puedeVer(Notificacion n, Integer idUsuario, boolean veTodo) {
-        return veTodo || (n.getIdExamen() != null && examenRepository.perteneceADocente(n.getIdExamen(), idUsuario));
+        return veTodo || (n.getIdExamen() != null && (examenRepository.perteneceADocente(n.getIdExamen(), idUsuario)
+                || examenControlRepository.estaAsignado(n.getIdExamen(), idUsuario)));
     }
 
     /** Quita una notificación de la lista del usuario; los demás la siguen viendo. */
@@ -340,9 +348,14 @@ public class NotificacionService {
                 .orElseThrow(() -> new AccessDeniedException("Sesión no válida"));
     }
 
-    /** Con NOTIFICACIONES_TODAS (ADMIN y CONTROL) ve los avisos de todos los exámenes; si no, solo de los suyos. */
+    /** Con NOTIFICACIONES_TODAS (ADMIN) ve los avisos de todos los exámenes; si no, solo de los suyos o asignados. */
     private static boolean veTodo(Authentication authentication) {
         return com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.NOTIFICACIONES_TODAS);
+    }
+
+    private static boolean cambiosDeTodos(Authentication authentication) {
+        return com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.EXAMENES_VER_TODOS)
+                || com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.CONTROL_INGRESO_TODOS);
     }
 
     private static NotificacionResponse respuesta(Notificacion n, boolean leida) {

@@ -7,6 +7,8 @@ import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
+  /** El docente eligió un grupo: sus materias sobran (son todas esa) y se muestra la carrera. */
+  ocultarMaterias?: boolean
   onViewClick?: (estudiante: EstudianteListItem) => void
   onEditClick?: (estudiante: EstudianteListItem) => void
   puedeEditar?: boolean
@@ -27,6 +29,7 @@ export default function EstudianteTable({
   onViewClick,
   onEditClick,
   puedeEditar = true,
+  ocultarMaterias = false,
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
@@ -44,7 +47,7 @@ export default function EstudianteTable({
           <tr>
             <th scope="col" className="px-3 py-3 font-bold">Estudiante / Código</th>
             <th scope="col" className="px-3 py-3 font-bold">Documento (DNI)</th>
-            <th scope="col" className="px-3 py-3 font-bold">{estudiantes.some(e => e.materiasDocente != null) ? 'Materias / Paralelos' : 'Carrera Profesional'}</th>
+            <th scope="col" className="px-3 py-3 font-bold">{estudiantes.some(e => (!ocultarMaterias && e.materiasDocente != null)) ? 'Materias' : 'Carrera Profesional'}</th>
             <th scope="col" className="px-3 py-3 font-bold text-center">Matrícula</th>
             <th scope="col" className="px-3 py-3 font-bold text-center">Cuenta</th>
             <th scope="col" className="px-3 py-3 text-center font-bold">Acciones</th>
@@ -69,7 +72,7 @@ export default function EstudianteTable({
               </th>
               <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci}</td>
               <td className="px-3 py-3">
-                {e.materiasDocente != null ? <MateriasDocente materias={e.materiasDocente} compacto /> : <>
+                {(!ocultarMaterias && e.materiasDocente != null) ? <MateriasDocente materias={e.materiasDocente!} compacto /> : <>
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>
                 <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span></>}
 

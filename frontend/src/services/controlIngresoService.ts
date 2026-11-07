@@ -67,6 +67,8 @@ export interface RegistroControlIngresoExamen extends RegistroControlIngreso {
   motivoTraslado?: string | null
   /** INCI-03: observación opcional del traslado de ambiente. */
   observacionTraslado?: string | null
+  /** V53: lo registró un CONTROL no asignado al examen (un reemplazo). */
+  reemplazo?: boolean
 }
 
 export async function listarRegistrosControlExamen(idExamen: number): Promise<RegistroControlIngresoExamen[]> {

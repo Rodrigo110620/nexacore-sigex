@@ -1,4 +1,4 @@
-import EstudianteDocenteFilters from '../../components/estudiantes/EstudianteDocenteFilters'
+import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
 import { useEffect, useState } from 'react'
 import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -20,6 +20,8 @@ import EditarEstudianteModal from '../../components/estudiantes/EditarEstudiante
 import { useAuth } from '../../context/AuthContext'
 import { listarRevisionFotos } from '../../services/fotoRevisionService'
 import { tienePermiso } from '../../utils/permisos'
+import GruposDocente from '../../components/estudiantes/GruposDocente'
+import { TODOS_MIS_ESTUDIANTES, type GrupoElegido } from '../../utils/gruposDocente'
 
 const initialFilters: EstudianteFilterParams = { search: '', idFacultad: '', idCarrera: '' }
 
@@ -29,10 +31,17 @@ export default function EstudiantesPage() {
   const puedeEditar = !auth.roles.includes('DOCENTE') && tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
   // El DOCENTE (solo ve sus exámenes) solo ve a los estudiantes de sus paralelos y exámenes; lo filtra el servidor.
   const soloSusEstudiantes = tienePermiso(auth, 'EXAMENES_VER_PROPIOS') && !tienePermiso(auth, 'EXAMENES_VER_TODOS', 'REPORTES_VER')
-  const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR')
+  // Revisión de fotos: el ADMIN todas; el DOCENTE y el CONTROL, las reportadas en sus exámenes.
+  const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
 
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
+  // DOCENTE: elige una card de materia y grupo; la lista muestra solo ese grupo.
+  const [grupo, setGrupo] = useState<GrupoElegido>(TODOS_MIS_ESTUDIANTES)
+  const elegirGrupo = (g: GrupoElegido) => {
+    setGrupo(g)
+    setDraftFilters((f) => ({ ...f, idMateria: g.idMateria, idParalelo: g.idParalelo }))
+  }
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -118,16 +127,14 @@ export default function EstudiantesPage() {
                 Busca y visualiza en tiempo real el padrón oficial de postulantes y alumnos matriculados para jornadas de evaluación.
               </p>
             </div>
-            {soloSusEstudiantes && (
-              <p className="mb-4 rounded-lg border border-[#D8E3F5] bg-white px-4 py-3 text-xs text-[#45628D] sm:text-sm">
-                Ves a los estudiantes matriculados en tus materias y paralelos.
-              </p>
-            )}
+            {soloSusEstudiantes && <GruposDocente elegido={grupo} onElegir={elegirGrupo} />}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
                 <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
-                  {soloSusEstudiantes ? <EstudianteDocenteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} /> : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
+                  {soloSusEstudiantes ? (
+                    <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
+                  ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
                 </div>
                 <div className="order-first grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
                   {esAdmin && (
@@ -227,6 +234,7 @@ export default function EstudiantesPage() {
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
                       puedeEditar={puedeEditar}
+                      ocultarMaterias={Boolean(grupo.idMateria)}
                     />
                   </div>
                   {/* Desktop */}
@@ -236,6 +244,7 @@ export default function EstudiantesPage() {
                       onViewClick={handleViewClick}
                       onEditClick={handleEditClick}
                       puedeEditar={puedeEditar}
+                      ocultarMaterias={Boolean(grupo.idMateria)}
                     />
                   </div>
                   {/* Paginación */}
@@ -257,5 +266,25 @@ export default function EstudiantesPage() {
         <MobileBottomNav />
       </div>
     </PanelLayout>
+  )
+}
+
+/** DOCENTE: el título del grupo elegido en las cards y el buscador dentro de ese grupo. */
+function BuscadorDelGrupo({ titulo, value, onChange, disabled }: {
+  titulo: string
+  value: EstudianteFilterParams
+  onChange: (value: EstudianteFilterParams) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <h2 className="text-base font-bold text-[#011140]">{titulo}</h2>
+      <label className="text-xs font-semibold text-[#45628D] sm:w-80">
+        <span className="sr-only">Buscar estudiante</span>
+        <input aria-label="Buscar estudiante" value={value.search} maxLength={BUSQUEDA_MAX} disabled={disabled}
+          placeholder="Buscar por nombre, CI o código SIS" onChange={(e) => onChange({ ...value, search: sanearBusqueda(e.target.value) })}
+          className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] disabled:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]" />
+      </label>
+    </div>
   )
 }

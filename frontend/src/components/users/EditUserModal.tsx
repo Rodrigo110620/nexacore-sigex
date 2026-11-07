@@ -21,6 +21,8 @@ import {
   validateNombre,
   validateRol,
 } from '../../utils/validators';
+import DatosDocenteCampos from '../admin/DatosDocenteCampos';
+import { DATOS_DOCENTE_INICIALES, type DatosDocente } from '../../utils/datosDocente';
 
 interface User {
   id?: string | number;
@@ -63,6 +65,23 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   // IMP-12: materias del docente (null mientras se cargan o si no es docente).
   const [materias, setMaterias] = useState<MateriaDto[] | null>(null);
   const [materiasIniciales, setMateriasIniciales] = useState<MateriaDto[]>([]);
+  // Título, especialidad y categoría del docente (solo el ADMIN los cambia).
+  const [datosDocente, setDatosDocente] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
+  const [datosDocenteIniciales, setDatosDocenteIniciales] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
+
+  useEffect(() => {
+    if (!isOpen || !user?.id || user.rol !== 'DOCENTE') return;
+    let vigente = true;
+    api.get<{ titulo: string | null; especialidad: string | null; categoria: DatosDocente['categoria'] } | ''>(`/usuarios/${user.id}/docente`)
+      .then(({ data }) => {
+        if (!vigente || !data) return;
+        const datos: DatosDocente = { titulo: data.titulo ?? '', especialidad: data.especialidad ?? '', categoria: data.categoria ?? 'INTERINO' };
+        setDatosDocente(datos);
+        setDatosDocenteIniciales(datos);
+      })
+      .catch(() => undefined);
+    return () => { vigente = false; };
+  }, [isOpen, user?.id, user?.rol]);
 
   useEffect(() => {
     if (!isOpen || !user?.id || user.rol !== 'DOCENTE') return;
@@ -119,7 +138,8 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   };
 
   // BUG 11 (2.º test run): con cambios sin guardar, la X y Cancelar piden confirmar antes de descartar.
-  const hayCambios = !success && (JSON.stringify(form) !== JSON.stringify(buildFormFromUser(user)) || cambianMaterias);
+  const hayCambios = !success && (JSON.stringify(form) !== JSON.stringify(buildFormFromUser(user)) || cambianMaterias
+    || (esDocente && JSON.stringify(datosDocente) !== JSON.stringify(datosDocenteIniciales)));
   const pedirCerrar = () => {
     if (loading) return;
     if (hayCambios) setDescartar(true);
@@ -165,7 +185,9 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
         rol: cleanForm.rol,
         activo: cleanForm.activo,
         notificarEmail: false,
+        ...(esDocente ? { docente: datosDocente } : {}),
       }, { _skipAutoLogout: true } as object);
+      if (esDocente) setDatosDocenteIniciales(datosDocente);
       if (esDocente && (cambianMaterias || user?.rol !== 'DOCENTE')) {
         await asignarMateriasAlDocente(Number(user?.id), listaMaterias.map((m) => m.id));
         setMateriasIniciales(listaMaterias);
@@ -272,6 +294,10 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
             </div>
 
             {esDocente && (
+              <>
+              <section aria-label="Datos del docente" className="mt-5 border-t border-gray-100 pt-5">
+                <DatosDocenteCampos value={datosDocente} onChange={(d) => { setDatosDocente(d); if (generalError) setGeneralError(''); }} />
+              </section>
               <section aria-labelledby="materias-docente" className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5">
                 <div>
                   <h3 id="materias-docente" className="text-xs font-bold tracking-wide text-[#011140]">MATERIAS DEL DOCENTE</h3>
@@ -281,6 +307,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                   ? <p className="text-xs text-[#627A9B]">Cargando sus materias…</p>
                   : <SelectorMaterias value={listaMaterias} onChange={(l) => { setMaterias(l); if (generalError) setGeneralError(''); }} error={errors.materias} />}
               </section>
+              </>
             )}
 
             <div className="mt-4 hidden sm:block">

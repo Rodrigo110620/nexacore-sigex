@@ -42,6 +42,12 @@ public class EstudianteController {
     private final EstudianteFotoService estudianteFotoService;
     private final EstudianteAlcanceService estudianteAlcance;
 
+    /** Quién revisa una foto reportada (el DOCENTE y el CONTROL, en sus exámenes); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
+
     public EstudianteController(
             EstudianteService estudianteService,
             ImportacionEstudiantesService importacionEstudiantesService,
@@ -92,10 +98,15 @@ public class EstudianteController {
     @Operation(summary = "Revisión de fotos",
             description = "Cambios de foto enviados por los estudiantes y fotos reportadas por el personal de control, "
                     + "de la más antigua a la más reciente. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')")
     @GetMapping("/fotos-pendientes")
-    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes() {
-        return ResponseEntity.ok(estudianteFotoService.listarRevision());
+    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes(Authentication authentication) {
+        // El ADMIN ve todo; el DOCENTE y el CONTROL, solo las fotos reportadas en sus exámenes (suyos o asignados).
+        if (com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.FOTOS_REVISAR)) {
+            return ResponseEntity.ok(estudianteFotoService.listarRevision());
+        }
+        return ResponseEntity.ok(estudianteFotoService.listarReportesDeExamenes(
+                idExamen -> examenAccesoService.esMio(idExamen, authentication)));
     }
 
     @Operation(summary = "Reportar foto que no coincide",
@@ -120,9 +131,22 @@ public class EstudianteController {
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
+    @Operation(summary = "Revisar el reporte de una foto",
+            description = "El reporte abierto con su examen, la foto nueva si el estudiante ya la envió y si quien consulta "
+                    + "puede resolverlo (ADMIN, o el DOCENTE y el CONTROL en sus exámenes). 204 si no hay reporte abierto.")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REPORTAR', 'FOTOS_REVISAR') and @estudianteAlcance.puedeVer(#id, authentication)")
+    @GetMapping("/{id}/foto/reporte/revision")
+    public ResponseEntity<com.nexacore.examenes.dto.RevisionReporteFotoResponse> revisionReporte(@PathVariable Integer id,
+                                                                                               Authentication authentication) {
+        return estudianteFotoService.revisionDelReporte(id, fotoRevisionAcceso.puedeRevisar(id, authentication))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @Operation(summary = "Descartar el reporte de una foto",
-            description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+            description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN, o el DOCENTE y el "
+                    + "CONTROL si el reporte es de uno de sus exámenes.")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto/reportes/descartar")
     public ResponseEntity<Void> descartarReporte(@PathVariable Integer id) {
         estudianteFotoService.descartarReporte(id);
@@ -130,7 +154,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Foto enviada por el estudiante", description = "404 si no envió ninguna. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @GetMapping("/{id}/foto-solicitud")
     public ResponseEntity<byte[]> fotoSolicitud(@PathVariable Integer id) {
         return estudianteFotoService.obtenerSolicitud(id)
@@ -144,7 +168,7 @@ public class EstudianteController {
 
     @Operation(summary = "Aprobar la foto enviada",
             description = "Pasa a ser la foto que ve el personal de control. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto-solicitud/aprobar")
     public ResponseEntity<Void> aprobarFoto(@PathVariable Integer id) {
         estudianteFotoService.aprobarSolicitud(id);
@@ -153,7 +177,7 @@ public class EstudianteController {
 
     @Operation(summary = "Rechazar la foto enviada",
             description = "La foto actual no cambia; el estudiante ve el motivo. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto-solicitud/rechazar")
     public ResponseEntity<Void> rechazarFoto(@PathVariable Integer id, @Valid @RequestBody RechazarFotoRequest request) {
         estudianteFotoService.rechazarSolicitud(id, request.motivo());
