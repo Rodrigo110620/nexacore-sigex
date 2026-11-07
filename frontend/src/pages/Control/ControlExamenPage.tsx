@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, FileSpreadsheet, CalendarDays, Clock, User } from 'lucide-react'
+import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ResumenExamenCards from '../../components/control/ResumenExamenCards'
@@ -26,7 +26,7 @@ export default function ControlExamenPage() {
   const auth = useAuth()
   const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR')
 
-  const descargarAsistencia = async (formato: 'csv' | 'xlsx') => {
+  const descargarAsistencia = async (formato: 'xlsx') => {
     try {
       const response = await api.get(`/examenes/${idExamen}/asistencia.${formato}`, {
         responseType: 'blob', 
@@ -54,8 +54,8 @@ export default function ControlExamenPage() {
   return (
     <PanelLayout compactDesktop topBarVariant="controlMinimal" locationLabel={ubicacion} title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 min-[960px]:pb-6">
+        
         <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-[#011140]">
               Control de ingreso · {examen?.asignatura}
@@ -80,7 +80,6 @@ export default function ControlExamenPage() {
                   Docente: {examen.docente}
                 </span>
               )}
-
               {examen?.ambienteNombre && (
                 <span className="flex items-center gap-1.5">
                   <Building2 size={14} className="text-[#627A9B]" />
@@ -90,23 +89,16 @@ export default function ControlExamenPage() {
             </div>
           </div>
 
-          {/* Botones de descarga */}
           {puedeExportar && (
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <button
                 onClick={() => descargarAsistencia('xlsx')}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] sm:w-auto"
               >
-                <FileSpreadsheet size={16} />
+                <Download size={16} />
                 Descargar Excel
               </button>
-              <button
-                onClick={() => descargarAsistencia('csv')}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] sm:w-auto"
-              >
-                <Download size={16} />
-                Descargar CSV
-              </button>
+              {/* Aquí tu compañero agregará el botón de PDF con fondo azul */}
             </div>
           )}
         </section>
