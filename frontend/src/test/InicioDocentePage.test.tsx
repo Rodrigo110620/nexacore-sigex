@@ -59,7 +59,7 @@ describe('Inicio del docente', () => {
 
   it('muestra los exámenes del día boliviano con sus cifras y accesos', async () => {
     vi.mocked(listarExamenes).mockResolvedValue([
-      { idExamen: 1, idParalelo: 7, asignatura: 'Programación Web', fecha: '2026-11-03', horaInicio: '22:00', duracionMinutos: 60, estado: 'programado', ambienteNombre: '690A' },
+      { idExamen: 1, idParalelo: 7, asignatura: 'Programación Web', grupo: 'G1', fecha: '2026-11-03', horaInicio: '22:00', duracionMinutos: 60, estado: 'programado', ambienteNombre: '690A' },
       { idExamen: 2, idParalelo: 8, asignatura: 'Otro día', fecha: '2026-11-04', horaInicio: '14:00', duracionMinutos: 60, estado: 'programado' },
     ] as ExamenDto[])
     vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 100, habilitados: 96, noHabilitados: 4, ingresados: 82 })
@@ -67,10 +67,10 @@ describe('Inicio del docente', () => {
 
     expect(await screen.findByText('82 de 96 ingresaron')).toBeInTheDocument()
     expect(screen.getByText(/1 examen hoy, 1 en curso/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Programación Web · Grupo 7' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Programación Web · G1' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Otro día/ })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Ver panel del examen' })).toHaveAttribute('href', '/dashboard/examenes/1/7')
-    expect(screen.getByRole('link', { name: 'Controlar ingreso' })).toHaveAttribute('href', '/dashboard/control/1')
+    expect(screen.getByRole('link', { name: 'Ver panel del examen' })).toHaveAttribute('href', '/dashboard/control/1')
+    expect(screen.getByRole('link', { name: 'Controlar ingreso' })).toHaveAttribute('href', '/dashboard/control/1/identificar')
   })
 
   it('distingue en curso, no iniciado y finalizado, y no permite controlar uno terminado', async () => {

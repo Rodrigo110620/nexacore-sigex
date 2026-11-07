@@ -110,6 +110,16 @@ public class ActaExamenService {
             String aulas
     ) {}
 
+    /** Para el nombre del archivo, el mismo formato que el Excel; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AsistenciaExportService asistenciaExportService;
+
+    /** acta_Base-de-Datos-I_G1_2026-11-06.pdf; null si no se puede armar (el controlador usa uno genérico). */
+    public String nombreArchivo(Integer idExamen) {
+        return asistenciaExportService == null ? null
+                : asistenciaExportService.nombreArchivo(idExamen, "pdf").replaceFirst("^asistencia_", "acta_");
+    }
+
     /**
      * Genera el PDF del acta.
      * Lanza ControlIngresoException(409) si el examen no inició o está cancelado.

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import useEnVivo from '../../hooks/useEnVivo'
 import { obtenerResumenExamen, type ResumenEstudiantes } from '../../services/controlExamenService'
 import type { ExamenDto } from '../../services/examenService'
-import { addMinutes, etiquetaAulas, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, etiquetaAulas, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 import { aperturaControl, controlSinAbrir, type TiempoExamen } from '../../utils/tiempoExamen'
 
 export const botonDocente = 'inline-flex min-h-10 min-[960px]:min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ccdaf4] px-3 py-1.5 text-center text-xs font-semibold text-[#0439D9] transition-colors hover:bg-[#edf3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]'
@@ -59,12 +59,23 @@ export default function ExamenHoyDocenteCard({ examen, tiempo, horaActual, puede
     ? Math.min(100, Math.round(resumen.ingresados * 100 / resumen.habilitados))
     : 0)
   const valores = [habilitados, ingresados, ausentes]
-  const detalles = ['Asociados y habilitados', controlSinAbrir(tiempo) ? 'Aún no inicia' : 'Ingresos registrados', 'Habilitados que no ingresaron']
+  // DASH-01: el expulsado sigue contando como ingresado (con su marca) y el trasladado cuenta en su aula nueva.
+  const expulsados = resumen?.expulsados ?? 0
+  const trasladados = resumen?.trasladados ?? 0
+  const detalles = ['Asociados y habilitados',
+    controlSinAbrir(tiempo) ? 'Aún no inicia' : expulsados ? `Incluye ${expulsados} ${expulsados === 1 ? 'expulsado' : 'expulsados'}` : 'Ingresos registrados',
+    'Habilitados que no ingresaron']
+  const marcas = [
+    expulsados ? `${expulsados} ${expulsados === 1 ? 'expulsado: sigue' : 'expulsados: siguen'} contando como ingresado, con su marca.` : '',
+    trasladados ? `${trasladados} ${trasladados === 1 ? 'trasladado' : 'trasladados'} de aula: ${trasladados === 1 ? 'cuenta' : 'cuentan'} en su aula nueva.` : '',
+  ].filter(Boolean).join(' ')
   const apertura = aperturaControl(examen.fecha, examen.horaInicio)
   const aviso = fallo
     ? resumen ? 'Se muestran los últimos datos disponibles. Volveremos a intentar actualizarlos.' : 'No se pudieron cargar los contadores. Volveremos a intentarlo.'
     : controlSinAbrir(tiempo)
       ? `El control de ingreso abre a las ${apertura.hora}. Los contadores se actualizan solos.`
+      : marcas
+        ? marcas
       : resumen?.incidencias
         ? `${resumen.incidencias} ${resumen.incidencias === 1 ? 'incidencia registrada' : 'incidencias registradas'}. Consulta el panel del examen para ver el detalle.`
         : finalizado ? 'El examen finalizó. Puedes consultar sus resultados en el panel.' : 'Los contadores se actualizan sin recargar la página.'
@@ -83,7 +94,7 @@ export default function ExamenHoyDocenteCard({ examen, tiempo, horaActual, puede
               </span>
             )}
           </div>
-          <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">{examen.asignatura} · Grupo {examen.grupo ?? examen.idParalelo}</h3>
+          <h3 className="mb-1 break-words text-base font-bold leading-tight sm:text-lg">{materiaYGrupo(examen)}</h3>
           <p className="flex items-center gap-1.5 text-xs"><Clock size={14} className="shrink-0 text-[#42618e]" aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</p>
           <p className="mt-1 flex items-center gap-1.5 text-xs"><MapPin size={14} className="shrink-0 text-[#42618e]" aria-hidden="true" />{etiquetaAulas(examen)}</p>
         </div>
@@ -126,10 +137,10 @@ export default function ExamenHoyDocenteCard({ examen, tiempo, horaActual, puede
         <Info size={15} className="shrink-0" aria-hidden="true" />{aviso}
       </p>
       <div className={`grid gap-2 ${puedeControlar ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_auto]' : ''}`}>
-        <Link to={`/dashboard/examenes/${examen.idExamen}/${examen.idParalelo}`} className={`${botonDocente} !border-[#0439D9] !bg-[#0439D9] !text-white hover:!bg-[#032db0]`}>
+        <Link to={`/dashboard/control/${examen.idExamen}`} className={`${botonDocente} !border-[#0439D9] !bg-[#0439D9] !text-white hover:!bg-[#032db0]`}>
           Ver panel del examen <ArrowRight size={16} aria-hidden="true" />
         </Link>
-        {puedeControlar && !finalizado && <Link to={`/dashboard/control/${examen.idExamen}`} className={botonDocente}><ScanLine size={16} aria-hidden="true" /> Controlar ingreso</Link>}
+        {puedeControlar && !finalizado && <Link to={`/dashboard/control/${examen.idExamen}/identificar`} className={botonDocente}><ScanLine size={16} aria-hidden="true" /> Controlar ingreso</Link>}
       </div>
     </article>
   )
