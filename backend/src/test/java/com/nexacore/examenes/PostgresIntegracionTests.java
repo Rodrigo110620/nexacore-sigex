@@ -83,6 +83,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
     @Autowired com.nexacore.examenes.services.PerfilRolService perfilRolService;
+    @Autowired com.nexacore.examenes.services.InicioDocenteService inicioDocenteService;
     @Autowired com.nexacore.examenes.services.AsistenciaExportService asistenciaExportService;
     @Autowired com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
     @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
@@ -962,6 +963,56 @@ class PostgresIntegracionTests {
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // Panel del docente (secciones 15 y 18): sus materias con grupos y estudiantes, próximo examen, asistencia, totales,
+    // ingresos y expulsiones de hoy y sus últimos registros.
+    @Test
+    void elPanelDelDocenteMuestraSusMateriasYRegistros() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-PAN");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, '2')", idMateria, idDocente);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?) ON CONFLICT DO NOTHING", idDocente, idMateria);
+        int ana = estudiante("209940001", "Ana");
+        int beto = estudiante("209940002", "Beto");
+        String inscribir = "INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente, estado) VALUES (?, ?, ?, ?, 'inscrito')";
+        jdbc.update(inscribir, ana, g1, idMateria, idDocente);
+        jdbc.update(inscribir, beto, g1, idMateria, idDocente);
+        int examen = examen(g1, "10:00", 90);
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", examen);
+        var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
+        jdbc.update(asociar, ana, examen, g1, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+        jdbc.update(asociar, beto, examen, g1, null);
+        jdbc.update("INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, resultado_autorizacion, fecha_hora, tipo_ingreso) "
+                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, 'NORMAL')", examen, g1, ana, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
+                ana, examen, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(5)));
+        int manana = examen(g1, "09:00", 60);
+        sincronizar();
+
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            var panel = inicioDocenteService.resumen();
+            assertThat(panel.materias()).singleElement().satisfies(m -> {
+                assertThat(m.sigla()).isEqualTo("TST-PAN");
+                assertThat(m.grupos()).containsExactly("1", "2");
+                assertThat(m.estudiantes()).isEqualTo(2);
+                assertThat(m.asistencia()).isEqualTo(50);
+                assertThat(m.proximoExamen().idExamen()).isEqualTo(manana);
+            });
+            assertThat(panel.grupos()).isEqualTo(2);
+            assertThat(panel.estudiantes()).isEqualTo(2);
+            assertThat(panel.expulsionesHoy()).isEqualTo(1);
+            assertThat(java.util.Arrays.stream(panel.ingresosPorHora()).sum()).isEqualTo(1);
+            assertThat(panel.recientes()).extracting(r -> r.tipo()).containsExactly("EXPULSION", "INGRESO");
+            assertThat(panel.recientes().get(0).detalle()).isEqualTo("Uso de celular durante el examen");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     // Título, especialidad y categoría del docente: los registra y los cambia solo el ADMIN.
