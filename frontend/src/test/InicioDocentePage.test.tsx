@@ -81,23 +81,28 @@ describe('Inicio del docente', () => {
     expect(screen.getByText('Contacta al administrador del sistema.')).toBeInTheDocument()
   })
 
-  it('muestra los exámenes del día boliviano con sus cifras y accesos', async () => {
+  it('muestra los exámenes del día boliviano en la lista compacta con sus cifras en vivo', async () => {
     vi.mocked(listarExamenes).mockResolvedValue([
       { idExamen: 1, idParalelo: 7, asignatura: 'Programación Web', grupo: 'G1', fecha: '2026-11-03', horaInicio: '22:00', duracionMinutos: 60, estado: 'programado', ambienteNombre: '690A' },
       { idExamen: 2, idParalelo: 8, asignatura: 'Otro día', fecha: '2026-11-04', horaInicio: '14:00', duracionMinutos: 60, estado: 'programado' },
     ] as ExamenDto[])
-    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 100, habilitados: 96, noHabilitados: 4, ingresados: 82 })
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 100, habilitados: 96, noHabilitados: 4, ingresados: 82, expulsados: 1 })
     montar()
 
-    expect(await screen.findByText('82 de 96 ingresaron')).toBeInTheDocument()
+    const lista = await screen.findByRole('list', { name: 'Mis exámenes de hoy' })
+    const fila = within(lista).getByRole('link', { name: 'Programación Web · G1: ver panel del examen' })
+    expect(fila).toHaveAttribute('href', '/dashboard/control/1')
+    expect(await within(fila).findByText('85 %')).toBeInTheDocument()
+    expect(fila).toHaveTextContent('96 habilitados')
+    expect(fila).toHaveTextContent('82 ingresados')
+    expect(fila).toHaveTextContent('14 ausentes')
+    expect(fila).toHaveTextContent('1 expulsado (cuenta como ingresado)')
+    expect(within(fila).getByText('En vivo')).toBeInTheDocument()
     expect(screen.getByText(/1 examen hoy · 1 en curso/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Programación Web · G1' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: /Otro día/ })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Ver panel del examen' })).toHaveAttribute('href', '/dashboard/control/1')
-    expect(screen.getByRole('link', { name: 'Controlar ingreso' })).toHaveAttribute('href', '/dashboard/control/1/identificar')
+    expect(screen.queryByText(/Otro día/)).toBeNull()
   })
 
-  it('distingue en curso, no iniciado y finalizado, y no permite controlar uno terminado', async () => {
+  it('distingue en vivo, próximo (con la hora en que abre) y finalizado', async () => {
     vi.mocked(listarExamenes).mockResolvedValue([
       { idExamen: 11, idParalelo: 1, asignatura: 'En curso', fecha: '2026-11-03', horaInicio: '21:30', duracionMinutos: 120, estado: 'programado', ambienteNombre: '609' },
       { idExamen: 12, idParalelo: 2, asignatura: 'Próximo', fecha: '2026-11-03', horaInicio: '23:30', duracionMinutos: 90, estado: 'programado', ambienteNombre: '612' },
@@ -107,10 +112,11 @@ describe('Inicio del docente', () => {
     montar()
 
     expect(await screen.findByText(/3 exámenes hoy · 1 en curso/)).toBeInTheDocument()
-    expect(screen.getAllByText('En curso').length).toBeGreaterThan(0)
-    expect(screen.getByText('No iniciado')).toBeInTheDocument()
-    expect(screen.getByText('Finalizado')).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Controlar ingreso' })).toHaveLength(2)
+    const lista = screen.getByRole('list', { name: 'Mis exámenes de hoy' })
+    expect(within(lista).getByText('En vivo')).toBeInTheDocument()
+    expect(within(lista).getByText('PRÓXIMO')).toBeInTheDocument()
+    expect(within(lista).getByText('FINALIZADO')).toBeInTheDocument()
+    expect(within(lista).getByText('Abre a las 23:15')).toBeInTheDocument()
   })
 
   it('muestra el próximo examen cuando no hay exámenes hoy', async () => {
@@ -119,8 +125,8 @@ describe('Inicio del docente', () => {
     ] as ExamenDto[])
     montar()
 
-    expect(await screen.findByRole('heading', { name: 'No tienes exámenes hoy' })).toBeInTheDocument()
-    expect(screen.getByText(/Tu próximo examen: Programación Web · jueves 05\/11\/2026 · 14:00, Aula 690A/)).toBeInTheDocument()
+    expect(await screen.findByText('No tienes exámenes hoy')).toBeInTheDocument()
+    expect(screen.getByText(/Tu próximo examen: Programación Web · 05\/11\/2026 · 14:00, Aula 690A/)).toBeInTheDocument()
     expect(obtenerResumenExamen).not.toHaveBeenCalled()
   })
 })

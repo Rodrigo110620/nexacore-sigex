@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, BookOpen, CalendarDays, Info, LoaderCircle } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { BookOpen, Info, LoaderCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ErrorCarga from '../../components/ui/ErrorCarga'
@@ -9,13 +8,12 @@ import useEnVivo from '../../hooks/useEnVivo'
 import useReloj from '../../hooks/useReloj'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { offsetServidorMinutos } from '../../services/tiempoService'
-import { etiquetaAulas, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
+import { formatFecha, horaCorta } from '../../utils/examenFormat'
 import useResumenesExamenes from '../../hooks/useResumenesExamenes'
 import { obtenerInicioDocente, type InicioDocente } from '../../services/inicioService'
-import { BannerDocente, IndicadoresDocente, MisMaterias, RegistrosDocente } from '../../components/inicio/PanelDocente'
+import { BannerDocente, ExamenesHoyDocente, IndicadoresDocente, MisMaterias, RegistrosDocente } from '../../components/inicio/PanelDocente'
 import { tienePermiso } from '../../utils/permisos'
 import { ordenarPorFase, tiempoExamen } from '../../utils/tiempoExamen'
-import ExamenHoyDocenteCard, { botonDocente } from './ExamenHoyDocenteCard'
 
 export default function InicioDocentePage() {
   const auth = useAuth()
@@ -74,7 +72,6 @@ export default function InicioDocentePage() {
   const enCurso = examenesHoy.filter(({ tiempo }) => tiempo.fase === 'en_curso').length
   const proximo = ordenarPorFase(examenes.filter((examen) => examen.fecha > hoy), ahora, offset)
     .find((examen) => tiempoExamen(examen, ahora, offset).fase === 'programado')
-  const puedeControlar = tienePermiso(auth, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')
   const puedeProgramar = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS', 'EXAMENES_GESTIONAR_TODOS')
 
   const resumenes = useResumenesExamenes(examenesHoy.map(({ examen }) => examen.idExamen), ahora - (ahora % 30_000)).resumenes
@@ -109,40 +106,8 @@ export default function InicioDocentePage() {
                 <ErrorCarga mensaje="No se pudieron cargar tus materias." onReintentar={() => setRecargaPanel((n) => n + 1)} />
               )}
 
-              {/* Sección 15 (DASH-01): las tarjetas de los exámenes de hoy con sus contadores en vivo. */}
-              {examenesHoy.length ? (
-                <section aria-labelledby="examenes-hoy">
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <h2 id="examenes-hoy" className="text-xs font-bold uppercase">Tus exámenes de hoy</h2>
-                    <p className="hidden text-xs text-[#526e97] min-[960px]:block">Los contadores se actualizan solos</p>
-                  </div>
-                  <div className="grid gap-[18px] min-[960px]:grid-cols-2">
-                    {examenesHoy.map(({ examen, tiempo }) => (
-                      <ExamenHoyDocenteCard
-                        key={`${examen.idExamen}-${examen.idParalelo}`}
-                        examen={examen}
-                        tiempo={tiempo}
-                        horaActual={horaActual}
-                        puedeControlar={puedeControlar}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ) : (
-                <section className={`${panel} flex flex-col items-center gap-3 px-5 py-6 text-center min-[960px]:min-h-[160px] min-[960px]:justify-center`} aria-labelledby="sin-examenes">
-                  <span className="grid size-14 place-items-center rounded-full bg-[#edf2fe] text-[#0439D9] min-[960px]:size-12"><CalendarDays size={25} aria-hidden="true" /></span>
-                  <h2 id="sin-examenes" className="text-lg font-bold leading-tight">No tienes exámenes hoy</h2>
-                  <p className="max-w-4xl text-sm leading-tight text-[#42618e]">
-                    {proximo
-                      ? `Tu próximo examen: ${materiaYGrupo(proximo)} · ${fechaConDia(proximo.fecha)} · ${horaCorta(proximo.horaInicio)}, ${etiquetaAulas(proximo)}. Ese día verás aquí los contadores en vivo.`
-                      : 'Por ahora no tienes próximos exámenes programados.'}
-                  </p>
-                  <Link to="/dashboard/examenes" className={`${botonDocente} px-4 text-sm`}>Ver mis exámenes <ArrowRight size={17} aria-hidden="true" /></Link>
-                </section>
-              )}
-
-              {/* Sección 18: sus materias y sus últimos registros. */}
-              {panelDocente && (panelDocente.materias.length === 0 ? (
+              {/* Sección 18: sus materias; abajo, sus exámenes de hoy (DASH-01) junto a sus registros. */}
+              {panelDocente && panelDocente.materias.length === 0 ? (
                 <section className={`${panel} flex flex-col items-center gap-3 px-5 py-8 text-center`} aria-labelledby="sin-materias">
                   <span className="grid size-14 place-items-center rounded-full bg-[#edf2fe] text-[#0439D9]"><BookOpen size={25} aria-hidden="true" /></span>
                   <h2 id="sin-materias" className="text-lg font-bold">Aún no tienes materias asignadas</h2>
@@ -150,11 +115,14 @@ export default function InicioDocentePage() {
                   <p className="inline-flex items-center gap-1.5 rounded-lg bg-[#edf2fe] px-3 py-2 text-xs font-semibold text-[#0439D9]"><Info size={14} aria-hidden="true" /> Contacta al administrador del sistema.</p>
                 </section>
               ) : (
-                <div className="grid gap-[18px] min-[1100px]:grid-cols-[minmax(0,1fr)_380px]">
-                  <MisMaterias datos={panelDocente} hoy={hoy} horaActual={horaActual} puedeProgramar={puedeProgramar} />
-                  <RegistrosDocente registros={panelDocente.recientes} />
-                </div>
-              ))}
+                <>
+                  {panelDocente && <MisMaterias datos={panelDocente} hoy={hoy} horaActual={horaActual} puedeProgramar={puedeProgramar} />}
+                  <div className="grid gap-[18px] min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <ExamenesHoyDocente examenes={examenesHoy} resumenes={resumenes} proximo={proximo} />
+                    {panelDocente && <RegistrosDocente registros={panelDocente.recientes} />}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>

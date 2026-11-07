@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom'
-import { Ban, BookOpen, CalendarDays, CircleCheck, Clock3, Plus, TriangleAlert, UsersRound, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UsersRound, type LucideIcon } from 'lucide-react'
 import { Anillo, Sparkline } from './Graficas'
 import { EnVivo } from './Comun'
 import { TARJETA, formatoPct, horasDelDia, porcentaje } from '../../utils/inicio'
 import type { InicioDocente } from '../../services/inicioService'
-import { formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, etiquetaAulas, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
+import { aperturaControl, controlSinAbrir, type TiempoExamen } from '../../utils/tiempoExamen'
+import type { ExamenDto } from '../../services/examenService'
+import type { ResumenEstudiantes } from '../../services/controlExamenService'
 
 /** Sección 18: banner con el saludo, el resumen del día y el avance de ingreso de sus exámenes de hoy. */
 export function BannerDocente({ nombre, fecha, horaActual, saludo, materias, examenesHoy, enCurso, ingresados, habilitados, puedeProgramar }: {
@@ -157,7 +160,7 @@ export function RegistrosDocente({ registros }: { registros: InicioDocente['reci
   return (
     <section aria-labelledby="registros-docente" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
       <h2 id="registros-docente" className="text-[15px] font-bold text-[#011140]">Registros de mis exámenes</h2>
-      <p className="mt-0.5 text-xs text-[#627A9B]">Hoy, solo de tus materias</p>
+      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias</p>
       {registros.length === 0 ? (
         <p className="mt-4 rounded-lg bg-[#F8FAFF] p-3 text-sm text-[#627A9B]">Aún no hay registros hoy en tus exámenes.</p>
       ) : (
@@ -173,6 +176,105 @@ export function RegistrosDocente({ registros }: { registros: InicioDocente['reci
                   <span className="block truncate text-[11px] text-[#627A9B]">{[r.materia, r.tipo === 'INGRESO' && r.detalle ? `Aula ${r.detalle}` : r.detalle].filter(Boolean).join(' · ')}</span>
                 </span>
                 <span className="shrink-0 text-xs tabular-nums text-[#45628D]">{r.fecha.slice(11, 16)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+const ESTADO_FILA: Record<'en_curso' | 'programado' | 'finalizado', string> = {
+  en_curso: 'En vivo',
+  programado: 'PRÓXIMO',
+  finalizado: 'FINALIZADO',
+}
+
+/**
+ * Sección 18 (DASH-01): sus exámenes de hoy en lista compacta, con habilitados, ingresados y ausentes que se
+ * actualizan solos. El expulsado sigue contando como ingresado (con su marca); el trasladado, en su aula nueva.
+ */
+export function ExamenesHoyDocente({ examenes, resumenes, proximo }: {
+  examenes: { examen: ExamenDto; tiempo: TiempoExamen }[]
+  resumenes: Record<number, ResumenEstudiantes | 'error'>
+  proximo: ExamenDto | undefined
+}) {
+  return (
+    <section aria-labelledby="examenes-hoy" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id="examenes-hoy" className="text-[15px] font-bold text-[#011140]">Mis exámenes de hoy</h2>
+          <p className="mt-0.5 text-xs text-[#627A9B]">Los contadores se actualizan solos</p>
+        </div>
+        <Link to="/dashboard/examenes" className="mt-2 inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#0439D9] hover:underline">
+          Ver todos <ArrowRight size={14} aria-hidden="true" />
+        </Link>
+      </div>
+      {examenes.length === 0 ? (
+        <div className="mt-4 flex items-start gap-3 rounded-lg bg-[#F8FAFF] p-3">
+          <CalendarDays size={18} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-[#011140]">No tienes exámenes hoy</p>
+            <p className="mt-0.5 text-xs text-[#627A9B]">
+              {proximo
+                ? `Tu próximo examen: ${materiaYGrupo(proximo)} · ${formatFecha(proximo.fecha)} · ${horaCorta(proximo.horaInicio)}, ${etiquetaAulas(proximo)}.`
+                : 'Por ahora no tienes próximos exámenes programados.'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <ul className="mt-1 divide-y divide-[#EEF2F7]" aria-label="Mis exámenes de hoy">
+          {examenes.map(({ examen, tiempo }) => {
+            const r = resumenes[examen.idExamen]
+            const resumen = r && r !== 'error' ? r : undefined
+            const fase = tiempo.fase === 'cancelado' ? 'finalizado' : tiempo.fase
+            const ausentes = resumen ? Math.max(0, resumen.habilitados - resumen.ingresados) : undefined
+            const pct = resumen?.habilitados ? Math.min(100, Math.round(resumen.ingresados * 100 / resumen.habilitados)) : 0
+            const sinAbrir = controlSinAbrir(tiempo)
+            const marcas = [
+              resumen?.expulsados ? `${resumen.expulsados} ${resumen.expulsados === 1 ? 'expulsado' : 'expulsados'} (cuenta como ingresado)` : '',
+              resumen?.trasladados ? `${resumen.trasladados} ${resumen.trasladados === 1 ? 'trasladado' : 'trasladados'} de aula` : '',
+            ].filter(Boolean).join(' · ')
+            const cifras = [
+              { punto: 'bg-[#2563EB]', valor: resumen?.habilitados, texto: 'habilitados' },
+              { punto: 'bg-[#22C55E]', valor: resumen?.ingresados, texto: 'ingresados' },
+              { punto: 'bg-[#F59E0B]', valor: ausentes, texto: 'ausentes' },
+            ]
+            return (
+              <li key={`${examen.idExamen}-${examen.idParalelo}`}>
+                <Link to={`/dashboard/control/${examen.idExamen}`} aria-label={`${materiaYGrupo(examen)}: ver panel del examen`}
+                  className="-mx-2 block rounded-lg px-2 py-3 transition-colors hover:bg-[#F8FAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]">
+                  <span className="flex items-center justify-between gap-2">
+                    <h3 className="min-w-0 truncate text-sm font-bold text-[#011140]">{materiaYGrupo(examen)}</h3>
+                    {fase === 'en_curso' ? (
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D]">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#22C55E]" aria-hidden="true" /> {ESTADO_FILA.en_curso}
+                      </span>
+                    ) : (
+                      <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${fase === 'programado' ? 'bg-[#E0E9FF] text-[#0439D9]' : 'bg-[#EAF0F4] text-[#435166]'}`}>{ESTADO_FILA[fase]}</span>
+                    )}
+                  </span>
+                  <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#45628D]">
+                    <span className="inline-flex items-center gap-1"><Clock3 size={13} aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</span>
+                    <span className="inline-flex items-center gap-1"><MapPin size={13} aria-hidden="true" />{etiquetaAulas(examen)}</span>
+                  </span>
+                  <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B]">
+                    {cifras.map(({ punto, valor, texto }) => (
+                      <span key={texto} className="inline-flex items-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${punto}`} aria-hidden="true" />
+                        <span className="text-[13px] font-bold tabular-nums text-[#011140]">{valor ?? '—'}</span> {texto}
+                      </span>
+                    ))}
+                    <span className="ml-auto text-xs font-semibold text-[#011140]">
+                      {r === 'error' ? 'Sin datos' : sinAbrir ? <span className="font-normal text-[#627A9B]">Abre a las {aperturaControl(examen.fecha, examen.horaInicio).hora}</span> : resumen ? `${pct} %` : '…'}
+                    </span>
+                  </span>
+                  <span className="mt-2 block h-2 overflow-hidden rounded-full bg-[#EEF2F7]" aria-hidden="true">
+                    <span className="block h-full rounded-full bg-gradient-to-r from-[#22C55E] to-[#0EA5E9] transition-[width]" style={{ width: `${sinAbrir ? 0 : pct}%` }} />
+                  </span>
+                  {marcas && <span className="mt-1.5 block text-[11px] text-[#BE123C]">{marcas}</span>}
+                </Link>
               </li>
             )
           })}
