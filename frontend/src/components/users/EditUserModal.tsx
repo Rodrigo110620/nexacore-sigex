@@ -5,7 +5,7 @@ import PersonalInfoSection from '../admin/PersonalInfoSection';
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs';
 import CredentialsSection from '../admin/CredentialsSection';
 import SelectorMaterias from '../admin/SelectorMaterias';
-import { asignarMateriasAlDocente, materiasDelDocente, type MateriaDto } from '../../services/materiaService';
+import { asignarMateriasAlDocente, gruposPorMateria, materiasDelDocente, type MateriaDto } from '../../services/materiaService';
 import {
   type FormErrors,
   type RegisterUserFormState,
@@ -102,7 +102,8 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
 
   const esDocente = form.rol === 'DOCENTE';
   const listaMaterias = materias ?? [];
-  const idsDe = (l: MateriaDto[]) => l.map((m) => m.id).sort((a, b) => a - b).join(',');
+  // Cambian si cambia alguna materia o alguno de sus grupos.
+  const idsDe = (l: MateriaDto[]) => l.map((m) => `${m.id}:${(m.grupos ?? []).join('|')}`).sort().join(',');
   const cambianMaterias = esDocente && idsDe(listaMaterias) !== idsDe(materiasIniciales);
 
   const handleChange = (field: keyof RegisterUserFormState, value: string | boolean | Rol) => {
@@ -189,7 +190,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       }, { _skipAutoLogout: true } as object);
       if (esDocente) setDatosDocenteIniciales(datosDocente);
       if (esDocente && (cambianMaterias || user?.rol !== 'DOCENTE')) {
-        await asignarMateriasAlDocente(Number(user?.id), listaMaterias.map((m) => m.id));
+        await asignarMateriasAlDocente(Number(user?.id), listaMaterias.map((m) => m.id), gruposPorMateria(listaMaterias));
         setMateriasIniciales(listaMaterias);
       }
       setRegisteredEmail(cleanForm.email);

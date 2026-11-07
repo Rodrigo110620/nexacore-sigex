@@ -965,6 +965,48 @@ class PostgresIntegracionTests {
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
     }
 
+    // Grupos del docente: el ADMIN elige G1, G2… de cada materia; no se repite el grupo de otro docente ni se
+    // quita uno con exámenes o estudiantes; sin grupos en la petición no se tocan los que ya tiene.
+    @Test
+    void elAdminAsignaLosGruposDeCadaMateriaDelDocente() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-GRP");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+
+        // El grupo antiguo «1» pasa a «G1» y se crea el G2.
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("g1", "2")));
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente)).singleElement()
+                .satisfies(m -> assertThat(m.grupos()).containsExactly("G1", "G2"));
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.nombreGrupo()).containsExactly("G1", "G2");
+
+        // Sin grupos en la petición no se tocan.
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), null);
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente).get(0).grupos()).containsExactly("G1", "G2");
+
+        // Otro docente no puede tener el G2 de la misma materia, pero sí el G3.
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) VALUES ('Eva','Rios','88888991','eva.grupos@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario,categoria) VALUES (?,'INTERINO')", otro);
+        assertThatThrownBy(() -> docenteMateriaService.asignar(otro, List.of(idMateria), java.util.Map.of(idMateria, List.of("G2"))))
+                .hasMessageContaining("El grupo G2 de Materia TST-GRP ya es de");
+        docenteMateriaService.asignar(otro, List.of(idMateria), java.util.Map.of(idMateria, List.of("G3")));
+        assertThat(docenteMateriaService.materiasConGrupos(otro).get(0).grupos()).containsExactly("G3");
+
+        // No se quita un grupo con exámenes; uno sin uso, sí.
+        examen(g1, "09:00", 60);
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("G2"))))
+                .hasMessageContaining("No se puede quitar el grupo G1");
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("G1")));
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente).get(0).grupos()).containsExactly("G1");
+
+        // Formato y materias: G1… G20, al menos uno, y solo de las materias elegidas.
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("A"))))
+                .hasMessageContaining("no es válido");
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of())))
+                .hasMessageContaining("al menos un grupo");
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria + 999, List.of("G1"))))
+                .hasMessageContaining("de las materias elegidas");
+    }
+
     // Panel del docente (secciones 15 y 18): sus materias con grupos y estudiantes, próximo examen, asistencia, totales,
     // ingresos y expulsiones de hoy y sus últimos registros.
     @Test

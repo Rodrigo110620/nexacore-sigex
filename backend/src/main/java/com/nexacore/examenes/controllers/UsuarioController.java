@@ -176,17 +176,18 @@ public class UsuarioController {
         return datos == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(datos);
     }
 
-    @Operation(summary = "Materias del docente", description = "IMP-12: las materias que el docente puede usar al programar exámenes. Solo ADMIN.")
+    @Operation(summary = "Materias del docente", description = "IMP-12: las materias que el docente puede usar al programar exámenes, con sus grupos (G1, G2…). Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping("/{id}/materias")
-    public List<MateriaResponse> materias(@PathVariable Integer id) {
-        return docenteMateriaService.materiasDe(id);
+    public List<com.nexacore.examenes.dto.MateriaConGruposResponse> materias(@PathVariable Integer id) {
+        return docenteMateriaService.materiasConGrupos(id);
     }
 
-    @Operation(summary = "Asignar materias al docente", description = "IMP-12: reemplaza sus materias (al menos una). Solo ADMIN.")
+    @Operation(summary = "Asignar materias al docente", description = "IMP-12: reemplaza sus materias (al menos una) y, si se envían, los grupos de cada una. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PutMapping("/{id}/materias")
-    public List<MateriaResponse> asignarMaterias(@PathVariable Integer id, @Valid @RequestBody AsignarMateriasRequest request) {
-        return docenteMateriaService.asignar(id, request.idMaterias());
+    public List<com.nexacore.examenes.dto.MateriaConGruposResponse> asignarMaterias(@PathVariable Integer id, @Valid @RequestBody AsignarMateriasRequest request) {
+        docenteMateriaService.asignar(id, request.idMaterias(), request.grupos());
+        return docenteMateriaService.materiasConGrupos(id);
     }
 }

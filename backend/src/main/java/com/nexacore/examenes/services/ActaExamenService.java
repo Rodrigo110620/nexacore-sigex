@@ -115,8 +115,13 @@ public class ActaExamenService {
             String fecha,
             String horario,
             String aulas,
-            String numero      // N.° del acta: <año>-FI-<examen con 4 cifras>
+            String numero,     // N.° del acta: <año>-FI-<examen con 4 cifras>
+            String grupo       // G1, G2…; null si no se encuentra
     ) {}
+
+    /** El grupo (G1, G2…) del examen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.ParaleloRepository paraleloRepository;
 
     /** Para el nombre del archivo, el mismo formato que el Excel; por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -260,6 +265,9 @@ public class ActaExamenService {
         String horario = examen.getHoraInicio() + " – " + examen.getHoraInicio()
                 .plusMinutes(examen.getDuracionMinutos());
 
+        String grupo = paraleloRepository == null ? null
+                : paraleloRepository.findAllByIdParalelos(List.of(examen.getId().getIdParalelo())).stream()
+                        .map(com.nexacore.examenes.models.Paralelo::getNombreGrupo).filter(Objects::nonNull).findFirst().orElse(null);
         return new DatosExamen(
                 materia.getNombre(),
                 materia.getSigla(),
@@ -267,7 +275,8 @@ public class ActaExamenService {
                 examen.getFecha().format(FECHA),
                 horario,
                 String.join(", ", aulas),
-                "%d-FI-%04d".formatted(examen.getFecha().getYear(), examen.getId().getIdExamen()));
+                "%d-FI-%04d".formatted(examen.getFecha().getYear(), examen.getId().getIdExamen()),
+                grupo);
     }
 
     /** Sección 12: logo e institución a la izquierda; "ACTA DE ASISTENCIA" y su N.° a la derecha; una línea abajo. */
@@ -317,7 +326,7 @@ public class ActaExamenService {
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
         tabla.addCell(columnaDeDatos(base, negrita,
-                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")", "Docente:", datos.docente(), "Aula:", datos.aulas())));
+                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")" + (datos.grupo() == null ? "" : " · Grupo " + datos.grupo()), "Docente:", datos.docente(), "Aula:", datos.aulas())));
         tabla.addCell(columnaDeDatos(base, negrita,
                 List.of("Fecha:", datos.fecha(), "Horario:", datos.horario(), "Generada:", generada.format(FECHA) + " " + generada.format(HORA))));
         return tabla;

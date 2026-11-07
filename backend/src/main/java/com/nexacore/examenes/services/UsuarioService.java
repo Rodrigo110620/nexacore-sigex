@@ -100,6 +100,7 @@ public class UsuarioService {
         // IMP-12: un docente registrado desde el formulario necesita al menos una materia.
         boolean conMaterias = "DOCENTE".equals(rolNombre) && request.idMaterias() != null;
         if (conMaterias) docenteMateriaService.validar(request.idMaterias());
+        if (conMaterias) docenteMateriaService.validarGrupos(null, request.idMaterias(), request.grupos());
         String email = normalizarEmail(request.email());
         String ci = request.ci().trim();
         if (usuarioRepository.findByEmail(email).isPresent()) {
@@ -129,7 +130,7 @@ public class UsuarioService {
         // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
         sincronizarDocente(usuario, rolNombre);
         guardarDatosDocente(usuario.getId(), rolNombre, request.docente());
-        if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias());
+        if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias(), request.grupos());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         // Si el envío falla, la excepción revierte el registro.

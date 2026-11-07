@@ -8,8 +8,11 @@ interface SelectorMateriasProps {
   error?: string
 }
 
+/** Grupos que se ofrecen para marcar; el backend acepta hasta G20. */
+const GRUPOS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6']
+
 /**
- * IMP-12: elige las materias del docente. Busca en el catálogo (mínimo 3 letras) y muestra las elegidas
+ * IMP-12: elige las materias del docente y los grupos (G1, G2…) que da en cada una. Busca en el catálogo (mínimo 3 letras) y muestra las elegidas
  * como etiquetas que se pueden quitar. El docente solo podrá programar exámenes de estas materias.
  */
 export default function SelectorMaterias({ value, onChange, error }: SelectorMateriasProps) {
@@ -38,24 +41,51 @@ export default function SelectorMaterias({ value, onChange, error }: SelectorMat
   // Con menos de 3 letras no se muestran resultados (los de una búsqueda anterior se ignoran).
   const visibles = busqueda.trim().length >= 3 ? resultados : []
 
+  // Una materia nueva empieza con el G1; el ADMIN marca los demás grupos que da el docente.
   const alternar = (m: MateriaDto) => {
-    onChange(elegidas.has(m.id) ? value.filter((x) => x.id !== m.id) : [...value, m])
+    onChange(elegidas.has(m.id) ? value.filter((x) => x.id !== m.id) : [...value, { ...m, grupos: m.grupos?.length ? m.grupos : ['G1'] }])
+  }
+
+  const alternarGrupo = (m: MateriaDto, g: string) => {
+    const actuales = m.grupos ?? []
+    const grupos = actuales.includes(g) ? actuales.filter((x) => x !== g) : [...actuales, g]
+    if (!grupos.length) return // al menos un grupo por materia
+    grupos.sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+    onChange(value.map((x) => (x.id === m.id ? { ...x, grupos } : x)))
   }
 
   return (
     <div className="flex flex-col gap-3">
       {value.length > 0 && (
-        <ul aria-label="Materias elegidas" className="flex flex-wrap gap-2">
-          {value.map((m) => (
-            <li key={m.id} className="inline-flex items-center gap-1.5 rounded-full border border-[#C7D7F5] bg-[#EEF3FF] py-1 pl-2.5 pr-1 text-xs font-semibold text-[#011140]">
-              <BookOpen size={13} className="text-[#0439D9]" aria-hidden="true" />
-              {m.nombre} <span className="font-normal text-[#627A9B]">({m.sigla})</span>
-              <button type="button" onClick={() => alternar(m)} aria-label={`Quitar ${m.nombre}`}
-                className="rounded-full p-0.5 text-[#627A9B] hover:bg-white hover:text-[#B91C1C]">
-                <X size={13} aria-hidden="true" />
-              </button>
-            </li>
-          ))}
+        <ul aria-label="Materias elegidas" className="flex flex-col gap-2">
+          {value.map((m) => {
+            const opciones = [...new Set([...GRUPOS, ...(m.grupos ?? [])])].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+            return (
+              <li key={m.id} className="rounded-lg border border-[#C7D7F5] bg-[#F5F8FF] p-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#011140]">
+                  <BookOpen size={13} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{m.nombre} <span className="font-normal text-[#627A9B]">({m.sigla})</span></span>
+                  <button type="button" onClick={() => alternar(m)} aria-label={`Quitar ${m.nombre}`}
+                    className="rounded-full p-0.5 text-[#627A9B] hover:bg-white hover:text-[#B91C1C]">
+                    <X size={13} aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label={`Grupos de ${m.nombre}`}>
+                  <span className="mr-1 text-[11px] text-[#45628D]">Grupos:</span>
+                  {opciones.map((g) => {
+                    const on = (m.grupos ?? []).includes(g)
+                    return (
+                      <button key={g} type="button" aria-pressed={on} onClick={() => alternarGrupo(m, g)}
+                        className={`min-w-9 rounded-md border px-2 py-1 text-[11px] font-semibold ${on ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#C7D7F5] bg-white text-[#45628D] hover:bg-[#EEF3FF]'}`}>
+                        {g}
+                      </button>
+                    )
+                  })}
+                </div>
+                {!m.grupos?.length && <p className="mt-1.5 text-[11px] text-[#627A9B]">Sin grupos: elige al menos uno (si no, se crea el G1 al programar su primer examen).</p>}
+              </li>
+            )
+          })}
         </ul>
       )}
 

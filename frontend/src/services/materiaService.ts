@@ -4,6 +4,13 @@ export interface MateriaDto {
   id: number
   sigla: string
   nombre: string
+  /** Grupos del docente en la materia (G1, G2…); solo en las materias de un docente. */
+  grupos?: string[]
+}
+
+/** {idMateria: ["G1", "G2"]} de las materias elegidas (las que no tienen grupos no se envían). */
+export function gruposPorMateria(materias: MateriaDto[]): Record<number, string[]> {
+  return Object.fromEntries(materias.filter((m) => m.grupos?.length).map((m) => [m.id, m.grupos!]))
 }
 
 export async function buscarMaterias(search: string, signal?: AbortSignal): Promise<MateriaDto[]> {
@@ -42,7 +49,7 @@ export async function materiasDelDocente(idDocente: number): Promise<MateriaDto[
 }
 
 /** IMP-12: reemplaza las materias de un docente (al menos una; solo ADMIN). */
-export async function asignarMateriasAlDocente(idDocente: number, idMaterias: number[]): Promise<MateriaDto[]> {
-  const { data } = await api.put<MateriaDto[]>(`/usuarios/${idDocente}/materias`, { idMaterias })
+export async function asignarMateriasAlDocente(idDocente: number, idMaterias: number[], grupos?: Record<number, string[]>): Promise<MateriaDto[]> {
+  const { data } = await api.put<MateriaDto[]>(`/usuarios/${idDocente}/materias`, grupos ? { idMaterias, grupos } : { idMaterias })
   return data
 }

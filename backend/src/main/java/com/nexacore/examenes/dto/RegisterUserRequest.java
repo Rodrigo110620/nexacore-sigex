@@ -65,10 +65,18 @@ public record RegisterUserRequest(
 
         /** Datos profesionales del DOCENTE (título, especialidad, categoría). Null: no se cambian. */
         @jakarta.validation.Valid
-        DatosDocenteRequest docente
+        DatosDocenteRequest docente,
+
+        /** Grupos de cada materia del DOCENTE ({@code {idMateria: ["G1", "G2"]}}). Null: se crean al programar. */
+        java.util.Map<Integer, List<String>> grupos
 ) {
     public RegisterUserRequest(String nombre, String apellidos, String ci, String email, String rol, Boolean activo,
                                Boolean notificarEmail, List<Integer> idMaterias) {
-        this(nombre, apellidos, ci, email, rol, activo, notificarEmail, idMaterias, null);
+        this(nombre, apellidos, ci, email, rol, activo, notificarEmail, idMaterias, null, null);
+    }
+
+    public RegisterUserRequest(String nombre, String apellidos, String ci, String email, String rol, Boolean activo,
+                               Boolean notificarEmail, List<Integer> idMaterias, DatosDocenteRequest docente) {
+        this(nombre, apellidos, ci, email, rol, activo, notificarEmail, idMaterias, docente, null);
     }
 }
