@@ -777,6 +777,20 @@ class PostgresIntegracionTests {
         assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
         assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
         assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
+
+        // DASH-06: el filtro por examen deja solo los intentos de su horario vigente. Si el examen se reprogramó,
+        // los intentos de la sesión anterior (antes de su cierre) quedan fuera; sin filtro, el listado los conserva.
+        jdbc.update("""
+                INSERT INTO examen_sesion (id_examen, numero, fecha, hora_inicio, duracion_minutos, asociados, ingresaron,
+                                           motivo_reprogramacion, cerrada_en)
+                VALUES (?, 1, DATE '2026-10-28', TIME '08:00', 90, 0, 0, 'Corte de luz en el bloque', TIMESTAMP '2026-10-28 08:07:00')
+                """, examen1);
+        sincronizar();
+        var vigente = intentoIngresoService.reporte(examen1, 0, 20);
+        assertThat(vigente.contenido()).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
+        assertThat(vigente.totalRegistros()).isEqualTo(1);
+        assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
     }
 
     @Test

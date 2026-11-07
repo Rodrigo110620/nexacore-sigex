@@ -235,4 +235,59 @@ class ImportacionEstudiantesServiceTests {
 
         assertTrue(error.getMessage().contains("10000"), error.getMessage());
     }
+
+    // IMP-13: el mismo archivo en Excel (.xlsx). Celdas numéricas (SIS, CI, ids) como en Excel, tildes y ñ,
+    // filas vacías al final y los mismos mensajes por fila que con el CSV.
+    private static MockMultipartFile xlsx(Object[]... filas) throws java.io.IOException {
+        try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var salida = new java.io.ByteArrayOutputStream()) {
+            var hoja = libro.createSheet("Estudiantes");
+            for (int r = 0; r < filas.length; r++) {
+                var fila = hoja.createRow(r);
+                for (int c = 0; c < filas[r].length; c++) {
+                    Object v = filas[r][c];
+                    if (v instanceof Number n) fila.createCell(c).setCellValue(n.doubleValue());
+                    else if (v != null) fila.createCell(c).setCellValue(String.valueOf(v));
+                }
+            }
+            hoja.createRow(filas.length + 3); // fila vacía con formato, como deja Excel
+            libro.write(salida);
+            return new MockMultipartFile("file", "estudiantes.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", salida.toByteArray());
+        }
+    }
+
+    private static final Object[] ENCABEZADO_XLSX = {"codigoSis", "nombre", "apellidos", "ci", "email", "idFacultad", "idCarrera"};
+
+    @Test
+    void importaUnExcelConCeldasNumericasTildesYEnie() throws Exception {
+        var result = service.importar(xlsx(ENCABEZADO_XLSX,
+            new Object[] {202404013, "Íñigo", "Gutiérrez Peña", 7489211, "202404013@est.umss.edu", 1, 10}));
+
+        assertEquals(1, result.insertados(), String.valueOf(result.errores()));
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            r.codigoSis().equals("202404013") && r.ci().equals("7489211") && r.nombre().equals("Íñigo")
+                && r.apellidos().equals("Gutiérrez Peña") && Integer.valueOf(10).equals(r.idCarrera())));
+    }
+
+    @Test
+    void unExcelConErroresLosInformaPorFilaComoElCsv() throws Exception {
+        var result = service.importar(xlsx(ENCABEZADO_XLSX,
+            new Object[] {20240401, "Ana", "Rojas Vargas", 7489212, "202404014@est.umss.edu", 1, 10},
+            new Object[] {202404015, "Ana", "Rojas Vargas", 123456, "202404015@est.umss.edu", 1, 10}));
+
+        assertEquals(0, result.insertados());
+        assertEquals(List.of("Fila 2: " + ReglasEstudiante.MSG_CODIGO_SIS + ".", "Fila 3: " + ReglasEstudiante.MSG_CI + "."),
+            result.errores());
+    }
+
+    @Test
+    void unExcelSinLasColumnasODanadoSeRechaza() throws Exception {
+        var sinColumnas = xlsx(new Object[] {"codigo", "nombre"}, new Object[] {"1", "Ana"});
+        assertThrows(IllegalArgumentException.class, () -> service.importar(sinColumnas));
+        var danado = new MockMultipartFile("file", "estudiantes.xlsx", "application/octet-stream", "no es excel".getBytes(StandardCharsets.UTF_8));
+        var error = assertThrows(IllegalArgumentException.class, () -> service.importar(danado));
+        assertTrue(error.getMessage().contains("Excel"), error.getMessage());
+        var otro = new MockMultipartFile("file", "estudiantes.xls", "application/vnd.ms-excel", new byte[] {1, 2});
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> service.importar(otro)).getMessage().contains("(.xlsx)"));
+    }
 }

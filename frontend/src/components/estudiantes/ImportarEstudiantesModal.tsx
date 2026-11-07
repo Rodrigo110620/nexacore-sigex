@@ -66,8 +66,9 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
     e.target.value = ''
     setError('')
     if (!selected) return
-    if (!selected.name.toLowerCase().endsWith('.csv')) {
-      setError('El archivo debe tener formato CSV (.csv).')
+    // IMP-13: también Excel (.xlsx); se lee su primera hoja con las mismas columnas que el CSV.
+    if (!/\.(csv|xlsx)$/i.test(selected.name)) {
+      setError('El archivo debe ser CSV (.csv) o Excel (.xlsx).')
       return
     }
     if (selected.size > MAX_BYTES) {
@@ -80,7 +81,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) {
-      setError('Selecciona un archivo CSV.')
+      setError('Selecciona un archivo CSV o Excel.')
       return
     }
     setLoading(true)
@@ -113,7 +114,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
             <div>
               <h2 id="importar-estudiantes-title" className="font-bold text-[#011140]">Importar Estudiantes</h2>
               <p className="mt-1 text-xs text-[#627A9B]">
-                {result ? 'Resultado de la importación.' : 'Registra varios estudiantes a la vez desde un archivo CSV.'}
+                {result ? 'Resultado de la importación.' : 'Registra varios estudiantes a la vez desde un archivo CSV o Excel (.xlsx).'}
               </p>
             </div>
           </div>
@@ -212,11 +213,11 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
               <div className="flex flex-col items-center gap-2 text-center">
                 <FileUp className="text-[#627A9B]" size={28} aria-hidden="true" />
                 <span className="break-all text-sm font-medium text-[#011140]">
-                  {file ? file.name : 'Haz clic para seleccionar el archivo CSV'}
+                  {file ? file.name : 'Haz clic para seleccionar el archivo CSV o Excel'}
                 </span>
                 <span className="text-[11px] text-[#627A9B]">{file ? 'Clic para cambiar de archivo' : 'Hasta 10 000 estudiantes · máximo 5 MB'}</span>
               </div>
-              <input type="file" name="file" accept=".csv,text/csv" className="sr-only" onChange={handleFileChange} />
+              <input type="file" name="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={handleFileChange} />
             </label>
 
             {error && (

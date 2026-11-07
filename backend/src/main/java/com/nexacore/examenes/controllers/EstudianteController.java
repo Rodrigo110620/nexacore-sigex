@@ -263,7 +263,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Importar estudiantes masivamente",
-            description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
+            description = "Importa estudiantes desde un CSV (separado por ',' o ';') o un Excel .xlsx (primera hoja) con las columnas "
             + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")

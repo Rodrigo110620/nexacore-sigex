@@ -4,6 +4,7 @@ import { reasignarAmbiente } from '../../services/controlExamenService'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
+import { MOTIVO_ESCRITO, espaciosAlEscribir, normalizarMotivo, validarMotivoEscrito } from '../../utils/motivoEscrito'
 
 interface Props {
   idExamen: number
@@ -16,9 +17,11 @@ interface Props {
   onSuccess: (idAmbienteDestino: number, aulaDestinoNombre: string) => void
 }
 
-/** Límites del traslado, iguales a los del servidor (TextoTraslado). */
+/** Límites de la observación del traslado, iguales a los del servidor (TextoTraslado); el motivo usa MotivoEscrito. */
 const MOTIVO_MIN = 10
 const TEXTO_MAX = 65
+/** Sección 24: motivos frecuentes del traslado, que el personal elige con un toque y puede completar. */
+const MOTIVOS_FRECUENTES_TRASLADO = ['Aula llena', 'Aula incorrecta', 'Problema en el aula', 'Necesidad especial']
 
 export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudiante, aulas, aulaActualId, onClose, onSuccess }: Props) {
   const [idAmbienteDestino, setIdAmbienteDestino] = useState<number | ''>('')
@@ -90,13 +93,6 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
       .sort((a, b) => a.nombre.localeCompare(b.nombre))
   }, [ambientes, aulas, aulaActualId])
 
-  const esSoloUnaLetraRepetida = (texto: string) => {
-    const letras = texto.replace(/\s/g, '').toUpperCase()
-    if (letras.length === 0) return false
-    const primera = letras[0]
-    return letras.split('').every(c => c === primera)
-  }
-
   const tieneRepetidosConsecutivos = (texto: string) => {
     if (texto.length < 4) return false
     for (let i = 0; i < texto.length - 3; i++) {
@@ -148,30 +144,8 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
   }
 
 
-  // Mismas reglas que el servidor (TextoTraslado): letras con tildes, ü y ñ.
-  const motivoError = (texto: string): string | null => {
-    const limpio = texto.trim().replace(/\s+/g, ' ')
-    if (!limpio) return 'El motivo es obligatorio'
-    // C04: no permitir espacios múltiples ni espacios al inicio/final
-    if (texto !== texto.trim() || texto.includes('  ')) return 'No uses espacios al inicio o final, ni múltiples espacios entre palabras'
-    if (limpio.length < MOTIVO_MIN) return 'El motivo debe contener al menos 10 caracteres'
-    if (limpio.length > TEXTO_MAX) return 'El motivo no puede superar 65 caracteres'
-    if (!/^\p{L}/u.test(limpio)) return 'El motivo debe comenzar con una letra'
-    if (!/^[a-zA-ZáéíóúüÁÉÍÓÚÜñÑ0-9 ]+$/.test(limpio)) return 'El motivo solo permite letras, números y espacios simples entre palabras'
-    // No permitir que el motivo sea solo el mismo carácter repetido (ej: "SSS SSSSS", "AAAAA")
-    if (esSoloUnaLetraRepetida(limpio)) return 'El motivo no puede ser solo el mismo carácter repetido'
-    // No permitir secuencias de teclado con 4 o más caracteres iguales seguidos (ej: "rrrr", "WWWW")
-    if (tieneRepetidosConsecutivos(limpio)) return 'El motivo no puede contener más de 3 caracteres iguales seguidos'
-    // Requerir al menos una vocal para evitar cadenas sin sentido (ej: "Wwwrrrrrr")
-    if (!tieneAlMenosUnaVocal(limpio)) return 'El motivo debe contener al menos una vocal'
-    // No permitir 3 o más consonantes seguidas (ej: "sdwq" en "Assdwqsasda")
-    if (maxConsonantesSeguidas(limpio) >= 3) return 'El motivo contiene demasiadas consonantes seguidas; escribe una frase con sentido'
-    // Para textos largos, exigir una proporción mínima de vocales (ej: "Sdadsasasds")
-    if (limpio.length > 8 && proporcionVocales(limpio) < 0.3) {
-      return 'El motivo parece no tener sentido; escribe una frase con palabras completas'
-    }
-    return null
-  }
+  // IMP-14: la misma regla que el motivo de expulsión y que el servidor (MotivoEscrito).
+  const motivoError = (texto: string): string | null => validarMotivoEscrito(texto, 'El motivo del traslado', 'el traslado')
 
   const observacionError = (texto: string): string | null => {
     const limpia = texto.trim().replace(/\s+/g, ' ')
@@ -225,8 +199,8 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
       setCargando(true)
       await reasignarAmbiente(idExamen, estudiante.idEstudiante, {
         idAmbienteDestino: Number(idAmbienteDestino),
-        // El servidor aplica el formato oración (conserva los códigos de aula, p. ej. 690B).
-        motivo: motivo.trim().replace(/\s+/g, ' '),
+        // Formato oración que conserva siglas y códigos de aula (p. ej. 690B), igual que el servidor.
+        motivo: normalizarMotivo(motivo),
         observacion: observacion.trim().replace(/\s+/g, ' ') || undefined,
       })
       setSuccessGeneral('El estudiante fue reasignado exitosamente al nuevo ambiente.')
@@ -320,13 +294,13 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               <label className="flex items-center gap-1 text-xs font-bold text-[#011140] uppercase tracking-wider">
                 <ShieldAlert size={10} /> Motivo (obligatorio)
               </label>
-              <span className="text-[10px] text-[#758EBF]">{motivo.length}/{TEXTO_MAX}</span>
+              <span className="text-[10px] text-[#758EBF]">{motivo.length}/{MOTIVO_ESCRITO.max}</span>
             </div>
             <textarea
               value={motivo}
-              onChange={(e) => setMotivo(formatoOracion(e.target.value))}
-              onBlur={() => validarMotivo()}
-              maxLength={TEXTO_MAX}
+              onChange={(e) => setMotivo(espaciosAlEscribir(e.target.value).slice(0, MOTIVO_ESCRITO.max))}
+              onBlur={() => { setMotivo(normalizarMotivo(motivo)); validarMotivo() }}
+              maxLength={MOTIVO_ESCRITO.max}
               rows={3}
               className={`w-full rounded-lg border border-[#D8E3F5] bg-[#F2F2F2] px-3 py-2.5 text-sm text-[#011140] placeholder-[#758EBF]/40 focus:border-[#0439D9] focus:ring-1 focus:ring-[#0439D9] disabled:bg-[#F2F2F2] disabled:text-[#758EBF] disabled:cursor-not-allowed ${
                 errorMotivo ? 'border-[#B91C1C] focus:border-[#B91C1C]' : ''
@@ -340,6 +314,16 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
                 <p className="text-[10px] text-[#B91C1C] leading-tight m-0">{errorMotivo}</p>
               </div>
             )}
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-[#45628D]">Motivos frecuentes</p>
+            <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label="Motivos frecuentes">
+              {MOTIVOS_FRECUENTES_TRASLADO.map((m) => (
+                <button key={m} type="button" disabled={cargando} aria-pressed={motivo === m}
+                  onClick={() => { setMotivo(m); setErrorMotivo(null) }}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${motivo === m ? 'border-[#0439D9] bg-[#EDF2FE] text-[#0439D9]' : 'border-[#D5E2FA] bg-white text-[#011140] hover:bg-[#F2F5FA]'}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Observación */}

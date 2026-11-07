@@ -1,37 +1,14 @@
 import api from './api'
-import { validarTextoLibre } from '../utils/textoLibreValidators'
-import { primerGarabato } from '../utils/palabras'
+import { MOTIVO_ESCRITO, normalizarMotivo, validarMotivoEscrito } from '../utils/motivoEscrito'
 
-// Sección 24 del diseño: de 10 a 200 caracteres.
-export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 200 }
-// Una frase en mayúsculas no distingue palabras de siglas: lista explícita ya reconocida por INCI-01.
-const SIGLAS_EXPULSION = new Set(['CI', 'SIS', 'QR', 'PDF', 'C'])
+// IMP-14: la misma regla que el motivo del traslado (utils/motivoEscrito); sección 24: de 10 a 200 caracteres.
+export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', ...MOTIVO_ESCRITO }
 
 export function validarMotivoExpulsion(motivo: string): string | null {
-  motivo = normalizarMotivoExpulsion(motivo)
-  if (!motivo.trim()) return 'El motivo es obligatorio.'
-  const error = validarTextoLibre(motivo, MOTIVO_EXPULSION)
-  if (error) return error
-  if (/[\r\n]/.test(motivo)) return 'El motivo solo permite un espacio entre palabras'
-  if (!/\p{L}/u.test(motivo)) return 'El motivo debe contener palabras que expliquen la expulsión'
-  // Excepciones locales; esta heurística no garantiza que cualquier frase tenga significado.
-  const garabato = primerGarabato(motivo.replace(/\b(?:qr|ci|sis|whatsapp|pdf|chatgpt|c|smartwatch)\b/gi, 'documento'))
-  return garabato ? `El motivo contiene contenido no válido: ${garabato}` : null
+  return validarMotivoEscrito(motivo, MOTIVO_EXPULSION.campo, 'la expulsión')
 }
 
-/** Los 10–200 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
-export function normalizarMotivoExpulsion(motivo: string): string {
-  const texto = motivo.trim().replace(/ +/g, ' ')
-  const primeraLetra = texto.search(/\p{L}/u)
-  return texto.replace(/[\p{L}\p{N}]+/gu, (palabra, inicio: number) => {
-    const sigla = palabra.toLocaleUpperCase('es')
-    if (SIGLAS_EXPULSION.has(sigla)) return sigla
-    // Conserva la escritura de códigos con cifras; no cambia qué entradas acepta el validador.
-    if (/[0-9]/.test(palabra)) return palabra
-    const minusculas = palabra.toLocaleLowerCase('es')
-    return inicio === primeraLetra ? minusculas[0].toLocaleUpperCase('es') + minusculas.slice(1) : minusculas
-  })
-}
+export const normalizarMotivoExpulsion = normalizarMotivo
 
 export interface ExpulsionResponse {
   idExpulsion: number
