@@ -107,6 +107,27 @@ it.each([0, 1])('vista %s: pegar texto normaliza antes de limitar y permite los 
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
+it('IMP-14: conserva siglas y aula desde el campo hasta la confirmación oficial', async () => {
+  const motivo = 'Uso de CI y SIS en aula 690B'
+  vi.mocked(api.post).mockResolvedValueOnce({ data: {
+    idExpulsion: 90, idEstudiante: 10, idExamen: 20, motivo,
+    idResponsable: 7, responsable: 'Ana Rojas', fechaHora: '2026-10-24T14:00:00',
+  } })
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[0])
+  const modal = screen.getByRole('dialog')
+  const campo = within(modal).getByRole('textbox')
+  fireEvent.change(campo, { target: { value: 'USO DE CI Y SIS EN AULA 690B' } })
+  fireEvent.blur(campo)
+  expect(campo).toHaveValue(motivo)
+  expect(campo).toHaveAttribute('aria-invalid', 'false')
+  expect(within(modal).getByText(`${motivo.length}/65`)).toBeInTheDocument()
+  fireEvent.submit(modal.querySelector('form')!)
+  expect(await screen.findByRole('status')).toHaveTextContent('Expulsión registrada correctamente.')
+  expect(api.post).toHaveBeenCalledWith('/control-ingresos/expulsar', { idEstudiante: 10, idExamen: 20, motivo })
+  expect(campo).toHaveValue(motivo)
+})
+
 it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar', async (indice) => {
   let rechazar!: (error: unknown) => void
   vi.mocked(api.post).mockImplementationOnce(() => new Promise((_, reject) => { rechazar = reject }))

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EVENTO_CAMBIO } from '../services/notificacionService'
 import api from '../services/api'
+import { normalizarMotivoExpulsion } from '../services/expulsionService'
 import { autorizarIngreso, expulsarEstudiante, obtenerContextoControl, obtenerHistorialControl, obtenerTiposIncidencia } from '../services/controlIngresoService'
 
 vi.mock('../services/api')
@@ -93,7 +94,8 @@ describe('INCI-01: confirmación de expulsión', () => {
   })
 
   it.each(['Copia ora', 'Uso de ' + 'a '.repeat(28) + 'QRs', 'Drrtgrdsgdgdfggfdffd',
-    'Uso de celularrrrr', 'Uso\nde celular', '1234567890', 'Uso de qwerty', 'Copia    ora'])(
+    'Uso de celularrrrr', 'Uso\nde celular', '1234567890', 'Uso de qwerty', 'Copia    ora',
+    'Uso de 682L0IN', 'Uso de QWERTY durante el examen', 'Uso de CI <script>'])(
     'rechaza el motivo inválido %s sin enviar ni notificar', async (motivo) => {
       await expect(expulsarEstudiante({ ...payload, motivo })).rejects.toThrow()
       expect(mockedApi.post).not.toHaveBeenCalled()
@@ -104,10 +106,21 @@ describe('INCI-01: confirmación de expulsión', () => {
   it.each([
     ['Uso   de celular', 'Uso de celular'],
     ['Uso de WhatsApp durante el examen', 'Uso de whatsapp durante el examen'],
-    ['Consulta de archivo PDF', 'Consulta de archivo pdf'],
+    ['Consulta de archivo PDF', 'Consulta de archivo PDF'],
     ['Uso de ChatGPT durante el examen', 'Uso de chatgpt durante el examen'],
-    ['Uso de código en C durante el examen', 'Uso de código en c durante el examen'],
+    ['Uso de código en C durante el examen', 'Uso de código en C durante el examen'],
+    ['USO DE CI EN AULA 690B', 'Uso de CI en aula 690B'],
+    ['Uso de SIS durante el examen', 'Uso de SIS durante el examen'],
+    ['uSO de cI y sIs en aula 690B', 'Uso de CI y SIS en aula 690B'],
+    ['CI ajeno durante el examen', 'CI ajeno durante el examen'],
+    ['Uso de CI en el aula 690b', 'Uso de CI en el aula 690b'],
+    ['690b uso de CI durante el examen', '690b uso de CI durante el examen'],
+    ['  ÁRBOL, ÑANDÚ Y PINGÜINO EN 690B  ', 'Árbol, ñandú y pingüino en 690B'],
+    ['USO DE LA RED EN EL AULA', 'Uso de la red en el aula'],
+    ['USO DE QR DURANTE EL EXAMEN', 'Uso de QR durante el examen'],
   ])('envía y confirma %s como %s sin debilitar la comparación', async (original, motivo) => {
+    expect(normalizarMotivoExpulsion(original)).toBe(motivo)
+    expect(normalizarMotivoExpulsion(motivo)).toBe(motivo) // Formulario y servicio pueden normalizar otra vez.
     const confirmada = { ...registro, motivo }
     mockedApi.post = vi.fn().mockResolvedValueOnce({ data: confirmada }).mockResolvedValueOnce({ data: { ...confirmada, motivo: 'Otro motivo válido' } })
     await expect(expulsarEstudiante({ ...payload, motivo: original })).resolves.toBe(confirmada)
@@ -116,7 +129,7 @@ describe('INCI-01: confirmación de expulsión', () => {
     expect(window.dispatchEvent).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['Copia oral', 'Uso de ' + 'a '.repeat(28) + 'qr', 'Uso de qr durante el examen'])(
+  it.each(['Copia oral', 'Uso de ' + 'a '.repeat(28) + 'QR', 'Uso de QR durante el examen'])(
     'confirma límites y siglas sin cambiar la respuesta oficial: %s', async (motivo) => {
       const confirmada = { ...registro, motivo }
       mockedApi.post = vi.fn().mockResolvedValue({ data: confirmada })

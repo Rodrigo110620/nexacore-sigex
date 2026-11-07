@@ -80,16 +80,23 @@ class ExpulsionValidacionesTests {
     @ParameterizedTest
     @CsvSource({"uso de celular,Uso de celular", "USO DE CELULAR,Uso de celular",
             "  áRBOL y ÑANDÚ  ,Árbol y ñandú", "¿uSO de CELULAR?,¿Uso de celular?", "Uso   de celular,Uso de celular",
-            "Uso de WhatsApp durante el examen,Uso de whatsapp durante el examen", "Consulta de archivo PDF,Consulta de archivo pdf",
-            "Uso de ChatGPT durante el examen,Uso de chatgpt durante el examen", "Uso de código en C durante el examen,Uso de código en c durante el examen",
+            "Uso de WhatsApp durante el examen,Uso de whatsapp durante el examen", "Consulta de archivo PDF,Consulta de archivo PDF",
+            "Uso de ChatGPT durante el examen,Uso de chatgpt durante el examen", "Uso de código en C durante el examen,Uso de código en C durante el examen",
+            "USO DE CI EN AULA 690B,Uso de CI en aula 690B", "Uso de SIS durante el examen,Uso de SIS durante el examen",
+            "uSO de cI y sIs en aula 690B,Uso de CI y SIS en aula 690B", "CI ajeno durante el examen,CI ajeno durante el examen",
+            "Uso de CI en el aula 690b,Uso de CI en el aula 690b", "ÁRBOL Y ÑANDÚ EN 690B,Árbol y ñandú en 690B",
+            "690b uso de CI durante el examen,690b uso de CI durante el examen",
+            "USO DE LA RED EN EL AULA,Uso de la red en el aula",
             "123 uso de CELULAR,123 Uso de celular"})
     void normalizaOracionYEspaciosSinAlterarSignos(String entrada, String esperado) {
         assertEquals(esperado, ExpulsionValidaciones.motivo(entrada));
+        assertEquals(esperado, ExpulsionValidaciones.motivo(esperado));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"Copia ora", "Drrtgrdsgdgdfggfdffd", "Uso de celularrrrr",
-            "Uso\nde celular", "1234567890", "Uso de qwerty"})
+            "Uso\nde celular", "1234567890", "Uso de qwerty", "Uso de 682L0IN",
+            "Uso de QWERTY durante el examen", "Uso de CI <script>"})
     void rechazaLongitudContenidoYSeparacionesInvalidas(String motivo) {
         assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(motivo));
     }
@@ -101,7 +108,7 @@ class ExpulsionValidacionesTests {
         assertEquals(65, limite.length());
         assertEquals(limite.toLowerCase().replaceFirst("u", "U"), ExpulsionValidaciones.motivo(limite));
         assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivo(limite + "s"));
-        assertEquals("Uso de qr durante el examen", ExpulsionValidaciones.motivo("USO DE QR DURANTE EL EXAMEN"));
+        assertEquals("Uso de QR durante el examen", ExpulsionValidaciones.motivo("USO DE QR DURANTE EL EXAMEN"));
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var normalizado = new ExpulsarEstudianteRequest(10, 20, limite.replace(" ", "   "));
             assertEquals(limite, normalizado.motivo());
