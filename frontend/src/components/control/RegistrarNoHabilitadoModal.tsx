@@ -267,7 +267,7 @@ export default function RegistrarNoHabilitadoModal({
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
+            <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row sm:flex-row gap-2.5 pt-1">
               <button onClick={solicitarCierre} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
                 <ArrowLeft size={15} /> Cancelar
               </button>

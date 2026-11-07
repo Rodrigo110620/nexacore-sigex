@@ -117,7 +117,7 @@ export default function RespaldoBase() {
           </ol>
         </details>
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={() => void descargar()} disabled={descargando}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-5 text-sm font-semibold text-white hover:bg-[#032DB0] disabled:opacity-60">
             {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />

@@ -501,7 +501,7 @@ export default function AsociarEstudiantesModal({
           )}
         </div>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#E9EEF6] bg-white px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:bg-[#F8FAFD] sm:px-10 sm:py-5">
+        <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex shrink-0 flex-row gap-2 border-t border-[#E9EEF6] bg-white px-4 py-3 sm:flex-row sm:justify-end sm:gap-3 sm:bg-[#F8FAFD] sm:px-10 sm:py-5">
           <button
             type="button"
             onClick={solicitarCierre}

@@ -241,7 +241,7 @@ function ContenidoAmbienteModal({ onClose, onReportado, ctx, aulaActualExamen = 
             Cerrar
           </button>
         ) : (
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row sm:flex-row items-stretch sm:items-center gap-3">
             <button
               type="button"
               onClick={onClose}

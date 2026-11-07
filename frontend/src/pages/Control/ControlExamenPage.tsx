@@ -161,17 +161,17 @@ export default function ControlExamenPage() {
                   <p className="text-xs font-bold sm:text-base">Apertura de Acceso al {ambienteAcceso}</p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
+              <div className="flex items-center gap-2 [&>*]:min-w-0 [&>*]:flex-1 sm:justify-end sm:[&>*]:flex-none">
                 <Link
                   to={`/dashboard/control/${idExamen}/informacion`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/50 px-2 py-2 text-center text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
                 >
                   <TriangleAlert size={16} aria-hidden="true" />
                   Información de ingreso
                 </Link>
                 <Link
                   to={`/dashboard/control/${idExamen}/identificar`}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-center text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
                 >
                   <ScanLine size={16} aria-hidden="true" />
                   Iniciar Control de Ingreso

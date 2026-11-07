@@ -550,7 +550,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                     )}
                 </div>
 
-                <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#D8E3F5] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-5 sm:pb-3">
+                <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex shrink-0 flex-row gap-2 border-t border-[#D8E3F5] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-5 sm:pb-3">
                     <button
                         type="button"
                         onClick={pedirCerrar}

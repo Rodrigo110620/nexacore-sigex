@@ -274,7 +274,7 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
                 {(puedeEditar || puedeReprogramar) && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 min-[960px]:hidden">
+                  <div className="mt-3 flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 min-[960px]:hidden">
                     {puedeReprogramar ? (
                       <button
                         type="button"

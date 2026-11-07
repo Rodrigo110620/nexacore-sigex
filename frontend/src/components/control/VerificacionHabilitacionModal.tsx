@@ -210,7 +210,7 @@ export default function VerificacionHabilitacionModal(p: Props) {
                 </button>
               </>
             ) : (
-              <div className="flex w-full flex-col-reverse sm:flex-row gap-2.5">
+              <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row sm:flex-row gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsExcepcionOpen(true)}

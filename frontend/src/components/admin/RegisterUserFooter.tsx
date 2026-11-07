@@ -18,7 +18,7 @@ export default function RegisterUserFooter({ step, loading, onClose, onBack, onN
         <p className="hidden text-[10px] text-gray-400 sm:flex sm:items-center">
           <span className="text-[#3B82F6]"><Dot /></span> Campos con (*) son mandatorios
         </p>
-        <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
+        <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:gap-3">
           <button
             type="button"
             onClick={step === 1 ? onClose : onBack}

@@ -175,7 +175,7 @@ export function DetalleRevisionFoto({ solicitud, saving, onAprobar, onRechazar, 
       </p>
 
       {!soloLectura && (
-      <div className="mt-auto flex flex-col-reverse gap-2 border-t border-[#EDF1F7] pt-4 sm:flex-row sm:justify-end">
+      <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none mt-auto flex flex-row gap-2 border-t border-[#EDF1F7] pt-4 sm:flex-row sm:justify-end">
         {solicitud.reporte && (
           <button type="button" onClick={onDescartar} disabled={saving} className="rounded-lg border border-[#D8E3F5] px-4 py-2.5 text-sm font-semibold text-[#011140] hover:bg-[#F8FAFC] disabled:opacity-60 sm:mr-auto">
             Descartar reporte
