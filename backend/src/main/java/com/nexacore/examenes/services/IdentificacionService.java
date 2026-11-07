@@ -39,7 +39,7 @@ public class IdentificacionService {
     public static final String MOTIVO_PENDIENTE = "Pendiente de habilitación";
 
     private static final int TAMANO_MAXIMO_PAGINA = 100;
-    private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS");
+    private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS", "AUSENTES");
 
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
@@ -96,7 +96,7 @@ public class IdentificacionService {
     public PageResponse<EstudianteAsignadoResponse> listarAsignados(Integer idExamen, String estado, int page, int size) {
         String filtro = estado == null || estado.isBlank() ? "TODOS" : estado.trim().toUpperCase(Locale.ROOT);
         if (!FILTROS_ESTADO.contains(filtro)) {
-            throw new IllegalArgumentException("El estado debe ser TODOS, HABILITADOS o NO_HABILITADOS");
+            throw new IllegalArgumentException("El estado debe ser TODOS, HABILITADOS, NO_HABILITADOS o AUSENTES");
         }
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));

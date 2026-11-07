@@ -5,10 +5,11 @@ import type { PageResponse } from '../../types/userApi'
 import type { ExamenDto } from '../../services/examenService'
 import ErrorCarga from '../ui/ErrorCarga'
 
-const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstudiantes }[] = [
+const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstudiantes | 'ausentes' }[] = [
   { valor: 'TODOS', label: 'Todos', cuenta: 'total' },
   { valor: 'HABILITADOS', label: 'Habilitados', cuenta: 'habilitados' },
   { valor: 'NO_HABILITADOS', label: 'No habilitados', cuenta: 'noHabilitados' },
+  { valor: 'AUSENTES', label: 'Solo ausentes', cuenta: 'ausentes' },
 ]
 
 interface EstudiantesExamenSeccionProps {
@@ -39,14 +40,15 @@ export default function EstudiantesExamenSeccion({
   cargando,
   refetch,
 }: EstudiantesExamenSeccionProps) {
+  const cuentas = resumen ? { ...resumen, ausentes: Math.max(0, resumen.habilitados - resumen.ingresados) } : undefined
   return (
     <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
-      <div className="mb-2 flex items-center justify-between gap-2 md:mb-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 md:mb-4">
         <h2 id="estudiantes-examen" className="text-[11px] font-bold uppercase text-[#011140] sm:text-base">
           Estudiantes del examen
         </h2>
         <span className="shrink-0 text-[10px] text-[#627A9B] md:hidden">Total: {resumen?.total ?? '—'}</span>
-        <div role="group" aria-label="Filtrar por estado" className="hidden gap-1 rounded-lg bg-[#F1F6FF] p-1 md:flex md:gap-0">
+        <div role="group" aria-label="Filtrar por estado" className="hidden max-w-full flex-wrap gap-1 rounded-lg bg-[#F1F6FF] p-1 md:flex md:gap-0">
           {PESTANAS.map(({ valor, label, cuenta }) => (
             <button
               key={valor}
@@ -58,13 +60,13 @@ export default function EstudiantesExamenSeccion({
               }`}
             >
               {label}
-              {resumen ? ` (${resumen[cuenta]})` : ''}
+              {cuentas ? ` (${cuentas[cuenta]})` : ''}
             </button>
           ))}
         </div>
       </div>
-      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
-        {PESTANAS.map(({ valor, cuenta }) => (
+      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
+        {PESTANAS.map(({ valor, label, cuenta }) => (
           <button
             key={valor}
             type="button"
@@ -72,8 +74,8 @@ export default function EstudiantesExamenSeccion({
             onClick={() => cambiarEstado(valor)}
             className={`min-w-0 rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
           >
-            {valor === 'TODOS' ? 'Todos' : valor === 'HABILITADOS' ? 'Habilitados' : 'Bloqueados'}
-            {resumen ? ` (${resumen[cuenta]})` : ''}
+            {label}
+            {cuentas ? ` (${cuentas[cuenta]})` : ''}
           </button>
         ))}
       </div>
@@ -86,7 +88,8 @@ export default function EstudiantesExamenSeccion({
         <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
       ) : pagina.contenido.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
-          {estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
+          {estado === 'AUSENTES' && pagina.totalRegistros === 0 ? 'Todos los estudiantes ingresaron'
+            : estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
         </p>
       ) : (
         <>
