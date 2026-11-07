@@ -13,7 +13,7 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
 
-import { Download, FileSpreadsheet } from 'lucide-react'
+import { Download } from 'lucide-react' 
 import api from '../../services/api'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
@@ -37,7 +37,6 @@ const quien = (i: IntentoReporte) => i.estudiante ?? `No identificado (${i.ident
 const examenDe = (i: IntentoReporte) =>
   `${i.examen ?? `Examen #${i.idExamen}`} · ${formatFecha(i.fechaExamen)} ${i.horaExamen?.slice(0, 5) ?? ''}`.trim()
 
-/** DASH-06 / HU#7: intentos de ingreso incorrectos de todos los exámenes o de uno, paginados. */
 function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen?: string }) {
   const [pagina, setPagina] = useState(0)
   const [recarga, setRecarga] = useState(0)
@@ -152,10 +151,6 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
   )
 }
 
-/**
- * Reportes (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. El ADMIN
- * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
- */
 export default function ReportesPage() {
   const auth = useAuth() 
   const soloMios = !tienePermiso(auth, 'REPORTES_VER')
@@ -189,7 +184,7 @@ export default function ReportesPage() {
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
-  const descargarAsistencia = async (formato: 'csv' | 'xlsx') => {
+  const descargarAsistencia = async (formato: 'xlsx') => {
     if (!idExamen) return
     try {
       const response = await api.get(`/examenes/${idExamen}/asistencia.${formato}`, {
@@ -238,16 +233,10 @@ export default function ReportesPage() {
                       onClick={() => descargarAsistencia('xlsx')}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] sm:w-auto"
                     >
-                      <FileSpreadsheet size={16} />
+                      <Download size={16} />
                       Descargar Excel
                     </button>
-                    <button
-                      onClick={() => descargarAsistencia('csv')}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] sm:w-auto"
-                    >
-                      <Download size={16} />
-                      Descargar CSV
-                    </button>
+                    {/* Aquí tu compañero agregará el botón de PDF con fondo azul */}
                   </div>
                 )}
               </div>

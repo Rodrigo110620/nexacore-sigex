@@ -1,12 +1,16 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.exceptions.ControlIngresoException;
 import com.nexacore.examenes.models.AsistenciaExamen;
+import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
+import com.nexacore.examenes.repositories.ExamenRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +26,31 @@ import java.util.List;
 public class AsistenciaExportService {
 
     private final AsistenciaExamenRepository asistenciaRepository;
+    private final ExamenRepository examenRepository; 
     private static final DateTimeFormatter HORA_FORMATO = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-    public AsistenciaExportService(AsistenciaExamenRepository asistenciaRepository) {
+    public AsistenciaExportService(AsistenciaExamenRepository asistenciaRepository, ExamenRepository examenRepository) {
         this.asistenciaRepository = asistenciaRepository;
+        this.examenRepository = examenRepository; 
+    }
+
+    //VALIDACIÓN DE SEGURIDAD 
+    private void validarExamenIniciado(Integer idExamen) {
+        Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "Examen no encontrado"));
+        
+        String estado = examen.getEstado() != null ? examen.getEstado().toLowerCase() : "programado";
+        
+        if (estado.equals("programado") || estado.equals("cancelado")) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, 
+                "No se puede descargar la asistencia porque el examen aún no ha iniciado o está cancelado.");
+        }
     }
 
     @Transactional(readOnly = true)
     public byte[] generarCsv(Integer idExamen) {
+        validarExamenIniciado(idExamen); 
+
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
         var out = new ByteArrayOutputStream();
         var formato = CSVFormat.DEFAULT.builder()
@@ -39,23 +60,13 @@ public class AsistenciaExportService {
                 .build();
 
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-            writer.write('\uFEFF'); // BOM para Excel
+            writer.write('\uFEFF'); 
             var printer = new CSVPrinter(writer, formato);
             for (AsistenciaExamen a : asistencias) {
-                // Solo los habilitados
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
-
                 boolean esAsistio = a.getFechaHoraIngreso() != null;
                 String estado = esAsistio ? "Asistió" : "Ausente";
                 String hora = esAsistio ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-";
-                
-                printer.printRecord(
-                        a.getEstudiante().getCodigoSis(),
-                        a.getEstudiante().getNombre(),
-                        a.getEstudiante().getApellidos(),
-                        estado,
-                        hora
-                );
+                printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(), estado, hora);
             }
             printer.flush();
         } catch (IOException e) {
@@ -66,6 +77,8 @@ public class AsistenciaExportService {
 
     @Transactional(readOnly = true)
     public byte[] generarExcel(Integer idExamen) {
+        validarExamenIniciado(idExamen);
+
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
         
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100); 
@@ -81,8 +94,6 @@ public class AsistenciaExportService {
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
-
                 boolean esAsistio = a.getFechaHoraIngreso() != null;
                 
                 Row row = sheet.createRow(rowNum++);
