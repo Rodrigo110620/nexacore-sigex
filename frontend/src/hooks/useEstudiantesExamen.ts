@@ -66,7 +66,13 @@ export default function useEstudiantesExamen(idExamen: number) {
     let vigente = true
     listarEstudiantesExamen(idExamen, estado, page, pageSize)
       .then((pagina) => {
-        if (vigente) setResultado({ clave, pagina })
+        if (!vigente) return
+        const ultimaPagina = Math.max(0, pagina.totalPaginas - 1)
+        if (page > ultimaPagina) {
+          setPage(ultimaPagina)
+          return
+        }
+        setResultado({ clave, pagina })
       })
       .catch((error) => {
         if (vigente) setResultado({ clave, error: mensajeDeError(error), accesoDenegado: axios.isAxiosError(error) && error.response?.status === 403 })

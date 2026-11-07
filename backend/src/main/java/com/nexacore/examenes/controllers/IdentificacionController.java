@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Estudiantes de un examen en el control de ingreso (HU ACCS-01); 404 si el examen no existe.
  *
- *   GET /api/v1/examenes/{idExamen}/estudiantes?estado=TODOS|HABILITADOS|NO_HABILITADOS&page=0&size=10
+ *   GET /api/v1/examenes/{idExamen}/estudiantes?estado=TODOS|HABILITADOS|NO_HABILITADOS|AUSENTES&page=0&size=10
  *   GET /api/v1/examenes/{idExamen}/estudiantes/resumen
  *   GET /api/v1/examenes/{idExamen}/estudiantes/identificar?tipo=codigo|ci&valor=...
  *
@@ -44,7 +44,7 @@ public class IdentificacionController {
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteAsignadoResponse>> listar(
             @PathVariable Integer idExamen,
-            @Parameter(description = "TODOS, HABILITADOS o NO_HABILITADOS")
+            @Parameter(description = "TODOS, HABILITADOS, NO_HABILITADOS o AUSENTES (habilitados sin ingreso)")
             @RequestParam(defaultValue = "TODOS") String estado,
             @Parameter(description = "Número de página, empezando en 0")
             @RequestParam(defaultValue = "0") int page,

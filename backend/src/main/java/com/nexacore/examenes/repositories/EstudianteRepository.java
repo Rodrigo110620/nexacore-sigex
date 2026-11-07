@@ -77,10 +77,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     String FILTRO_ESTADO = """
              AND (:estado = 'TODOS'
                   OR (:estado = 'HABILITADOS' AND a.habilitado = true)
-                  OR (:estado = 'NO_HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = false)))
+                  OR (:estado = 'NO_HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = false))
+                  OR (:estado = 'AUSENTES' AND a.habilitado = true AND a.fechaHoraIngreso IS NULL))
             """;
 
-    /** estado llega validado por el service (TODOS, HABILITADOS o NO_HABILITADOS). */
+    /** El service valida estado; contenido y conteo comparten el filtro antes de paginar. */
     @Query(value = FILA_ESTUDIANTE_EXAMEN + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO
             + "ORDER BY e.apellidos, e.nombre, e.id",
             countQuery = "SELECT COUNT(e.id) " + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO)

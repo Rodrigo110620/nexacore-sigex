@@ -112,9 +112,10 @@ describe('ControlExamenPage', () => {
     await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'TODOS', 1, 5))
     await screen.findByRole('table')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'No habilitados (3)' }))
+    const filtros = within(screen.getByRole('group', { name: 'Filtrar por estado' }))
+    fireEvent.click(await filtros.findByRole('button', { name: 'No habilitados (3)' }))
 
-    expect(screen.getByRole('button', { name: 'No habilitados (3)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(filtros.getByRole('button', { name: 'No habilitados (3)' })).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'NO_HABILITADOS', 0, 5))
   })
 
