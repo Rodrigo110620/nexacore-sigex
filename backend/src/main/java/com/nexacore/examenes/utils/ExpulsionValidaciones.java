@@ -8,11 +8,18 @@ import org.springframework.security.core.Authentication;
 
 import java.util.Objects;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import static org.springframework.http.HttpStatus.*;
 
 /** Reglas sin acceso a BD. No registran expulsiones ni sustituyen la transacción futura. */
 public final class ExpulsionValidaciones {
+    // Una frase en mayúsculas no distingue palabras de siglas: lista explícita ya reconocida por INCI-01.
+    private static final Set<String> SIGLAS_EXPULSION = Set.of("CI", "SIS", "QR", "PDF", "C");
+    private static final Pattern PALABRA = Pattern.compile("[\\p{L}\\p{N}]+");
+    private static final Pattern LETRA = Pattern.compile("\\p{L}");
+
     private ExpulsionValidaciones() {
     }
 
@@ -48,13 +55,18 @@ public final class ExpulsionValidaciones {
         if (garabato != null) {
             throw new IllegalArgumentException("El motivo contiene contenido no válido: " + garabato);
         }
-        String minusculas = texto.toLowerCase(Locale.forLanguageTag("es"));
-        for (int i = 0; i < minusculas.length(); i++) {
-            if (Character.isLetter(minusculas.charAt(i))) {
-                return minusculas.substring(0, i) + Character.toUpperCase(minusculas.charAt(i)) + minusculas.substring(i + 1);
-            }
-        }
-        return minusculas;
+        var primeraLetra = LETRA.matcher(texto);
+        int inicioOracion = primeraLetra.find() ? primeraLetra.start() : -1;
+        return PALABRA.matcher(texto).replaceAll(coincidencia -> {
+            String palabra = coincidencia.group();
+            String sigla = palabra.toUpperCase(Locale.forLanguageTag("es"));
+            if (SIGLAS_EXPULSION.contains(sigla)) return sigla;
+            // Conserva la escritura de códigos con cifras; las validaciones anteriores siguen vigentes.
+            if (palabra.chars().anyMatch(c -> c >= '0' && c <= '9')) return palabra;
+            String minusculas = palabra.toLowerCase(Locale.forLanguageTag("es"));
+            return coincidencia.start() == inicioOracion
+                    ? Character.toUpperCase(minusculas.charAt(0)) + minusculas.substring(1) : minusculas;
+        });
     }
 
     /** Motivo de la anulación (expulsión registrada por error): obligatorio, de 10 a 200 caracteres. */

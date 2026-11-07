@@ -26,9 +26,12 @@ class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
         String limite = "Uso de celular durante el examen para copiar respuestas de física";
         return Stream.of(Arguments.of("Uso   de celular", "Uso de celular"),
                 Arguments.of("Uso de WhatsApp durante el examen", "Uso de whatsapp durante el examen"),
-                Arguments.of("Consulta de archivo PDF", "Consulta de archivo pdf"),
+                Arguments.of("Consulta de archivo PDF", "Consulta de archivo PDF"),
                 Arguments.of("Uso de ChatGPT durante el examen", "Uso de chatgpt durante el examen"),
-                Arguments.of("Uso de código en C durante el examen", "Uso de código en c durante el examen"),
+                Arguments.of("Uso de código en C durante el examen", "Uso de código en C durante el examen"),
+                Arguments.of("USO DE CI EN AULA 690B", "Uso de CI en aula 690B"),
+                Arguments.of("Uso de SIS durante el examen", "Uso de SIS durante el examen"),
+                Arguments.of("uSO de cI y sIs en aula 690B", "Uso de CI y SIS en aula 690B"),
                 Arguments.of(limite.replace(" ", "   "), limite));
     }
 

@@ -3,6 +3,8 @@ import { validarTextoLibre } from '../utils/textoLibreValidators'
 import { primerGarabato } from '../utils/palabras'
 
 export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 65 }
+// Una frase en mayúsculas no distingue palabras de siglas: lista explícita ya reconocida por INCI-01.
+const SIGLAS_EXPULSION = new Set(['CI', 'SIS', 'QR', 'PDF', 'C'])
 
 export function validarMotivoExpulsion(motivo: string): string | null {
   motivo = normalizarMotivoExpulsion(motivo)
@@ -18,7 +20,16 @@ export function validarMotivoExpulsion(motivo: string): string | null {
 
 /** Los 10–65 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
 export function normalizarMotivoExpulsion(motivo: string): string {
-  return motivo.trim().replace(/ +/g, ' ').toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
+  const texto = motivo.trim().replace(/ +/g, ' ')
+  const primeraLetra = texto.search(/\p{L}/u)
+  return texto.replace(/[\p{L}\p{N}]+/gu, (palabra, inicio: number) => {
+    const sigla = palabra.toLocaleUpperCase('es')
+    if (SIGLAS_EXPULSION.has(sigla)) return sigla
+    // Conserva la escritura de códigos con cifras; no cambia qué entradas acepta el validador.
+    if (/[0-9]/.test(palabra)) return palabra
+    const minusculas = palabra.toLocaleLowerCase('es')
+    return inicio === primeraLetra ? minusculas[0].toLocaleUpperCase('es') + minusculas.slice(1) : minusculas
+  })
 }
 
 export interface ExpulsionResponse {
