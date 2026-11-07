@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { navItemsFor } from '../navigation/navItems'
 import Footer from './Footer'
@@ -52,11 +52,19 @@ export default function PanelLayout({
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
       >
         {/* min-h-20 = alto del PanelTopBar: ambos bordes inferiores quedan en la misma línea */}
-        <div className={`flex min-h-20 shrink-0 items-center border-b border-white/10 ${contraido ? 'justify-center px-2' : 'px-6'}`}>
+        {/* El logo de la app contrae y expande el menú */}
+        <button
+          type="button"
+          onClick={alternar}
+          aria-expanded={!contraido}
+          aria-label={contraido ? 'Expandir menú' : 'Contraer menú'}
+          title={contraido ? 'Expandir menú' : 'Contraer menú'}
+          className={`flex min-h-20 shrink-0 items-center border-b border-white/10 transition-colors duration-150 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/50 ${contraido ? 'justify-center px-2' : 'px-6'}`}
+        >
           {contraido
-            ? <img src="/favicon.png" alt="SIGEX" className="h-9 w-9 object-contain" />
-            : <img src="/logo_app.png" alt="SIGEX" className="h-10 object-contain" />}
-        </div>
+            ? <img src="/favicon.png" alt="" className="h-9 w-9 object-contain" />
+            : <img src="/logo_app.png" alt="" className="h-10 object-contain" />}
+        </button>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {navItems.map(({ label, icon: Icon, to, disabled }) =>
@@ -90,17 +98,7 @@ export default function PanelLayout({
           )}
         </nav>
 
-        <div className="flex shrink-0 flex-col gap-1 border-t border-white/10 px-3 py-4">
-          <button
-            type="button"
-            onClick={alternar}
-            aria-expanded={!contraido}
-            title={contraido ? 'Expandir menú' : undefined}
-            className={`flex min-h-11 w-full items-center gap-3 rounded-lg text-left text-sm font-medium text-white/80 transition-[background-color,color] duration-150 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${contraido ? 'justify-center' : 'px-3'}`}
-          >
-            {contraido ? <PanelLeftOpen size={18} className="shrink-0" aria-hidden="true" /> : <PanelLeftClose size={18} className="shrink-0" aria-hidden="true" />}
-            <span className={contraido ? 'sr-only' : 'truncate'}>{contraido ? 'Expandir menú' : 'Contraer menú'}</span>
-          </button>
+        <div className="shrink-0 border-t border-white/10 px-3 py-4">
           <button
             type="button"
             onClick={handleLogout}
