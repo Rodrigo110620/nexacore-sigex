@@ -44,6 +44,21 @@ export interface InicioControl {
     estudiante: string | null; codigo: string | null; examen: string | null }[]
 }
 
+/** «Incidencias → Revisar» (ADMIN): el detalle de las incidencias de hoy. */
+export interface IncidenciaHoy {
+  tipo: 'EXPULSION' | 'INTENTO_INCORRECTO' | 'EXCEPCION' | 'INGRESO_MANUAL' | 'TRASLADO' | 'QR_DUPLICADO'
+  fechaHora: string
+  idExamen: number
+  examen: string
+  estudiante: string | null
+  detalle: string | null
+}
+
+export async function obtenerIncidenciasHoy(): Promise<IncidenciaHoy[]> {
+  const { data } = await api.get<IncidenciaHoy[]>('/inicio/admin/incidencias')
+  return data
+}
+
 export async function obtenerInicioControl(): Promise<InicioControl> {
   const { data } = await api.get<InicioControl>('/inicio/control')
   return data

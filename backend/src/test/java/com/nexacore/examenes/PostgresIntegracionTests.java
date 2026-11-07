@@ -845,6 +845,14 @@ class PostgresIntegracionTests {
         assertThat(h1.porIngresar() - h0.porIngresar()).isEqualTo(2);
         assertThat(h1.ausentes() - h0.ausentes()).isEqualTo(1);
         assertThat(h1.incidencias() - h0.incidencias()).isEqualTo(1);
+        // «Incidencias → Revisar»: el detalle de hoy coincide con el contador y no repite la excepción.
+        var detalle = inicioAdminService.incidenciasDeHoy();
+        assertThat(detalle).hasSize(h1.incidencias());
+        assertThat(detalle).filteredOn(i -> i.idExamen() == enCurso).singleElement().satisfies(i -> {
+            assertThat(i.tipo()).isEqualTo("INTENTO_INCORRECTO");
+            assertThat(i.detalle()).startsWith("Ambiente incorrecto");
+            assertThat(i.examen()).startsWith("Materia TST-INI1");
+        });
         assertThat(despues.examenes()).anySatisfy(e -> {
             assertThat(e.idExamen()).isEqualTo(enCurso);
             assertThat(List.of(e.asociados(), e.habilitados(), e.ingresados())).containsExactly(3, 2, 1);

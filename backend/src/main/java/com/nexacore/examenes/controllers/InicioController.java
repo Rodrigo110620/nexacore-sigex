@@ -40,6 +40,15 @@ public class InicioController {
         return inicioAdminService.resumen();
     }
 
+    @Operation(summary = "Incidencias de hoy (ADMIN)",
+            description = "El detalle de las incidencias que cuenta el inicio: expulsiones, intentos incorrectos, excepciones, "
+                    + "ingresos manuales, traslados y QR duplicados de hoy, de la más reciente a la más antigua.")
+    @PreAuthorize("@permisos.tiene(authentication,'EXAMENES_VER_TODOS') and @permisos.tiene(authentication,'REPORTES_VER')")
+    @GetMapping("/admin/incidencias")
+    public java.util.List<com.nexacore.examenes.dto.IncidenciaHoyResponse> incidenciasDeHoy() {
+        return inicioAdminService.incidenciasDeHoy();
+    }
+
     @Operation(summary = "Mis registros de hoy (CONTROL)",
             description = "Ingresos que autorizó, intentos incorrectos, fotos reportadas, QR duplicados y expulsiones de quien "
                     + "inició sesión, con sus ingresos por hora y sus últimos registros. No incluye los de otros controles.")

@@ -132,6 +132,49 @@ public class InicioAdminService {
         });
     }
 
+    /**
+     * «Incidencias → Revisar»: el detalle de las incidencias de hoy (las mismas que cuenta el contador),
+     * de la más reciente a la más antigua.
+     */
+    @Transactional(readOnly = true)
+    public List<com.nexacore.examenes.dto.IncidenciaHoyResponse> incidenciasDeHoy() {
+        LocalDate hoy = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate();
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("inicioHoy", Timestamp.valueOf(hoy.atStartOfDay()))
+                .addValue("finHoy", Timestamp.valueOf(hoy.plusDays(1).atStartOfDay()))
+                .addValue("marca", MARCA_EXCEPCION);
+        return jdbc.query("""
+                SELECT i.tipo, i.fecha_hora, i.id_examen,
+                       m.nombre || COALESCE(' · ' || pa.nombre_grupo, '') AS examen,
+                       CASE WHEN es.id_estudiante IS NULL THEN NULL ELSE es.nombre || ' ' || es.apellidos END AS estudiante,
+                       i.detalle
+                FROM (
+                    SELECT 'EXPULSION' AS tipo, fecha_hora, id_examen, id_estudiante, motivo AS detalle FROM expulsion
+                        WHERE fecha_hora >= :inicioHoy AND fecha_hora < :finHoy AND anulada_en IS NULL
+                    UNION ALL SELECT 'INTENTO_INCORRECTO', fecha_hora, id_examen, id_estudiante, observacion FROM intento_ingreso
+                        WHERE fecha_hora >= :inicioHoy AND fecha_hora < :finHoy AND (observacion IS NULL OR observacion NOT LIKE :marca)
+                    UNION ALL SELECT 'EXCEPCION', fecha_hora, id_examen, id_estudiante, COALESCE(observaciones, motivo_inhabilitacion)
+                        FROM excepcion_no_habilitado WHERE fecha_hora >= :inicioHoy AND fecha_hora < :finHoy
+                    UNION ALL SELECT 'INGRESO_MANUAL', fecha_hora, id_examen, id_estudiante, justificacion_manual FROM registro_control_ingreso
+                        WHERE tipo_ingreso = 'MANUAL' AND fecha_hora >= :inicioHoy AND fecha_hora < :finHoy
+                    UNION ALL SELECT 'TRASLADO', t.fecha_hora_traslado, t.id_examen, t.id_estudiante,
+                           COALESCE(ao.nombre, '?') || ' → ' || COALESCE(ad.nombre, '?') || COALESCE(' · ' || t.motivo, '')
+                        FROM traslado_ambiente t
+                        LEFT JOIN ambiente ao ON ao.id_ambiente = t.id_ambiente_origen
+                        LEFT JOIN ambiente ad ON ad.id_ambiente = t.id_ambiente_destino
+                        WHERE t.fecha_hora_traslado >= :inicioHoy AND t.fecha_hora_traslado < :finHoy
+                    UNION ALL SELECT 'QR_DUPLICADO', fecha_hora_servidor, id_examen, id_estudiante_qr, detalle FROM reporte_qr_duplicado
+                        WHERE fecha_hora_servidor >= :inicioHoy AND fecha_hora_servidor < :finHoy
+                ) i
+                JOIN examen ex ON ex.id_examen = i.id_examen
+                JOIN materia m ON m.id_materia = ex.id_materia
+                LEFT JOIN paralelo pa ON pa.id_paralelo = ex.id_paralelo
+                LEFT JOIN estudiante es ON es.id_estudiante = i.id_estudiante
+                ORDER BY i.fecha_hora DESC
+                """, p, (rs, n) -> new com.nexacore.examenes.dto.IncidenciaHoyResponse(rs.getString(1),
+                rs.getTimestamp(2).toLocalDateTime(), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6)));
+    }
+
     /** Las mismas incidencias que cuenta el control del examen (DASH-01), por día. */
     private void incidenciasPorDia(MapSqlParameterSource p, Map<LocalDate, int[]> dias) {
         jdbc.query("""
