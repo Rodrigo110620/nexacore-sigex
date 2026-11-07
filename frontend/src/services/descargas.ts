@@ -6,7 +6,7 @@ export interface Archivo {
   nombre: string
 }
 
-export async function obtenerArchivo(ruta: string, params?: Record<string, unknown>, nombrePorDefecto = 'archivo'): Promise<Archivo> {
+export async function obtenerArchivo(ruta: string, params?: object, nombrePorDefecto = 'archivo'): Promise<Archivo> {
   const res = await api.get<Blob>(ruta, { params, responseType: 'blob', timeout: 2 * 60 * 1000 })
   const disposicion = String(res.headers['content-disposition'] ?? '')
   const nombre = /filename="?([^";]+)"?/.exec(disposicion)?.[1] ?? nombrePorDefecto

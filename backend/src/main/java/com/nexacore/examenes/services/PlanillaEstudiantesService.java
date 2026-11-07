@@ -70,7 +70,9 @@ public class PlanillaEstudiantesService {
     public record Fila(
         String codigoSis, String nombre, String apellidos, String ci, String email,
         Integer idFacultad, String facultad, Integer idCarrera, String carrera,
-        String telefono, String estadoMatricula
+        String telefono, String estadoMatricula,
+        /** «Base de Datos I · G1; Redes · G2»: solo con filtro de materia o grupo, o la lista del docente. */
+        String materias
     ) {}
 
     /**
@@ -101,12 +103,13 @@ public class PlanillaEstudiantesService {
             .findAllConCarreraYFacultad().stream()
             .collect(Collectors.groupingBy(ec -> ec.getId().getIdEstudiante()));
 
+        Map<Integer, String> materias = conMaterias(filtro) ? materiasPorEstudiante(filtro) : Map.of();
         List<Fila> filas = new ArrayList<>();
         for (Estudiante e : estudiantes(filtro)) {
             List<EstudianteCarrera> carreras = carrerasPorEstudiante.getOrDefault(e.getId(), List.of());
             if (carreras.isEmpty()) {
                 filas.add(new Fila(e.getCodigoSis(), e.getNombre(), e.getApellidos(), e.getCi(), e.getEmail(),
-                    null, null, null, null, e.getTelefono(), e.getEstadoMatricula()));
+                    null, null, null, null, e.getTelefono(), e.getEstadoMatricula(), materias.get(e.getId())));
                 continue;
             }
             carreras.stream()
@@ -118,10 +121,57 @@ public class PlanillaEstudiantesService {
                     e.getCodigoSis(), e.getNombre(), e.getApellidos(), e.getCi(), e.getEmail(),
                     ec.getId().getIdFacultad(), ec.getCarrera().getFacultad().getNombre(),
                     ec.getId().getIdCarrera(), ec.getCarrera().getNombre(),
-                    e.getTelefono(), e.getEstadoMatricula()
+                    e.getTelefono(), e.getEstadoMatricula(), materias.get(e.getId())
                 )));
         }
         return filas;
+    }
+
+    /** La columna «Materia · Grupo» va si se filtró por materia o grupo, o si es la lista del docente. */
+    static boolean conMaterias(Filtro filtro) {
+        return filtro.idDocente() != null || filtro.idMateria() != null || filtro.idParalelo() != null;
+    }
+
+    /** «Base de Datos I · G1; Redes · G2» de cada estudiante, con las inscripciones del filtro. */
+    private Map<Integer, String> materiasPorEstudiante(Filtro filtro) {
+        if (jdbc == null) return Map.of();
+        var p = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+            .addValue("docente", filtro.idDocente(), java.sql.Types.INTEGER)
+            .addValue("materia", filtro.idMateria(), java.sql.Types.INTEGER)
+            .addValue("paralelo", filtro.idParalelo(), java.sql.Types.INTEGER);
+        Map<Integer, List<String>> porEstudiante = new java.util.LinkedHashMap<>();
+        jdbc.query("""
+            SELECT ip.id_estudiante, m.nombre, p.nombre_grupo
+            FROM inscripcion_paralelo ip
+            JOIN materia m ON m.id_materia = ip.id_materia
+            JOIN paralelo p ON p.id_paralelo = ip.id_paralelo
+            WHERE LOWER(ip.estado) = 'inscrito'
+              AND (:docente IS NULL OR ip.id_docente = :docente)
+              AND (:materia IS NULL OR ip.id_materia = :materia)
+              AND (:paralelo IS NULL OR ip.id_paralelo = :paralelo)
+            ORDER BY m.nombre, p.nombre_grupo
+            """, p, rs -> {
+            porEstudiante.computeIfAbsent(rs.getInt(1), k -> new ArrayList<>()).add(rs.getString(2) + " · " + rs.getString(3));
+        });
+        Map<Integer, String> resultado = new java.util.HashMap<>();
+        porEstudiante.forEach((id, lista) -> resultado.put(id, String.join("; ", lista)));
+        return resultado;
+    }
+
+    /** Columnas del reporte (Excel y CSV): nombres de facultad y carrera, no sus IDs (esos van en la plantilla). */
+    private static List<String> columnasReporte(boolean conMaterias) {
+        List<String> c = new ArrayList<>(List.of("Código SIS", "Nombres", "Apellidos", "CI", "Correo", "Teléfono", "Facultad", "Carrera"));
+        if (conMaterias) c.add("Materia · Grupo");
+        c.add("Matrícula");
+        return c;
+    }
+
+    private static List<Object> valoresReporte(Fila f, boolean conMaterias) {
+        List<Object> v = new ArrayList<>(java.util.Arrays.asList(f.codigoSis(), f.nombre(), f.apellidos(), f.ci(), f.email(),
+            f.telefono(), f.facultad(), f.carrera()));
+        if (conMaterias) v.add(f.materias());
+        v.add("NO_MATRICULADO".equals(f.estadoMatricula()) ? "No matriculado" : "Matriculado");
+        return v;
     }
 
     /** Los estudiantes que cumplen el filtro, ordenados por apellidos y nombre (por bloques de 1000). */
@@ -193,16 +243,14 @@ public class PlanillaEstudiantesService {
         var formato = CSVFormat.DEFAULT.builder()
             .setDelimiter(';')
             .setRecordSeparator("\n")
-            .setHeader(java.util.stream.Stream.concat(ImportacionEstudiantesService.COLUMNAS.stream(),
-                ImportacionEstudiantesService.COLUMNAS_OPCIONALES.stream()).toArray(String[]::new))
+            .setHeader(columnasReporte(conMaterias(filtro)).toArray(String[]::new))
             .build();
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
             // El BOM va antes de crear el printer: CSVPrinter escribe el encabezado al construirse.
             writer.write('\uFEFF');
             var printer = new CSVPrinter(writer, formato);
             for (Fila f : filas(filtro)) {
-                printer.printRecord(f.codigoSis(), f.nombre(), f.apellidos(), f.ci(), f.email(),
-                    f.idFacultad(), f.idCarrera(), f.telefono(), f.estadoMatricula());
+                printer.printRecord(valoresReporte(f, conMaterias(filtro)));
             }
             printer.flush();
         } catch (IOException e) {
@@ -218,15 +266,16 @@ public class PlanillaEstudiantesService {
 
     public byte[] xlsx(Filtro filtro) {
         List<Object[]> filas = new ArrayList<>();
-        for (Fila f : filas(filtro)) {
-            filas.add(new Object[] {f.codigoSis(), f.nombre(), f.apellidos(), f.ci(), f.email(),
-                f.idFacultad(), f.idCarrera(), f.telefono(), f.estadoMatricula()});
-        }
-        return libro(filas);
+        boolean conMaterias = conMaterias(filtro);
+        for (Fila f : filas(filtro)) filas.add(valoresReporte(f, conMaterias).toArray());
+        return libro(columnasReporte(conMaterias).toArray(String[]::new), filas);
     }
 
     private static byte[] libro(List<Object[]> filas) {
-        String[] columnas = columnas();
+        return libro(columnas(), filas);
+    }
+
+    private static byte[] libro(String[] columnas, List<Object[]> filas) {
         try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var hoja = libro.createSheet("Estudiantes");
             var negrita = libro.createFont();
@@ -252,7 +301,7 @@ public class PlanillaEstudiantesService {
                     else { celda.setCellValue(String.valueOf(valores[c])); celda.setCellStyle(texto); }
                 }
             }
-            for (int c = 0; c < columnas.length; c++) hoja.setColumnWidth(c, 18 * 256);
+            for (int c = 0; c < columnas.length; c++) hoja.setColumnWidth(c, (columnas[c].startsWith("Materia") || columnas[c].equals("Correo") ? 30 : 18) * 256);
             hoja.createFreezePane(0, 1);
             libro.write(out);
             return out.toByteArray();
@@ -279,7 +328,7 @@ public class PlanillaEstudiantesService {
 
             long estudiantes = filas.stream().map(Fila::codigoSis).distinct().count();
             document.add(encabezado(base, negrita, estudiantes, filtros));
-            document.add(tabla(filas, base, negrita));
+            document.add(tabla(filas, base, negrita, conMaterias(filtro)));
             document.close();
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo generar la planilla PDF.", e);
@@ -316,14 +365,18 @@ public class PlanillaEstudiantesService {
         return tabla;
     }
 
-    private PdfPTable tabla(List<Fila> filas, BaseFont base, BaseFont negrita) {
+    private PdfPTable tabla(List<Fila> filas, BaseFont base, BaseFont negrita, boolean conMaterias) {
         // CI y teléfono con ancho para 8 dígitos en una sola línea (no deben partirse).
-        var tabla = new PdfPTable(new float[]{0.5f, 1.6f, 1.7f, 2.0f, 1.6f, 1.6f, 1.8f, 3.0f, 2.8f, 2.4f});
+        var tabla = new PdfPTable(conMaterias
+            ? new float[]{0.5f, 1.6f, 1.7f, 2.0f, 1.6f, 1.6f, 1.8f, 3.0f, 2.6f, 2.2f, 2.6f}
+            : new float[]{0.5f, 1.6f, 1.7f, 2.0f, 1.6f, 1.6f, 1.8f, 3.0f, 2.8f, 2.4f});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
 
         var fuenteEncabezado = new Font(negrita, 9, Font.NORMAL, Color.WHITE);
-        for (String columna : List.of("#", "Código SIS", "Nombre", "Apellidos", "CI", "Teléfono", "Matrícula", "Correo", "Facultad", "Carrera")) {
+        List<String> columnas = new ArrayList<>(List.of("#", "Código SIS", "Nombre", "Apellidos", "CI", "Teléfono", "Matrícula", "Correo", "Facultad", "Carrera"));
+        if (conMaterias) columnas.add("Materia · Grupo");
+        for (String columna : columnas) {
             var celda = celda(columna, fuenteEncabezado);
             celda.setBackgroundColor(PRIMARIO);
             celda.setBorderColor(PRIMARIO);
@@ -334,7 +387,7 @@ public class PlanillaEstudiantesService {
         var fuenteNumero = new Font(base, 8, Font.NORMAL, SUAVE);
         if (filas.isEmpty()) {
             var vacia = celda("No hay estudiantes registrados.", fuenteNumero);
-            vacia.setColspan(8);
+            vacia.setColspan(columnas.size());
             vacia.setHorizontalAlignment(Element.ALIGN_CENTER);
             vacia.setPadding(12);
             tabla.addCell(vacia);
@@ -344,7 +397,7 @@ public class PlanillaEstudiantesService {
         int numero = 1;
         for (Fila f : filas) {
             Color fondo = numero % 2 == 0 ? FONDO : Color.WHITE;
-            List<PdfPCell> celdas = List.of(
+            List<PdfPCell> celdas = new ArrayList<>(List.of(
                 celda(String.valueOf(numero), fuenteNumero),
                 celda(f.codigoSis(), fuente),
                 celda(f.nombre(), fuente),
@@ -355,7 +408,8 @@ public class PlanillaEstudiantesService {
                 celda(f.email(), fuente),
                 celda(f.facultad() == null ? "—" : f.facultad(), fuente),
                 celda(f.carrera() == null ? "—" : f.carrera(), fuente)
-            );
+            ));
+            if (conMaterias) celdas.add(celda(f.materias() == null ? "—" : f.materias(), fuente));
             for (PdfPCell celda : celdas) {
                 celda.setBackgroundColor(fondo);
                 tabla.addCell(celda);

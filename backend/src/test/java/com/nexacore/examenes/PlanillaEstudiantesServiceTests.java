@@ -83,17 +83,25 @@ class PlanillaEstudiantesServiceTests {
     }
 
     @Test
-    void csvTieneLosEstudiantesRegistradosConElFormatoDeImportacion() {
+    void csvEsUnReporteConNombresDeFacultadYCarrera() {
         datos();
 
         String csv = new String(service.csv(), StandardCharsets.UTF_8);
 
+        // Reporte para leer: nombres de facultad y carrera (no IDs) y la matrícula en palabras.
         assertEquals("""
-            \uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula
-            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;1;;MATRICULADO
-            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;1;2;;MATRICULADO
-            202404012;Ana;Rojas Vargas;7489210;202404012@est.umss.edu;;;;MATRICULADO
+            \uFEFFCódigo SIS;Nombres;Apellidos;CI;Correo;Teléfono;Facultad;Carrera;Matrícula
+            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;;Facultad de Ciencias y Tecnología;Ingeniería Informática;Matriculado
+            201904725;Rodrigo;Figueroa Camacho;12433163;201904725@est.umss.edu;;Facultad de Ciencias y Tecnología;Ingeniería de Sistemas;Matriculado
+            202404012;Ana;Rojas Vargas;7489210;202404012@est.umss.edu;;;;Matriculado
             """, csv);
+    }
+
+    @Test
+    void laPlantillaParaImportarConservaLasColumnasConIds() {
+        String plantilla = new String(service.plantillaCsv(), StandardCharsets.UTF_8);
+        assertTrue(plantilla.startsWith("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula\n"), plantilla);
+        assertEquals(2, plantilla.strip().split("\n").length);
     }
 
     @Test
@@ -103,7 +111,7 @@ class PlanillaEstudiantesServiceTests {
 
         String csv = new String(service.csv(), StandardCharsets.UTF_8);
 
-        assertEquals("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula\n", csv);
+        assertEquals("\uFEFFCódigo SIS;Nombres;Apellidos;CI;Correo;Teléfono;Facultad;Carrera;Matrícula\n", csv);
     }
 
     @Test

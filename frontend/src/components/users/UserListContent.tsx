@@ -1,7 +1,8 @@
-import { CircleAlert, FileUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { CircleAlert, LoaderCircle, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
+import MenuImportarExportar from '../ui/MenuImportarExportar'
 import UserFilters from './UserFilters'
 import UserTable from './UserTable'
 import UserPagination from './TablePagination'
@@ -102,31 +103,15 @@ export default function UserListContent({
               <UserFilters value={draftFilters} onChange={setDraftFilters} disabled={filtersDisabled} />
             </div>
             <div className="order-first grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0">
-              <button
-                type="button"
-                onClick={onImportClick}
-                disabled={!onImportClick || filtersDisabled}
-                aria-label="Importar usuarios desde CSV"
-                className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-[#627A9B] disabled:opacity-80 min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
-              >
-                <FileUp size={16} aria-hidden="true" />
-                <span className="hidden truncate sm:inline">Importar</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={!onExportClick || exporting || filtersDisabled}
-                aria-label="Exportar usuarios en CSV"
-                aria-busy={exporting}
-                className="order-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-[#627A9B] disabled:opacity-80 min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
-              >
-                {exporting ? (
-                  <LoaderCircle size={16} aria-hidden="true" className="animate-spin" />
-                ) : (
-                  <Upload size={16} aria-hidden="true" />
-                )}
-                <span className="hidden truncate sm:inline">{exporting ? 'Exportando...' : 'Exportar'}</span>
-              </button>
+              {(onImportClick || onExportClick) && <MenuImportarExportar
+                puedeImportar={Boolean(onImportClick)}
+                puedeExportar={Boolean(onExportClick)}
+                disabled={filtersDisabled || exporting}
+                importar={{ titulo: 'Importar usuarios', detalle: 'Desde un archivo CSV' }}
+                exportar={{ titulo: 'Exportar usuarios', detalle: hasActiveFilters ? 'Con los filtros aplicados · CSV o Excel' : 'CSV o Excel, con vista previa' }}
+                onImportar={() => onImportClick?.()}
+                onExportar={() => void handleExport()}
+              />}
               <button
                 type="button"
                 onClick={onRegisterClick}

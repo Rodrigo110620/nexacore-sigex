@@ -80,4 +80,16 @@ class PersonalControlTests {
         mockMvc.perform(get("/inicio/docente").with(user("e@est.umss.edu").roles("ESTUDIANTE"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/inicio/docente").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
     }
+
+    // Evidencia de la expulsión: el CONTROL no la sube (no expulsa) y el estudiante no la ve.
+    @Test
+    void laEvidenciaDeLaExpulsionLaSubeQuienExpulsaYNoLaVeElEstudiante() throws Exception {
+        var foto = new org.springframework.mock.web.MockMultipartFile("files", "a.png", "image/png", new byte[] {1});
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/control-ingresos/examen/1/expulsiones/1/evidencias").file(foto)
+                        .with(user("c@umss.edu").roles("CONTROL")).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/control-ingresos/examen/1/expulsiones/1/evidencias").with(user("e@est.umss.edu").roles("ESTUDIANTE")))
+                .andExpect(status().isForbidden());
+    }
 }

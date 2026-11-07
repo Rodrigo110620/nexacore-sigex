@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, FileSpreadsheet, FileText, LoaderCircle, Printer, X } from 'lucide-react'
 import { guardarArchivo, leerCsv, type Archivo } from '../../services/descargas'
+import VisorPdf from './VisorPdf'
 
 export type FormatoDescarga = 'pdf' | 'xlsx' | 'csv'
 
@@ -21,6 +22,8 @@ interface Props {
   onClose: () => void
   /** Mensaje para un error del servidor (p. ej. 409 si el examen no empezó). */
   mensajeError?: (err: unknown) => Promise<string> | string
+  /** Filtros para elegir qué se descarga (p. ej. facultad, carrera, materia y grupo); cambian la vista previa. */
+  filtros?: ReactNode
 }
 
 /**
@@ -36,17 +39,18 @@ export default function VistaPreviaDescarga(props: Props) {
 /** Lo preparado para un formato: el archivo, la URL del PDF o la tabla del Excel/CSV, o el error. */
 interface Preparado {
   formato: FormatoDescarga
+  /** Con qué filtros se preparó (si cambian, se vuelve a pedir). */
+  obtener: Props['obtener']
   archivo?: Archivo
   urlPdf?: string
   tabla?: string[][]
   error?: string
 }
 
-function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, mensajeError }: Props) {
+function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, mensajeError, filtros }: Props) {
   const [formato, setFormato] = useState<FormatoDescarga>(inicial ?? formatos[0])
   const [preparado, setPreparado] = useState<Preparado | null>(null)
-  const marco = useRef<HTMLIFrameElement>(null)
-  const cargando = preparado?.formato !== formato
+  const cargando = preparado?.formato !== formato || preparado?.obtener !== obtener
   const vigente = cargando ? null : preparado
   const archivo = vigente?.archivo ?? null
   const urlPdf = vigente?.urlPdf ?? null
@@ -62,15 +66,15 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
         if (!activo) return
         if (formato === 'pdf') {
           url = URL.createObjectURL(new Blob([descargado.blob], { type: 'application/pdf' }))
-          setPreparado({ formato, archivo: descargado, urlPdf: url })
+          setPreparado({ formato, obtener, archivo: descargado, urlPdf: url })
         } else {
           const csv = formato === 'csv' ? descargado : obtenerCsv ? await obtenerCsv() : null
           const filas = csv ? leerCsv(await csv.blob.text()) : undefined
-          if (activo) setPreparado({ formato, archivo: descargado, tabla: filas })
+          if (activo) setPreparado({ formato, obtener, archivo: descargado, tabla: filas })
         }
       } catch (err) {
         const mensaje = mensajeError ? await mensajeError(err) : 'No se pudo preparar el archivo.'
-        if (activo) setPreparado({ formato, error: mensaje })
+        if (activo) setPreparado({ formato, obtener, error: mensaje })
       }
     }
     void cargar()
@@ -110,6 +114,7 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
           <button type="button" onClick={onClose} aria-label="Cerrar vista previa" className="rounded-lg p-1.5 text-[#627A9B] hover:bg-[#F2F5FA]"><X size={18} aria-hidden="true" /></button>
         </div>
 
+        {filtros && <div className="border-b border-[#EEF2F7] bg-[#F8FAFF] px-4 py-3 sm:px-5">{filtros}</div>}
         <div className="relative min-h-0 flex-1 bg-[#F2F5FA]">
           {cargando && (
             <div role="status" className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-[#45628D]">
@@ -117,7 +122,7 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
             </div>
           )}
           {error && <p role="alert" className="m-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          {urlPdf && <iframe ref={marco} title={`Vista previa de ${titulo}`} src={urlPdf} className="h-full w-full border-0" />}
+          {urlPdf && archivo && <VisorPdf datos={archivo.blob} titulo={titulo} />}
           {!cargando && !error && formato !== 'pdf' && (
             tabla ? (
               <div className="h-full overflow-auto p-3 sm:p-4">
@@ -142,7 +147,7 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EEF2F7] px-4 py-3 sm:px-5">
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F2F5FA]">Cerrar</button>
           {formato === 'pdf' && (
-            <button type="button" disabled={!urlPdf} onClick={() => marco.current?.contentWindow?.print()}
+            <button type="button" disabled={!urlPdf} onClick={() => imprimir(urlPdf)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#C7D7F5] px-4 py-2.5 text-sm font-semibold text-[#0439D9] hover:bg-[#EDF2FE] disabled:opacity-50">
               <Printer size={15} aria-hidden="true" />Imprimir
             </button>
@@ -157,3 +162,25 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
     document.body,
   )
 }
+
+/** Imprime el PDF con un marco oculto; si el navegador no puede, lo abre en otra pestaña para imprimirlo desde ahí. */
+function imprimir(url: string | null) {
+  if (!url) return
+  const marco = document.createElement('iframe')
+  marco.style.position = 'fixed'
+  marco.style.width = '0'
+  marco.style.height = '0'
+  marco.style.border = '0'
+  marco.src = url
+  marco.onload = () => {
+    try {
+      marco.contentWindow?.focus()
+      marco.contentWindow?.print()
+    } catch {
+      window.open(url, '_blank')
+    }
+    window.setTimeout(() => marco.remove(), 60_000)
+  }
+  document.body.appendChild(marco)
+}
+

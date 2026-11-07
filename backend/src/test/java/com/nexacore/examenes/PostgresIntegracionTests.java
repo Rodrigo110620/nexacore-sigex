@@ -80,6 +80,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
     @Autowired com.nexacore.examenes.services.ImportacionEstudiantesService importacionEstudiantesService;
     @Autowired com.nexacore.examenes.services.PlanillaEstudiantesService planillaEstudiantesService;
+    @Autowired com.nexacore.examenes.services.ExpulsionEvidenciaService expulsionEvidenciaService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -981,6 +982,62 @@ class PostgresIntegracionTests {
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
     }
 
+    // Los buscadores no distinguen tildes ni mayúsculas: «perez quinones» encuentra a «Pérez Quiñones».
+    @Test
+    void losBuscadoresNoDistinguenTildes() {
+        prepararCatalogo();
+        int ana = estudiante("202499301", "Ana");
+        jdbc.update("UPDATE estudiante SET apellidos = 'Pérez Quiñones', nombre = 'Ána' WHERE id_estudiante = ?", ana);
+        jdbc.update("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES ('Ñusta', 'Ríos Álvarez', '88887771', 'nusta.rios@umss.edu', 'x', 'activo')");
+        sincronizar();
+        for (String busqueda : new String[] {"perez quinones", "PÉREZ", "ana perez", "Quiñones"}) {
+            assertThat(estudianteService.listar(0, 10, busqueda, null, null).contenido())
+                    .as(busqueda).extracting(e -> e.id()).contains(ana);
+        }
+        for (String busqueda : new String[] {"nusta", "rios alvarez", "RÍOS"}) {
+            assertThat(usuarioService.listar(0, 10, busqueda, null, null).contenido())
+                    .as(busqueda).extracting(u -> u.email()).contains("nusta.rios@umss.edu");
+        }
+    }
+
+    // Evidencia de una expulsión (V55): hasta 3 imágenes reales, solo de una expulsión de ese examen.
+    @Test
+    void laExpulsionGuardaHastaTresFotosDeEvidencia() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-EVI");
+        int ana = estudiante("202499201", "Ana");
+        int examen = examen(g1, "10:00", 90);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, NOW())", ana, examen, g1);
+        Integer idExpulsion = jdbc.queryForObject("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular') RETURNING id_expulsion",
+                Integer.class, ana, examen, idDocente);
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D, 'I', 'H', 'D', 'R'};
+        java.util.function.Function<String, org.springframework.mock.web.MockMultipartFile> foto = nombre ->
+                new org.springframework.mock.web.MockMultipartFile("files", nombre, "image/png", png);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null, List.of()));
+        try {
+            var lista = expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("a.png"), foto.apply("b.png")));
+            assertThat(lista).hasSize(2).allSatisfy(e -> {
+                assertThat(e.tipo()).isEqualTo("image/png");
+                assertThat(e.tamano()).isEqualTo(png.length);
+            });
+            assertThat(expulsionEvidenciaService.imagen(examen, idExpulsion, lista.get(0).idEvidencia()).getContenido()).isEqualTo(png);
+            assertThat(jdbc.queryForObject("SELECT id_usuario FROM expulsion_evidencia WHERE id_evidencia = ?", Integer.class, lista.get(0).idEvidencia()))
+                    .isEqualTo(idDocente);
+            // Hasta 3 fotos: la tercera entra, la cuarta no.
+            expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("c.png")));
+            assertThatThrownBy(() -> expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("d.png"))))
+                    .hasMessageContaining("hasta 3");
+            // Solo imágenes, y solo de una expulsión de ese examen.
+            var texto = new org.springframework.mock.web.MockMultipartFile("files", "x.png", "image/png", "no soy imagen".getBytes());
+            jdbc.update("DELETE FROM expulsion_evidencia WHERE id_expulsion = ?", idExpulsion);
+            assertThatThrownBy(() -> expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(texto))).hasMessageContaining("JPG, PNG o WEBP");
+            assertThatThrownBy(() -> expulsionEvidenciaService.listar(examen + 999, idExpulsion)).hasMessageContaining("No se encontró la expulsión");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
     // La planilla de estudiantes se descarga con los filtros de la pantalla (materia y grupo) y la del docente
     // solo trae a sus estudiantes; la plantilla para importar trae solo encabezados y un ejemplo.
     @Test
@@ -997,6 +1054,13 @@ class PostgresIntegracionTests {
         var deLaMateria = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
                 null, null, null, null, idMateria, g1));
         assertThat(deLaMateria).extracting(f -> f.codigoSis()).containsExactly("202499101");
+        // Con filtro de materia la lista dice en qué materia y grupo está cada estudiante.
+        assertThat(deLaMateria.get(0).materias()).isEqualTo("Materia TST-PLA · 1");
+        String reporte = new String(planillaEstudiantesService.csv(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                null, null, null, null, idMateria, g1)), java.nio.charset.StandardCharsets.UTF_8);
+        String encabezado = reporte.replace("\uFEFF", "").split("\n")[0];
+        assertThat(encabezado).isEqualTo("Código SIS;Nombres;Apellidos;CI;Correo;Teléfono;Facultad;Carrera;Materia · Grupo;Matrícula");
+        assertThat(reporte).contains("Materia TST-PLA · 1").contains("Matriculado").doesNotContain("idFacultad");
         var delDocente = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
                 "2024991", null, null, idDocente, null, null));
         assertThat(delDocente).extracting(f -> f.codigoSis()).containsExactly("202499101");

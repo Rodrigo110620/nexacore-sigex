@@ -143,7 +143,8 @@ class EstudianteServiceTests {
 
         service.listar(0, 10, "  Juan    Pérez ", null, null);
 
-        verify(estudianteRepository).buscarConFiltros(eq("Juan Pérez"), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+        // Espacios simples y sin tildes ni mayúsculas: la consulta compara sin tildes.
+        verify(estudianteRepository).buscarConFiltros(eq("juan perez"), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     }
 
     @Test

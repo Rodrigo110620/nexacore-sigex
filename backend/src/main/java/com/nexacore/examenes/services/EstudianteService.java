@@ -104,7 +104,8 @@ public class EstudianteService {
             throw new IllegalArgumentException(
                     "La búsqueda no puede superar los " + BUSQUEDA_MAX + " caracteres");
         }
-        return criterio;
+        // Sin tildes y en minúsculas: «Perez» encuentra «Pérez» y «pérez» también (la consulta quita las tildes).
+        return com.nexacore.examenes.utils.TextoBusqueda.sinTildes(criterio);
     }
 
     public List<CarreraResponse> listarCarreras(Integer idFacultad) {

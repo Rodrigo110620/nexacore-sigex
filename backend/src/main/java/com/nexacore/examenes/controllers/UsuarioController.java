@@ -137,6 +137,21 @@ public class UsuarioController {
                 .body(usuarioService.exportarCsv(search, rol, estado));
     }
 
+    @Operation(summary = "Exportar usuarios en Excel",
+            description = "El mismo listado que el CSV (búsqueda y filtros, sin paginar), en .xlsx. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/exportar.xlsx")
+    public ResponseEntity<byte[]> exportarXlsx(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String rol,
+            @RequestParam(required = false) String estado) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("usuarios.xlsx").build().toString())
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(com.nexacore.examenes.services.CsvAExcel.convertir(usuarioService.exportarCsv(search, rol, estado), "Usuarios"));
+    }
+
     @Operation(summary = "Importar usuarios masivamente",
             description = "Registra usuarios desde un CSV (separado por ',' o ';') con las columnas "
                     + "nombre, apellidos, ci, email, rol y, opcional, estado (activo/inactivo). "

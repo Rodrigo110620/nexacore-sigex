@@ -164,7 +164,8 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     // Antes de descargar se ve la vista previa del acta; «Descargar PDF» en ella guarda el archivo.
     const previa = await screen.findByRole('dialog', { name: /Vista previa · Acta y asistencia del examen/ })
     expect(obtenerArchivo).toHaveBeenCalledWith('/reportes/examenes/20/acta.pdf', undefined, 'acta_examen_20.pdf')
-    expect(await within(previa).findByTitle('Vista previa de Acta y asistencia del examen')).toHaveAttribute('src', 'blob:acta')
+    // El PDF se dibuja con pdf.js (se ve también en navegadores sin visor de PDF propio).
+    expect(await within(previa).findByTestId('visor-pdf')).toBeInTheDocument()
     fireEvent.click(within(previa).getByRole('button', { name: 'Descargar PDF' }))
     expect(guardarArchivo).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'acta_Fisica-I_G1_2026-10-01.pdf' }))
   })

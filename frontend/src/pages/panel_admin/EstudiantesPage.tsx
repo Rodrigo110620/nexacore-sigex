@@ -1,6 +1,6 @@
 import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, CircleAlert, Download, ImageUp, LoaderCircle, Upload, UserPlus } from 'lucide-react'
+import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -9,7 +9,9 @@ import EstudianteFilters from '../../components/estudiantes/EstudianteFilters'
 import RegistrarEstudianteModal from '../../components/estudiantes/RegistrarEstudianteModal'
 import ImportarEstudiantesModal from '../../components/estudiantes/ImportarEstudiantesModal'
 import VistaPreviaDescarga, { type FormatoDescarga } from '../../components/ui/VistaPreviaDescarga'
+import MenuImportarExportar from '../../components/ui/MenuImportarExportar'
 import { obtenerArchivo } from '../../services/descargas'
+import { getCarreras, getFacultades, getMateriasDocente } from '../../services/estudianteService'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -122,9 +124,15 @@ export default function EstudiantesPage() {
     idMateria: draftFilters.idMateria || undefined,
     idParalelo: draftFilters.idParalelo || undefined,
   }), [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo])
+  // Lo que se descarga se elige en la misma ventana (al abrir, con los filtros de la pantalla).
+  const [filtrosDescarga, setFiltrosDescarga] = useState<FiltrosLista>({})
+  const abrirDescarga = () => {
+    setFiltrosDescarga(filtrosLista)
+    setPreviaLista(true)
+  }
   const obtenerLista = useCallback((f: FormatoDescarga) =>
-    obtenerArchivo(`/estudiantes/planilla.${f}`, filtrosLista, `planilla_estudiantes.${f}`), [filtrosLista])
-  const obtenerListaCsv = useCallback(() => obtenerArchivo('/estudiantes/planilla.csv', filtrosLista, 'planilla_estudiantes.csv'), [filtrosLista])
+    obtenerArchivo(`/estudiantes/planilla.${f}`, filtrosDescarga, `planilla_estudiantes.${f}`), [filtrosDescarga])
+  const obtenerListaCsv = useCallback(() => obtenerArchivo('/estudiantes/planilla.csv', filtrosDescarga, 'planilla_estudiantes.csv'), [filtrosDescarga])
 
   const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
@@ -146,8 +154,9 @@ export default function EstudiantesPage() {
             {soloSusEstudiantes && <GruposDocente elegido={grupo} onElegir={elegirGrupo} />}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
-              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
-                <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">
+              {/* Filtros a todo el ancho; los botones van a su lado solo en pantallas muy anchas (el buscador no se achica). */}
+              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end 2xl:flex-nowrap">
+                <div className="min-w-0 flex-1 min-[960px]:basis-full 2xl:basis-auto">
                   {soloSusEstudiantes ? (
                     <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
@@ -169,29 +178,18 @@ export default function EstudiantesPage() {
                       )}
                     </Link>
                   )}
-                  {puedeDescargarLista && (
-                    <button
-                      type="button"
-                      onClick={() => setPreviaLista(true)}
-                      aria-label="Descargar lista de estudiantes"
-                      title={hasActiveFilters ? 'Descarga la lista con los filtros aplicados' : 'Descarga la lista de estudiantes'}
-                      className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
-                    >
-                      <Download size={16} aria-hidden="true" className="shrink-0" />
-                      <span className="hidden truncate sm:inline">Descargar lista</span>
-                    </button>
+                  {(puedeEditar || puedeDescargarLista) && (
+                    <MenuImportarExportar
+                      puedeImportar={puedeEditar}
+                      puedeExportar={puedeDescargarLista}
+                      importar={{ titulo: 'Importar estudiantes', detalle: 'Desde un archivo CSV o Excel' }}
+                      exportar={{ titulo: 'Descargar lista', detalle: hasActiveFilters ? 'Con los filtros aplicados · PDF, Excel o CSV' : 'PDF, Excel o CSV, con vista previa' }}
+                      onImportar={() => setImportOpen(true)}
+                      onExportar={abrirDescarga}
+                    />
                   )}
-                  {/* Registrar e importar: solo quien gestiona estudiantes (ADMIN); a los demás no se les muestra. */}
+                  {/* Registrar: solo quien gestiona estudiantes (ADMIN); a los demás no se les muestra. */}
                   {puedeEditar && (<>
-                  <button
-                    type="button"
-                    onClick={() => setImportOpen(true)}
-                    aria-label="Importar estudiantes"
-                    className="order-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF] min-[960px]:order-1 min-[960px]:w-auto min-[960px]:px-4"
-                  >
-                    <Upload size={16} aria-hidden="true" className="shrink-0" />
-                    <span className="hidden truncate sm:inline">Importar</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => setRegisterOpen(true)}
@@ -206,7 +204,8 @@ export default function EstudiantesPage() {
             </div>
 
             <VistaPreviaDescarga open={previaLista} titulo="Lista de estudiantes" formatos={FORMATOS_LISTA}
-              obtener={obtenerLista} obtenerCsv={obtenerListaCsv} onClose={() => setPreviaLista(false)} />
+              obtener={obtenerLista} obtenerCsv={obtenerListaCsv} onClose={() => setPreviaLista(false)}
+              filtros={<FiltrosDescargaLista value={filtrosDescarga} onChange={setFiltrosDescarga} soloSusEstudiantes={soloSusEstudiantes} />} />
 
             {/* Modales: solo se pueden abrir si puedeEditar */}
             {puedeEditar && (
@@ -310,7 +309,7 @@ function BuscadorDelGrupo({ titulo, value, onChange, disabled }: {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <h2 className="text-base font-bold text-[#011140]">{titulo}</h2>
-      <label className="text-xs font-semibold text-[#45628D] sm:w-80">
+      <label className="w-full text-xs font-semibold text-[#45628D] sm:max-w-xl sm:flex-1">
         <span className="sr-only">Buscar estudiante</span>
         <input aria-label="Buscar estudiante" value={value.search} maxLength={BUSQUEDA_MAX} disabled={disabled}
           placeholder="Buscar por nombre, CI o código SIS" onChange={(e) => onChange({ ...value, search: sanearBusqueda(e.target.value) })}
@@ -321,3 +320,78 @@ function BuscadorDelGrupo({ titulo, value, onChange, disabled }: {
 }
 
 const FORMATOS_LISTA: FormatoDescarga[] = ['pdf', 'xlsx', 'csv']
+
+interface FiltrosLista {
+  search?: string
+  idFacultad?: string
+  idCarrera?: string
+  idMateria?: string
+  idParalelo?: string
+}
+
+/**
+ * Qué estudiantes se descargan: el ADMIN elige facultad y carrera; el DOCENTE, una de sus materias y su grupo.
+ * Cada cambio vuelve a preparar la vista previa.
+ */
+function FiltrosDescargaLista({ value, onChange, soloSusEstudiantes }: {
+  value: FiltrosLista
+  onChange: (f: FiltrosLista) => void
+  soloSusEstudiantes: boolean
+}) {
+  const [facultades, setFacultades] = useState<{ id: number; nombre: string }[]>([])
+  const [carreras, setCarreras] = useState<{ idCarrera: number; nombre: string }[]>([])
+  const [grupos, setGrupos] = useState<{ idMateria: number; materia: string; idParalelo: number; paralelo: string }[]>([])
+
+  useEffect(() => {
+    const control = new AbortController()
+    if (soloSusEstudiantes) getMateriasDocente(control.signal).then(setGrupos).catch(() => setGrupos([]))
+    else getFacultades(control.signal).then(setFacultades).catch(() => setFacultades([]))
+    return () => control.abort()
+  }, [soloSusEstudiantes])
+
+  useEffect(() => {
+    if (soloSusEstudiantes || !value.idFacultad) return
+    const control = new AbortController()
+    getCarreras(value.idFacultad, control.signal).then(setCarreras).catch(() => setCarreras([]))
+    return () => control.abort()
+  }, [soloSusEstudiantes, value.idFacultad])
+
+  const campo = 'h-10 w-full rounded-md border border-[#D8E3F5] bg-white px-2 text-sm text-[#011140] focus:outline-none focus:ring-2 focus:ring-[#0439D9]'
+  if (soloSusEstudiantes) {
+    const actual = value.idMateria ? `${value.idMateria}:${value.idParalelo ?? ''}` : ''
+    return (
+      <label className="flex flex-col gap-1 text-xs font-semibold text-[#45628D] sm:max-w-md">
+        Materia y grupo
+        <select aria-label="Materia y grupo a descargar" value={actual} className={campo}
+          onChange={(e) => {
+            const [idMateria, idParalelo] = e.target.value.split(':')
+            onChange({ ...value, idMateria: idMateria || undefined, idParalelo: idParalelo || undefined })
+          }}>
+          <option value="">Todas mis materias y grupos</option>
+          {grupos.map((g) => <option key={`${g.idMateria}:${g.idParalelo}`} value={`${g.idMateria}:${g.idParalelo}`}>{g.materia} · {g.paralelo}</option>)}
+        </select>
+      </label>
+    )
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="flex flex-col gap-1 text-xs font-semibold text-[#45628D]">
+        Facultad
+        <select aria-label="Facultad a descargar" value={value.idFacultad ?? ''} className={campo}
+          onChange={(e) => onChange({ ...value, idFacultad: e.target.value || undefined, idCarrera: undefined })}>
+          <option value="">Todas las facultades</option>
+          {facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold text-[#45628D]">
+        Carrera
+        <select aria-label="Carrera a descargar" value={value.idCarrera ?? ''} className={campo} disabled={!value.idFacultad}
+          onChange={(e) => onChange({ ...value, idCarrera: e.target.value || undefined })}>
+          <option value="">{value.idFacultad ? 'Todas las carreras' : 'Elige primero la facultad'}</option>
+          {carreras.map((c) => <option key={c.idCarrera} value={c.idCarrera}>{c.nombre}</option>)}
+        </select>
+      </label>
+    </div>
+  )
+}
+

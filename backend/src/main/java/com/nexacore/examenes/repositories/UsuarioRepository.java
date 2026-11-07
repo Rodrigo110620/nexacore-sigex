@@ -40,10 +40,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
      */
     String FILTROS_BUSQUEDA = """
             WHERE (:search = ''
-                   OR LOWER(CAST(u.nombre AS String)) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
-                   OR LOWER(CAST(u.apellidos AS String)) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
-                   OR LOWER(CAST(u.email AS String)) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
-                   OR LOWER(CAST(u.ci AS String)) LIKE CONCAT('%', :search, '%') ESCAPE '\\')
+                   OR CAST(FUNCTION('translate', LOWER(CAST(u.nombre AS String)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
+                   OR CAST(FUNCTION('translate', LOWER(CAST(u.apellidos AS String)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
+                   OR CAST(FUNCTION('translate', LOWER(CAST(u.email AS String)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') ESCAPE '\\'
+                   OR CAST(FUNCTION('translate', LOWER(CAST(u.ci AS String)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') ESCAPE '\\')
               AND (:rol = ''
                    OR EXISTS (SELECT ur FROM UsuarioRol ur JOIN ur.idRol r
                               WHERE ur.idUsuario = u AND r.nombre = :rol))

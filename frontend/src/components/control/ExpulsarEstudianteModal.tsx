@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Ban, TriangleAlert, UserX, X } from 'lucide-react'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { expulsarEstudiante } from '../../services/controlIngresoService'
-import { MOTIVO_EXPULSION, MOTIVOS_FRECUENTES_EXPULSION, normalizarMotivoExpulsion, validarMotivoExpulsion, type ExpulsionResponse } from '../../services/expulsionService'
+import { MOTIVO_EXPULSION, MOTIVOS_FRECUENTES_EXPULSION, normalizarMotivoExpulsion, subirEvidencia, validarMotivoExpulsion, type ExpulsionResponse } from '../../services/expulsionService'
 import type { ExamenDto } from '../../services/examenService'
 import { mensajeDeError } from '../../services/fotoRevisionService'
 import TextoLibreCampo from './TextoLibreCampo'
 import RegistroExpulsion from './RegistroExpulsion'
+import { ElegirEvidencia } from './EvidenciaExpulsion'
 import '../../pages/Control/ControlIngresoPage.css'
 
 interface Props {
@@ -21,6 +22,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
   const dialogo = useRef<HTMLDialogElement>(null)
   const enCurso = useRef(false)
   const [motivo, setMotivo] = useState('')
+  const [evidencia, setEvidencia] = useState<File[]>([])
   const [enviando, setEnviando] = useState(false)
   const [sinConfirmar, setSinConfirmar] = useState(false)
   const [registro, setRegistro] = useState<ExpulsionResponse | null>(null)
@@ -41,6 +43,14 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
     setError('')
     try {
       const respuesta = await expulsarEstudiante({ idEstudiante: estudiante.idEstudiante, idExamen, motivo })
+      // La evidencia (opcional) se sube después de registrar, una foto por envío.
+      if (respuesta && evidencia.length) {
+        try {
+          for (const foto of evidencia) await subirEvidencia(idExamen, respuesta.idExpulsion, foto)
+        } catch {
+          setError('La expulsión quedó registrada, pero no se pudo subir la evidencia. Vuelve a intentarlo desde el registro de la expulsión.')
+        }
+      }
       setRegistro(respuesta)
       if (respuesta) setMotivo(respuesta.motivo)
       setSinConfirmar(true)
@@ -77,6 +87,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
                 </button>
               ))}
             </div>
+            <ElegirEvidencia fotos={evidencia} onChange={setEvidencia} disabled={bloqueado} />
           </fieldset>
           <p className="mt-3 flex items-start gap-2 rounded-lg bg-[#FEF3C7] p-3 text-xs leading-snug text-[#92400E]">
             <TriangleAlert size={16} className="shrink-0" aria-hidden="true" />

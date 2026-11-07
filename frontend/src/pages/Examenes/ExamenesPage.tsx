@@ -16,6 +16,7 @@ import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import { contiene } from '../../utils/textoBusqueda'
 
 const PAGE_SIZE = 5
 
@@ -97,12 +98,13 @@ export default function ExamenesPage() {
       if (grupoFiltro && e.grupo !== grupoFiltro) return false
       if (!q) return true
       return (
-        (e.asignatura ?? '').toLowerCase().includes(q) ||
-        (e.sigla ?? '').toLowerCase().includes(q) ||
-        (e.ambienteNombre ?? '').toLowerCase().includes(q) ||
+        // Sin distinguir tildes: «fisica» encuentra «Física».
+        contiene(e.asignatura, q) ||
+        contiene(e.sigla, q) ||
+        contiene(e.ambienteNombre, q) ||
         (e.fecha ?? '').includes(q) ||
         formatFecha(e.fecha).includes(q) ||
-        (e.docente ?? '').toLowerCase().includes(q) ||
+        contiene(e.docente, q) ||
         (e.grupo ?? '').toLowerCase() === q
       )
     })

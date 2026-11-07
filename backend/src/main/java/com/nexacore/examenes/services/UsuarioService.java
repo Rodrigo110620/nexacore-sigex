@@ -227,7 +227,7 @@ public class UsuarioService {
     @Transactional(readOnly = true)
     public byte[] exportarCsv(String search, String rol, String estado) {
         List<UsuarioListResponse> filas = usuarioRepository.buscar(
-                        escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                        escaparComodinesLike(com.nexacore.examenes.utils.TextoBusqueda.sinTildes(normalizar(search))),
                         normalizar(rol).toUpperCase(Locale.ROOT),
                         normalizar(estado).toLowerCase(Locale.ROOT),
                         Pageable.unpaged())
@@ -324,7 +324,7 @@ public class UsuarioService {
         int tamanoValido = Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA);
         PageRequest pageable = PageRequest.of(paginaValida, tamanoValido, Sort.by("nombre").ascending());
         Page<Usuario> usuarios = usuarioRepository.buscar(
-                escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                escaparComodinesLike(com.nexacore.examenes.utils.TextoBusqueda.sinTildes(normalizar(search))),
                 normalizar(rol).toUpperCase(Locale.ROOT),
                 normalizar(estado).toLowerCase(Locale.ROOT),
                 pageable);
