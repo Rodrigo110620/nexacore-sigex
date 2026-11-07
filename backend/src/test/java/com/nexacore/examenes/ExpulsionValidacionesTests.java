@@ -11,6 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +20,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -143,6 +146,42 @@ class ExpulsionValidacionesTests {
     void anulacionAceptaDiezYCienCaracteres(String motivo) {
         assertTrue(motivo.length() == 10 || motivo.length() == 100);
         assertEquals(motivo, ExpulsionValidaciones.motivoAnulacion(motivo));
+    }
+
+    static Stream<Arguments> motivosAnulacionValidos() {
+        return Stream.of(Arguments.of("Error leve", "Error leve"), Arguments.of(CIEN, CIEN),
+                Arguments.of("ERROR DEL PERSONAL DE CONTROL", "Error del personal de control"),
+                Arguments.of("error del personal de control", "Error del personal de control"),
+                Arguments.of("  eRROR  AL REVISAR cI, sIs y qR en 690B  ", "Error al revisar CI, SIS y QR en 690B"),
+                Arguments.of("Error de José Núñez y John Smith", "Error de josé núñez y john smith"),
+                Arguments.of("Error de Skrzypczak y Schwarzenegger", "Error de skrzypczak y schwarzenegger"),
+                Arguments.of("Confusión legítima: el pingüino dañó la señal", "Confusión legítima: el pingüino dañó la señal"),
+                Arguments.of("Error administrativo, se revisó el CI; aula 690B.", "Error administrativo, se revisó el CI; aula 690B."),
+                Arguments.of("Error en el CI de Christopher en 682L0IN", "Error en el CI de christopher en 682L0IN"),
+                Arguments.of("Se revisó el teclado QWERTY y el QR", "Se revisó el teclado qwerty y el QR"));
+    }
+
+    static Stream<String> motivosAnulacionInvalidos() {
+        return Stream.of("", "    ", "Error   del", "a a a a a a", "aaaa aaaaa", "sdgtsgdgsdegsg o", "sdgtsgdgsdegsg", "SDGTSGDGSDEGSG O",
+                "ERROR DE CONTROL ".repeat(8), "Error abcabcabc del control", "Error aaaaaaaa del control",
+                "El error fue del personal,, control.. El estudiante reclamó", "el error fue del personal,, control..El estudiante reclamo",
+                "Error del personal;: control", "Error del control..", "Error del control,,", "Error del control;;", "Error del control::",
+                "error del personal-control", "Error del personal (control)",
+                "Error del personal?", "Error del personal!", "Error del personal/ control",
+                "Error del personal\ncontrol", "Error del personal\tcontrol", "Error del personal K", "Error del personal İ", "1234567890");
+    }
+
+    @ParameterizedTest
+    @MethodSource("motivosAnulacionValidos")
+    void anulacionConservaDatosValidosYNormalizaDeFormaIdempotente(String entrada, String esperado) {
+        assertEquals(esperado, ExpulsionValidaciones.motivoAnulacion(entrada));
+        assertEquals(esperado, ExpulsionValidaciones.motivoAnulacion(esperado));
+    }
+
+    @ParameterizedTest
+    @MethodSource("motivosAnulacionInvalidos")
+    void anulacionRechazaLosEjemplosQaYSignosNoPermitidos(String motivo) {
+        assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivoAnulacion(motivo));
     }
 
     private static AsistenciaExamen asistencia(int estudiante, int examen) {

@@ -5,11 +5,9 @@ import TablePagination from '../users/TablePagination'
 import { anularExpulsion, listarExpulsionesExamen, type ExpulsionResponse } from '../../services/expulsionService'
 import useEnVivo from '../../hooks/useEnVivo'
 import { useAuth } from '../../context/AuthContext'
-import { validarTextoLibre } from '../../utils/textoLibreValidators'
+import { MOTIVO_ANULACION, normalizarMotivoAnulacion, validarMotivoAnulacion } from '../../utils/anulacionExpulsionTexto'
 import RegistroExpulsion from './RegistroExpulsion'
 import { tienePermiso } from '../../utils/permisos'
-
-const MOTIVO_ANULACION = { campo: 'El motivo de la anulación', min: 10, max: 100 }
 
 /** Anular una expulsión registrada por error: pide el motivo y avisa que el registro no se borra. */
 function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
@@ -20,12 +18,12 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const enviar = async () => {
-    const invalido = validarTextoLibre(motivo, MOTIVO_ANULACION) ?? (motivo.trim() ? null : 'Indica por qué se anula la expulsión')
+    const invalido = validarMotivoAnulacion(motivo)
     if (invalido) return setError(invalido)
     setGuardando(true)
     setError('')
     try {
-      await anularExpulsion(idExamen, registro.idExpulsion, motivo.trim())
+      await anularExpulsion(idExamen, registro.idExpulsion, normalizarMotivoAnulacion(motivo))
       setAbierto(false)
       onAnulada()
     } catch (err) {
@@ -53,6 +51,11 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
       <textarea id={`anular-${registro.idExpulsion}`} rows={2} minLength={MOTIVO_ANULACION.min} maxLength={MOTIVO_ANULACION.max} value={motivo}
         aria-invalid={Boolean(error)} aria-describedby={`anular-${registro.idExpulsion}-error anular-${registro.idExpulsion}-contador`}
         onChange={(e) => { setMotivo(e.target.value); setError('') }} placeholder="Ej.: error del control, era otro estudiante"
+        onBlur={() => {
+          const invalido = validarMotivoAnulacion(motivo)
+          setError(invalido ?? '')
+          if (!invalido) setMotivo(normalizarMotivoAnulacion(motivo))
+        }}
         className="mt-1 w-full rounded-lg border border-[#B8CBEF] px-3 py-2 text-sm text-[#011140]" />
       <div className="mt-1 flex justify-between gap-2 text-[10px]">
         <span id={`anular-${registro.idExpulsion}-error`} role={error ? 'alert' : undefined} className="text-[#B91C1C]">{error}</span>

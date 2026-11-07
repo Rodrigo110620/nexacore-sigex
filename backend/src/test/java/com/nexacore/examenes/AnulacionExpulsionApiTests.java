@@ -8,6 +8,7 @@ import com.nexacore.examenes.services.SesionExamenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,25 +60,26 @@ class AnulacionExpulsionApiTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"Error del", ExpulsionValidacionesTests.CIEN + "."})
+    @MethodSource("com.nexacore.examenes.ExpulsionValidacionesTests#motivosAnulacionInvalidos")
     void solicitudDirectaInvalidaNoAnulaNiEscribe(String motivo) throws Exception {
         mvc.perform(post("/control-ingresos/examen/{examen}/expulsiones/{expulsion}/anular", ID, expulsion)
                         .with(user(EMAIL).roles("ADMIN")).contentType("application/json")
                         .content(mapper.writeValueAsString(Map.of("motivo", motivo))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.mensaje").isNotEmpty());
         assertNull(jdbc.queryForObject("SELECT motivo_anulacion FROM expulsion WHERE id_expulsion=?", String.class, expulsion));
         assertNull(jdbc.queryForObject("SELECT anulada_en FROM expulsion WHERE id_expulsion=?", java.sql.Timestamp.class, expulsion));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Error leve", ExpulsionValidacionesTests.CIEN})
-    void solicitudDirectaValidaGuardaElMotivoYConservaLaExpulsion(String motivo) throws Exception {
+    @MethodSource("com.nexacore.examenes.ExpulsionValidacionesTests#motivosAnulacionValidos")
+    void solicitudDirectaValidaGuardaElMotivoYConservaLaExpulsion(String entrada, String esperado) throws Exception {
         var fechaOriginal = jdbc.queryForObject("SELECT fecha_hora FROM expulsion WHERE id_expulsion=?", java.sql.Timestamp.class, expulsion);
         mvc.perform(post("/control-ingresos/examen/{examen}/expulsiones/{expulsion}/anular", ID, expulsion)
                         .with(user(EMAIL).roles("ADMIN")).contentType("application/json")
-                        .content(mapper.writeValueAsString(Map.of("motivo", motivo))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.motivoAnulacion").value(motivo))
+                        .content(mapper.writeValueAsString(Map.of("motivo", entrada))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.motivoAnulacion").value(esperado))
                 .andExpect(jsonPath("$.motivo").value("Uso de celular"));
-        assertEquals(motivo, jdbc.queryForObject("SELECT motivo_anulacion FROM expulsion WHERE id_expulsion=?", String.class, expulsion));
+        assertEquals(esperado, jdbc.queryForObject("SELECT motivo_anulacion FROM expulsion WHERE id_expulsion=?", String.class, expulsion));
         assertEquals(fechaOriginal, jdbc.queryForObject("SELECT fecha_hora FROM expulsion WHERE id_expulsion=?", java.sql.Timestamp.class, expulsion));
     }
 }
