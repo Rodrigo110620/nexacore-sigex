@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, FileSpreadsheet, CalendarDays, Clock, User } from 'lucide-react'
+import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ResumenExamenCards from '../../components/control/ResumenExamenCards'
@@ -26,7 +26,11 @@ export default function ControlExamenPage() {
   const auth = useAuth()
   const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR')
 
-  const descargarAsistencia = async (formato: 'csv' | 'xlsx') => {
+  const estadoExamen = examen?.estado?.toUpperCase() || 'PROGRAMADO';
+  const examenIniciado = estadoExamen === 'EN_CURSO' || estadoExamen === 'FINALIZADO';
+
+  const descargarAsistencia = async (formato: 'xlsx') => {
+    if (!examenIniciado) return; 
     try {
       const response = await api.get(`/examenes/${idExamen}/asistencia.${formato}`, {
         responseType: 'blob', 
@@ -54,14 +58,29 @@ export default function ControlExamenPage() {
   return (
     <PanelLayout compactDesktop topBarVariant="controlMinimal" locationLabel={ubicacion} title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 min-[960px]:pb-6">
+        
         <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-[#011140]">
-              Control de ingreso · {examen?.asignatura}
-            </h1>
+
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <h1 className="text-xl font-bold text-[#011140] text-center sm:text-left">
+                Control de ingreso · {examen?.asignatura}
+              </h1>
+              
+              <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                  estadoExamen === 'EN_CURSO' 
+                    ? 'bg-[#ECFDF3] text-[#15803D]' 
+                    : estadoExamen === 'FINALIZADO'
+                      ? 'bg-slate-100 text-slate-600'
+                      : 'bg-[#EEF2FF] text-[#3730A3]' 
+                }`}>
+                  {estadoExamen === 'EN_CURSO' ? 'En curso' : estadoExamen === 'FINALIZADO' ? 'Finalizado' : 'Programado'}
+                </span>
+              </div>
+            </div>
             
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B] sm:text-xs">
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B] sm:justify-start sm:text-xs">
               {examen?.fecha && (
                 <span className="flex items-center gap-1.5">
                   <CalendarDays size={14} className="text-[#627A9B]" />
@@ -80,7 +99,6 @@ export default function ControlExamenPage() {
                   Docente: {examen.docente}
                 </span>
               )}
-
               {examen?.ambienteNombre && (
                 <span className="flex items-center gap-1.5">
                   <Building2 size={14} className="text-[#627A9B]" />
@@ -90,23 +108,26 @@ export default function ControlExamenPage() {
             </div>
           </div>
 
-          {/* Botones de descarga */}
           {puedeExportar && (
-            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="flex w-full shrink-0 flex-col items-center gap-2 sm:w-auto sm:items-end">
               <button
                 onClick={() => descargarAsistencia('xlsx')}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] sm:w-auto"
-              >
-                <FileSpreadsheet size={16} />
-                Descargar Excel
-              </button>
-              <button
-                onClick={() => descargarAsistencia('csv')}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] sm:w-auto"
+                disabled={!examenIniciado}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors sm:w-auto ${
+                  !examenIniciado
+                    ? 'cursor-not-allowed border-none bg-slate-100 text-slate-400' 
+                    : 'border border-[#B8CBEF] bg-white text-[#0439D9] shadow-sm hover:bg-[#F1F6FF]' 
+                }`}
               >
                 <Download size={16} />
-                Descargar CSV
+                Descargar Excel
               </button>
+              
+              {!examenIniciado && (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309] sm:text-xs">
+                  <Lock size={12} /> El examen aún no ha iniciado
+                </span>
+              )}
             </div>
           )}
         </section>
@@ -128,7 +149,7 @@ export default function ControlExamenPage() {
                   <p className="text-xs font-bold sm:text-base">Apertura de Acceso al {ambienteAcceso}</p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
                 <Link
                   to={`/dashboard/control/${idExamen}/informacion`}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/50 px-3 py-2 text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
