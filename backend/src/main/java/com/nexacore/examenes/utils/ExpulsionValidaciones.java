@@ -69,12 +69,12 @@ public final class ExpulsionValidaciones {
         });
     }
 
-    /** Motivo de la anulación (expulsión registrada por error): obligatorio, de 10 a 200 caracteres. */
+    /** Motivo de la anulación (expulsión registrada por error): obligatorio, de 10 a 100 caracteres. */
     public static String motivoAnulacion(String motivo) {
         if (motivo == null || motivo.isBlank()) {
             throw new IllegalArgumentException("Indica por qué se anula la expulsión");
         }
-        return ValidacionTextoLibre.validarOpcional(motivo, "El motivo de la anulación", 10, 200);
+        return ValidacionTextoLibre.validarOpcional(motivo, "El motivo de la anulación", 10, 100);
     }
 
     public static void asistencia(ExpulsarEstudianteRequest request, AsistenciaExamen asistencia) {

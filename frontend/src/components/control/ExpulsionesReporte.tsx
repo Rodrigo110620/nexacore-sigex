@@ -9,7 +9,7 @@ import { validarTextoLibre } from '../../utils/textoLibreValidators'
 import RegistroExpulsion from './RegistroExpulsion'
 import { tienePermiso } from '../../utils/permisos'
 
-const MOTIVO_ANULACION = { campo: 'El motivo de la anulación', min: 10, max: 200 }
+const MOTIVO_ANULACION = { campo: 'El motivo de la anulación', min: 10, max: 100 }
 
 /** Anular una expulsión registrada por error: pide el motivo y avisa que el registro no se borra. */
 function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
@@ -50,10 +50,14 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
         nombre, la hora y el motivo. El estudiante vuelve a figurar como ingresado y sigue con su examen.
       </p>
       <label htmlFor={`anular-${registro.idExpulsion}`} className="mt-2 block text-xs font-semibold text-[#011140]">Motivo de la anulación</label>
-      <textarea id={`anular-${registro.idExpulsion}`} rows={2} maxLength={MOTIVO_ANULACION.max} value={motivo}
+      <textarea id={`anular-${registro.idExpulsion}`} rows={2} minLength={MOTIVO_ANULACION.min} maxLength={MOTIVO_ANULACION.max} value={motivo}
+        aria-invalid={Boolean(error)} aria-describedby={`anular-${registro.idExpulsion}-error anular-${registro.idExpulsion}-contador`}
         onChange={(e) => { setMotivo(e.target.value); setError('') }} placeholder="Ej.: error del control, era otro estudiante"
         className="mt-1 w-full rounded-lg border border-[#B8CBEF] px-3 py-2 text-sm text-[#011140]" />
-      {error && <p role="alert" className="mt-1 text-xs text-[#B91C1C]">{error}</p>}
+      <div className="mt-1 flex justify-between gap-2 text-[10px]">
+        <span id={`anular-${registro.idExpulsion}-error`} role={error ? 'alert' : undefined} className="text-[#B91C1C]">{error}</span>
+        <span id={`anular-${registro.idExpulsion}-contador`} className="shrink-0 text-[#45628D]">{motivo.length}/{MOTIVO_ANULACION.max}</span>
+      </div>
       <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <button type="button" onClick={() => { setAbierto(false); setMotivo(''); setError('') }} className="min-h-10 rounded-lg border px-3 text-xs font-semibold text-[#45628D]">
           Cancelar

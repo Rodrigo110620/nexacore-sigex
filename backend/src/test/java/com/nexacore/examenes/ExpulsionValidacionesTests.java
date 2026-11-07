@@ -22,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExpulsionValidacionesTests {
+    static final String CIEN = "Se anuló la expulsión por un error del personal de control al verificar el CI del estudiante en aula";
     private static final ExpulsarEstudianteRequest REQUEST = new ExpulsarEstudianteRequest(10, 20, "Uso de celular");
 
     @Test
@@ -129,6 +130,19 @@ class ExpulsionValidacionesTests {
     private static Authentication autenticado(String rol) {
         return UsernamePasswordAuthenticationToken.authenticated("admin@sigex.test", "ignorado",
                 List.of(new SimpleGrantedAuthority("ROLE_" + rol)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Error del", CIEN + "."})
+    void anulacionRechazaNueveYCientoUnCaracteresSinPasarPorElDto(String motivo) {
+        assertThrows(IllegalArgumentException.class, () -> ExpulsionValidaciones.motivoAnulacion(motivo));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Error leve", CIEN})
+    void anulacionAceptaDiezYCienCaracteres(String motivo) {
+        assertTrue(motivo.length() == 10 || motivo.length() == 100);
+        assertEquals(motivo, ExpulsionValidaciones.motivoAnulacion(motivo));
     }
 
     private static AsistenciaExamen asistencia(int estudiante, int examen) {

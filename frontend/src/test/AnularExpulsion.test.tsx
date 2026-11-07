@@ -11,9 +11,31 @@ const vigente: ExpulsionResponse = {
   idExpulsion: 5, idEstudiante: 10, idExamen: 20, motivo: 'Uso de celular', idResponsable: 7, responsable: 'Ana Rojas',
   fechaHora: '2026-10-28T09:00:00', estudiante: 'Luis Flores', codigoSis: '202104010',
 }
+const CIEN = 'Se anuló la expulsión por un error del personal de control al verificar el CI del estudiante en aula'
 
 describe('anular una expulsión registrada por error', () => {
-  beforeEach(() => { vi.mocked(anularExpulsion).mockReset() })
+  beforeEach(() => { vi.resetAllMocks() })
+
+  it.each([['Error del', false], ['Error leve', true], [CIEN, true], [CIEN + '.', false]] as const)(
+    'A04: cuenta y valida la frontera %s', async (motivo, aceptado) => {
+      vi.mocked(listarExpulsionesExamen).mockResolvedValue([vigente])
+      vi.mocked(anularExpulsion).mockResolvedValue(vigente)
+      render(<ExpulsionesReporte idExamen={20} controles={[]} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Anular expulsión' }))
+      const campo = screen.getByLabelText('Motivo de la anulación')
+      expect(campo).toHaveAttribute('maxlength', '100')
+      expect(screen.getByText('0/100')).toBeInTheDocument()
+      fireEvent.change(campo, { target: { value: motivo } })
+      expect(screen.getByText(`${motivo.length}/100`)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar anulación' }))
+      if (aceptado) {
+        await waitFor(() => expect(anularExpulsion).toHaveBeenCalledWith(20, 5, motivo))
+      } else {
+        expect(screen.getByRole('alert')).toHaveTextContent(motivo.length < 10 ? 'al menos 10' : '100')
+        expect(anularExpulsion).not.toHaveBeenCalled()
+      }
+    },
+  )
 
   it('pide un motivo de al menos 10 caracteres, anula y muestra la expulsión como anulada', async () => {
     vi.mocked(listarExpulsionesExamen)
