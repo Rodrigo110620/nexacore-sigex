@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InicioDocentePage from '../pages/Dashboard/InicioDocentePage'
@@ -6,6 +6,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage'
 import { obtenerResumenExamen } from '../services/controlExamenService'
 import { listarExamenes, type ExamenDto } from '../services/examenService'
 import { obtenerInicioDocente, type InicioDocente } from '../services/inicioService'
+import { emitirCambioLocal } from '../services/notificacionService'
 
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ nombre: 'Docente Prueba', roles: ['DOCENTE'], isAdmin: false }) }))
 vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
@@ -128,5 +129,44 @@ describe('Inicio del docente', () => {
     expect(await screen.findByText('No tienes exámenes hoy')).toBeInTheDocument()
     expect(screen.getByText(/Tu próximo examen: Programación Web · 05\/11\/2026 · 14:00, Aula 690A/)).toBeInTheDocument()
     expect(obtenerResumenExamen).not.toHaveBeenCalled()
+  })
+
+  // DASH-01: antes del ingreso, después de un ingreso y con dos pantallas abiertas a la vez (p. ej. el docente en su
+  // inicio y otra persona con la misma vista): un solo ingreso en vivo actualiza las dos sin recargar la página.
+  it('DASH-01: un ingreso en vivo actualiza los contadores en dos pantallas abiertas a la vez', async () => {
+    vi.mocked(listarExamenes).mockResolvedValue([
+      { idExamen: 1, idParalelo: 7, asignatura: 'Programación Web', grupo: 'G1', fecha: '2026-11-03', horaInicio: '22:00', duracionMinutos: 60, estado: 'programado', ambienteNombre: '690A' },
+    ] as ExamenDto[])
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 3, habilitados: 2, noHabilitados: 1, ingresados: 0 })
+    const pantalla = () => render(<MemoryRouter initialEntries={['/dashboard/inicio']}><Routes>
+      <Route path="/dashboard/inicio" element={<InicioDocentePage />} />
+    </Routes></MemoryRouter>)
+    const primera = pantalla()
+    const segunda = pantalla()
+    const fila = (vista: ReturnType<typeof render>) =>
+      within(vista.container).getByRole('link', { name: 'Programación Web · G1: ver panel del examen' })
+
+    // Antes del ingreso: Habilitados 2, Ingresados 0, Ausentes 2, en las dos.
+    for (const vista of [primera, segunda]) {
+      await waitFor(() => expect(fila(vista)).toHaveTextContent('2 habilitados0 ingresados2 ausentes'))
+    }
+    const pedidosAntes = vi.mocked(obtenerResumenExamen).mock.calls.length
+
+    // Un estudiante ingresa: el servidor ya cuenta 1 y llega un único aviso en vivo.
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 3, habilitados: 2, noHabilitados: 1, ingresados: 1 })
+    act(() => emitirCambioLocal({ tipo: 'INGRESO', idExamen: 1, idEstudiante: 10 }))
+
+    // Después del ingreso: Ingresados sube a 1 y Ausentes baja a 1 en las dos pantallas.
+    for (const vista of [primera, segunda]) {
+      await waitFor(() => expect(fila(vista)).toHaveTextContent('2 habilitados1 ingresados1 ausentes'))
+      expect(fila(vista)).toHaveTextContent('50 %')
+    }
+    expect(vi.mocked(obtenerResumenExamen).mock.calls.length).toBeGreaterThan(pedidosAntes)
+
+    // Un cambio de otro examen no vuelve a pedir los contadores de este.
+    const pedidosDespues = vi.mocked(obtenerResumenExamen).mock.calls.length
+    act(() => emitirCambioLocal({ tipo: 'INGRESO', idExamen: 99, idEstudiante: 11 }))
+    await new Promise((r) => setTimeout(r, 500))
+    expect(vi.mocked(obtenerResumenExamen).mock.calls.length).toBe(pedidosDespues)
   })
 })
