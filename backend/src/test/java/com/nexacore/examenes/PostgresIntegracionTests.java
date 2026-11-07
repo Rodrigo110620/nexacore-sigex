@@ -375,6 +375,8 @@ class PostgresIntegracionTests {
                 .satisfies(e -> {
                     assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
                     assertThat(e.trasladadoA()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
+                    // El nombre del aula de ingreso llega con la fila: el CONTROL no puede listar las aulas.
+                    assertThat(e.aulaIngreso()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
                 });
 
         // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.

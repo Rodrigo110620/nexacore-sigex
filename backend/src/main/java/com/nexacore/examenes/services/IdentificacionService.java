@@ -101,8 +101,14 @@ public class IdentificacionService {
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Map<Integer, String[]> traslados = trasladosDeLaSesion(idExamen);
-        return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina)
-                .map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()))));
+        var filas = estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina);
+        // Nombre del aula de ingreso de cada fila, en una sola consulta: así lo ve también el CONTROL,
+        // que no tiene permiso para listar las aulas.
+        Set<Integer> aulas = new java.util.HashSet<>();
+        filas.forEach(f -> { if (f.idAmbienteIngreso() != null) aulas.add(f.idAmbienteIngreso()); });
+        Map<Integer, String> nombres = new java.util.HashMap<>();
+        if (!aulas.isEmpty()) ambienteRepository.findAllById(aulas).forEach(a -> nombres.put(a.getId(), a.getNombre()));
+        return PageResponse.de(filas.map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()), nombres.get(fila.idAmbienteIngreso()))));
     }
 
     /**
@@ -151,13 +157,13 @@ public class IdentificacionService {
                 motivoDe(fila, estado), fila.condicion());
     }
 
-    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String[] traslado) {
+    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String[] traslado, String aulaIngreso) {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
                 fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
                 fila.idAmbienteIngreso(),
                 EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()),
-                traslado == null ? null : traslado[0], traslado == null ? null : traslado[1]);
+                traslado == null ? null : traslado[0], traslado == null ? null : traslado[1], aulaIngreso);
     }
 
     private IdentificacionResponse.Estado estadoDe(EstudianteExamenFila fila) {
