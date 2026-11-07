@@ -2,7 +2,7 @@ import api from './api'
 import type { PageResponse } from '../types/userApi'
 import { listarExpulsionesExamen, type ExpulsionResponse } from './expulsionService'
 
-export type FiltroEstado = 'TODOS' | 'HABILITADOS' | 'NO_HABILITADOS'
+export type FiltroEstado = 'TODOS' | 'HABILITADOS' | 'NO_HABILITADOS' | 'AUSENTES'
 
 export interface EstudianteAsignado {
   idEstudiante: number
