@@ -38,6 +38,8 @@ export default function ControlExamenPage() {
   // DASH-04 (acta en PDF) y DASH-05 (asistencia en Excel), como en la sección 12 del diseño.
   // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
   const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
+  // La tabla completa va oculta: el panel muestra solo «Ingresos recientes» (sección 11).
+  const [tablaAbierta, setTablaAbierta] = useState(false)
   const descargar = (formato: 'pdf' | 'excel') => {
     if (!examenIniciado || !idValido) return
     setPrevia(formato === 'pdf' ? 'pdf' : 'xlsx')
@@ -176,8 +178,20 @@ export default function ControlExamenPage() {
               <AvisoAforo aulas={datos.resumen?.aulas} />
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
-            <IngresosRecientesCard idExamen={idExamen} onVerTodos={() => document.getElementById('estudiantes-examen')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
-            <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
+            <IngresosRecientesCard idExamen={idExamen} tablaAbierta={tablaAbierta} onAlternarTabla={() => {
+              setTablaAbierta((abierta) => !abierta)
+              // Solo se desplaza el contenido (main): scrollIntoView movía también la ventana y el menú lateral.
+              if (!tablaAbierta) requestAnimationFrame(() => {
+                const tabla = document.getElementById('estudiantes-examen-tabla')
+                const main = tabla?.closest('main')
+                if (tabla && main) main.scrollTo({ top: main.scrollTop + tabla.getBoundingClientRect().top - main.getBoundingClientRect().top - 16, behavior: 'smooth' })
+              })
+            }} />
+            {tablaAbierta && (
+              <div id="estudiantes-examen-tabla">
+                <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-[#B91C1C]">El examen indicado no es válido.</p>

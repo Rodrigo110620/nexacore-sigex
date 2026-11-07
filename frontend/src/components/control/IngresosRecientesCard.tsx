@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CircleCheck, Info } from 'lucide-react'
+import { ChevronDown, CircleCheck, Info } from 'lucide-react'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import useEnVivo from '../../hooks/useEnVivo'
 import { ingresosRecientes, type IngresoReciente } from '../../services/ingresosRecientesService'
@@ -31,7 +31,14 @@ const desdeAusente = (e: EstudianteAsignado): Fila => ({
  * al más antiguo, con foto, nombre, código y hora. Solo ausentes (DASH-03): los habilitados que aún no ingresaron,
  * o «Todos los estudiantes ingresaron». Se actualiza en vivo con cada ingreso.
  */
-export default function IngresosRecientesCard({ idExamen, onVerTodos }: { idExamen: number; onVerTodos?: () => void }) {
+interface Props {
+  idExamen: number
+  /** La tabla completa «Estudiantes del examen» va oculta debajo; la tarjeta la abre y la cierra. */
+  tablaAbierta?: boolean
+  onAlternarTabla?: () => void
+}
+
+export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, onAlternarTabla }: Props) {
   const [vista, setVista] = useState<Vista>('todos')
   const [datos, setDatos] = useState<{ vista: Vista; filas: Fila[]; total: number } | null>(null)
   const [error, setError] = useState(false)
@@ -57,13 +64,13 @@ export default function IngresosRecientesCard({ idExamen, onVerTodos }: { idExam
   return (
     <section aria-labelledby="ingresos-recientes-titulo" className="flex flex-col gap-3.5 rounded-xl border border-[#D8E3F5] bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2.5">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
           <h2 id="ingresos-recientes-titulo" className="text-base font-bold text-[#011140]">{vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}</h2>
           <p className="text-xs text-[#627A9B]">
             {vista === 'todos' ? 'Del más reciente al más antiguo · se actualiza en vivo' : 'Habilitados que aún no ingresaron · se actualiza en vivo'}
           </p>
         </div>
-        <div role="group" aria-label="Filtrar ingresos" className="flex gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px]">
+        <div role="group" aria-label="Filtrar ingresos" className="grid w-full grid-cols-2 gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px] sm:flex sm:w-auto">
           {(['todos', 'ausentes'] as const).map((v) => (
             <button key={v} type="button" aria-pressed={vista === v} onClick={() => setVista(v)}
               className={`rounded-md px-3 py-1.5 text-[13px] ${vista === v ? 'bg-white font-semibold text-[#011140] shadow-[0_1px_1px_rgba(0,0,0,0.08)]' : 'font-medium text-[#627A9B] hover:text-[#011140]'}`}>
@@ -103,21 +110,35 @@ export default function IngresosRecientesCard({ idExamen, onVerTodos }: { idExam
                 <span className="block truncate text-sm font-semibold text-[#011140]">{f.nombre}</span>
                 <span className="block text-xs text-[#627A9B]">SIS {f.codigo}</span>
               </span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-[#011140]">{f.hora ?? '—'}</span>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              {/* En celular, la hora va sobre la etiqueta para que el nombre tenga espacio. */}
+              <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3.5">
+              <span className="text-sm font-semibold tabular-nums text-[#011140]">{f.hora ?? '—'}</span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                 f.estado === 'ingreso' ? 'bg-[#ECFDF3] text-[#15803D]' : f.estado === 'expulsado' ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#FFFBEB] text-[#B45309]'}`}>
                 {f.estado === 'ingreso' ? 'Ingresó' : f.estado === 'expulsado' ? 'Expulsado' : 'No ingresó'}
+              </span>
               </span>
             </li>
           ))}
         </ul>
       )}
 
-      {!cargando && filas.length > 0 && (
-        <p className="text-xs text-[#627A9B]">
-          Mostrando {filas.length} de {total} {vista === 'todos' ? (total === 1 ? 'ingreso' : 'ingresos') : (total === 1 ? 'ausente' : 'ausentes')}
-          {onVerTodos && total > filas.length && <> · <button type="button" onClick={onVerTodos} className="font-semibold text-[#0439D9] hover:underline">Ver todos</button></>}
-        </p>
+      {(onAlternarTabla || (!cargando && filas.length > 0)) && (
+        <div className="flex flex-wrap items-center gap-x-1 text-xs text-[#627A9B]">
+          {!cargando && filas.length > 0 && (
+            <span>Mostrando {filas.length} de {total} {vista === 'todos' ? (total === 1 ? 'ingreso' : 'ingresos') : (total === 1 ? 'ausente' : 'ausentes')}</span>
+          )}
+          {onAlternarTabla && (
+            <>
+              {!cargando && filas.length > 0 && <span aria-hidden="true">·</span>}
+              <button type="button" onClick={onAlternarTabla} aria-expanded={tablaAbierta} aria-controls="estudiantes-examen-tabla"
+                className="inline-flex items-center gap-1 font-semibold text-[#0439D9] hover:underline">
+                {tablaAbierta ? 'Ocultar estudiantes' : 'Ver todos los estudiantes'}
+                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${tablaAbierta ? 'rotate-180' : ''}`} />
+              </button>
+            </>
+          )}
+        </div>
       )}
     </section>
   )
