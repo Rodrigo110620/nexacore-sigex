@@ -9,8 +9,8 @@ const PESTANAS: { valor: FiltroEstado; label: string; cuenta: keyof ResumenEstud
   { valor: 'TODOS', label: 'Todos', cuenta: 'total' },
   { valor: 'HABILITADOS', label: 'Habilitados', cuenta: 'habilitados' },
   { valor: 'NO_HABILITADOS', label: 'No habilitados', cuenta: 'noHabilitados' },
-  { valor: 'AUSENTES', label: 'Solo ausentes', cuenta: 'ausentes' },
 ]
+// «Solo ausentes» está en la tarjeta «Ingresos recientes» (sección 11 del diseño); el backend sigue aceptando AUSENTES.
 
 interface EstudiantesExamenSeccionProps {
   idExamen: number
@@ -88,8 +88,7 @@ export default function EstudiantesExamenSeccion({
         <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
       ) : pagina.contenido.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
-          {estado === 'AUSENTES' && pagina.totalRegistros === 0 ? 'Todos los estudiantes ingresaron'
-            : estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
+          {estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
         </p>
       ) : (
         <>

@@ -12,6 +12,7 @@ import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoMod
 import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import IngresosRecientesCard from '../../components/control/IngresosRecientesCard'
 import type { OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
@@ -175,6 +176,7 @@ export default function ControlExamenPage() {
               <AvisoAforo aulas={datos.resumen?.aulas} />
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
+            <IngresosRecientesCard idExamen={idExamen} onVerTodos={() => document.getElementById('estudiantes-examen')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
             <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
           </>
         ) : (

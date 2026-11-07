@@ -82,6 +82,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.PlanillaEstudiantesService planillaEstudiantesService;
     @Autowired com.nexacore.examenes.services.ExpulsionEvidenciaService expulsionEvidenciaService;
     @Autowired com.nexacore.examenes.services.AforoService aforoService;
+    @Autowired com.nexacore.examenes.services.IngresosRecientesService ingresosRecientesService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -983,6 +984,34 @@ class PostgresIntegracionTests {
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // DASH-02 (sección 11): los últimos ingresos, del más reciente al más antiguo, con el total y la marca del expulsado.
+    @Test
+    void losIngresosRecientesVanDelMasRecienteAlMasAntiguo() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-REC");
+        int examen = examen(g1, "10:00", 90);
+        String ingresar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) VALUES (?, ?, ?, TRUE, ?, ?)";
+        int ana = estudiante("202499501", "Ana"), beto = estudiante("202499502", "Beto"), ciro = estudiante("202499503", "Ciro");
+        int dora = estudiante("202499504", "Dora");
+        jdbc.update(ingresar, ana, examen, g1, java.sql.Timestamp.valueOf("2026-10-20 08:01:00"), idAmbiente);
+        jdbc.update(ingresar, beto, examen, g1, java.sql.Timestamp.valueOf("2026-10-20 08:05:30"), idAmbiente);
+        jdbc.update(ingresar, ciro, examen, g1, java.sql.Timestamp.valueOf("2026-10-20 08:03:10"), idAmbiente);
+        jdbc.update(ingresar, dora, examen, g1, null, null); // habilitada sin ingreso: no aparece
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular')", beto, examen, idDocente);
+        sincronizar();
+
+        var r = ingresosRecientesService.recientes(examen, 2);
+        assertThat(r.total()).isEqualTo(3);
+        assertThat(r.ingresos()).extracting(i -> i.idEstudiante()).containsExactly(beto, ciro);
+        assertThat(r.ingresos().get(0)).satisfies(i -> {
+            assertThat(i.expulsado()).isTrue();
+            assertThat(i.fechaHoraIngreso().toLocalTime()).hasToString("08:05:30");
+            assertThat(i.aula()).isNotBlank();
+        });
+        assertThat(r.ingresos().get(1).expulsado()).isFalse();
+        assertThatThrownBy(() -> ingresosRecientesService.recientes(999999, 6)).hasMessageContaining("No se encontró el examen");
     }
 
     // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya

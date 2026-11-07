@@ -53,6 +53,19 @@ public class IdentificacionController {
         return ResponseEntity.ok(identificacionService.listarAsignados(idExamen, estado, page, size));
     }
 
+    @Operation(summary = "Ingresos recientes del examen",
+            description = "DASH-02: los últimos ingresos de la sesión actual, del más reciente al más antiguo (hasta 50), y el total.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @GetMapping("/recientes")
+    public com.nexacore.examenes.dto.IngresosRecientesResponse recientes(@PathVariable Integer idExamen,
+            @RequestParam(defaultValue = "6") int cantidad) {
+        return ingresosRecientesService.recientes(idExamen, cantidad);
+    }
+
+    /** DASH-02; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.IngresosRecientesService ingresosRecientesService;
+
     @Operation(summary = "Resumen de estudiantes del examen",
             description = "Total de asignados, habilitados, no habilitados e ingresados. ADMIN, CONTROL o su DOCENTE.")
     @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
