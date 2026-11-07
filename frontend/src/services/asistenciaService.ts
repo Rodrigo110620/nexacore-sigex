@@ -19,6 +19,27 @@ export async function descargarAsistencia(idExamen: number, formato: 'xlsx' | 'c
   return nombre
 }
 
+/**
+ * HU#4: descarga el acta de asistencia del examen en PDF con el nombre que manda el servidor
+ * (acta_examen_20.pdf). Devuelve ese nombre.
+ */
+export async function descargarActaPDF(idExamen: number): Promise<string> {
+  const res = await api.get<Blob>(`/reportes/examenes/${idExamen}/acta.pdf`, {
+    responseType: 'blob',
+  })
+  const disposicion = String(res.headers['content-disposition'] ?? '')
+  const nombre = /filename="?([^";]+)"?/.exec(disposicion)?.[1] ?? `acta_examen_${idExamen}.pdf`
+  const url = URL.createObjectURL(res.data)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombre
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  URL.revokeObjectURL(url)
+  return nombre
+}
+
 /** Mensaje del servidor (por ejemplo, 409 si el examen no empezó) leído desde la respuesta en blob. */
 export async function mensajeDescarga(err: unknown): Promise<string> {
   const respuesta = (err as { response?: { data?: unknown; status?: number } }).response

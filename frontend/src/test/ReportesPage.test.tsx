@@ -5,13 +5,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportesPage from '../pages/panel_admin/ReportesPage'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../services/examenService'
 import { reporteIntentos, type IntentoReporte } from '../services/intentoIngresoService'
+import { descargarActaPDF } from '../services/asistenciaService'
 
 vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null }))
 vi.mock('../hooks/useEnVivo', () => ({ default: () => undefined }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn(), listarMisExamenes: vi.fn() }))
+vi.mock('../services/asistenciaService', () => ({
+  descargarActaPDF: vi.fn().mockResolvedValue('acta_examen_20.pdf'),
+  mensajeDescarga: vi.fn().mockResolvedValue('Error de descarga'),
+}))
 const sesion = vi.hoisted(() => ({ roles: ['ADMIN'] as string[] }))
-vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ roles: sesion.roles, isAuthenticated: true }) }))
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ roles: sesion.roles, isAuthenticated: true, isAdmin: sesion.roles.includes('ADMIN') }),
+}))
 vi.mock('../services/intentoIngresoService', () => ({ reporteIntentos: vi.fn() }))
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn().mockResolvedValue([]) }))
 vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Expulsiones del examen {idExamen}</p> }))
@@ -104,5 +111,48 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     } finally {
       sesion.roles = ['ADMIN']
     }
+  })
+
+  // HU#4 / HU#6: solo el ADMIN ve el botón Descargar PDF
+  it('el ADMIN ve el botón Descargar PDF', async () => {
+    vi.mocked(listarExamenes).mockResolvedValue([
+      { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
+    ] as ExamenDto[])
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
+    render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+    await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
+    fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
+    expect(screen.getByRole('button', { name: 'Descargar PDF' })).toBeInTheDocument()
+  })
+
+  it('el CONTROL no ve el botón Descargar PDF', async () => {
+    sesion.roles = ['CONTROL']
+    try {
+      vi.mocked(listarMisExamenes).mockResolvedValue([
+        { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
+      ] as ExamenDto[])
+      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+      vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
+      render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+      await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
+      fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
+      expect(screen.queryByRole('button', { name: 'Descargar PDF' })).not.toBeInTheDocument()
+    } finally {
+      sesion.roles = ['ADMIN']
+    }
+  })
+
+  it('al hacer clic en Descargar PDF se llama al servicio de descarga', async () => {
+    vi.mocked(listarExamenes).mockResolvedValue([
+      { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
+    ] as ExamenDto[])
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
+    render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+    await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
+    fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }))
+    expect(descargarActaPDF).toHaveBeenCalledWith(20)
   })
 })
