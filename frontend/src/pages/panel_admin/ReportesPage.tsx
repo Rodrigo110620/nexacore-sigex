@@ -15,7 +15,7 @@ import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/exame
 
 import { Download, LoaderCircle, Lock } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
-import { descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
+import { descargarAsistencia, descargarActaPDF, mensajeDescarga } from '../../services/asistenciaService'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
@@ -193,6 +193,7 @@ export default function ReportesPage() {
   // DASH-05: solo un examen que ya empezó; el Excel lleva el nombre del servidor y un error se avisa con el modal.
   const iniciado = ['en_curso', 'finalizado'].includes(examen?.estado?.toLowerCase() ?? '')
   const [descargando, setDescargando] = useState(false)
+  const [descargandoPDF, setDescargandoPDF] = useState(false)
   const [resultadoDescarga, setResultadoDescarga] = useState<Resultado | null>(null)
   const descargarExcel = async () => {
     if (!idExamen || !iniciado) return
@@ -203,6 +204,17 @@ export default function ReportesPage() {
       setResultadoDescarga({ tipo: 'error', mensaje: await mensajeDescarga(err) })
     } finally {
       setDescargando(false)
+    }
+  }
+  const descargarPDF = async () => {
+    if (!idExamen || !iniciado) return
+    setDescargandoPDF(true)
+    try {
+      await descargarActaPDF(idExamen)
+    } catch (err) {
+      setResultadoDescarga({ tipo: 'error', mensaje: await mensajeDescarga(err) })
+    } finally {
+      setDescargandoPDF(false)
     }
   }
 
@@ -230,23 +242,39 @@ export default function ReportesPage() {
                   {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
                 </select>
 
-                {idExamen != null && puedeExportar && (
+                {idExamen != null && (auth.isAdmin || puedeExportar) && (
                   <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
-                    <button
-                      type="button"
-                      onClick={() => void descargarExcel()}
-                      disabled={!iniciado || descargando}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
-                    >
-                      {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
-                      Descargar Excel
-                    </button>
+                    {auth.isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarPDF()}
+                        disabled={!iniciado || descargandoPDF}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                      >
+                        {descargandoPDF ? (
+                          <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Download size={16} aria-hidden="true" />
+                        )}
+                        Descargar PDF
+                      </button>
+                    )}
+                    {puedeExportar && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarExcel()}
+                        disabled={!iniciado || descargando}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                      >
+                        {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                        Descargar Excel
+                      </button>
+                    )}
                     {!iniciado && (
                       <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309]">
                         <Lock size={12} aria-hidden="true" /> El examen aún no ha iniciado
                       </span>
                     )}
-                    {/* Al lado va «Descargar PDF» (DASH-04, Fernando), como botón azul principal. */}
                   </div>
                 )}
               </div>

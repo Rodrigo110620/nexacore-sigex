@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   Clock,
+  Download,
   FileText,
   Hourglass,
   LoaderCircle,
@@ -24,6 +25,7 @@ import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabi
 import { useAuth } from '../../context/AuthContext'
 import { getEstudianteById } from '../../services/estudianteService'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
+import { descargarActaPDF, mensajeDescarga } from '../../services/asistenciaService'
 import {
   addMinutes,
   codigoExamen,
@@ -158,6 +160,20 @@ export default function ExamenDetallePage() {
   const puedeReprogramar = finalizado && gestionaExamenes
   // El DOCENTE crea y edita sus exámenes igual que el ADMIN (el backend verifica que sea suyo).
   const puedeEditar = gestionaExamenes
+  const esAdmin = auth.isAdmin
+  const iniciado = examen ? ['en_curso', 'finalizado'].includes(examen.estado?.toLowerCase() ?? '') : false
+  const [descargandoPDF, setDescargandoPDF] = useState(false)
+  const descargarActa = async () => {
+    if (!idExamen || !iniciado) return
+    setDescargandoPDF(true)
+    try {
+      await descargarActaPDF(idExamen)
+    } catch (err) {
+      alert(await mensajeDescarga(err))
+    } finally {
+      setDescargandoPDF(false)
+    }
+  }
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
@@ -238,6 +254,21 @@ export default function ExamenDetallePage() {
                           Eliminar
                         </button>
                       )}
+                      {esAdmin && iniciado && (
+                        <button
+                          type="button"
+                          onClick={() => void descargarActa()}
+                          disabled={descargandoPDF}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:opacity-60"
+                        >
+                          {descargandoPDF ? (
+                            <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+                          ) : (
+                            <Download size={14} aria-hidden="true" />
+                          )}
+                          Exportar PDF
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -276,6 +307,21 @@ export default function ExamenDetallePage() {
                       >
                         <Trash2 size={15} aria-hidden="true" />
                         Eliminar
+                      </button>
+                    )}
+                    {esAdmin && iniciado && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarActa()}
+                        disabled={descargandoPDF}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:opacity-60"
+                      >
+                        {descargandoPDF ? (
+                          <LoaderCircle size={15} className="animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Download size={15} aria-hidden="true" />
+                        )}
+                        Exportar PDF
                       </button>
                     )}
                   </div>
