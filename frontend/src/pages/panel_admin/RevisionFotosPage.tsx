@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { tienePermiso } from '../../utils/permisos'
 import { ArrowLeft, CheckCircle2, ChevronRight, Clock, LoaderCircle, RotateCw } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -9,10 +11,17 @@ import useEnVivo from '../../hooks/useEnVivo'
 import { DetalleRevisionFoto as Detalle, OrigenBadge, RechazarFotoModal } from '../../components/fotos/RevisionFoto'
 import { fechaSolicitud, inicialesDe, nombreDe } from '../../utils/revisionFoto'
 
-/** CTA-02: el ADMIN revisa los cambios de foto y las fotos que reportó el personal de control. */
+/**
+ * CTA-02: el ADMIN revisa los cambios de foto y las fotos que reportó el personal de control. El DOCENTE y el
+ * CONTROL usan la misma pantalla, con solo las fotos reportadas en sus exámenes (el servidor las filtra).
+ */
 export default function RevisionFotosPage() {
+  const esAdmin = tienePermiso(useAuth(), 'FOTOS_REVISAR')
+  const [params] = useSearchParams()
+  // Desde el aviso de la campana llega ?estudiante=ID: ese queda elegido.
+  const pedido = Number(params.get('estudiante')) || null
   const [solicitudes, setSolicitudes] = useState<SolicitudRevisionFoto[]>([])
-  const [seleccionado, setSeleccionado] = useState<number | null>(null)
+  const [seleccionado, setSeleccionado] = useState<number | null>(pedido)
   const [loading, setLoading] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
   const [saving, setSaving] = useState(false)
@@ -26,13 +35,14 @@ export default function RevisionFotosPage() {
     try {
       const lista = await listarRevisionFotos()
       setSolicitudes(lista)
-      setSeleccionado((actual) => (lista.some((s) => s.idEstudiante === actual) ? actual : lista[0]?.idEstudiante ?? null))
+      setSeleccionado((actual) => (lista.some((s) => s.idEstudiante === actual) ? actual
+        : lista.some((s) => s.idEstudiante === pedido) ? pedido : lista[0]?.idEstudiante ?? null))
     } catch (err) {
       setErrorCarga(mensajeDeError(err, 'No se pudieron cargar las fotos por revisar.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [pedido])
 
   useEffect(() => {
     const handle = window.setTimeout(() => { void cargar() }, 0)
@@ -83,8 +93,9 @@ export default function RevisionFotosPage() {
               )}
             </div>
             <p className="mt-1 text-xs text-[#627A9B]">
-              La primera foto de cada estudiante se aprueba sola al escanearla. Aquí solo llegan los cambios de una foto ya
-              aprobada y las fotos que el personal de control reportó.
+              {esAdmin
+                ? 'La primera foto de cada estudiante se aprueba sola al escanearla. Aquí solo llegan los cambios de una foto ya aprobada y las fotos que el personal de control reportó.'
+                : 'Las fotos reportadas en tus exámenes. Comprueba que la foto corresponda al estudiante; los cambios de foto que pide el estudiante los revisa el administrador.'}
             </p>
 
             {exito && (
@@ -110,7 +121,8 @@ export default function RevisionFotosPage() {
                 <CheckCircle2 size={36} className="mx-auto text-emerald-500" aria-hidden="true" />
                 <p className="mt-3 text-base font-bold text-[#011140]">No hay fotos por revisar</p>
                 <p className="mt-1 text-sm text-[#627A9B]">
-                  Cuando un estudiante suba una foto nueva o el personal de control reporte una, aparecerá aquí.
+                  {esAdmin ? 'Cuando un estudiante suba una foto nueva o el personal de control reporte una, aparecerá aquí.'
+                    : 'Cuando se reporte una foto en uno de tus exámenes, aparecerá aquí.'}
                 </p>
                 <Link to="/dashboard/estudiantes" className="mt-4 inline-flex rounded-lg border border-[#D8E3F5] px-4 py-2 text-sm font-semibold text-[#0439D9] hover:bg-[#E9F1FF]">
                   Volver a estudiantes

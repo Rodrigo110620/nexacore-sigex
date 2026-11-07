@@ -31,7 +31,8 @@ export default function EstudiantesPage() {
   const puedeEditar = !auth.roles.includes('DOCENTE') && tienePermiso(auth, 'ESTUDIANTES_GESTIONAR')
   // El DOCENTE (solo ve sus exámenes) solo ve a los estudiantes de sus paralelos y exámenes; lo filtra el servidor.
   const soloSusEstudiantes = tienePermiso(auth, 'EXAMENES_VER_PROPIOS') && !tienePermiso(auth, 'EXAMENES_VER_TODOS', 'REPORTES_VER')
-  const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR')
+  // Revisión de fotos: el ADMIN todas; el DOCENTE y el CONTROL, las reportadas en sus exámenes.
+  const esAdmin = tienePermiso(auth, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
 
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)

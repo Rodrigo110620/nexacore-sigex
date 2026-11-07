@@ -1087,6 +1087,9 @@ class PostgresIntegracionTests {
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isTrue();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAjeno, sesionCtrl)).isFalse();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionReemplazo)).isFalse();
+        // Su pantalla de Revisión de fotos: solo las reportadas en sus exámenes.
+        assertThat(estudianteFotoService.listarReportesDeExamenes(id -> id == asignado)).extracting(f -> f.idEstudiante()).containsExactly(fotoAsignado);
+        assertThat(estudianteFotoService.listarReportesDeExamenes(id -> false)).isEmpty();
         // La revisión del docente y el control trae la misma solicitud que ve el ADMIN.
         assertThat(estudianteFotoService.revisionDelReporte(fotoAsignado, true)).hasValueSatisfying(r -> {
             assertThat(r.idExamen()).isEqualTo(asignado);

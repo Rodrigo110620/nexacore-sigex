@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CampanaNotificaciones from '../components/notificaciones/CampanaNotificaciones'
 import AvisoFotoReportada from '../components/estudiantes/AvisoFotoReportada'
@@ -151,25 +151,19 @@ describe('AvisoFotoReportada', () => {
     expect(aviso).toHaveTextContent('por Carla Méndez')
   })
 
-  // El DOCENTE y el CONTROL no revisan fotos: el aviso les abre la foto y el reporte, con el enlace al control.
-  it.each([['DOCENTE'], ['CONTROL']])('%s abre la foto reportada en una ventana', async (rol) => {
+  // La foto reportada abre Revisión de fotos con ese estudiante elegido, para todos los roles.
+  it.each([['DOCENTE'], ['CONTROL'], ['ADMIN']])('%s abre Revisión de fotos desde el aviso de foto reportada', async (rol) => {
     vi.mocked(service.listarNotificaciones).mockResolvedValue([notificacion(4, {
-      tipo: 'FOTO_REPORTADA', titulo: 'Foto reportada: Ana Rojas (202100001)', detalle: 'No se parece · Cálculo I · Reportada por Luis Paz',
+      tipo: 'FOTO_REPORTADA', titulo: 'Foto reportada: Ana Rojas (202100001)', detalle: 'No se parece · Cálculo I',
       idExamen: 6, idEstudiante: 3, enlace: '/dashboard/estudiantes/fotos',
     })])
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(flujoSse().respuesta))
     const user = userEvent.setup()
-
-    render(<MemoryRouter><CampanaNotificaciones roles={[rol]} /></MemoryRouter>)
+    const Ubicacion = () => <p data-testid="ubicacion">{useLocation().pathname + useLocation().search}</p>
+    render(<MemoryRouter><CampanaNotificaciones roles={[rol]} /><Ubicacion /></MemoryRouter>)
     await user.click(await screen.findByRole('button', { name: 'Notificaciones: 1 sin leer' }))
     await user.click(screen.getByRole('button', { name: (nombre) => nombre.includes('Foto reportada: Ana Rojas') && !nombre.startsWith('Quitar') }))
-
-    const ventana = screen.getByRole('dialog', { name: 'Foto reportada' })
-    expect(await within(ventana).findByText(/Tiene barba en la foto/)).toBeInTheDocument()
-    expect(within(ventana).getByText(/Reporte de control · Luis Paz/)).toBeInTheDocument()
-    expect(within(ventana).getByRole('link', { name: /Ir al control del examen/ })).toHaveAttribute('href', '/dashboard/control/6')
+    await waitFor(() => expect(screen.getByTestId('ubicacion')).toHaveTextContent('/dashboard/estudiantes/fotos?estudiante=3'))
     expect(service.marcarNotificacionLeida).toHaveBeenCalledWith(4)
-    await user.click(within(ventana).getByRole('button', { name: 'Cerrar' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

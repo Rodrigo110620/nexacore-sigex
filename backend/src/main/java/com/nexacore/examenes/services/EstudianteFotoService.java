@@ -283,6 +283,20 @@ public class EstudianteFotoService {
         return revision(null);
     }
 
+    /**
+     * Revisión de fotos del DOCENTE y el CONTROL: solo las fotos reportadas (no los cambios de foto) cuyo reporte es
+     * de uno de sus exámenes.
+     */
+    @Transactional(readOnly = true)
+    public List<FotoPendienteResponse> listarReportesDeExamenes(java.util.function.Predicate<Integer> esMio) {
+        Set<Integer> estudiantes = reporteRepository.findByEstadoOrderByCreadoEnAsc(ReporteFoto.ABIERTO).stream()
+                .filter(r -> r.getIdExamen() != null && esMio.test(r.getIdExamen()))
+                .map(ReporteFoto::getIdEstudiante)
+                .collect(Collectors.toSet());
+        if (estudiantes.isEmpty()) return List.of();
+        return revision(estudiantes).stream().filter(f -> EstudianteFotoSolicitud.REPORTE.equals(f.origen())).toList();
+    }
+
     /** Las solicitudes de revisión; con {@code soloEstudiantes}, solo las de esos estudiantes (null = todas). */
     private List<FotoPendienteResponse> revision(Set<Integer> soloEstudiantes) {
         Map<Integer, EstudianteFotoSolicitud> pendientes = listarPendientes().stream()

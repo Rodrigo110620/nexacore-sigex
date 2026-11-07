@@ -249,8 +249,10 @@ class ReporteFotoFlujoTests {
         mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto/reportes").with(estudiante())
                         .contentType("application/json").content(REPORTE))
                 .andExpect(status().isForbidden());
+        // El CONTROL entra a Revisión de fotos, pero solo ve las reportadas en sus exámenes (aquí, ninguna).
         mockMvc.perform(get("/estudiantes/fotos-pendientes").with(control()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
         mockMvc.perform(post("/estudiantes/" + idEstudiante + "/foto/reportes/descartar").with(control()))
                 .andExpect(status().isForbidden());
     }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
 import TablePagination from '../users/TablePagination'
 import ErrorCarga from '../ui/ErrorCarga'
-import FotoReportadaModal from '../notificaciones/FotoReportadaModal'
+import { Link } from 'react-router-dom'
 import { listarFotosReportadas, textoMotivoReporte, type FilaFotoReportada } from '../../services/fotoRevisionService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
 
@@ -21,7 +21,6 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; filas?: FilaFotoReportada[]; error?: boolean }>()
-  const [revisando, setRevisando] = useState<FilaFotoReportada | null>(null)
   const clave = `${idExamen ?? 'todos'}|${recarga}`
   useEnVivo((c) => c.tipo === 'FOTO' || c.tipo === 'FOTO_REPORTADA' || (idExamen != null && c.idExamen === idExamen), () => setRecarga((n) => n + 1))
 
@@ -72,8 +71,8 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
                       <td className="px-3 py-2.5"><span className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase ${clase}`}>{texto}</span></td>
                       <td className="px-3 py-2.5 text-right">
                         {f.estado === 'PENDIENTE' && (
-                          <button type="button" onClick={() => setRevisando(f)} aria-label={`Revisar la foto de ${f.estudiante}`}
-                            className="rounded-md border border-[#D8E3F5] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">Revisar</button>
+                          <Link to={`/dashboard/estudiantes/fotos?estudiante=${f.idEstudiante}`} aria-label={`Revisar la foto de ${f.estudiante}`}
+                            className="rounded-md border border-[#D8E3F5] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">Revisar</Link>
                         )}
                       </td>
                     </tr>
@@ -94,7 +93,7 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
                   <p className="mt-1 text-xs text-[#45628D]">{textoMotivoReporte(f.motivo)}{f.detalle ? `: ${f.detalle}` : ''}</p>
                   <p className="mt-0.5 text-[11px] text-[#627A9B]">{fechaHoraNumerica(f.reportadoEn)}{f.reportadoPor ? ` · ${f.reportadoPor}` : ''}</p>
                   {f.estado === 'PENDIENTE' && (
-                    <button type="button" onClick={() => setRevisando(f)} className="mt-2 min-h-10 w-full rounded-md border border-[#D8E3F5] text-sm font-semibold text-[#0439D9]">Revisar</button>
+                    <Link to={`/dashboard/estudiantes/fotos?estudiante=${f.idEstudiante}`} className="mt-2 flex min-h-10 w-full items-center justify-center rounded-md border border-[#D8E3F5] text-sm font-semibold text-[#0439D9]">Revisar</Link>
                   )}
                 </li>
               )
@@ -107,10 +106,6 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
             </div>
           )}
         </>
-      )}
-      {revisando && (
-        <FotoReportadaModal idEstudiante={revisando.idEstudiante} nombre={revisando.estudiante} idExamen={revisando.idExamen}
-          onClose={() => setRevisando(null)} onResuelto={() => setRecarga((n) => n + 1)} />
       )}
     </section>
   )
