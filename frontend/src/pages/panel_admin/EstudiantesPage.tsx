@@ -154,9 +154,9 @@ export default function EstudiantesPage() {
             {soloSusEstudiantes && <GruposDocente elegido={grupo} onElegir={elegirGrupo} />}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
-              {/* Filtros y botones en una sola fila desde 1280 px; más angosto, los botones bajan para que nada se encime. */}
-              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end min-[1280px]:flex-nowrap">
-                <div className="min-w-0 flex-1 min-[960px]:basis-full min-[1280px]:basis-auto">
+              {/* Filtros y botones en una sola fila desde 1360 px; más angosto, los botones bajan para que nada se encime. */}
+              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end min-[1360px]:flex-nowrap">
+                <div className="min-w-0 flex-1 min-[960px]:basis-full min-[1360px]:basis-auto">
                   {soloSusEstudiantes ? (
                     <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
@@ -196,7 +196,8 @@ export default function EstudiantesPage() {
                     className="order-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-3 text-sm font-semibold text-white shadow-md hover:bg-[#0c41e1] min-[960px]:order-2 min-[960px]:w-auto min-[960px]:px-4"
                   >
                     <UserPlus size={16} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate">Registrar Estudiante</span>
+                    <span className="truncate" aria-hidden="true"><span className="min-[1360px]:hidden 2xl:inline">Registrar Estudiante</span><span className="hidden min-[1360px]:inline 2xl:hidden">Registrar</span></span>
+                    <span className="sr-only">Registrar Estudiante</span>
                   </button>
                   </>)}
                 </div>
