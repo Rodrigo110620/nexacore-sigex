@@ -6,7 +6,7 @@ import ErrorCarga from '../ui/ErrorCarga'
 import useResumenesExamenes from '../../hooks/useResumenesExamenes'
 import type { ExamenDto } from '../../services/examenService'
 import { ahoraServidorMs } from '../../services/tiempoService'
-import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
 const ESTADO: Record<string, [string, string]> = {
   'en-curso': ['EN CURSO', 'bg-[#DCFCE7] text-[#15803D]'],
@@ -86,7 +86,7 @@ export default function ExamenesHoyDocente({ examenes }: { examenes: ExamenDto[]
             return (
               <li key={e.idExamen} aria-label={`Examen de hoy: ${e.asignatura}`} className="flex flex-col gap-2 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-semibold text-[#011140]">{e.asignatura}</p>
+                  <p className="min-w-0 truncate text-sm font-semibold text-[#011140]">{materiaYGrupo(e)}</p>
                   <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
                 </div>
                 <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#011140]">

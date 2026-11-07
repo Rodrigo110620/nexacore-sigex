@@ -190,7 +190,7 @@ public class ExamenService {
         docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
-        Paralelo paralelo = resolverParalelo(materia, docente);
+        Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
 
         Integer idExamen = ((Number) entityManager
                 .createNativeQuery("SELECT nextval('examen_id_examen_seq')")
@@ -270,9 +270,10 @@ public class ExamenService {
         normasExamenService.actualizar(examen, request.normasGenerales(), request.normasParticulares());
 
         boolean cambiaParalelo = !materia.getId().equals(examen.getIdMateria())
-                || !docente.getIdUsuario().equals(examen.getIdDocente());
+                || !docente.getIdUsuario().equals(examen.getIdDocente())
+                || (request.idParalelo() != null && !request.idParalelo().equals(examen.getId().getIdParalelo()));
         if (cambiaParalelo) {
-            examen = moverAParalelo(examen, resolverParalelo(materia, docente));
+            examen = moverAParalelo(examen, resolverParalelo(materia, docente, request.idParalelo()));
         }
 
         examen.setFecha(request.fecha());
@@ -639,15 +640,26 @@ public class ExamenService {
         return docente;
     }
 
-    private Paralelo resolverParalelo(Materia materia, Docente docente) {
-        return paraleloRepository
-                .findFirstByMateriaAndDocente(materia.getId(), docente.getIdUsuario())
+    /**
+     * El grupo del examen: el elegido (debe ser de esa materia y ese docente); si no se eligió, el único que tiene
+     * el docente en la materia. Con varios grupos (G1, G2…) hay que elegir uno. Sin ninguno, se crea el G1.
+     */
+    private Paralelo resolverParalelo(Materia materia, Docente docente, Integer idParalelo) {
+        List<Paralelo> grupos = paraleloRepository.deMateriaYDocente(materia.getId(), docente.getIdUsuario());
+        if (idParalelo != null) {
+            return grupos.stream().filter(p -> p.getId().getIdParalelo().equals(idParalelo)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("El grupo elegido no es de esta materia y este docente."));
+        }
+        if (grupos.size() > 1) {
+            throw new IllegalArgumentException("El docente tiene varios grupos en " + materia.getNombre() + ": elige el grupo del examen.");
+        }
+        return grupos.stream().findFirst()
                 .orElseGet(() -> {
-                    Integer idParalelo = ((Number) entityManager
+                    Integer nuevoId = ((Number) entityManager
                             .createNativeQuery("SELECT nextval('paralelo_id_paralelo_seq')")
                             .getSingleResult()).intValue();
                     ParaleloId pid = new ParaleloId();
-                    pid.setIdParalelo(idParalelo);
+                    pid.setIdParalelo(nuevoId);
                     pid.setIdMateria(materia.getId());
                     pid.setIdDocente(docente.getIdUsuario());
                     Paralelo p = new Paralelo();
@@ -683,7 +695,8 @@ public class ExamenService {
             Map<Integer, String> docentes,
             Map<Integer, Ambiente> ambientes,
             Map<Integer, List<ExamenAula>> adicionales,
-            Map<Integer, NormasExamenService.Normas> normas) {
+            Map<Integer, NormasExamenService.Normas> normas,
+            Map<Integer, String> grupos) {
     }
 
     private Catalogos catalogosDe(Collection<Examen> examenes) {
@@ -712,7 +725,13 @@ public class ExamenService {
         Map<Integer, List<ExamenAula>> adicionales = idsExamen.isEmpty() ? Map.of()
                 : examenAulaRepository.adicionalesDe(idsExamen).stream()
                         .collect(Collectors.groupingBy(ea -> ea.getId().getIdExamen()));
-        return new Catalogos(materias, docentes, ambientes, adicionales, normasExamenService.leerDe(idsExamen));
+        // Nombre de cada grupo (G1, G2…), para distinguir exámenes de la misma materia.
+        Map<Integer, String> grupos = new HashMap<>();
+        for (Paralelo p : paraleloRepository.findAllByIdParalelos(
+                examenes.stream().map(e -> e.getId().getIdParalelo()).collect(Collectors.toSet()))) {
+            grupos.put(p.getId().getIdParalelo(), p.getNombreGrupo());
+        }
+        return new Catalogos(materias, docentes, ambientes, adicionales, normasExamenService.leerDe(idsExamen), grupos);
     }
 
     private ExamenResponse toResponse(Examen examen) {
@@ -758,6 +777,7 @@ public class ExamenService {
                 examen.getIdMateria(),
                 examen.getIdDocente(),
                 aulas,
-                examen.getModoReparto());
+                examen.getModoReparto(),
+                catalogos.grupos().get(examen.getId().getIdParalelo()));
     }
 }

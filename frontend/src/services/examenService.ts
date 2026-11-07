@@ -20,6 +20,8 @@ export interface CrearExamenPayload {
   normasParticulares: NormaParticularDto[]
   idMateria?: number | null
   idDocente?: number | null
+  /** El grupo (G1, G2…) del examen; obligatorio si el docente tiene varios en la materia. */
+  idParalelo?: number | null
   /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
   idAmbientesAdicionales?: number[]
   modoReparto?: ModoReparto
@@ -37,6 +39,8 @@ export interface ExamenDto {
   idExamen: number
   idParalelo: number
   asignatura: string
+  /** Nombre del grupo (G1, G2…) del examen. */
+  grupo?: string | null
   sigla?: string
   docente: string
   fecha: string

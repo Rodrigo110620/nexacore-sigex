@@ -8,7 +8,7 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import { addMinutes, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
+import { addMinutes, formatFecha, horaCorta, initialsOfName, materiaYGrupo } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 import { ordenarPorFase } from '../../utils/tiempoExamen'
@@ -300,7 +300,7 @@ export default function ExamenesPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
+                              <p className="truncate text-sm font-bold text-[#011140]">{materiaYGrupo(e)}</p>
                               <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
                             </div>
                             <EstadoExamenBadge examen={e} />
@@ -364,7 +364,7 @@ export default function ExamenesPage() {
                             <div className="flex items-center gap-3">
                               <ExamAvatar examen={e} size="compact" />
                               <span>
-                                <span className="block font-semibold">{e.asignatura}</span>
+                                <span className="block font-semibold">{materiaYGrupo(e)}</span>
                                 <span className="mt-0.5 block text-xs text-gray-500">Cód: {e.sigla || '—'}</span>
                               </span>
                             </div>

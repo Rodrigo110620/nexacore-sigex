@@ -22,6 +22,19 @@ export async function misMaterias(): Promise<MateriaDto[]> {
   return data
 }
 
+/** Un grupo (G1, G2…) de una materia con sus inscritos. */
+export interface GrupoDto {
+  idParalelo: number
+  nombreGrupo: string
+  inscritos: number
+}
+
+/** Los grupos del docente en la materia (el DOCENTE, los suyos; el ADMIN indica el docente). */
+export async function gruposDeMateria(idMateria: number, idDocente?: number | null): Promise<GrupoDto[]> {
+  const { data } = await api.get<GrupoDto[]>(`/materias/${idMateria}/grupos`, { params: idDocente ? { idDocente } : undefined })
+  return data
+}
+
 /** IMP-12: las materias de un docente (solo ADMIN). */
 export async function materiasDelDocente(idDocente: number): Promise<MateriaDto[]> {
   const { data } = await api.get<MateriaDto[]>(`/usuarios/${idDocente}/materias`)

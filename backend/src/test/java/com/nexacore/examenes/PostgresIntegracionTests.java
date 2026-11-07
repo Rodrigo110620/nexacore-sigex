@@ -898,6 +898,38 @@ class PostgresIntegracionTests {
         assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
     }
 
+    // Con G1 y G2 de la misma materia, el examen va al grupo elegido; sin elegir, se pide el grupo (antes daba 500).
+    @Test
+    void conVariosGruposElExamenVaAlGrupoElegido() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-GRP");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        Integer g2 = jdbc.queryForObject("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, '2') RETURNING id_paralelo",
+                Integer.class, idMateria, idDocente);
+        int est = estudiante("209900001", "Ivo");
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente, estado) VALUES (?, ?, ?, ?, 'inscrito')",
+                est, g2, idMateria, idDocente);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?) ON CONFLICT DO NOTHING", idDocente, idMateria);
+        sincronizar();
+
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.nombreGrupo() + ":" + g.inscritos())
+                .containsExactly("1:0", "2:1");
+        java.util.function.Function<Integer, com.nexacore.examenes.dto.CrearExamenRequest> examen = idParalelo ->
+                new com.nexacore.examenes.dto.CrearExamenRequest("Materia TST-GRP", "Luis Paz", java.time.LocalDate.now().plusDays(3),
+                        java.time.LocalTime.of(9, 0), 90, idAmbiente, List.of(), List.of(), idMateria, idDocente, null, null, idParalelo);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin.grupos@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            assertThatThrownBy(() -> examenService.crear(examen.apply(null))).hasMessageContaining("elige el grupo");
+            assertThatThrownBy(() -> examenService.crear(examen.apply(999999))).hasMessageContaining("no es de esta materia");
+            var creado = examenService.crear(examen.apply(g2));
+            assertThat(creado.idParalelo()).isEqualTo(g2);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
     // Título, especialidad y categoría del docente: los registra y los cambia solo el ADMIN.
     @Test
     void elDocenteSeRegistraConSuTituloEspecialidadYCategoria() {

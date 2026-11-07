@@ -11,7 +11,7 @@ import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
-import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
+import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 
 import { Download, FileSpreadsheet } from 'lucide-react'
 import api from '../../services/api'
@@ -25,7 +25,7 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
 ]
 const TAMANO = 20
 
-const nombreExamen = (e: ExamenDto) => `${e.asignatura} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
+const nombreExamen = (e: ExamenDto) => `${materiaYGrupo(e)} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
 
 function EtiquetaTipo({ tipo }: { tipo: IntentoReporte['tipo'] }) {
   return tipo === 'AULA_INCORRECTA'

@@ -59,4 +59,17 @@ public class MateriaController {
         Integer idDocente = docenteMateriaService.docenteDeLaSesion();
         return idDocente == null ? List.of() : docenteMateriaService.materiasDe(idDocente);
     }
+
+    @Operation(summary = "Grupos de una materia",
+            description = "Los grupos (G1, G2…) de la materia con un docente y cuántos inscritos tienen, para elegir el grupo "
+                    + "del examen. El DOCENTE solo ve los suyos.")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @GetMapping("/{idMateria}/grupos")
+    public List<com.nexacore.examenes.dto.GrupoResponse> grupos(@org.springframework.web.bind.annotation.PathVariable Integer idMateria,
+                                                                @RequestParam(required = false) Integer idDocente) {
+        Integer docente = docenteMateriaService.docenteDeLaSesion();
+        if (docente == null) docente = idDocente;
+        if (docente == null) return List.of();
+        return docenteMateriaService.gruposDe(docente, idMateria);
+    }
 }

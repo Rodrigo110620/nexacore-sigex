@@ -418,7 +418,7 @@ class ExamenServiceTests {
         pid.setIdDocente(DOCENTE);
         Paralelo paralelo = new Paralelo();
         paralelo.setId(pid);
-        when(paraleloRepository.findFirstByMateriaAndDocente(MATERIA, DOCENTE)).thenReturn(Optional.of(paralelo));
+        when(paraleloRepository.deMateriaYDocente(MATERIA, DOCENTE)).thenReturn(java.util.List.of(paralelo));
         Query secuencia = mock(Query.class);
         when(secuencia.getSingleResult()).thenReturn(50L);
         when(entityManager.createNativeQuery(anyString())).thenReturn(secuencia);
@@ -431,7 +431,7 @@ class ExamenServiceTests {
         pid.setIdDocente(DOCENTE);
         Paralelo paralelo = new Paralelo();
         paralelo.setId(pid);
-        when(paraleloRepository.findFirstByMateriaAndDocente(MATERIA, DOCENTE)).thenReturn(Optional.of(paralelo));
+        when(paraleloRepository.deMateriaYDocente(MATERIA, DOCENTE)).thenReturn(java.util.List.of(paralelo));
         Query secuencia = mock(Query.class);
         when(secuencia.getSingleResult()).thenReturn(50L);
         when(entityManager.createNativeQuery(anyString())).thenReturn(secuencia);

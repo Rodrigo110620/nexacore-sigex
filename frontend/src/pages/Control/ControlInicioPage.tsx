@@ -17,7 +17,7 @@ import useResumenesExamenes from '../../hooks/useResumenesExamenes'
 import type { ResumenEstudiantes } from '../../services/controlExamenService'
 import type { ExamenDto } from '../../services/examenService'
 import { obtenerInicioControl, type InicioControl } from '../../services/inicioService'
-import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
+import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 import { aperturaControl } from '../../utils/tiempoExamen'
 
 type Resumenes = Record<number, ResumenEstudiantes | 'error'>
@@ -216,7 +216,7 @@ function ExamenEnCurso({ examen, resumen, onReintentar }: { examen: ExamenDto; r
             <span className="rounded-md bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-bold text-[#15803D]">EN CURSO</span>
             <EnVivo texto="En vivo" />
           </div>
-          <h3 className="mt-2 text-lg font-bold text-[#011140] sm:text-xl">{examen.asignatura}</h3>
+          <h3 className="mt-2 text-lg font-bold text-[#011140] sm:text-xl">{materiaYGrupo(examen)}</h3>
           <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#011140]">
             <span className="inline-flex items-center gap-1"><Clock3 size={14} className="text-[#45628D]" aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</span>
             <span className="inline-flex items-center gap-1"><MapPin size={14} className="text-[#45628D]" aria-hidden="true" />{etiquetaAulas(examen)}</span>
@@ -385,7 +385,7 @@ function ExamenesDeHoy({ deHoy, ahora, resumenes }: { deHoy: ExamenDto[]; ahora:
               <li key={e.idExamen} aria-label={`Examen de hoy: ${e.asignatura}`} className="py-3">
                 <Link to={`/dashboard/control/${e.idExamen}`} className="block rounded-md hover:bg-[#F8FAFF]">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate text-sm font-semibold text-[#011140]">{e.asignatura}</p>
+                    <p className="min-w-0 truncate text-sm font-semibold text-[#011140]">{materiaYGrupo(e)}</p>
                     <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${clase}`}>{etiqueta}</span>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2 text-xs">
