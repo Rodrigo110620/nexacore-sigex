@@ -184,7 +184,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard/estudiantes/fotos"
           element={
-            <AdminRoute permiso="FOTOS_REVISAR">
+            <AdminRoute permisos={['FOTOS_REVISAR', 'FOTOS_REPORTAR']}>
               <RevisionFotosPage />
             </AdminRoute>
           }

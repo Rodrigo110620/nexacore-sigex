@@ -40,8 +40,19 @@ public record CrearExamenRequest(
         List<Integer> idAmbientesAdicionales,
 
         /** ALFABETICO o LLEGADA; null = ALFABETICO. Solo importa con más de un aula. */
-        String modoReparto
+        String modoReparto,
+
+        /** El grupo (paralelo) del examen. Obligatorio si el docente tiene más de un grupo en la materia. */
+        Integer idParalelo
 ) {
+    public CrearExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
+                              Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
+                              List<NormaParticularRequest> normasParticulares, Integer idMateria, Integer idDocente,
+                              List<Integer> idAmbientesAdicionales, String modoReparto) {
+        this(asignatura, docente, fecha, horaInicio, duracionMinutos, idAmbiente, normasGenerales,
+                normasParticulares, idMateria, idDocente, idAmbientesAdicionales, modoReparto, null);
+    }
+
     public CrearExamenRequest(String asignatura, String docente, LocalDate fecha, LocalTime horaInicio,
                               Integer duracionMinutos, Integer idAmbiente, List<String> normasGenerales,
                               List<NormaParticularRequest> normasParticulares, Integer idMateria, Integer idDocente,

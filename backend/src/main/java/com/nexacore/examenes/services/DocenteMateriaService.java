@@ -77,6 +77,22 @@ public class DocenteMateriaService {
     }
 
     /** El docente autenticado, si solo gestiona sus propios exámenes; si no (ADMIN), null. */
+    /** Grupos para consultas directas; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
+
+    /** Los grupos (G1, G2…) del docente en la materia, con cuántos estudiantes inscritos tiene cada uno. */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<com.nexacore.examenes.dto.GrupoResponse> gruposDe(Integer idDocente, Integer idMateria) {
+        return jdbc.query("""
+                SELECT p.id_paralelo, p.nombre_grupo,
+                       (SELECT COUNT(*) FROM inscripcion_paralelo i WHERE i.id_paralelo = p.id_paralelo AND LOWER(i.estado) = 'inscrito')
+                FROM paralelo p WHERE p.id_docente = :docente AND p.id_materia = :materia
+                ORDER BY p.nombre_grupo
+                """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("docente", idDocente).addValue("materia", idMateria),
+                (rs, i) -> new com.nexacore.examenes.dto.GrupoResponse(rs.getInt(1), rs.getString(2), rs.getLong(3)));
+    }
+
     public Integer docenteDeLaSesion() {
         if (!SesionActual.gestionaSoloPropios()) return null;
         return usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);

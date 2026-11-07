@@ -45,6 +45,8 @@ public class EstudianteController {
     /** Quién revisa una foto reportada (el DOCENTE y el CONTROL, en sus exámenes); por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired
     private com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
 
     public EstudianteController(
             EstudianteService estudianteService,
@@ -96,10 +98,15 @@ public class EstudianteController {
     @Operation(summary = "Revisión de fotos",
             description = "Cambios de foto enviados por los estudiantes y fotos reportadas por el personal de control, "
                     + "de la más antigua a la más reciente. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')")
     @GetMapping("/fotos-pendientes")
-    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes() {
-        return ResponseEntity.ok(estudianteFotoService.listarRevision());
+    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes(Authentication authentication) {
+        // El ADMIN ve todo; el DOCENTE y el CONTROL, solo las fotos reportadas en sus exámenes (suyos o asignados).
+        if (com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.FOTOS_REVISAR)) {
+            return ResponseEntity.ok(estudianteFotoService.listarRevision());
+        }
+        return ResponseEntity.ok(estudianteFotoService.listarReportesDeExamenes(
+                idExamen -> examenAccesoService.esMio(idExamen, authentication)));
     }
 
     @Operation(summary = "Reportar foto que no coincide",

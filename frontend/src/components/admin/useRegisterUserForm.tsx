@@ -17,6 +17,7 @@ import {
   validateRol,
   sanitizeNombreInput,
 } from '../../utils/validators';
+import { DATOS_DOCENTE_INICIALES, type DatosDocente } from '../../utils/datosDocente';
 
 export type PasoRegistro = 1 | 2 | 3 | 4;
 export const TOTAL_PASOS = 4;
@@ -27,6 +28,9 @@ export interface UseRegisterUserFormResult {
   /** IMP-12: materias del DOCENTE (paso 3). */
   materias: MateriaDto[];
   setMaterias: (materias: MateriaDto[]) => void;
+  /** Título, especialidad y categoría del DOCENTE (paso 3). */
+  datosDocente: DatosDocente;
+  setDatosDocente: (datos: DatosDocente) => void;
   /** El ADMIN confirma que el nuevo usuario debe tener acceso total (paso 3). */
   confirmaAdmin: boolean;
   setConfirmaAdmin: (valor: boolean) => void;
@@ -49,6 +53,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
   const [step, setStep] = useState<PasoRegistro>(1);
   const [form, setForm] = useState<RegisterUserFormState>(INITIAL_FORM_STATE);
   const [materias, setMateriasEstado] = useState<MateriaDto[]>([]);
+  const [datosDocente, setDatosDocente] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
   const [confirmaAdmin, setConfirmaAdminEstado] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState('');
@@ -60,6 +65,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     setStep(1);
     setForm(INITIAL_FORM_STATE);
     setMateriasEstado([]);
+    setDatosDocente(DATOS_DOCENTE_INICIALES);
     setConfirmaAdminEstado(false);
     setErrors({});
     setGeneralError('');
@@ -217,7 +223,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
           activo: cleanForm.activo,
           notificarEmail: true,
           // IMP-12: el docente se registra con sus materias.
-          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id) } : {}),
+          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id), docente: datosDocente } : {}),
         },
         { _skipAutoLogout: true } as object,
       );
@@ -274,6 +280,8 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     form,
     materias,
     setMaterias,
+    datosDocente,
+    setDatosDocente,
     confirmaAdmin,
     setConfirmaAdmin,
     errors,

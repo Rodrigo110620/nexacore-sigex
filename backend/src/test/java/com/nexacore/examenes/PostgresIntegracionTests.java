@@ -82,6 +82,9 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
+    @Autowired com.nexacore.examenes.services.PerfilRolService perfilRolService;
+    @Autowired com.nexacore.examenes.services.AsistenciaExportService asistenciaExportService;
+    @Autowired com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
     @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
     @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
     @Autowired com.nexacore.examenes.services.EstudianteFotoService estudianteFotoService;
@@ -896,6 +899,91 @@ class PostgresIntegracionTests {
         assertThat(docenteMateriaService.materiasDe(importado)).isEmpty();
     }
 
+    // Con G1 y G2 de la misma materia, el examen va al grupo elegido; sin elegir, se pide el grupo (antes daba 500).
+    @Test
+    void conVariosGruposElExamenVaAlGrupoElegido() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-GRP");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        Integer g2 = jdbc.queryForObject("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, '2') RETURNING id_paralelo",
+                Integer.class, idMateria, idDocente);
+        int est = estudiante("209900001", "Ivo");
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente, estado) VALUES (?, ?, ?, ?, 'inscrito')",
+                est, g2, idMateria, idDocente);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?) ON CONFLICT DO NOTHING", idDocente, idMateria);
+        sincronizar();
+
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.nombreGrupo() + ":" + g.inscritos())
+                .containsExactly("1:0", "2:1");
+        java.util.function.Function<Integer, com.nexacore.examenes.dto.CrearExamenRequest> examen = idParalelo ->
+                new com.nexacore.examenes.dto.CrearExamenRequest("Materia TST-GRP", "Luis Paz", java.time.LocalDate.now().plusDays(3),
+                        java.time.LocalTime.of(9, 0), 90, idAmbiente, List.of(), List.of(), idMateria, idDocente, null, null, idParalelo);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin.grupos@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            assertThatThrownBy(() -> examenService.crear(examen.apply(null))).hasMessageContaining("elige el grupo");
+            assertThatThrownBy(() -> examenService.crear(examen.apply(999999))).hasMessageContaining("no es de esta materia");
+            var creado = examenService.crear(examen.apply(g2));
+            assertThat(creado.idParalelo()).isEqualTo(g2);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    // DASH-05: la asistencia se exporta solo si el examen ya empezó (estado calculado con la hora), con los habilitados,
+    // la hora en HH:MM:SS, "-" en los ausentes y el nombre del archivo con la materia, el grupo y la fecha.
+    @Test
+    void laAsistenciaSeExportaSoloSiElExamenEmpezoYConLosHabilitados() throws Exception {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-EXP");
+        int manana = examen(paralelo, "08:00", 90);
+        assertThatThrownBy(() -> asistenciaExportService.generarCsv(manana)).hasMessageContaining("aún no ha iniciado");
+
+        int ayer = examen(paralelo, "10:00", 90);
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", ayer);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, motivo_inhabilitacion, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?, ?)";
+        jdbc.update(asociar, estudiante("209910001", "Ana"), ayer, paralelo, true, null, java.sql.Timestamp.valueOf(java.time.LocalDate.now().minusDays(1).atTime(10, 5, 9)));
+        jdbc.update(asociar, estudiante("209910002", "Beto"), ayer, paralelo, true, null, null);
+        jdbc.update(asociar, estudiante("209910003", "Ciro"), ayer, paralelo, false, "Deuda en biblioteca", null);
+        // Más de 500 habilitados (criterio 2): la exportación termina sin problema.
+        for (int i = 0; i < 600; i++) {
+            jdbc.update(asociar, estudiante(String.format("2099%05d", 20000 + i), "Masivo"), ayer, paralelo, true, null, null);
+        }
+        sincronizar();
+
+        String csv = new String(asistenciaExportService.generarCsv(ayer), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("\uFEFFCódigo SIS;Nombre;Apellidos;Estado;Hora");
+        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-").doesNotContain("Ciro");
+        assertThat(csv.lines().count()).isEqualTo(1 + 2 + 600);
+        byte[] xlsx = asistenciaExportService.generarExcel(ayer);
+        try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
+            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(602);
+        }
+        assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
+                .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // Título, especialidad y categoría del docente: los registra y los cambia solo el ADMIN.
+    @Test
+    void elDocenteSeRegistraConSuTituloEspecialidadYCategoria() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-DD1"));
+        var datos = new com.nexacore.examenes.dto.DatosDocenteRequest("Lic.", "Bases de datos", "TITULAR");
+        int id = usuarioService.registrar(new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, List.of(idMateria), datos)).id();
+        assertThat(usuarioService.datosDocente(id)).isEqualTo(datos);
+
+        // Al editar: se cambia la especialidad; un texto vacío deja el dato sin registrar.
+        usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, null, new com.nexacore.examenes.dto.DatosDocenteRequest(" ", "Redes", "INVITADO")));
+        assertThat(usuarioService.datosDocente(id)).isEqualTo(new com.nexacore.examenes.dto.DatosDocenteRequest(null, "Redes", "INVITADO"));
+        // Sin el bloque (por ejemplo, la importación), no se tocan.
+        usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
+                "rosa7000010@umss.edu", "DOCENTE", true, false, null));
+        assertThat(usuarioService.datosDocente(id).especialidad()).isEqualTo("Redes");
+    }
+
     // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.
     @Test
     void elEstadoDelRespaldoMuestraLaBaseYLasDescargas() {
@@ -1065,6 +1153,16 @@ class PostgresIntegracionTests {
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionCtrl)).isTrue();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAjeno, sesionCtrl)).isFalse();
         assertThat(fotoRevisionAcceso.puedeRevisar(fotoAsignado, sesionReemplazo)).isFalse();
+        // Su pantalla de Revisión de fotos: solo las reportadas en sus exámenes.
+        assertThat(estudianteFotoService.listarReportesDeExamenes(id -> id == asignado)).extracting(f -> f.idEstudiante()).containsExactly(fotoAsignado);
+        assertThat(estudianteFotoService.listarReportesDeExamenes(id -> false)).isEmpty();
+        // La revisión del docente y el control trae la misma solicitud que ve el ADMIN.
+        assertThat(estudianteFotoService.revisionDelReporte(fotoAsignado, true)).hasValueSatisfying(r -> {
+            assertThat(r.idExamen()).isEqualTo(asignado);
+            assertThat(r.solicitud().origen()).isEqualTo("REPORTE");
+            assertThat(r.solicitud().estado()).isEqualTo("ESPERANDO_FOTO");
+            assertThat(r.solicitud().reporte().reportadoPor()).isEqualTo("Rene Reemplazo");
+        });
         estudianteFotoService.descartarReporte(fotoAsignado);
         sincronizar();
         assertThat(reporteFotosService.listar(asignado, null)).singleElement().satisfies(f -> {
@@ -1078,6 +1176,55 @@ class PostgresIntegracionTests {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // Mi perfil: el docente ve sus datos y sus materias con sus grupos; el control, sus exámenes asignados.
+    @Test
+    void elPerfilMuestraLoPropioDeCadaRol() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-PERF");
+        int examen = examen(paralelo, "09:00", 90);
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        jdbc.update("UPDATE docente SET titulo = 'Lic.', especialidad = 'Bases de datos' WHERE id_usuario = ?", idDocente);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?) ON CONFLICT DO NOTHING", idDocente, idMateria);
+        Integer ctrl = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                + "VALUES ('Pia', 'Control', '7100001', 'pia.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) SELECT ?, id_rol FROM rol WHERE nombre = 'CONTROL'", ctrl);
+        jdbc.update("INSERT INTO examen_control (id_examen, id_usuario) VALUES (?, ?)", examen, ctrl);
+        sincronizar();
+
+        var docente = perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        assertThat(docente.docente()).isNotNull();
+        assertThat(docente.docente().titulo()).isEqualTo("Lic.");
+        assertThat(docente.docente().categoria()).isEqualTo("INTERINO");
+        assertThat(docente.docente().materias()).anySatisfy(m -> {
+            assertThat(m.sigla()).isEqualTo("TST-PERF");
+            assertThat(m.grupos()).containsExactly("1");
+        });
+        assertThat(docente.examenesAsignados()).isNull();
+        assertThat(docente.fotoUrl()).isNull();
+        // Foto de perfil opcional (V54): se sube, se ve en el perfil y se quita.
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0, 1};
+        usuarioFotoService.guardar(idDocente, new org.springframework.mock.web.MockMultipartFile("file", "yo.jpg", "image/jpeg", jpeg));
+        assertThat(usuarioFotoService.obtener(idDocente)).hasValueSatisfying(f -> assertThat(f.tipoContenido()).isEqualTo("image/jpeg"));
+        assertThat(perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")))).fotoUrl())
+                .isEqualTo("/auth/me/foto");
+        assertThatThrownBy(() -> usuarioFotoService.guardar(idDocente,
+                new org.springframework.mock.web.MockMultipartFile("file", "x.txt", "image/jpeg", "no es imagen".getBytes())))
+                .isInstanceOf(IllegalArgumentException.class);
+        usuarioFotoService.quitar(idDocente);
+        assertThat(usuarioFotoService.tiene(idDocente)).isFalse();
+        assertThat(docente.permisos()).extracting(x -> x.codigo()).contains("EXAMENES_GESTIONAR_PROPIOS").doesNotContain("USUARIOS_GESTIONAR");
+
+        var control = perfilRolService.deLaSesion(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                "pia.control@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL"))));
+        assertThat(control.docente()).isNull();
+        assertThat(control.examenesAsignados()).singleElement().satisfies(x -> {
+            assertThat(x.idExamen()).isEqualTo(examen);
+            assertThat(x.materia()).isEqualTo("Materia TST-PERF");
+        });
     }
 
     /** Cuenta de usuario del estudiante (CTA-01) para entrar a su portal. */

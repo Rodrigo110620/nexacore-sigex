@@ -99,7 +99,7 @@ export default function InicioDocentePage() {
                 <SelectorCard icon={<UsersRound size={16} />} label="3. Grupo">
                   <select value={grupo} onChange={(event) => setGrupo(event.target.value)} aria-label="Grupo" className="h-10 w-full rounded-md border border-[#D8E3F5] bg-white px-3 text-sm text-[#011140] outline-none focus:ring-2 focus:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-slate-100" disabled={grupos.length === 0}>
                     <option value="">{grupos.length === 0 ? 'Sin grupos disponibles' : 'Selecciona un grupo'}</option>
-                    {grupos.map((examen) => <option key={`${examen.idExamen}-${examen.idParalelo}`} value={examen.idParalelo}>Grupo {examen.idParalelo}</option>)}
+                    {grupos.map((examen) => <option key={`${examen.idExamen}-${examen.idParalelo}`} value={examen.idParalelo}>Grupo {examen.grupo ?? examen.idParalelo}</option>)}
                   </select>
                 </SelectorCard>
               </div>

@@ -12,7 +12,6 @@ import {
   quitarNotificacion,
   type Notificacion,
 } from '../../services/notificacionService'
-import FotoReportadaModal from './FotoReportadaModal'
 
 const ETIQUETA: Record<string, string> = {
   FOTO_REPORTADA: 'Foto reportada',
@@ -45,13 +44,12 @@ interface Props {
  * con un aviso emergente y el contador de no leídas. ADMIN y CONTROL ven todos; el DOCENTE, los
  * de sus exámenes.
  */
-export default function CampanaNotificaciones({ roles, compacta = false }: Props) {
+export default function CampanaNotificaciones({ compacta = false }: Props) {
   const navigate = useNavigate()
   const [lista, setLista] = useState<Notificacion[]>([])
   const [abierta, setAbierta] = useState(false)
   const [emergente, setEmergente] = useState<Notificacion | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const esAdmin = roles.includes('ADMIN')
 
   const cargar = useCallback(() => {
     listarNotificaciones().then(setLista).catch(() => undefined)
@@ -92,10 +90,9 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
 
   const noLeidas = lista.filter((n) => !n.leida).length
 
-  /** La revisión de fotos es solo del ADMIN; el resto de reportes se abre en el control del examen. */
-  const destino = (n: Notificacion) => (n.tipo === 'FOTO_REPORTADA' && !esAdmin ? null : n.enlace)
-  // El DOCENTE y el CONTROL ven la foto reportada en una ventana, sin la revisión.
-  const [fotoReportada, setFotoReportada] = useState<Notificacion | null>(null)
+  /** La foto reportada abre Revisión de fotos con ese estudiante elegido (todos los roles); el resto, su enlace. */
+  const destino = (n: Notificacion) => (n.tipo === 'FOTO_REPORTADA' && n.idEstudiante != null
+    ? `/dashboard/estudiantes/fotos?estudiante=${n.idEstudiante}` : n.enlace)
 
   const abrir = (n: Notificacion) => {
     setEmergente(null)
@@ -103,10 +100,6 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
     if (!n.leida) {
       setLista((actual) => actual.map((x) => (x.id === n.id ? { ...x, leida: true } : x)))
       void marcarNotificacionLeida(n.id).catch(() => undefined)
-    }
-    if (n.tipo === 'FOTO_REPORTADA' && !esAdmin && n.idEstudiante != null) {
-      setFotoReportada(n)
-      return
     }
     const ruta = destino(n)
     if (ruta) navigate(ruta)
@@ -226,10 +219,6 @@ export default function CampanaNotificaciones({ roles, compacta = false }: Props
             </button>
           </div>
         </div>
-      )}
-      {fotoReportada && fotoReportada.idEstudiante != null && (
-        <FotoReportadaModal idEstudiante={fotoReportada.idEstudiante} nombre={fotoReportada.titulo.replace(/^Foto reportada:\s*/, '')}
-          detalle={fotoReportada.detalle} idExamen={fotoReportada.idExamen} onClose={() => setFotoReportada(null)} />
       )}
     </div>
   )

@@ -39,6 +39,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     form,
     materias,
     setMaterias,
+    datosDocente,
+    setDatosDocente,
     confirmaAdmin,
     setConfirmaAdmin,
     errors,
@@ -151,11 +153,12 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
 
             {step === 3 && (
               <PasoDelRol rol={form.rol} materias={materias} onMaterias={setMaterias}
+                datosDocente={datosDocente} onDatosDocente={setDatosDocente}
                 confirmaAdmin={confirmaAdmin} onConfirmaAdmin={setConfirmaAdmin} errores={errors} />
             )}
 
             {step === 4 && (
-              <ResumenRegistro form={form} materias={materias} onActivo={(v) => handleChange('activo', v)} onEditar={irAPaso} />
+              <ResumenRegistro form={form} materias={materias} datosDocente={datosDocente} onActivo={(v) => handleChange('activo', v)} onEditar={irAPaso} />
             )}
 
             {generalError && (

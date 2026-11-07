@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { BookOpen, Building2, Clock, Play } from 'lucide-react'
 import type { ExamenDto } from '../../services/examenService'
-import { addMinutes, horaCorta, type FaseExamen } from '../../utils/examenFormat'
+import { addMinutes, horaCorta, type FaseExamen, materiaYGrupo } from '../../utils/examenFormat'
 
 const ESTILO_ESTADO: Record<FaseExamen, string> = {
   'en-curso': 'border-[#FECACA] bg-[#FDECEC] text-[#B91C1C]',
@@ -26,7 +26,7 @@ export default function ExamenDelDiaFila({ examen, estado, siguiente = false }: 
           <BookOpen size={18} aria-hidden="true" />
         </span>
         <div className="flex min-w-0 flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-2">
-          <p className="text-xs font-bold text-[#011140] sm:text-base">{examen.asignatura}</p>
+          <p className="text-xs font-bold text-[#011140] sm:text-base">{materiaYGrupo(examen)}</p>
           {examen.sigla && <span className="text-[9px] text-[#627A9B] sm:hidden">{examen.sigla}</span>}
           <span className="hidden items-center gap-1 rounded-md bg-[#F1F6FF] px-2 py-0.5 text-[11px] text-[#627A9B] sm:inline-flex">
             <Building2 size={12} aria-hidden="true" />

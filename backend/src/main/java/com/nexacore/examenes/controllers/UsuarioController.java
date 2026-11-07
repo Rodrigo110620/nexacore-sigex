@@ -168,6 +168,14 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.actualizar(id, request));
     }
 
+    @Operation(summary = "Datos del docente", description = "Título, especialidad y categoría, para editarlos. 204 si no es docente. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{id}/docente")
+    public ResponseEntity<com.nexacore.examenes.dto.DatosDocenteRequest> datosDocente(@PathVariable Integer id) {
+        var datos = usuarioService.datosDocente(id);
+        return datos == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(datos);
+    }
+
     @Operation(summary = "Materias del docente", description = "IMP-12: las materias que el docente puede usar al programar exámenes. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @GetMapping("/{id}/materias")
