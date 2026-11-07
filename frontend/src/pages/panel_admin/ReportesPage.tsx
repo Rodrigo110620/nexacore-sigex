@@ -242,9 +242,9 @@ export default function ReportesPage() {
                   {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
                 </select>
 
-                {idExamen != null && (auth.isAdmin || puedeExportar) && (
+                {idExamen != null && puedeExportar && (
                   <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
-                    {auth.isAdmin && (
+                    {puedeExportar && (
                       <button
                         type="button"
                         onClick={() => void descargarPDF()}

@@ -37,14 +37,15 @@ public class ReporteActaController {
 
     @Operation(summary = "Descargar acta de asistencia en PDF",
             description = "Genera el acta oficial con la consolidación de asistentes y ausentes. "
-                    + "Solo el rol ADMIN puede descargarla. Devuelve 409 si el examen aún no ha iniciado.")
-    @PreAuthorize("@examenAccesoService.esAdmin(authentication)")
+                    + "Con permiso de exportación: el ADMIN de cualquier examen y el DOCENTE de los suyos; el CONTROL "
+                    + "recibe 403. Devuelve 409 si el examen aún no ha iniciado.")
+    @PreAuthorize("@examenAccesoService.puedeExportar(#idExamen, authentication)")
     @GetMapping("/examenes/{idExamen}/acta.pdf")
     public ResponseEntity<byte[]> descargarActa(
             @PathVariable Integer idExamen,
             Authentication authentication) {
         byte[] pdf = actaExamenService.generarActa(idExamen);
-        String nombre = "acta_examen_" + idExamen + ".pdf";
+        String nombre = java.util.Objects.requireNonNullElse(actaExamenService.nombreArchivo(idExamen), "acta_examen_" + idExamen + ".pdf");
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(nombre).build().toString())

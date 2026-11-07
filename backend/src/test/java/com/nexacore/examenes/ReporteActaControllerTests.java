@@ -16,9 +16,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -42,7 +44,7 @@ class ReporteActaControllerTests {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminDescargaActaConExito() throws Exception {
-        when(examenAccesoService.esAdmin(any())).thenReturn(true);
+        when(examenAccesoService.puedeExportar(eq(20), any())).thenReturn(true);
         when(actaService.generarActa(20)).thenReturn("%PDF-1.4 prueba".getBytes());
 
         mockMvc.perform(get("/reportes/examenes/20/acta.pdf"))
@@ -53,7 +55,7 @@ class ReporteActaControllerTests {
     @Test
     @WithMockUser(roles = "ADMIN")
     void examenNoIniciadoDevuelve409() throws Exception {
-        when(examenAccesoService.esAdmin(any())).thenReturn(true);
+        when(examenAccesoService.puedeExportar(eq(20), any())).thenReturn(true);
         when(actaService.generarActa(20))
                 .thenThrow(new ControlIngresoException(HttpStatus.CONFLICT,
                         "El examen aún no ha iniciado"));
@@ -65,16 +67,22 @@ class ReporteActaControllerTests {
     @Test
     @WithMockUser(roles = "CONTROL")
     void controlRecibe403AlAccederDirectamente() throws Exception {
-        // Solo ADMIN puede descargar el acta: CONTROL recibe 403
+        // El CONTROL no tiene permiso de exportación: recibe 403
         mockMvc.perform(get("/reportes/examenes/20/acta.pdf"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockUser(roles = "DOCENTE")
-    void docenteRecibe403AlAccederDirectamente() throws Exception {
-        // HU#6: solo ADMIN puede descargar el acta; DOCENTE recibe 403
+    void elDocenteDescargaElActaDeSuExamenPeroNoLaDeUnoAjeno() throws Exception {
+        // El DOCENTE tiene REPORTES_EXPORTAR solo para sus exámenes (puedeExportar).
+        when(examenAccesoService.puedeExportar(eq(20), any())).thenReturn(true);
+        when(actaService.generarActa(20)).thenReturn("%PDF-1.4 prueba".getBytes());
+        when(actaService.nombreArchivo(20)).thenReturn("acta_Base-de-Datos-I_G1_2026-11-06.pdf");
         mockMvc.perform(get("/reportes/examenes/20/acta.pdf"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("acta_Base-de-Datos-I_G1_2026-11-06.pdf")));
+        mockMvc.perform(get("/reportes/examenes/21/acta.pdf"))
                 .andExpect(status().isForbidden());
     }
 }

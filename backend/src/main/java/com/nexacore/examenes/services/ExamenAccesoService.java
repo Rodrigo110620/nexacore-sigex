@@ -28,13 +28,6 @@ public class ExamenAccesoService {
         return segunPermiso(idExamen, authentication, Permiso.EXAMENES_VER_TODOS, Permiso.EXAMENES_VER_PROPIOS);
     }
 
-    /** Solo el rol ADMIN puede descargar el acta de asistencia en PDF (HU#6). */
-    public boolean esAdmin(Authentication authentication) {
-        return authentication != null && authentication.isAuthenticated()
-                && authentication.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-    }
-
     /**
      * Descargar el acta (PDF) y la asistencia (CSV/Excel) de un examen: con REPORTES_EXPORTAR; el ADMIN
      * (REPORTES_VER) de cualquier examen y el DOCENTE solo de los suyos. Uso: {@code @PreAuthorize(
