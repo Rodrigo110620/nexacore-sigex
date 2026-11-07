@@ -44,7 +44,8 @@ export default function ExamenesPage() {
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
   const [fechaFiltro, setFechaFiltro] = useState('')
   const [page, setPage] = useState(0)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
+  const [isModalOpen, setIsModalOpen] = useState(() => searchParams.get('nuevo') === '1')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

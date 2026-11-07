@@ -72,4 +72,12 @@ class PersonalControlTests {
         mockMvc.perform(get("/examenes/1/asistencia.xlsx").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/examenes/1/asistencia.csv").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
     }
+
+    @Test
+    void elPanelDelDocenteEsSoloDelDocente() throws Exception {
+        mockMvc.perform(get("/inicio/docente").with(user("d@umss.edu").roles("DOCENTE"))).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.ingresosPorHora.length()").value(24));
+        mockMvc.perform(get("/inicio/docente").with(user("e@est.umss.edu").roles("ESTUDIANTE"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/inicio/docente").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
+    }
 }

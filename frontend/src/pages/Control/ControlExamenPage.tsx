@@ -11,7 +11,7 @@ import CronometroExamen from '../../components/examenes/CronometroExamen'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
-import { descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
+import { descargarActaPDF, descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
 export default function ControlExamenPage() {
@@ -32,17 +32,19 @@ export default function ControlExamenPage() {
   const examenIniciado = estadoExamen === 'EN_CURSO' || estadoExamen === 'FINALIZADO'
 
   // DASH-05: el Excel se descarga con el nombre del servidor; si falla (por ejemplo, 409), aviso del sistema.
-  const [descargando, setDescargando] = useState(false)
+  const [descargando, setDescargando] = useState<'pdf' | 'excel' | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
-  const descargarExcel = async () => {
+  // DASH-04 (acta en PDF) y DASH-05 (asistencia en Excel), como en la sección 12 del diseño.
+  const descargar = async (formato: 'pdf' | 'excel') => {
     if (!examenIniciado || !idValido) return
-    setDescargando(true)
+    setDescargando(formato)
     try {
-      await descargarAsistencia(Number(idExamen))
+      if (formato === 'pdf') await descargarActaPDF(Number(idExamen))
+      else await descargarAsistencia(Number(idExamen))
     } catch (err) {
       setResultado({ tipo: 'error', mensaje: await mensajeDescarga(err) })
     } finally {
-      setDescargando(false)
+      setDescargando(null)
     }
   }
 
@@ -110,20 +112,27 @@ export default function ControlExamenPage() {
 
           {puedeExportar && (
             <div className="flex w-full shrink-0 flex-col items-center gap-2 sm:w-auto sm:items-end">
-              <button
-                type="button"
-                onClick={() => void descargarExcel()}
-                disabled={!examenIniciado || descargando}
-                className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors sm:w-auto ${
-                  !examenIniciado
-                    ? 'cursor-not-allowed border-none bg-slate-100 text-slate-400' 
-                    : 'border border-[#B8CBEF] bg-white text-[#0439D9] shadow-sm hover:bg-[#F1F6FF]' 
-                }`}
-              >
-                {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
-                Descargar Excel
-              </button>
-              
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => void descargar('pdf')}
+                  disabled={!examenIniciado || descargando !== null}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                >
+                  {descargando === 'pdf' ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                  Descargar PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void descargar('excel')}
+                  disabled={!examenIniciado || descargando !== null}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                >
+                  {descargando === 'excel' ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                  Descargar Excel
+                </button>
+              </div>
+
               {!examenIniciado && (
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309] sm:text-xs">
                   <Lock size={12} /> El examen aún no ha iniciado

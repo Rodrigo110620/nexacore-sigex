@@ -2,8 +2,10 @@ package com.nexacore.examenes.controllers;
 
 import com.nexacore.examenes.dto.InicioAdminResponse;
 import com.nexacore.examenes.dto.InicioControlResponse;
+import com.nexacore.examenes.dto.InicioDocenteResponse;
 import com.nexacore.examenes.services.InicioAdminService;
 import com.nexacore.examenes.services.InicioControlService;
+import com.nexacore.examenes.services.InicioDocenteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,10 +21,13 @@ public class InicioController {
 
     private final InicioAdminService inicioAdminService;
     private final InicioControlService inicioControlService;
+    private final InicioDocenteService inicioDocenteService;
 
-    public InicioController(InicioAdminService inicioAdminService, InicioControlService inicioControlService) {
+    public InicioController(InicioAdminService inicioAdminService, InicioControlService inicioControlService,
+                            InicioDocenteService inicioDocenteService) {
         this.inicioAdminService = inicioAdminService;
         this.inicioControlService = inicioControlService;
+        this.inicioDocenteService = inicioDocenteService;
     }
 
     @Operation(summary = "Resumen del día del ADMIN",
@@ -42,5 +47,14 @@ public class InicioController {
     @GetMapping("/control")
     public InicioControlResponse control() {
         return inicioControlService.misRegistros();
+    }
+
+    @Operation(summary = "Mi panel docente",
+            description = "Sus materias con grupos, estudiantes, próximo examen y asistencia; ingresos y expulsiones de hoy "
+                    + "por hora en sus exámenes, y sus últimos registros. Solo lo del docente que inició sesión.")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_VER_PROPIOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @GetMapping("/docente")
+    public InicioDocenteResponse docente() {
+        return inicioDocenteService.resumen();
     }
 }
