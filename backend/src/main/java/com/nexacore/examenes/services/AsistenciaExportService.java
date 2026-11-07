@@ -34,17 +34,34 @@ public class AsistenciaExportService {
         this.examenRepository = examenRepository; 
     }
 
-    //VALIDACIÓN DE SEGURIDAD 
-    private void validarExamenIniciado(Integer idExamen) {
+    /**
+     * Solo se descarga la asistencia de un examen que ya empezó (en curso o finalizado). El estado se calcula con la
+     * hora: el guardado en la base sigue diciendo "programado" aunque el examen ya haya empezado.
+     */
+    private Examen validarExamenIniciado(Integer idExamen) {
         Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
-                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "Examen no encontrado"));
-        
-        String estado = examen.getEstado() != null ? examen.getEstado().toLowerCase() : "programado";
-        
-        if (estado.equals("programado") || estado.equals("cancelado")) {
-            throw new ControlIngresoException(HttpStatus.CONFLICT, 
-                "No se puede descargar la asistencia porque el examen aún no ha iniciado o está cancelado.");
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen));
+        String estado = com.nexacore.examenes.utils.EstadoExamen.de(examen, java.time.LocalDateTime.now());
+        if (com.nexacore.examenes.utils.EstadoExamen.PROGRAMADO.equals(estado) || com.nexacore.examenes.utils.EstadoExamen.CANCELADO.equals(estado)) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "No se puede descargar la asistencia porque el examen aún no ha iniciado o está cancelado.");
         }
+        return examen;
+    }
+
+    /** Nombre del archivo: asistencia_Base-de-Datos-I_G1_2026-11-06.xlsx (sin tildes ni espacios). */
+    @Transactional(readOnly = true)
+    public String nombreArchivo(Integer idExamen, String extension) {
+        Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen));
+        String materia = examen.getParalelo() != null && examen.getParalelo().getMateria() != null
+                ? examen.getParalelo().getMateria().getNombre() : "examen";
+        String grupo = examen.getParalelo() != null ? examen.getParalelo().getNombreGrupo() : null;
+        String base = String.join("_", java.util.stream.Stream.of("asistencia", materia, grupo, String.valueOf(examen.getFecha()))
+                .filter(java.util.Objects::nonNull).toList());
+        String limpio = java.text.Normalizer.normalize(base, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+                .replaceAll("[^A-Za-z0-9_.-]+", "-").replaceAll("-{2,}", "-");
+        return limpio + "." + extension;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +80,8 @@ public class AsistenciaExportService {
             writer.write('\uFEFF'); 
             var printer = new CSVPrinter(writer, formato);
             for (AsistenciaExamen a : asistencias) {
+                // Solo los habilitados: un no habilitado no tenía derecho a rendir, no es "Ausente".
+                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
                 boolean esAsistio = a.getFechaHoraIngreso() != null;
                 String estado = esAsistio ? "Asistió" : "Ausente";
                 String hora = esAsistio ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-";
@@ -94,8 +113,9 @@ public class AsistenciaExportService {
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
+                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
                 boolean esAsistio = a.getFechaHoraIngreso() != null;
-                
+
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(a.getEstudiante().getCodigoSis());
                 row.createCell(1).setCellValue(a.getEstudiante().getNombre());

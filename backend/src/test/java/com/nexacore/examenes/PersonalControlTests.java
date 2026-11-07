@@ -66,4 +66,10 @@ class PersonalControlTests {
         mockMvc.perform(get("/auth/me/rol").with(user("admin@umss.edu").roles("ADMIN"))).andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.permisos.length()").value(com.nexacore.examenes.security.Permiso.values().length));
     }
+
+    @Test
+    void elControlNoDescargaLaAsistencia() throws Exception {
+        mockMvc.perform(get("/examenes/1/asistencia.xlsx").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/examenes/1/asistencia.csv").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
+    }
 }

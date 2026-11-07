@@ -83,6 +83,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
     @Autowired com.nexacore.examenes.services.ExamenControlService examenControlService;
     @Autowired com.nexacore.examenes.services.PerfilRolService perfilRolService;
+    @Autowired com.nexacore.examenes.services.AsistenciaExportService asistenciaExportService;
     @Autowired com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
     @Autowired com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
     @Autowired com.nexacore.examenes.services.ReporteFotosService reporteFotosService;
@@ -928,6 +929,39 @@ class PostgresIntegracionTests {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // DASH-05: la asistencia se exporta solo si el examen ya empezó (estado calculado con la hora), con los habilitados,
+    // la hora en HH:MM:SS, "-" en los ausentes y el nombre del archivo con la materia, el grupo y la fecha.
+    @Test
+    void laAsistenciaSeExportaSoloSiElExamenEmpezoYConLosHabilitados() throws Exception {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("TST-EXP");
+        int manana = examen(paralelo, "08:00", 90);
+        assertThatThrownBy(() -> asistenciaExportService.generarCsv(manana)).hasMessageContaining("aún no ha iniciado");
+
+        int ayer = examen(paralelo, "10:00", 90);
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", ayer);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, motivo_inhabilitacion, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?, ?)";
+        jdbc.update(asociar, estudiante("209910001", "Ana"), ayer, paralelo, true, null, java.sql.Timestamp.valueOf(java.time.LocalDate.now().minusDays(1).atTime(10, 5, 9)));
+        jdbc.update(asociar, estudiante("209910002", "Beto"), ayer, paralelo, true, null, null);
+        jdbc.update(asociar, estudiante("209910003", "Ciro"), ayer, paralelo, false, "Deuda en biblioteca", null);
+        // Más de 500 habilitados (criterio 2): la exportación termina sin problema.
+        for (int i = 0; i < 600; i++) {
+            jdbc.update(asociar, estudiante(String.format("2099%05d", 20000 + i), "Masivo"), ayer, paralelo, true, null, null);
+        }
+        sincronizar();
+
+        String csv = new String(asistenciaExportService.generarCsv(ayer), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("\uFEFFCódigo SIS;Nombre;Apellidos;Estado;Hora");
+        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-").doesNotContain("Ciro");
+        assertThat(csv.lines().count()).isEqualTo(1 + 2 + 600);
+        byte[] xlsx = asistenciaExportService.generarExcel(ayer);
+        try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
+            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(602);
+        }
+        assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
+                .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
     }
 
     // Título, especialidad y categoría del docente: los registra y los cambia solo el ADMIN.

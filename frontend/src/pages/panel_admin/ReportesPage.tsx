@@ -13,8 +13,9 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 
-import { Download } from 'lucide-react' 
-import api from '../../services/api'
+import { Download, LoaderCircle, Lock } from 'lucide-react'
+import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
+import { descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
@@ -37,6 +38,7 @@ const quien = (i: IntentoReporte) => i.estudiante ?? `No identificado (${i.ident
 const examenDe = (i: IntentoReporte) =>
   `${i.examen ?? `Examen #${i.idExamen}`} · ${formatFecha(i.fechaExamen)} ${i.horaExamen?.slice(0, 5) ?? ''}`.trim()
 
+/** DASH-06 / HU#7: intentos de ingreso incorrectos de todos los exámenes o de uno, paginados. */
 function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen?: string }) {
   const [pagina, setPagina] = useState(0)
   const [recarga, setRecarga] = useState(0)
@@ -151,6 +153,10 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
   )
 }
 
+/**
+ * Reportes (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. El ADMIN
+ * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
+ */
 export default function ReportesPage() {
   const auth = useAuth() 
   const soloMios = !tienePermiso(auth, 'REPORTES_VER')
@@ -184,22 +190,19 @@ export default function ReportesPage() {
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
-  const descargarAsistencia = async (formato: 'xlsx') => {
-    if (!idExamen) return
+  // DASH-05: solo un examen que ya empezó; el Excel lleva el nombre del servidor y un error se avisa con el modal.
+  const iniciado = ['en_curso', 'finalizado'].includes(examen?.estado?.toLowerCase() ?? '')
+  const [descargando, setDescargando] = useState(false)
+  const [resultadoDescarga, setResultadoDescarga] = useState<Resultado | null>(null)
+  const descargarExcel = async () => {
+    if (!idExamen || !iniciado) return
+    setDescargando(true)
     try {
-      const response = await api.get(`/examenes/${idExamen}/asistencia.${formato}`, {
-        responseType: 'blob', 
-      })
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `asistencia_${idExamen}.${formato}`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      alert('No se pudo descargar el archivo. Revisa tus permisos o la conexión.')
+      await descargarAsistencia(idExamen)
+    } catch (err) {
+      setResultadoDescarga({ tipo: 'error', mensaje: await mensajeDescarga(err) })
+    } finally {
+      setDescargando(false)
     }
   }
 
@@ -230,13 +233,20 @@ export default function ReportesPage() {
                 {idExamen != null && puedeExportar && (
                   <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
                     <button
-                      onClick={() => descargarAsistencia('xlsx')}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] sm:w-auto"
+                      type="button"
+                      onClick={() => void descargarExcel()}
+                      disabled={!iniciado || descargando}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                     >
-                      <Download size={16} />
+                      {descargando ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
                       Descargar Excel
                     </button>
-                    {/* Aquí tu compañero agregará el botón de PDF con fondo azul */}
+                    {!iniciado && (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[#B45309]">
+                        <Lock size={12} aria-hidden="true" /> El examen aún no ha iniciado
+                      </span>
+                    )}
+                    {/* Al lado va «Descargar PDF» (DASH-04, Fernando), como botón azul principal. */}
                   </div>
                 )}
               </div>
@@ -277,6 +287,7 @@ export default function ReportesPage() {
           </div>
         </section>
       </div>
+      <ResultadoModal resultado={resultadoDescarga} onClose={() => setResultadoDescarga(null)} />
       <MobileBottomNav />
     </PanelLayout>
   )

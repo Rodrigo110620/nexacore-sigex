@@ -114,7 +114,7 @@ public class ExamenController {
     public ResponseEntity<byte[]> descargarAsistenciaCsv(@PathVariable Integer idExamen) {
         byte[] data = asistenciaExportService.generarCsv(idExamen);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("asistencia.csv").build().toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(asistenciaExportService.nombreArchivo(idExamen, "csv")).build().toString())
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .body(data);
     }
@@ -125,7 +125,7 @@ public class ExamenController {
     public ResponseEntity<byte[]> descargarAsistenciaExcel(@PathVariable Integer idExamen) {
         byte[] data = asistenciaExportService.generarExcel(idExamen);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("asistencia.xlsx").build().toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(asistenciaExportService.nombreArchivo(idExamen, "xlsx")).build().toString())
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(data);
     }
