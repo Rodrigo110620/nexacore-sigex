@@ -12,7 +12,7 @@ export interface IngresoReciente {
   expulsado: boolean
 }
 
-export async function ingresosRecientes(idExamen: number, cantidad = 6): Promise<{ total: number; ingresos: IngresoReciente[] }> {
-  const { data } = await api.get<{ total: number; ingresos: IngresoReciente[] }>(`/examenes/${idExamen}/estudiantes/recientes`, { params: { cantidad } })
+export async function ingresosRecientes(idExamen: number, cantidad = 6, pagina = 0): Promise<{ total: number; ingresos: IngresoReciente[] }> {
+  const { data } = await api.get<{ total: number; ingresos: IngresoReciente[] }>(`/examenes/${idExamen}/estudiantes/recientes`, { params: { cantidad, pagina } })
   return data
 }

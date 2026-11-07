@@ -54,12 +54,12 @@ public class IdentificacionController {
     }
 
     @Operation(summary = "Ingresos recientes del examen",
-            description = "DASH-02: los últimos ingresos de la sesión actual, del más reciente al más antiguo (hasta 50), y el total.")
+            description = "DASH-02: los últimos ingresos de la sesión actual, del más reciente al más antiguo (hasta 50 por página), y el total.")
     @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
     @GetMapping("/recientes")
     public com.nexacore.examenes.dto.IngresosRecientesResponse recientes(@PathVariable Integer idExamen,
-            @RequestParam(defaultValue = "6") int cantidad) {
-        return ingresosRecientesService.recientes(idExamen, cantidad);
+            @RequestParam(defaultValue = "6") int cantidad, @RequestParam(defaultValue = "0") int pagina) {
+        return ingresosRecientesService.recientes(idExamen, cantidad, pagina);
     }
 
     /** DASH-02; por campo para no cambiar el constructor. */

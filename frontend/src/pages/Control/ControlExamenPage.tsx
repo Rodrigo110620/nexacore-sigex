@@ -56,16 +56,21 @@ export default function ControlExamenPage() {
     <PanelLayout compactDesktop topBarVariant="controlMinimal" locationLabel={ubicacion} title="CONTROL DE INGRESO" description="Estudiantes asignados al examen y su habilitación.">
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:pt-4 min-[960px]:pb-6">
         
-        <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        {/* Ruta del diseño (secciones 11 y 12): Control / materia · aula */}
+        <nav aria-label="Ruta" className="text-xs text-[#64748B]">
+          <Link to="/dashboard/control" className="hover:text-[#0439D9] hover:underline">Control</Link>
+          {examen && <span>{'  /  '}{[materiaYGrupo(examen), examen.ambienteNombre && `Aula ${examen.ambienteNombre}`].filter(Boolean).join(' · ')}</span>}
+        </nav>
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0 flex-1">
 
             {/* Como en el diseño (sección 12): «Panel del examen» con su estado. */}
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <h1 className="text-xl font-bold text-[#011140] text-center sm:text-left">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl font-bold text-[#011140]">
                 Panel del examen
               </h1>
               
-              <div className="flex w-full justify-center sm:w-auto sm:justify-start">
+              <div className="flex">
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
                   estadoExamen === 'EN_CURSO' 
                     ? 'bg-[#ECFDF3] text-[#15803D]' 
@@ -78,7 +83,7 @@ export default function ControlExamenPage() {
               </div>
             </div>
             
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B] sm:justify-start sm:text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#627A9B]">
               {examen && <span className="font-semibold text-[#011140]">{materiaYGrupo(examen)}</span>}
               {examen?.fecha && (
                 <span className="flex items-center gap-1.5">
@@ -108,13 +113,13 @@ export default function ControlExamenPage() {
           </div>
 
           {puedeExportar && (
-            <div className="flex w-full shrink-0 flex-col items-center gap-2 sm:w-auto sm:items-end">
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+              <div className="flex flex-wrap gap-2.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => void descargar('pdf')}
                   disabled={!examenIniciado}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                 >
                   <Download size={16} aria-hidden="true" />
                   Descargar PDF
@@ -123,7 +128,7 @@ export default function ControlExamenPage() {
                   type="button"
                   onClick={() => void descargar('excel')}
                   disabled={!examenIniciado}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                 >
                   <Download size={16} aria-hidden="true" />
                   Descargar Excel
@@ -184,7 +189,7 @@ export default function ControlExamenPage() {
               if (!tablaAbierta) requestAnimationFrame(() => {
                 const tabla = document.getElementById('estudiantes-examen-tabla')
                 const main = tabla?.closest('main')
-                if (tabla && main) main.scrollTo({ top: main.scrollTop + tabla.getBoundingClientRect().top - main.getBoundingClientRect().top - 16, behavior: 'smooth' })
+                if (tabla && main?.scrollTo) main.scrollTo({ top: main.scrollTop + tabla.getBoundingClientRect().top - main.getBoundingClientRect().top - 16, behavior: 'smooth' })
               })
             }} />
             {tablaAbierta && (

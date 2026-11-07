@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, CircleCheck, Info } from 'lucide-react'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import TablePagination from '../users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import { ingresosRecientes, type IngresoReciente } from '../../services/ingresosRecientesService'
 import { listarEstudiantesExamen, type EstudianteAsignado } from '../../services/controlExamenService'
 import silueta from '../../assets/silueta-estudiante.svg'
 
-const CANTIDAD = 6
+// Como el diseño: 6 filas en escritorio y 4 en celular.
+const cantidad = () => (typeof window !== 'undefined' && window.innerWidth < 640 ? 4 : 6)
 type Vista = 'todos' | 'ausentes'
 
 interface Fila {
@@ -39,8 +41,11 @@ interface Props {
 }
 
 export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, onAlternarTabla }: Props) {
-  const [vista, setVista] = useState<Vista>('todos')
-  const [datos, setDatos] = useState<{ vista: Vista; filas: Fila[]; total: number } | null>(null)
+  const [vista, setVistaActual] = useState<Vista>('todos')
+  const [pagina, setPagina] = useState(0)
+  const [datos, setDatos] = useState<{ vista: Vista; pagina: number; filas: Fila[]; total: number } | null>(null)
+  const setVista = (v: Vista) => { setVistaActual(v); setPagina(0) }
+  const tamano = cantidad()
   const [error, setError] = useState(false)
   const [recarga, setRecarga] = useState(0)
 
@@ -49,15 +54,20 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
   useEffect(() => {
     let vigente = true
     const pedir = vista === 'todos'
-      ? ingresosRecientes(idExamen, CANTIDAD).then((r) => ({ filas: r.ingresos.map(desdeIngreso), total: r.total }))
-      : listarEstudiantesExamen(idExamen, 'AUSENTES', 0, CANTIDAD).then((p) => ({ filas: p.contenido.map(desdeAusente), total: p.totalRegistros }))
+      ? ingresosRecientes(idExamen, tamano, pagina).then((r) => ({ filas: r.ingresos.map(desdeIngreso), total: r.total }))
+      : listarEstudiantesExamen(idExamen, 'AUSENTES', pagina, tamano).then((p) => ({ filas: p.contenido.map(desdeAusente), total: p.totalRegistros }))
     pedir
-      .then((r) => { if (vigente) { setDatos({ vista, ...r }); setError(false) } })
+      .then((r) => {
+        if (!vigente) return
+        // Si la página quedó vacía (p. ej. ingresaron los ausentes de la última), vuelve a la última que tiene datos.
+        if (r.filas.length === 0 && pagina > 0) { setPagina(Math.max(0, Math.ceil(r.total / tamano) - 1)); return }
+        setDatos({ vista, pagina, ...r }); setError(false)
+      })
       .catch(() => { if (vigente) setError(true) })
     return () => { vigente = false }
-  }, [idExamen, vista, recarga])
+  }, [idExamen, vista, pagina, tamano, recarga])
 
-  const cargando = datos?.vista !== vista
+  const cargando = datos?.vista !== vista || datos.pagina !== pagina
   const filas = cargando ? [] : datos.filas
   const total = cargando ? 0 : datos.total
 
@@ -70,7 +80,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
             {vista === 'todos' ? 'Del más reciente al más antiguo · se actualiza en vivo' : 'Habilitados que aún no ingresaron · se actualiza en vivo'}
           </p>
         </div>
-        <div role="group" aria-label="Filtrar ingresos" className="grid w-full grid-cols-2 gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px] sm:flex sm:w-auto">
+        <div role="group" aria-label="Filtrar ingresos" className="flex gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px]">
           {(['todos', 'ausentes'] as const).map((v) => (
             <button key={v} type="button" aria-pressed={vista === v} onClick={() => setVista(v)}
               className={`rounded-md px-3 py-1.5 text-[13px] ${vista === v ? 'bg-white font-semibold text-[#011140] shadow-[0_1px_1px_rgba(0,0,0,0.08)]' : 'font-medium text-[#627A9B] hover:text-[#011140]'}`}>
@@ -102,7 +112,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
       ) : (
         <ul aria-label={vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}>
           {filas.map((f) => (
-            <li key={f.id} className="flex items-center gap-3.5 border-b border-[#EDF1F7] px-2 py-2.5 sm:px-4">
+            <li key={f.id} className="flex items-center gap-2.5 border-b border-[#EDF1F7] py-2.5 sm:gap-3.5 sm:px-4">
               {f.fotoUrl
                 ? <FotoEstudiante fotoUrl={f.fotoUrl} nombre={f.nombre} iniciales={f.nombre.slice(0, 2).toUpperCase()} className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4ECFA] object-cover" />
                 : <img src={silueta} alt="" className="h-10 w-10 shrink-0 rounded-full bg-[#E4ECFA]" />}
@@ -110,10 +120,9 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
                 <span className="block truncate text-sm font-semibold text-[#011140]">{f.nombre}</span>
                 <span className="block text-xs text-[#627A9B]">SIS {f.codigo}</span>
               </span>
-              {/* En celular, la hora va sobre la etiqueta para que el nombre tenga espacio. */}
-              <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3.5">
+              <span className="flex shrink-0 items-center gap-2 sm:gap-3.5">
               <span className="text-sm font-semibold tabular-nums text-[#011140]">{f.hora ?? '—'}</span>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+              <span className={`rounded-full px-2 py-1 text-xs font-semibold sm:px-2.5 ${
                 f.estado === 'ingreso' ? 'bg-[#ECFDF3] text-[#15803D]' : f.estado === 'expulsado' ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#FFFBEB] text-[#B45309]'}`}>
                 {f.estado === 'ingreso' ? 'Ingresó' : f.estado === 'expulsado' ? 'Expulsado' : 'No ingresó'}
               </span>
@@ -123,22 +132,16 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         </ul>
       )}
 
-      {(onAlternarTabla || (!cargando && filas.length > 0)) && (
-        <div className="flex flex-wrap items-center gap-x-1 text-xs text-[#627A9B]">
-          {!cargando && filas.length > 0 && (
-            <span>Mostrando {filas.length} de {total} {vista === 'todos' ? (total === 1 ? 'ingreso' : 'ingresos') : (total === 1 ? 'ausente' : 'ausentes')}</span>
-          )}
-          {onAlternarTabla && (
-            <>
-              {!cargando && filas.length > 0 && <span aria-hidden="true">·</span>}
-              <button type="button" onClick={onAlternarTabla} aria-expanded={tablaAbierta} aria-controls="estudiantes-examen-tabla"
-                className="inline-flex items-center gap-1 font-semibold text-[#0439D9] hover:underline">
-                {tablaAbierta ? 'Ocultar estudiantes' : 'Ver todos los estudiantes'}
-                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${tablaAbierta ? 'rotate-180' : ''}`} />
-              </button>
-            </>
-          )}
-        </div>
+      {!cargando && total > 0 && (
+        <TablePagination compact page={pagina} totalPages={Math.ceil(total / tamano)} totalRecords={total} pageSize={tamano}
+          onPageChange={setPagina} itemLabel={vista === 'todos' ? 'ingresos' : 'ausentes'} />
+      )}
+      {onAlternarTabla && (
+        <button type="button" onClick={onAlternarTabla} aria-expanded={tablaAbierta} aria-controls="estudiantes-examen-tabla"
+          className="inline-flex items-center gap-1 self-start text-xs font-semibold text-[#0439D9] hover:underline">
+          {tablaAbierta ? 'Ocultar estudiantes' : 'Ver todos los estudiantes'}
+          <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${tablaAbierta ? 'rotate-180' : ''}`} />
+        </button>
       )}
     </section>
   )

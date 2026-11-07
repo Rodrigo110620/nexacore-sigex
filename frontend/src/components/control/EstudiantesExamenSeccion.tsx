@@ -65,14 +65,14 @@ export default function EstudiantesExamenSeccion({
           ))}
         </div>
       </div>
-      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
+      <div role="group" aria-label="Filtrar por estado en móvil" className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-[#F1F3F6] p-1 md:hidden">
         {PESTANAS.map(({ valor, label, cuenta }) => (
           <button
             key={valor}
             type="button"
             aria-pressed={estado === valor}
             onClick={() => cambiarEstado(valor)}
-            className={`min-w-0 rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
+            className={`min-w-0 whitespace-nowrap rounded-md px-1 py-1.5 text-[10px] font-semibold ${estado === valor ? 'bg-white text-[#011140] shadow-sm' : 'text-[#627A9B]'}`}
           >
             {label}
             {cuentas ? ` (${cuentas[cuenta]})` : ''}

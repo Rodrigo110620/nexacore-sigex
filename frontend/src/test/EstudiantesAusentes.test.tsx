@@ -24,7 +24,7 @@ beforeEach(() => {
   }))
   vi.mocked(api.get).mockImplementation(async (url, config) => {
     if (url.endsWith('/expulsiones')) return { data: [] }
-    if (url.endsWith('/recientes')) return { data: { total: 2, ingresos: [
+    if (url.endsWith('/recientes')) return { data: { total: 8, ingresos: [
       { idEstudiante: 7, nombre: 'Estudiante 7', apellidos: 'Prueba', codigoSis: '202600007', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:14:45', aula: '608', expulsado: false },
       { idEstudiante: 9, nombre: 'Estudiante 9', apellidos: 'Prueba', codigoSis: '202600009', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:02:10', aula: '608', expulsado: true },
     ] } }
@@ -46,7 +46,10 @@ it('sección 11, Todos (DASH-02): los ingresos del más reciente al más antiguo
   expect(filas[0]).toHaveTextContent('09:14:45')
   expect(filas[0]).toHaveTextContent('Ingresó')
   expect(filas[1]).toHaveTextContent('Expulsado')
-  expect(screen.getByText(/Mostrando 2 de 2 ingresos/)).toBeInTheDocument()
+  expect(screen.getByRole('navigation', { name: 'Paginación de ingresos' })).toHaveTextContent('Mostrando 1–6 de 8')
+  // Paginación: 6 por página; la 2.ª se pide al servidor.
+  fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/examenes/20/estudiantes/recientes', { params: { cantidad: 6, pagina: 1 } }))
   expect(screen.getByRole('button', { name: 'Todos' })).toHaveAttribute('aria-pressed', 'true')
 })
 

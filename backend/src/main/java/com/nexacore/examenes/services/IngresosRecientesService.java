@@ -32,6 +32,12 @@ public class IngresosRecientesService {
 
     @Transactional(readOnly = true)
     public IngresosRecientesResponse recientes(Integer idExamen, int cantidad) {
+        return recientes(idExamen, cantidad, 0);
+    }
+
+    /** pagina: desde 0; cada página trae «cantidad» ingresos. */
+    @Transactional(readOnly = true)
+    public IngresosRecientesResponse recientes(Integer idExamen, int cantidad, int pagina) {
         if (!examenRepository.existsByIdIdExamen(idExamen)) {
             throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen);
         }
@@ -39,6 +45,7 @@ public class IngresosRecientesService {
         var p = new MapSqlParameterSource("examen", idExamen)
                 .addValue("desde", Timestamp.valueOf(cierre == null ? DESDE_SIEMPRE : cierre))
                 .addValue("cantidad", Math.max(1, Math.min(cantidad, MAXIMO)));
+        p.addValue("desplazamiento", (long) Math.max(pagina, 0) * (Integer) p.getValue("cantidad"));
         Long total = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM asistencia_examen WHERE id_examen = :examen AND fecha_hora_ingreso IS NOT NULL", p, Long.class);
         var ingresos = jdbc.query("""
@@ -51,7 +58,7 @@ public class IngresosRecientesService {
                 LEFT JOIN ambiente am ON am.id_ambiente = a.id_ambiente_ingreso
                 WHERE a.id_examen = :examen AND a.fecha_hora_ingreso IS NOT NULL
                 ORDER BY a.fecha_hora_ingreso DESC, a.id_estudiante
-                LIMIT :cantidad
+                LIMIT :cantidad OFFSET :desplazamiento
                 """, p, (rs, i) -> new IngresosRecientesResponse.Ingreso(rs.getInt(1), rs.getString(2), rs.getString(3),
                 rs.getString(4), EstudianteService.fotoUrl(rs.getInt(1), rs.getBoolean(7)),
                 rs.getTimestamp(5).toLocalDateTime(), rs.getString(6), rs.getBoolean(8)));

@@ -1011,6 +1011,8 @@ class PostgresIntegracionTests {
             assertThat(i.aula()).isNotBlank();
         });
         assertThat(r.ingresos().get(1).expulsado()).isFalse();
+        // Página 2 (de 2 en 2): el más antiguo.
+        assertThat(ingresosRecientesService.recientes(examen, 2, 1).ingresos()).extracting(i -> i.idEstudiante()).containsExactly(ana);
         assertThatThrownBy(() -> ingresosRecientesService.recientes(999999, 6)).hasMessageContaining("No se encontró el examen");
     }
 
