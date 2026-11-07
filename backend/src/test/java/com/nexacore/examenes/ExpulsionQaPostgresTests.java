@@ -60,6 +60,18 @@ class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
         assertEquals(0, expulsiones.deSesionActual(examen, null).size());
     }
 
+    @ParameterizedTest
+    @MethodSource("com.nexacore.examenes.ExpulsionValidacionesTests#motivosAnulacionValidos")
+    void anulacionPersisteTextoCanonicoSinAlterarElRegistroInicial(String entrada, String esperado) throws Exception {
+        var original = control.expulsar(new ExpulsarEstudianteRequest(estudiante, examen, "Uso de celular"), admin(email));
+        mvc.perform(post("/control-ingresos/examen/{examen}/expulsiones/{expulsion}/anular", examen, original.idExpulsion())
+                        .with(user(email).roles("ADMIN")).contentType("application/json")
+                        .content(mapper.writeValueAsString(java.util.Map.of("motivo", entrada))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.motivoAnulacion").value(esperado));
+        assertEquals(esperado, jdbc.queryForObject("SELECT motivo_anulacion FROM expulsion WHERE id_expulsion=?", String.class, original.idExpulsion()));
+        assertEquals(original.fechaHora(), expulsiones.fechaHoraRegistrada(original.idExpulsion()));
+    }
+
     @Test
     void consultaRealIncluyeIdentidadSinHistorialManualYConservaAuditoria() throws Exception {
         var respuesta = control.expulsar(new ExpulsarEstudianteRequest(estudiante, examen, "USO de CELULAR"), admin(email));
