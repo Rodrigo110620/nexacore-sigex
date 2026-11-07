@@ -20,6 +20,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -118,5 +120,21 @@ class EstudianteControllerTests {
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errores.telefono").exists());
+    }
+
+    // La planilla la descargan el ADMIN y el DOCENTE (los suyos), no el CONTROL; la plantilla, solo el ADMIN.
+    @Test
+    void planillaYPlantillaSegunElRol() throws Exception {
+        mockMvc.perform(get("/estudiantes/planilla.xlsx").with(user("c@umss.edu").roles("CONTROL")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/estudiantes/plantilla.xlsx").with(user("d@umss.edu").roles("DOCENTE")))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/estudiantes/plantilla.csv").with(user("a@umss.edu").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("plantilla_estudiantes.csv")));
+        mockMvc.perform(get("/estudiantes/planilla.xlsx").param("idMateria", "1").param("idParalelo", "2")
+                        .with(user("a@umss.edu").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("planilla_estudiantes.xlsx")));
     }
 }

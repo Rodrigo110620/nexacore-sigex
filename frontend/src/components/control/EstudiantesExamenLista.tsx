@@ -83,6 +83,7 @@ function textoTraslado(estudiante: EstudianteAsignado) {
 /** Nombre del aula asignada al estudiante: prefiere trasladoA (traslado de la sesión) o busca en el catálogo. */
 function nombreAulaEstudiante(estudiante: EstudianteAsignado, aulas: AmbienteDto[]): string {
   if (estudiante.trasladadoA) return estudiante.trasladadoA
+  if (estudiante.aulaIngreso) return estudiante.aulaIngreso
   if (estudiante.idAmbienteIngreso != null) {
     const a = aulas.find((amb) => amb.id === estudiante.idAmbienteIngreso)
     if (a) return a.nombre
@@ -157,7 +158,10 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
     setModalReasignarAbierto(true)
   }
 
+  // Las aulas solo hacen falta para trasladar (ADMIN o docente). El CONTROL no puede listarlas (403) y el
+  // nombre del aula de cada estudiante ya llega en aulaIngreso.
   useEffect(() => {
+    if (!puedeReasignar) return
     let vigente = true
     listarAmbientes()
       .then((data) => {
@@ -169,7 +173,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
     return () => {
       vigente = false
     }
-  }, [])
+  }, [puedeReasignar])
 
   return (
     <>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import api from '../../services/api';
-import type { MateriaDto } from '../../services/materiaService';
+import { gruposPorMateria, type MateriaDto } from '../../services/materiaService';
 import {
   INITIAL_FORM_STATE,
   type RegisterUserFormState,
@@ -223,7 +223,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
           activo: cleanForm.activo,
           notificarEmail: true,
           // IMP-12: el docente se registra con sus materias.
-          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id), docente: datosDocente } : {}),
+          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id), grupos: gruposPorMateria(materias), docente: datosDocente } : {}),
         },
         { _skipAutoLogout: true } as object,
       );

@@ -33,6 +33,8 @@ public class Notificacion {
     public static final String TRASLADO_AMBIENTE = "TRASLADO_AMBIENTE";
     /** INCI-01: se anuló una expulsión registrada por error; el estudiante sigue con su examen. */
     public static final String EXPULSION_ANULADA = "EXPULSION_ANULADA";
+    /** DASH-03: un aula del examen llegó a su capacidad. */
+    public static final String AULA_LLENA = "AULA_LLENA";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

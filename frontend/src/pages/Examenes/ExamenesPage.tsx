@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search, Upload } from 'lucide-react'
+import { ArrowRight, BookCheck, CalendarDays, ChevronDown, Clock, Eye, LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
@@ -8,7 +8,7 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import { addMinutes, formatFecha, horaCorta, initialsOfName, materiaYGrupo } from '../../utils/examenFormat'
+import { addMinutes, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 import { ordenarPorFase } from '../../utils/tiempoExamen'
@@ -16,6 +16,7 @@ import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import { contiene } from '../../utils/textoBusqueda'
 
 const PAGE_SIZE = 5
 
@@ -43,6 +44,7 @@ export default function ExamenesPage() {
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
   const [fechaFiltro, setFechaFiltro] = useState('')
+  const [grupoFiltro, setGrupoFiltro] = useState('')
   const [page, setPage] = useState(0)
   // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
   const [isModalOpen, setIsModalOpen] = useState(() => searchParams.get('nuevo') === '1')
@@ -79,6 +81,12 @@ export default function ExamenesPage() {
     () => [...new Set(examenes.map((e) => e.fecha).filter(Boolean))].sort(),
     [examenes],
   )
+  // G1, G2… ordenados por número.
+  const grupos = useMemo(
+    () => [...new Set(examenes.map((e) => e.grupo).filter((g): g is string => Boolean(g)))]
+      .sort((a, b) => a.localeCompare(b, 'es', { numeric: true })),
+    [examenes],
+  )
 
   const ahora = useReloj(30_000)
   const filtrados = useMemo(() => {
@@ -87,17 +95,20 @@ export default function ExamenesPage() {
       if (paraleloSeleccionado && String(e.idParalelo) !== paraleloSeleccionado) return false
       if (ambienteFiltro && e.ambienteNombre !== ambienteFiltro) return false
       if (fechaFiltro && e.fecha !== fechaFiltro) return false
+      if (grupoFiltro && e.grupo !== grupoFiltro) return false
       if (!q) return true
       return (
-        (e.asignatura ?? '').toLowerCase().includes(q) ||
-        (e.sigla ?? '').toLowerCase().includes(q) ||
-        (e.ambienteNombre ?? '').toLowerCase().includes(q) ||
+        // Sin distinguir tildes: «fisica» encuentra «Física».
+        contiene(e.asignatura, q) ||
+        contiene(e.sigla, q) ||
+        contiene(e.ambienteNombre, q) ||
         (e.fecha ?? '').includes(q) ||
         formatFecha(e.fecha).includes(q) ||
-        (e.docente ?? '').toLowerCase().includes(q)
+        contiene(e.docente, q) ||
+        (e.grupo ?? '').toLowerCase() === q
       )
     })
-  }, [examenes, query, ambienteFiltro, fechaFiltro, paraleloSeleccionado])
+  }, [examenes, query, ambienteFiltro, fechaFiltro, grupoFiltro, paraleloSeleccionado])
 
   // Primero lo activo: en curso, próximos (el más cercano primero), finalizados (el más reciente primero)
   // y al final los cancelados. Se reordena solo cuando un examen empieza o termina.
@@ -160,7 +171,7 @@ export default function ExamenesPage() {
                     className="h-11 w-full rounded-full border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                   />
                 </div>
-                <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 min-[960px]:hidden">
+                <div className="grid w-full grid-cols-3 gap-2 min-[960px]:hidden">
                   <div className="relative min-w-0">
                     <select
                       value={ambienteFiltro}
@@ -168,7 +179,7 @@ export default function ExamenesPage() {
                       aria-label="Filtrar por ambiente"
                       className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                     >
-                      <option value="">Todos los ambientes</option>
+                      <option value="">Ambiente</option>
                       {ambientes.map((nombre) => (
                         <option key={nombre} value={nombre}>{nombre}</option>
                       ))}
@@ -182,24 +193,27 @@ export default function ExamenesPage() {
                       aria-label="Filtrar por fecha"
                       className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                     >
-                      <option value="">Todas las fechas</option>
+                      <option value="">Fecha</option>
                       {fechas.map((fecha) => (
                         <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>
                       ))}
                     </select>
                     <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
                   </div>
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="Exportar exámenes, no disponible"
-                    className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#D8E3F5] bg-white px-3 text-xs font-semibold text-[#627A9B] disabled:cursor-not-allowed disabled:opacity-80"
-                  >
-                    <Upload size={14} aria-hidden="true" />
-                    <span className="truncate">Exportar</span>
-                  </button>
+                  <div className="relative min-w-0">
+                    <select
+                      value={grupoFiltro}
+                      onChange={(e) => { setGrupoFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por grupo"
+                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Grupo</option>
+                      {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
                 </div>
-                <div className="hidden min-w-0 flex-1 grid-cols-[minmax(0,1fr)_12rem_12rem] gap-2 min-[960px]:grid">
+                <div className="hidden min-w-0 flex-1 grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem] gap-2 min-[960px]:grid">
                   <div className="relative">
                     <Search
                       size={17}
@@ -243,17 +257,20 @@ export default function ExamenesPage() {
                     </select>
                     <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
                   </div>
+                  <div className="relative">
+                    <select
+                      value={grupoFiltro}
+                      onChange={(e) => { setGrupoFiltro(e.target.value); setPage(0) }}
+                      aria-label="Filtrar por grupo"
+                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    >
+                      <option value="">Todos los grupos</option>
+                      {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  </div>
                 </div>
                 <div className="hidden min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0 min-[960px]:gap-2">
-                  <button
-                    type="button"
-                    disabled
-                    aria-label="Exportar exámenes, no disponible"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#D8E3F5] bg-white px-4 text-sm font-semibold text-[#627A9B] disabled:cursor-not-allowed disabled:opacity-80"
-                  >
-                    <Upload size={16} aria-hidden="true" />
-                    <span className="truncate">Exportar</span>
-                  </button>
                   {canRegister && (
                     <button
                       type="button"
@@ -283,7 +300,7 @@ export default function ExamenesPage() {
                 <BookCheck size={36} className="mb-3 text-[#0439D9]/70" aria-hidden="true" />
                 <p className="text-sm font-semibold text-[#011140]">Aún no hay exámenes para mostrar</p>
                 <p className="mt-1 max-w-sm text-xs text-gray-500">
-                  {query.trim() || ambienteFiltro || fechaFiltro
+                  {query.trim() || ambienteFiltro || fechaFiltro || grupoFiltro
                     ? 'Sin resultados para los filtros aplicados.'
                     : isControlView ? 'No hay exámenes disponibles para realizar control.' : 'Usa “Registrar Examen” para planificar una evaluación.'}
                 </p>
@@ -301,8 +318,10 @@ export default function ExamenesPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-[#011140]">{materiaYGrupo(e)}</p>
-                              <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.sigla || '—'}</p>
+                              <p className="truncate text-sm font-bold text-[#011140]">{e.asignatura}</p>
+                              <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-[#627A9B]">
+                                <GrupoBadge grupo={e.grupo} /> Cód: {e.sigla || '—'}
+                              </p>
                             </div>
                             <EstadoExamenBadge examen={e} />
                           </div>
@@ -351,6 +370,7 @@ export default function ExamenesPage() {
                     <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
                       <tr>
                         <th scope="col" className="px-5 py-3 font-bold">Asignatura</th>
+                        <th scope="col" className="px-3 py-3 font-bold">Grupo</th>
                         <th scope="col" className="px-5 py-3 font-bold">Fecha</th>
                         <th scope="col" className="px-5 py-3 font-bold">Hora</th>
                         <th scope="col" className="px-5 py-3 font-bold">Ambiente</th>
@@ -365,11 +385,12 @@ export default function ExamenesPage() {
                             <div className="flex items-center gap-3">
                               <ExamAvatar examen={e} size="compact" />
                               <span>
-                                <span className="block font-semibold">{materiaYGrupo(e)}</span>
+                                <span className="block font-semibold">{e.asignatura}</span>
                                 <span className="mt-0.5 block text-xs text-gray-500">Cód: {e.sigla || '—'}</span>
                               </span>
                             </div>
                           </th>
+                          <td className="px-3 py-3"><GrupoBadge grupo={e.grupo} /></td>
                           <td className="whitespace-nowrap px-5 py-3 text-gray-600">{formatFecha(e.fecha)}</td>
                           <td className="whitespace-nowrap px-5 py-3 text-gray-600">
                             {horaCorta(e.horaInicio)} - {addMinutes(e.horaInicio, e.duracionMinutos)}
@@ -426,3 +447,11 @@ export default function ExamenesPage() {
     </PanelLayout>
   )
 }
+
+/** El grupo del examen (G1, G2…) como etiqueta corta; «—» si no tiene. */
+function GrupoBadge({ grupo }: { grupo?: string | null }) {
+  return grupo
+    ? <span className="inline-flex shrink-0 items-center rounded-md bg-[#EDF2FE] px-2 py-0.5 text-xs font-bold text-[#0439D9]">{grupo}</span>
+    : <span className="text-xs text-gray-400">—</span>
+}
+

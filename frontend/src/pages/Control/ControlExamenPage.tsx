@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock, LoaderCircle } from 'lucide-react'
+import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ResumenExamenCards from '../../components/control/ResumenExamenCards'
@@ -11,7 +11,8 @@ import CronometroExamen from '../../components/examenes/CronometroExamen'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
-import { descargarActaPDF, descargarAsistencia, mensajeDescarga } from '../../services/asistenciaService'
+import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import type { OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
 export default function ControlExamenPage() {
@@ -32,20 +33,13 @@ export default function ControlExamenPage() {
   const examenIniciado = estadoExamen === 'EN_CURSO' || estadoExamen === 'FINALIZADO'
 
   // DASH-05: el Excel se descarga con el nombre del servidor; si falla (por ejemplo, 409), aviso del sistema.
-  const [descargando, setDescargando] = useState<'pdf' | 'excel' | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
   // DASH-04 (acta en PDF) y DASH-05 (asistencia en Excel), como en la sección 12 del diseño.
-  const descargar = async (formato: 'pdf' | 'excel') => {
+  // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
+  const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
+  const descargar = (formato: 'pdf' | 'excel') => {
     if (!examenIniciado || !idValido) return
-    setDescargando(formato)
-    try {
-      if (formato === 'pdf') await descargarActaPDF(Number(idExamen))
-      else await descargarAsistencia(Number(idExamen))
-    } catch (err) {
-      setResultado({ tipo: 'error', mensaje: await mensajeDescarga(err) })
-    } finally {
-      setDescargando(null)
-    }
+    setPrevia(formato === 'pdf' ? 'pdf' : 'xlsx')
   }
 
   if (datos.accesoDenegado) {
@@ -116,19 +110,19 @@ export default function ControlExamenPage() {
                 <button
                   type="button"
                   onClick={() => void descargar('pdf')}
-                  disabled={!examenIniciado || descargando !== null}
+                  disabled={!examenIniciado}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#032db0] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                 >
-                  {descargando === 'pdf' ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                  <Download size={16} aria-hidden="true" />
                   Descargar PDF
                 </button>
                 <button
                   type="button"
                   onClick={() => void descargar('excel')}
-                  disabled={!examenIniciado || descargando !== null}
+                  disabled={!examenIniciado}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-4 py-2.5 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                 >
-                  {descargando === 'excel' ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+                  <Download size={16} aria-hidden="true" />
                   Descargar Excel
                 </button>
               </div>
@@ -178,6 +172,7 @@ export default function ControlExamenPage() {
               </div>
             </section>
             <div className="mt-4">
+              <AvisoAforo aulas={datos.resumen?.aulas} />
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
             <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
@@ -187,7 +182,34 @@ export default function ControlExamenPage() {
         )}
       </div>
       <ResultadoModal resultado={resultado} onClose={() => setResultado(null)} />
+      <VistaPreviaExamen idExamen={idValido ? Number(idExamen) : null} formato={previa} onClose={() => setPrevia(null)} />
       <MobileBottomNav variant="controlDetail" />
     </PanelLayout>
   )
 }
+
+/**
+ * DASH-03 (alerta de aforo): avisa si un aula del examen está llena o casi llena (90 % o más), con su ocupación.
+ * Se actualiza con el resumen del examen, que llega en vivo.
+ */
+function AvisoAforo({ aulas }: { aulas?: OcupacionAula[] }) {
+  const alertas = (aulas ?? []).filter((a) => a.estado === 'LLENA' || a.estado === 'CASI_LLENA')
+  if (!alertas.length) return null
+  return (
+    <div role="alert" className="flex flex-col gap-2">
+      {alertas.map((a) => {
+        const llena = a.estado === 'LLENA'
+        return (
+          <p key={a.idAmbiente} className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${llena ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <TriangleAlert size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>
+              <b>Aula {a.nombre} {llena ? 'llena' : 'casi llena'}</b> · {a.ocupados}/{a.capacidad} estudiantes dentro.
+              {llena ? ' Envía a los siguientes estudiantes a otra aula del examen o trasládalos.' : ' Prepara otra aula por si llegan más estudiantes.'}
+            </span>
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+

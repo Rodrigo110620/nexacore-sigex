@@ -72,6 +72,19 @@ describe('ControlExamenPage', () => {
     expect(screen.getByRole('link', { name: 'Volver a Control' })).toHaveAttribute('href', '/dashboard/control')
   })
 
+  it('DASH-03: avisa cuando un aula está llena o casi llena, con su ocupación', async () => {
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 40, incidencias: 0, aulas: [
+      { idAmbiente: 4, nombre: '608', capacidad: 40, ocupados: 40, estado: 'LLENA' },
+      { idAmbiente: 59, nombre: '690A', capacidad: 20, ocupados: 18, estado: 'CASI_LLENA' },
+      { idAmbiente: 60, nombre: '690B', capacidad: 20, ocupados: 2, estado: 'LIBRE' },
+    ] })
+    renderPage()
+    expect(await screen.findByText('Aula 608 llena')).toBeInTheDocument()
+    expect(screen.getByText(/40\/40 estudiantes dentro/)).toBeInTheDocument()
+    expect(screen.getByText('Aula 690A casi llena')).toBeInTheDocument()
+    expect(screen.queryByText(/Aula 690B/)).not.toBeInTheDocument()
+  })
+
   it('muestra las estadísticas del resumen y las filas con su estado', async () => {
     renderPage()
     const filas = within(await screen.findByRole('table')).getAllByRole('row')

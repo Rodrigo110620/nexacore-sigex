@@ -22,6 +22,8 @@ export interface EstudianteAsignado {
   trasladadoDesde?: string | null
   /** Aula actual tras el traslado. */
   trasladadoA?: string | null
+  /** Nombre del aula donde ingresó («608»); null si aún no ingresó. */
+  aulaIngreso?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse
@@ -38,6 +40,17 @@ export interface ResumenEstudiantes {
   expulsados?: number
   /** DASH-01: trasladados de aula en la sesión; cuentan una sola vez, en su aula nueva. */
   trasladados?: number
+  /** DASH-03 (alerta de aforo): ocupación de cada aula del examen. */
+  aulas?: OcupacionAula[]
+}
+
+/** Estudiantes dentro de un aula frente a su capacidad; el expulsado ya salió y no cuenta. */
+export interface OcupacionAula {
+  idAmbiente: number
+  nombre: string
+  capacidad: number | null
+  ocupados: number
+  estado: 'LIBRE' | 'CASI_LLENA' | 'LLENA' | 'SIN_AFORO'
 }
 
 /** Estudiantes asignados al examen, ordenados por apellidos y nombre. */

@@ -94,7 +94,7 @@ export function ResumenRegistro({ form, materias, datosDocente, onActivo, onEdit
   if (form.rol === 'DOCENTE' && datosDocente) {
     filas.push(['Docente', [datosDocente.titulo.trim(), datosDocente.especialidad.trim(), textoCategoria(datosDocente.categoria)].filter(Boolean).join(' · '), 3])
   }
-  if (form.rol === 'DOCENTE') filas.push(['Materias', materias.map((m) => `${m.nombre} (${m.sigla})`).join(', '), 3])
+  if (form.rol === 'DOCENTE') filas.push(['Materias', materias.map((m) => `${m.nombre} (${m.sigla})${m.grupos?.length ? ` · ${m.grupos.join(', ')}` : ''}`).join('; '), 3])
   if (form.rol === 'ADMIN') filas.push(['Acceso', 'Total, confirmado', 3])
   return (
     <div className="flex flex-col gap-4">

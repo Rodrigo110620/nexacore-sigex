@@ -16,7 +16,7 @@ public interface DocenteMateriaRepository extends JpaRepository<DocenteMateria, 
     @Query("SELECT dm.id.idMateria FROM DocenteMateria dm WHERE dm.id.idDocente = :idDocente")
     List<Integer> idsDeMaterias(@Param("idDocente") Integer idDocente);
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM DocenteMateria dm WHERE dm.id.idDocente = :idDocente")
     void borrarDelDocente(@Param("idDocente") Integer idDocente);
 }

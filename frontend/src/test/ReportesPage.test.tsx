@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportesPage from '../pages/panel_admin/ReportesPage'
+import { guardarArchivo, obtenerArchivo } from '../services/descargas'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../services/examenService'
 import { reporteIntentos, type IntentoReporte } from '../services/intentoIngresoService'
 import { descargarActaPDF } from '../services/asistenciaService'
@@ -20,6 +21,11 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ roles: sesion.roles, isAuthenticated: true, isAdmin: sesion.roles.includes('ADMIN') }),
 }))
 vi.mock('../services/intentoIngresoService', () => ({ reporteIntentos: vi.fn() }))
+vi.mock('../services/descargas', async (original) => ({
+  ...(await original<typeof import('../services/descargas')>()),
+  obtenerArchivo: vi.fn(),
+  guardarArchivo: vi.fn(),
+}))
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn().mockResolvedValue([]) }))
 vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Expulsiones del examen {idExamen}</p> }))
 vi.mock('../components/control/ExcepcionesNoHabilitadoReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Excepciones del examen {idExamen}</p> }))
@@ -148,11 +154,19 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
       { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
     ] as ExamenDto[])
     vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
-    vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
+    vi.mocked(obtenerArchivo).mockResolvedValue({ blob: new Blob(['%PDF-1.5']), nombre: 'acta_Fisica-I_G1_2026-10-01.pdf' })
+    URL.createObjectURL = vi.fn(() => 'blob:acta')
+    URL.revokeObjectURL = vi.fn()
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
     fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }))
-    expect(descargarActaPDF).toHaveBeenCalledWith(20)
+    // Antes de descargar se ve la vista previa del acta; «Descargar PDF» en ella guarda el archivo.
+    const previa = await screen.findByRole('dialog', { name: /Vista previa · Acta y asistencia del examen/ })
+    expect(obtenerArchivo).toHaveBeenCalledWith('/reportes/examenes/20/acta.pdf', undefined, 'acta_examen_20.pdf')
+    // El PDF se dibuja con pdf.js (se ve también en navegadores sin visor de PDF propio).
+    expect(await within(previa).findByTestId('visor-pdf')).toBeInTheDocument()
+    fireEvent.click(within(previa).getByRole('button', { name: 'Descargar PDF' }))
+    expect(guardarArchivo).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'acta_Fisica-I_G1_2026-10-01.pdf' }))
   })
 })

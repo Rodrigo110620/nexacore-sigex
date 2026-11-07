@@ -78,6 +78,10 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.ExpulsionConsultaService expulsionConsultaService;
     @Autowired com.nexacore.examenes.services.InicioAdminService inicioAdminService;
     @Autowired com.nexacore.examenes.services.DocenteMateriaService docenteMateriaService;
+    @Autowired com.nexacore.examenes.services.ImportacionEstudiantesService importacionEstudiantesService;
+    @Autowired com.nexacore.examenes.services.PlanillaEstudiantesService planillaEstudiantesService;
+    @Autowired com.nexacore.examenes.services.ExpulsionEvidenciaService expulsionEvidenciaService;
+    @Autowired com.nexacore.examenes.services.AforoService aforoService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -372,6 +376,8 @@ class PostgresIntegracionTests {
                 .satisfies(e -> {
                     assertThat(e.trasladadoDesde()).isEqualTo(aulaOriginal);
                     assertThat(e.trasladadoA()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
+                    // El nombre del aula de ingreso llega con la fila: el CONTROL no puede listar las aulas.
+                    assertThat(e.aulaIngreso()).isEqualTo(jdbc.queryForObject("SELECT nombre FROM ambiente WHERE id_ambiente = ?", String.class, aulaNueva));
                 });
 
         // Motivo obligatorio, aulas distintas y solo estudiantes asociados al examen.
@@ -777,6 +783,20 @@ class PostgresIntegracionTests {
         assertThat(intentoIngresoService.reporte(examen1, 0, 1).totalPaginas()).isEqualTo(2);
         assertThatThrownBy(() -> intentoIngresoService.reporte(999999, 0, 20)).hasMessageContaining("No se encontró el examen");
         assertThatThrownBy(() -> intentoIngresoService.reporte(null, 0, 500)).hasMessageContaining("tamaño de página");
+
+        // DASH-06: el filtro por examen deja solo los intentos de su horario vigente. Si el examen se reprogramó,
+        // los intentos de la sesión anterior (antes de su cierre) quedan fuera; sin filtro, el listado los conserva.
+        jdbc.update("""
+                INSERT INTO examen_sesion (id_examen, numero, fecha, hora_inicio, duracion_minutos, asociados, ingresaron,
+                                           motivo_reprogramacion, cerrada_en)
+                VALUES (?, 1, DATE '2026-10-28', TIME '08:00', 90, 0, 0, 'Corte de luz en el bloque', TIMESTAMP '2026-10-28 08:07:00')
+                """, examen1);
+        sincronizar();
+        var vigente = intentoIngresoService.reporte(examen1, 0, 20);
+        assertThat(vigente.contenido()).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
+        assertThat(vigente.totalRegistros()).isEqualTo(1);
+        assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
     }
 
     @Test
@@ -963,6 +983,213 @@ class PostgresIntegracionTests {
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya
+    // salió y no cuenta; el trasladado cuenta en su aula nueva.
+    @Test
+    void laOcupacionDeLasAulasAvisaCuandoUnaSeLlena() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-AFO");
+        int examen = examen(g1, "10:00", 90);
+        jdbc.update("UPDATE ambiente SET capacidad = 3 WHERE id_ambiente = ?", idAmbiente);
+        Integer otraAula = jdbc.queryForObject("SELECT MIN(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        String ingresar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) VALUES (?, ?, ?, TRUE, NOW(), ?)";
+        int a1 = estudiante("202499401", "Ana"), a2 = estudiante("202499402", "Beto"), a3 = estudiante("202499403", "Ciro"), a4 = estudiante("202499404", "Dora");
+        jdbc.update(ingresar, a1, examen, g1, idAmbiente);
+        jdbc.update(ingresar, a2, examen, g1, idAmbiente);
+        sincronizar();
+        assertThat(aforoService.delAula(examen, idAmbiente)).hasValueSatisfying(o -> {
+            assertThat(o.ocupados()).isEqualTo(2);
+            assertThat(o.estado()).isEqualTo("LIBRE");
+        });
+
+        jdbc.update(ingresar, a3, examen, g1, idAmbiente);
+        jdbc.update(ingresar, a4, examen, g1, otraAula); // trasladada: cuenta en su aula nueva
+        sincronizar();
+        var aulas = aforoService.delExamen(examen);
+        assertThat(aulas).extracting(o -> o.idAmbiente()).contains(idAmbiente, otraAula);
+        assertThat(aulas.get(0)).satisfies(o -> {
+            assertThat(o.idAmbiente()).isEqualTo(idAmbiente);
+            assertThat(o.ocupados()).isEqualTo(3);
+            assertThat(o.estado()).isEqualTo("LLENA");
+        });
+
+        // El expulsado sale del aula: vuelve a haber lugar.
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular')", a3, examen, idDocente);
+        sincronizar();
+        assertThat(aforoService.delAula(examen, idAmbiente)).hasValueSatisfying(o -> {
+            assertThat(o.ocupados()).isEqualTo(2);
+            assertThat(o.estado()).isEqualTo("LIBRE");
+        });
+    }
+
+    // Los buscadores no distinguen tildes ni mayúsculas: «perez quinones» encuentra a «Pérez Quiñones».
+    @Test
+    void losBuscadoresNoDistinguenTildes() {
+        prepararCatalogo();
+        int ana = estudiante("202499301", "Ana");
+        jdbc.update("UPDATE estudiante SET apellidos = 'Pérez Quiñones', nombre = 'Ána' WHERE id_estudiante = ?", ana);
+        jdbc.update("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES ('Ñusta', 'Ríos Álvarez', '88887771', 'nusta.rios@umss.edu', 'x', 'activo')");
+        sincronizar();
+        for (String busqueda : new String[] {"perez quinones", "PÉREZ", "ana perez", "Quiñones"}) {
+            assertThat(estudianteService.listar(0, 10, busqueda, null, null).contenido())
+                    .as(busqueda).extracting(e -> e.id()).contains(ana);
+        }
+        for (String busqueda : new String[] {"nusta", "rios alvarez", "RÍOS"}) {
+            assertThat(usuarioService.listar(0, 10, busqueda, null, null).contenido())
+                    .as(busqueda).extracting(u -> u.email()).contains("nusta.rios@umss.edu");
+        }
+    }
+
+    // Evidencia de una expulsión (V55): hasta 3 imágenes reales, solo de una expulsión de ese examen.
+    @Test
+    void laExpulsionGuardaHastaTresFotosDeEvidencia() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-EVI");
+        int ana = estudiante("202499201", "Ana");
+        int examen = examen(g1, "10:00", 90);
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, NOW())", ana, examen, g1);
+        Integer idExpulsion = jdbc.queryForObject("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular') RETURNING id_expulsion",
+                Integer.class, ana, examen, idDocente);
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D, 'I', 'H', 'D', 'R'};
+        java.util.function.Function<String, org.springframework.mock.web.MockMultipartFile> foto = nombre ->
+                new org.springframework.mock.web.MockMultipartFile("files", nombre, "image/png", png);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null, List.of()));
+        try {
+            var lista = expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("a.png"), foto.apply("b.png")));
+            assertThat(lista).hasSize(2).allSatisfy(e -> {
+                assertThat(e.tipo()).isEqualTo("image/png");
+                assertThat(e.tamano()).isEqualTo(png.length);
+            });
+            assertThat(expulsionEvidenciaService.imagen(examen, idExpulsion, lista.get(0).idEvidencia()).getContenido()).isEqualTo(png);
+            assertThat(jdbc.queryForObject("SELECT id_usuario FROM expulsion_evidencia WHERE id_evidencia = ?", Integer.class, lista.get(0).idEvidencia()))
+                    .isEqualTo(idDocente);
+            // Hasta 3 fotos: la tercera entra, la cuarta no.
+            expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("c.png")));
+            assertThatThrownBy(() -> expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(foto.apply("d.png"))))
+                    .hasMessageContaining("hasta 3");
+            // Solo imágenes, y solo de una expulsión de ese examen.
+            var texto = new org.springframework.mock.web.MockMultipartFile("files", "x.png", "image/png", "no soy imagen".getBytes());
+            jdbc.update("DELETE FROM expulsion_evidencia WHERE id_expulsion = ?", idExpulsion);
+            assertThatThrownBy(() -> expulsionEvidenciaService.agregar(examen, idExpulsion, List.of(texto))).hasMessageContaining("JPG, PNG o WEBP");
+            assertThatThrownBy(() -> expulsionEvidenciaService.listar(examen + 999, idExpulsion)).hasMessageContaining("No se encontró la expulsión");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    // La planilla de estudiantes se descarga con los filtros de la pantalla (materia y grupo) y la del docente
+    // solo trae a sus estudiantes; la plantilla para importar trae solo encabezados y un ejemplo.
+    @Test
+    void laPlanillaSeFiltraPorMateriaYGrupoYLaPlantillaEsSoloUnEjemplo() throws Exception {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-PLA");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        int ana = estudiante("202499101", "Ana");
+        estudiante("202499102", "Beto");
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente, estado) VALUES (?, ?, ?, ?, 'inscrito')",
+                ana, g1, idMateria, idDocente);
+        sincronizar();
+
+        var deLaMateria = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                null, null, null, null, idMateria, g1));
+        assertThat(deLaMateria).extracting(f -> f.codigoSis()).containsExactly("202499101");
+        // Con filtro de materia la lista dice en qué materia y grupo está cada estudiante.
+        assertThat(deLaMateria.get(0).materias()).isEqualTo("Materia TST-PLA · 1");
+        String reporte = new String(planillaEstudiantesService.csv(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                null, null, null, null, idMateria, g1)), java.nio.charset.StandardCharsets.UTF_8);
+        String encabezado = reporte.replace("\uFEFF", "").split("\n")[0];
+        assertThat(encabezado).isEqualTo("Código SIS;Nombres;Apellidos;CI;Correo;Teléfono;Facultad;Carrera;Materia · Grupo;Matrícula");
+        assertThat(reporte).contains("Materia TST-PLA · 1").contains("Matriculado").doesNotContain("idFacultad");
+        var delDocente = planillaEstudiantesService.filas(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                "2024991", null, null, idDocente, null, null));
+        assertThat(delDocente).extracting(f -> f.codigoSis()).containsExactly("202499101");
+        String pdf = new com.lowagie.text.pdf.parser.PdfTextExtractor(new com.lowagie.text.pdf.PdfReader(
+                planillaEstudiantesService.pdf(new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(
+                        null, null, null, null, idMateria, g1)))).getTextFromPage(1);
+        assertThat(pdf).contains("Materia TST-PLA").contains("Grupo 1");
+
+        try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(planillaEstudiantesService.plantillaXlsx()))) {
+            var hoja = libro.getSheetAt(0);
+            assertThat(hoja.getLastRowNum()).isEqualTo(1);
+            assertThat(hoja.getRow(0).getCell(0).getStringCellValue()).isEqualTo("codigoSis");
+            assertThat(hoja.getRow(1).getCell(0).getStringCellValue()).isEqualTo("202100101");
+        }
+        String csv = new String(planillaEstudiantesService.plantillaCsv(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv.strip().split("\n")).hasSize(2);
+    }
+
+    // Sección 22, paso «Revisar»: separa los estudiantes ya registrados y las carreras que no existen, sin guardar.
+    @Test
+    void laRevisionDeLaImportacionSeparaLosYaRegistradosYLasCarrerasInexistentes() {
+        prepararCatalogo();
+        int ana = estudiante("202499001", "Ana");
+        String ciAna = jdbc.queryForObject("SELECT ci FROM estudiante WHERE id_estudiante = ?", String.class, ana);
+        Integer facultad = jdbc.queryForObject("SELECT MIN(id_facultad) FROM facultad", Integer.class);
+        Integer carrera = jdbc.queryForObject("SELECT MIN(id_carrera) FROM carrera", Integer.class);
+        String csv = "codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera\n"
+                + "202499002,Beto,Rojas Paz," + ciAna + ",202499002@est.umss.edu," + facultad + "," + carrera + "\n"
+                + "202499003,Carla,Luna Vera,7712345,202499003@est.umss.edu," + facultad + ",99999\n"
+                + "202499004,Dario,Soto Rios,7712346,202499004@est.umss.edu," + facultad + "," + carrera + "\n";
+        var archivo = new org.springframework.mock.web.MockMultipartFile("file", "estudiantes.csv", "text/csv",
+                csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        Integer antes = jdbc.queryForObject("SELECT COUNT(*) FROM estudiante", Integer.class);
+
+        var revision = importacionEstudiantesService.revisar(archivo);
+
+        assertThat(revision.filas()).isEqualTo(3);
+        assertThat(revision.yaRegistradas()).isEqualTo(1);
+        assertThat(revision.listas()).isEqualTo(1);
+        assertThat(revision.errores()).singleElement().satisfies(e -> {
+            assertThat(e.fila()).isEqualTo(3);
+            assertThat(e.columna()).isEqualTo("Carrera");
+            assertThat(e.mensaje()).contains("99999");
+        });
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM estudiante", Integer.class)).isEqualTo(antes);
+    }
+
+    // Grupos del docente: el ADMIN elige G1, G2… de cada materia; no se repite el grupo de otro docente ni se
+    // quita uno con exámenes o estudiantes; sin grupos en la petición no se tocan los que ya tiene.
+    @Test
+    void elAdminAsignaLosGruposDeCadaMateriaDelDocente() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-GRP");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+
+        // El grupo antiguo «1» pasa a «G1» y se crea el G2.
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("g1", "2")));
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente)).singleElement()
+                .satisfies(m -> assertThat(m.grupos()).containsExactly("G1", "G2"));
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.nombreGrupo()).containsExactly("G1", "G2");
+
+        // Sin grupos en la petición no se tocan.
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), null);
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente).get(0).grupos()).containsExactly("G1", "G2");
+
+        // Otro docente no puede tener el G2 de la misma materia, pero sí el G3.
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) VALUES ('Eva','Rios','88888991','eva.grupos@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario,categoria) VALUES (?,'INTERINO')", otro);
+        assertThatThrownBy(() -> docenteMateriaService.asignar(otro, List.of(idMateria), java.util.Map.of(idMateria, List.of("G2"))))
+                .hasMessageContaining("El grupo G2 de Materia TST-GRP ya es de");
+        docenteMateriaService.asignar(otro, List.of(idMateria), java.util.Map.of(idMateria, List.of("G3")));
+        assertThat(docenteMateriaService.materiasConGrupos(otro).get(0).grupos()).containsExactly("G3");
+
+        // No se quita un grupo con exámenes; uno sin uso, sí.
+        examen(g1, "09:00", 60);
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("G2"))))
+                .hasMessageContaining("No se puede quitar el grupo G1");
+        docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("G1")));
+        assertThat(docenteMateriaService.materiasConGrupos(idDocente).get(0).grupos()).containsExactly("G1");
+
+        // Formato y materias: G1… G20, al menos uno, y solo de las materias elegidas.
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of("A"))))
+                .hasMessageContaining("no es válido");
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria, List.of())))
+                .hasMessageContaining("al menos un grupo");
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(idMateria), java.util.Map.of(idMateria + 999, List.of("G1"))))
+                .hasMessageContaining("de las materias elegidas");
     }
 
     // Panel del docente (secciones 15 y 18): sus materias con grupos y estudiantes, próximo examen, asistencia, totales,

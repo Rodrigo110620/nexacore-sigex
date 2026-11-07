@@ -43,7 +43,10 @@ describe('acciones de la página Estudiantes según el rol', () => {
   it('el ADMIN ve Registrar e Importar', () => {
     pagina(['ADMIN'])
     expect(screen.getByRole('button', { name: /Registrar Estudiante/ })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Importar estudiantes' })).toBeEnabled()
+    // Importar y descargar la lista están en un solo menú «Importar / Exportar».
+    fireEvent.click(screen.getByRole('button', { name: /Importar \/ Exportar/ }))
+    expect(screen.getByRole('menuitem', { name: /Importar estudiantes/ })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: /Descargar lista/ })).toBeEnabled()
   })
 
   it.each([['DOCENTE'], ['CONTROL']])('al %s no se le muestran Registrar ni Importar', (rol) => {

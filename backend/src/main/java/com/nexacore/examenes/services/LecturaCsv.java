@@ -20,14 +20,24 @@ final class LecturaCsv {
 
     private LecturaCsv() {}
 
-    /** Valida que el archivo exista, no esté vacío y termine en .csv; devuelve su texto sin BOM. */
+    /**
+     * Valida que el archivo exista, no esté vacío y sea .csv o .xlsx (IMP-13); devuelve su texto CSV sin BOM.
+     * Del Excel se toma la primera hoja.
+     */
     static String leerArchivo(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("El archivo está vacío.");
         }
         String nombreArchivo = file.getOriginalFilename();
+        if (ExcelACsv.esExcel(nombreArchivo)) {
+            try {
+                return ExcelACsv.convertir(file.getBytes());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("No se pudo leer el archivo Excel (.xlsx).");
+            }
+        }
         if (nombreArchivo != null && !nombreArchivo.toLowerCase(Locale.ROOT).endsWith(".csv")) {
-            throw new IllegalArgumentException("El archivo debe tener formato CSV (.csv).");
+            throw new IllegalArgumentException("El archivo debe ser CSV (.csv) o Excel (.xlsx).");
         }
         try {
             String contenido = decodificar(file.getBytes());

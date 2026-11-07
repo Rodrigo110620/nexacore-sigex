@@ -1,5 +1,6 @@
 import type { RegisterExamenFormErrors, RegisterExamenFormState } from '../types/examen.types'
 import { pareceUnaPalabra, primerGarabato } from './palabras'
+import { contiene } from './textoBusqueda'
 
 export function parseHora24(value: string): { h: number; m: number } | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim())
@@ -29,7 +30,7 @@ export function filtrarAmbientes<T extends { nombre: string; ubicacion?: string 
   const q = filtro.trim().toLowerCase()
   if (!q) return ambientes
   return ambientes.filter(
-    (a) => a.nombre.toLowerCase().includes(q) || (a.ubicacion ?? '').toLowerCase().includes(q),
+    (a) => contiene(a.nombre, q) || contiene(a.ubicacion, q),
   )
 }
 

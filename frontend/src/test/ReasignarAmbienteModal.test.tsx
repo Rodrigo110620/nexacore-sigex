@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import ReasignarAmbienteModal from '../components/control/ReasignarAmbienteModal'
 import { reasignarAmbiente } from '../services/controlExamenService'
@@ -41,12 +41,31 @@ it('INCI-03: el motivo de menos de 10 caracteres no se envía', () => {
   fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'Red caída' } })
   fireEvent.click(screen.getByRole('button', { name: /reasignar/i }))
 
-  expect(screen.getByText('El motivo debe contener al menos 10 caracteres')).toBeInTheDocument()
+  expect(screen.getByText(/al menos 10 caracteres/)).toBeInTheDocument()
   expect(reasignarAmbiente).not.toHaveBeenCalled()
 })
 
-it('INCI-03: la observación tiene el mismo límite de 65 caracteres que el servidor', () => {
+it('INCI-03: la observación tiene el mismo límite de 65 caracteres que el servidor; el motivo, 200 (IMP-14)', () => {
   abrir()
+  expect(screen.getAllByRole('textbox')[0]).toHaveAttribute('maxLength', '200')
   expect(screen.getAllByRole('textbox')[1]).toHaveAttribute('maxLength', '65')
-  expect(screen.getAllByText('0/65')).toHaveLength(2)
+  expect(screen.getByText('0/200')).toBeInTheDocument()
+  expect(screen.getByText('0/65')).toBeInTheDocument()
+})
+
+it('IMP-14 y sección 24: el motivo del traslado sigue la regla de la expulsión y ofrece motivos frecuentes', () => {
+  abrir()
+  const motivo = screen.getAllByRole('textbox')[0]
+  // Misma normalización que la expulsión: espacios simples, formato oración, siglas y aula con cifras.
+  fireEvent.change(motivo, { target: { value: '  AULA   690A LLENA, PASA CON SU CI  ' } })
+  fireEvent.blur(motivo)
+  expect(motivo).toHaveValue('Aula 690A llena, pasa con su CI')
+  // La ü se acepta.
+  fireEvent.change(motivo, { target: { value: 'Necesidad lingüística del estudiante' } })
+  fireEvent.blur(motivo)
+  expect(screen.queryByText(/contenido no válido|al menos 10/)).not.toBeInTheDocument()
+  const frecuentes = screen.getByRole('group', { name: 'Motivos frecuentes' })
+  expect(within(frecuentes).getAllByRole('button').map((b) => b.textContent)).toEqual(['Aula llena', 'Aula incorrecta', 'Problema en el aula', 'Necesidad especial'])
+  fireEvent.click(within(frecuentes).getByRole('button', { name: 'Aula llena' }))
+  expect(motivo).toHaveValue('Aula llena')
 })

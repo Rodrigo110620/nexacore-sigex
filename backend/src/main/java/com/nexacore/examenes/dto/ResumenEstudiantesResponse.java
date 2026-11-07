@@ -10,13 +10,20 @@ public record ResumenEstudiantesResponse(long total, long habilitados, long noHa
                                          long expulsados,
                                          /** DASH-01: trasladados de aula en la sesión actual. Cuentan una sola vez en el
                                           *  examen, en su aula nueva. */
-                                         long trasladados) {
+                                         long trasladados,
+                                         /** DASH-03 (alerta de aforo): ocupación de cada aula del examen. */
+                                         java.util.List<OcupacionAulaResponse> aulas) {
     public ResumenEstudiantesResponse(long total, long habilitados, long noHabilitados, long ingresados) {
-        this(total, habilitados, noHabilitados, ingresados, 0, 0, 0);
+        this(total, habilitados, noHabilitados, ingresados, 0, 0, 0, java.util.List.of());
     }
 
     public ResumenEstudiantesResponse(long total, long habilitados, long noHabilitados, long ingresados, long incidencias) {
-        this(total, habilitados, noHabilitados, ingresados, incidencias, 0, 0);
+        this(total, habilitados, noHabilitados, ingresados, incidencias, 0, 0, java.util.List.of());
+    }
+
+    public ResumenEstudiantesResponse(long total, long habilitados, long noHabilitados, long ingresados, long incidencias,
+                                      long expulsados, long trasladados) {
+        this(total, habilitados, noHabilitados, ingresados, incidencias, expulsados, trasladados, java.util.List.of());
     }
 
     /** Habilitados que aún no ingresaron. */

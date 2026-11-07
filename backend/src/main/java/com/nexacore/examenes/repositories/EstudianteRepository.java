@@ -136,12 +136,12 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
         SELECT DISTINCT e FROM Estudiante e
         LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
         WHERE (:search IS NULL OR :search = '' OR
-               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+               CAST(FUNCTION('translate', LOWER(e.nombre), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.apellidos), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.nombre, ' ', e.apellidos)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.apellidos, ' ', e.nombre)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.codigoSis), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.ci), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%'))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
           AND (:idDocente IS NULL OR (e.estadoMatricula = 'MATRICULADO' AND EXISTS (
@@ -150,18 +150,23 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                  AND LOWER(ip.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         ORDER BY e.apellidos, e.nombre
         """,
         countQuery = """
         SELECT COUNT(DISTINCT e) FROM Estudiante e
         LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
         WHERE (:search IS NULL OR :search = '' OR
-               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+               CAST(FUNCTION('translate', LOWER(e.nombre), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.apellidos), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.nombre, ' ', e.apellidos)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.apellidos, ' ', e.nombre)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.codigoSis), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.ci), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%'))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
           AND (:idDocente IS NULL OR (e.estadoMatricula = 'MATRICULADO' AND EXISTS (
@@ -170,6 +175,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                  AND LOWER(ip.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         """)
 Page<Estudiante> buscarConFiltros(
     @Param("search") String search,

@@ -100,6 +100,7 @@ public class UsuarioService {
         // IMP-12: un docente registrado desde el formulario necesita al menos una materia.
         boolean conMaterias = "DOCENTE".equals(rolNombre) && request.idMaterias() != null;
         if (conMaterias) docenteMateriaService.validar(request.idMaterias());
+        if (conMaterias) docenteMateriaService.validarGrupos(null, request.idMaterias(), request.grupos());
         String email = normalizarEmail(request.email());
         String ci = request.ci().trim();
         if (usuarioRepository.findByEmail(email).isPresent()) {
@@ -129,7 +130,7 @@ public class UsuarioService {
         // Si el rol es DOCENTE, crear fila en tabla docente (si no existe ya)
         sincronizarDocente(usuario, rolNombre);
         guardarDatosDocente(usuario.getId(), rolNombre, request.docente());
-        if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias());
+        if (conMaterias) docenteMateriaService.asignar(usuario.getId(), request.idMaterias(), request.grupos());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         // Si el envío falla, la excepción revierte el registro.
@@ -226,7 +227,7 @@ public class UsuarioService {
     @Transactional(readOnly = true)
     public byte[] exportarCsv(String search, String rol, String estado) {
         List<UsuarioListResponse> filas = usuarioRepository.buscar(
-                        escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                        escaparComodinesLike(com.nexacore.examenes.utils.TextoBusqueda.sinTildes(normalizar(search))),
                         normalizar(rol).toUpperCase(Locale.ROOT),
                         normalizar(estado).toLowerCase(Locale.ROOT),
                         Pageable.unpaged())
@@ -323,7 +324,7 @@ public class UsuarioService {
         int tamanoValido = Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA);
         PageRequest pageable = PageRequest.of(paginaValida, tamanoValido, Sort.by("nombre").ascending());
         Page<Usuario> usuarios = usuarioRepository.buscar(
-                escaparComodinesLike(normalizar(search).toLowerCase(Locale.ROOT)),
+                escaparComodinesLike(com.nexacore.examenes.utils.TextoBusqueda.sinTildes(normalizar(search))),
                 normalizar(rol).toUpperCase(Locale.ROOT),
                 normalizar(estado).toLowerCase(Locale.ROOT),
                 pageable);

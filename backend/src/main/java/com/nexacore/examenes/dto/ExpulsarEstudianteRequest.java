@@ -11,9 +11,9 @@ public record ExpulsarEstudianteRequest(
         @NotNull @Positive Integer idExamen,
         @NotBlank @Size(min = ExpulsarEstudianteRequest.MOTIVO_MIN, max = ExpulsarEstudianteRequest.MOTIVO_MAX) String motivo
 ) {
-    public static final int MOTIVO_MIN = 10;
+    public static final int MOTIVO_MIN = com.nexacore.examenes.utils.MotivoEscrito.MIN;
     // Sección 24 del diseño: de 10 a 200 caracteres (la columna admite 500).
-    public static final int MOTIVO_MAX = 200;
+    public static final int MOTIVO_MAX = com.nexacore.examenes.utils.MotivoEscrito.MAX;
 
     public ExpulsarEstudianteRequest {
         motivo = normalizarEspacios(motivo);
