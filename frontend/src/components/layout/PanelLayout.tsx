@@ -12,7 +12,7 @@ interface PanelLayoutProps {
   title?: string
   description?: string
   locationLabel?: string
-  topBarVariant?: 'default' | 'control' | 'controlMinimal'
+  topBarVariant?: 'default' | 'control' | 'controlMinimal' | 'docenteInicio'
 }
 
 export default function PanelLayout({
