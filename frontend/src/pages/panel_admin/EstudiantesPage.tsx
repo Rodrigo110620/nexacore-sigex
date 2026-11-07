@@ -154,9 +154,9 @@ export default function EstudiantesPage() {
             {soloSusEstudiantes && <GruposDocente elegido={grupo} onElegir={elegirGrupo} />}
             {successMessage && <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><CheckCircle2 size={18} />{successMessage}</div>}
             <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
-              {/* Filtros a todo el ancho; los botones van a su lado solo en pantallas muy anchas (el buscador no se achica). */}
-              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end 2xl:flex-nowrap">
-                <div className="min-w-0 flex-1 min-[960px]:basis-full 2xl:basis-auto">
+              {/* Los filtros piden su ancho (46rem) y los botones bajan de fila si no entran: nada se encima ni se achica. */}
+              <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end">
+                <div className="min-w-0 flex-1 min-[960px]:basis-[46rem]">
                   {soloSusEstudiantes ? (
                     <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
