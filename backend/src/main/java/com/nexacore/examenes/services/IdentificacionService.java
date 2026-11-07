@@ -131,6 +131,10 @@ public class IdentificacionService {
         return resultado;
     }
 
+    /** Ocupación de las aulas (alerta de aforo); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AforoService aforoService;
+
     /** @throws ControlIngresoException si el examen no existe (404) */
     @Transactional(readOnly = true)
     public ResumenEstudiantesResponse resumir(Integer idExamen) {
@@ -140,7 +144,7 @@ public class IdentificacionService {
         java.time.LocalDateTime desde = cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre;
         long incidencias = estudianteRepository.contarIncidencias(idExamen, desde);
         return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias,
-                estudianteRepository.contarExpulsados(idExamen, desde), estudianteRepository.contarTrasladados(idExamen, desde));
+                estudianteRepository.contarExpulsados(idExamen, desde), estudianteRepository.contarTrasladados(idExamen, desde), aforoService == null ? java.util.List.of() : aforoService.delExamen(idExamen));
     }
 
     private void verificarExamen(Integer idExamen) {

@@ -52,6 +52,8 @@ export interface AutorizarIngresoResultado {
   autorizadoPor: string
   /** Aula a la que debe ir el estudiante (en reparto por llegada, la primera con lugar). */
   ambiente?: string
+  /** DASH-03: aviso si el aula quedó llena o casi llena con este ingreso. */
+  avisoAforo?: string | null
 }
 
 export interface TipoIncidencia {

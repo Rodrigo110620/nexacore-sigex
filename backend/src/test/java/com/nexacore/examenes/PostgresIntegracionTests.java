@@ -81,6 +81,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.ImportacionEstudiantesService importacionEstudiantesService;
     @Autowired com.nexacore.examenes.services.PlanillaEstudiantesService planillaEstudiantesService;
     @Autowired com.nexacore.examenes.services.ExpulsionEvidenciaService expulsionEvidenciaService;
+    @Autowired com.nexacore.examenes.services.AforoService aforoService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -982,6 +983,45 @@ class PostgresIntegracionTests {
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
+    }
+
+    // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya
+    // salió y no cuenta; el trasladado cuenta en su aula nueva.
+    @Test
+    void laOcupacionDeLasAulasAvisaCuandoUnaSeLlena() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-AFO");
+        int examen = examen(g1, "10:00", 90);
+        jdbc.update("UPDATE ambiente SET capacidad = 3 WHERE id_ambiente = ?", idAmbiente);
+        Integer otraAula = jdbc.queryForObject("SELECT MIN(id_ambiente) FROM ambiente WHERE id_ambiente <> ?", Integer.class, idAmbiente);
+        String ingresar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) VALUES (?, ?, ?, TRUE, NOW(), ?)";
+        int a1 = estudiante("202499401", "Ana"), a2 = estudiante("202499402", "Beto"), a3 = estudiante("202499403", "Ciro"), a4 = estudiante("202499404", "Dora");
+        jdbc.update(ingresar, a1, examen, g1, idAmbiente);
+        jdbc.update(ingresar, a2, examen, g1, idAmbiente);
+        sincronizar();
+        assertThat(aforoService.delAula(examen, idAmbiente)).hasValueSatisfying(o -> {
+            assertThat(o.ocupados()).isEqualTo(2);
+            assertThat(o.estado()).isEqualTo("LIBRE");
+        });
+
+        jdbc.update(ingresar, a3, examen, g1, idAmbiente);
+        jdbc.update(ingresar, a4, examen, g1, otraAula); // trasladada: cuenta en su aula nueva
+        sincronizar();
+        var aulas = aforoService.delExamen(examen);
+        assertThat(aulas).extracting(o -> o.idAmbiente()).contains(idAmbiente, otraAula);
+        assertThat(aulas.get(0)).satisfies(o -> {
+            assertThat(o.idAmbiente()).isEqualTo(idAmbiente);
+            assertThat(o.ocupados()).isEqualTo(3);
+            assertThat(o.estado()).isEqualTo("LLENA");
+        });
+
+        // El expulsado sale del aula: vuelve a haber lugar.
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular')", a3, examen, idDocente);
+        sincronizar();
+        assertThat(aforoService.delAula(examen, idAmbiente)).hasValueSatisfying(o -> {
+            assertThat(o.ocupados()).isEqualTo(2);
+            assertThat(o.estado()).isEqualTo("LIBRE");
+        });
     }
 
     // Los buscadores no distinguen tildes ni mayúsculas: «perez quinones» encuentra a «Pérez Quiñones».

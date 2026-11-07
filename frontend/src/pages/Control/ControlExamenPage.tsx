@@ -12,6 +12,7 @@ import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoMod
 import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import type { OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
 export default function ControlExamenPage() {
@@ -171,6 +172,7 @@ export default function ControlExamenPage() {
               </div>
             </section>
             <div className="mt-4">
+              <AvisoAforo aulas={datos.resumen?.aulas} />
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
             <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
@@ -185,3 +187,29 @@ export default function ControlExamenPage() {
     </PanelLayout>
   )
 }
+
+/**
+ * DASH-03 (alerta de aforo): avisa si un aula del examen está llena o casi llena (90 % o más), con su ocupación.
+ * Se actualiza con el resumen del examen, que llega en vivo.
+ */
+function AvisoAforo({ aulas }: { aulas?: OcupacionAula[] }) {
+  const alertas = (aulas ?? []).filter((a) => a.estado === 'LLENA' || a.estado === 'CASI_LLENA')
+  if (!alertas.length) return null
+  return (
+    <div role="alert" className="flex flex-col gap-2">
+      {alertas.map((a) => {
+        const llena = a.estado === 'LLENA'
+        return (
+          <p key={a.idAmbiente} className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${llena ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+            <TriangleAlert size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>
+              <b>Aula {a.nombre} {llena ? 'llena' : 'casi llena'}</b> · {a.ocupados}/{a.capacidad} estudiantes dentro.
+              {llena ? ' Envía a los siguientes estudiantes a otra aula del examen o trasládalos.' : ' Prepara otra aula por si llegan más estudiantes.'}
+            </span>
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+

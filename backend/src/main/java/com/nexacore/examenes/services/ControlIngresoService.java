@@ -331,7 +331,34 @@ public class ControlIngresoService {
         }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
-                aula.nombre());
+                aula.nombre(), avisoDeAforo(request.idExamen(), idAula, control));
+    }
+
+    /** Ocupación de las aulas (alerta de aforo); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AforoService aforoService;
+
+    /**
+     * DASH-03 (alerta de aforo): tras registrar un ingreso, avisa si el aula quedó casi llena o llena. Justo cuando
+     * llega a su capacidad, notifica al personal del examen (una vez: el siguiente ya la encuentra llena).
+     */
+    private String avisoDeAforo(Integer idExamen, Integer idAula, Usuario control) {
+        if (aforoService == null || idAula == null) return null;
+        var ocupacion = aforoService.delAula(idExamen, idAula).orElse(null);
+        if (ocupacion == null) return null;
+        String cifras = ocupacion.ocupados() + "/" + ocupacion.capacidad();
+        if (com.nexacore.examenes.dto.OcupacionAulaResponse.LLENA.equals(ocupacion.estado())) {
+            if (ocupacion.ocupados() == ocupacion.capacidad()) {
+                notificacionService.publicar(Notificacion.AULA_LLENA, "Aula " + ocupacion.nombre() + " llena",
+                        notificacionService.materia(idExamen) + " · " + cifras + " estudiantes dentro. Los siguientes deben ir a otra aula.",
+                        idExamen, null, enlaceInformacion(idExamen), control.getEmail());
+            }
+            return "El aula " + ocupacion.nombre() + " está llena (" + cifras + "). Envía a los siguientes estudiantes a otra aula.";
+        }
+        if (com.nexacore.examenes.dto.OcupacionAulaResponse.CASI_LLENA.equals(ocupacion.estado())) {
+            return "El aula " + ocupacion.nombre() + " está casi llena (" + cifras + ").";
+        }
+        return null;
     }
 
     /**
@@ -659,7 +686,7 @@ public class ControlIngresoService {
             LocalDateTime ahora,
             int incidenciasRegistradas) {
         return crearRespuesta(asistencia, control, request, autorizado, resultado, causa, ahora,
-                incidenciasRegistradas, null);
+                incidenciasRegistradas, null, null);
     }
 
     /** aula: la asignada al autorizar; null en las denegaciones (se informa el aula principal). */
@@ -672,7 +699,8 @@ public class ControlIngresoService {
             String causa,
             LocalDateTime ahora,
             int incidenciasRegistradas,
-            String aula) {
+            String aula,
+            String avisoAforo) {
         List<String> verificaciones = request.verificacionesAdicionales().stream()
                 .map(ControlIngresoService::limpiar)
                 .filter(valor -> valor != null && !valor.isBlank())
@@ -695,7 +723,8 @@ public class ControlIngresoService {
                 ahora,
                 asistencia.getObservacionesControl(),
                 verificaciones,
-                incidenciasRegistradas);
+                incidenciasRegistradas,
+                avisoAforo);
     }
 
     /** Con incidencias se conserva exactamente la hora usada al guardarlas para poder consultarlas juntas. */
