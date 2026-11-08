@@ -128,7 +128,8 @@ function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expu
 }
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
-export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, datosExamen, onExito }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; datosExamen?: ExamenDto; onExito?: () => void }) {
+/** resaltar: el estudiante al que se llega desde «Incidencias de hoy» (inicio del ADMIN). */
+export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, datosExamen, onExito, resaltar }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; datosExamen?: ExamenDto; onExito?: () => void; resaltar?: number | null }) {
   const auth = useAuth()
   // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
   // personal de control reporta el incidente y la notificación les llega a ellos.
@@ -192,7 +193,8 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
           {estudiantesLocales.map((estudiante) => {
             const habilitado = estudiante.estado === 'HABILITADO'
             return (
-              <tr key={estudiante.idEstudiante} className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'}`}>
+              <tr key={estudiante.idEstudiante} data-foco={resaltar === estudiante.idEstudiante ? 'true' : undefined}
+                className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'} ${resaltar === estudiante.idEstudiante ? 'bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : ''}`}>
                 <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado}>
                   {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </Identidad></td>
@@ -218,7 +220,8 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
           return (
             <li
               key={estudiante.idEstudiante}
-              className={`rounded-xl border p-3 shadow-sm ${
+              data-foco={resaltar === estudiante.idEstudiante ? 'true' : undefined}
+              className={`rounded-xl border p-3 shadow-sm ${resaltar === estudiante.idEstudiante ? 'ring-2 ring-[#F59E0B] ' : ''}${
                 habilitado ? 'border-[#D8E3F5] bg-white' : 'border-[#FECACA] bg-[#FFF7F7]'
               }`}
             >

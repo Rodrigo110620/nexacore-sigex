@@ -14,6 +14,30 @@ const TIPOS: Record<IncidenciaHoy['tipo'], { nombre: string; icono: typeof Ban; 
   QR_DUPLICADO: { nombre: 'QR duplicado', icono: Copy, clase: 'bg-[#FFF7ED] text-[#C2410C]' },
 }
 
+/**
+ * Lleva directo al incidente elegido: intentos y QR duplicados a la pestaña Intentos, ingresos manuales y
+ * excepciones a Excepciones (con la fila resaltada); traslados y expulsiones al panel del examen con el
+ * estudiante resaltado en la tabla.
+ */
+export function enlaceIncidencia(inc: IncidenciaHoy): { a: string; texto: string } {
+  const base = `/dashboard/control/${inc.idExamen}`
+  const parametros = new URLSearchParams()
+  if (inc.idEstudiante != null) parametros.set('estudiante', String(inc.idEstudiante))
+  switch (inc.tipo) {
+    case 'TRASLADO':
+    case 'EXPULSION':
+      return { a: `${base}?${parametros}`, texto: 'Ver al estudiante en el examen' }
+    case 'INGRESO_MANUAL':
+    case 'EXCEPCION':
+      parametros.set('pestana', 'excepciones')
+      return { a: `${base}/informacion?${parametros}`, texto: 'Ver en Excepciones' }
+    default:
+      parametros.set('pestana', 'intentos')
+      parametros.set('hora', inc.fechaHora.slice(0, 16))
+      return { a: `${base}/informacion?${parametros}`, texto: 'Ver en Intentos' }
+  }
+}
+
 /** «Incidencias → Revisar» del inicio del ADMIN: qué incidencias hubo hoy, sin salir del inicio. */
 export default function IncidenciasHoyModal({ onClose }: { onClose: () => void }) {
   const [lista, setLista] = useState<IncidenciaHoy[] | null>(null)
@@ -56,14 +80,15 @@ export default function IncidenciasHoyModal({ onClose }: { onClose: () => void }
             <ul className="divide-y divide-[#EEF2F7]" aria-label="Incidencias de hoy">
               {lista.map((inc, i) => {
                 const { nombre, icono: Icono, clase } = TIPOS[inc.tipo] ?? TIPOS.INTENTO_INCORRECTO
+                const enlace = enlaceIncidencia(inc)
                 return (
                   <li key={`${inc.tipo}-${inc.fechaHora}-${i}`} className="flex items-start gap-3 py-3">
                     <span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${clase}`}><Icono size={15} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-[#011140]">{nombre}{inc.estudiante ? `: ${inc.estudiante}` : ''}</p>
                       <p className="text-xs text-[#627A9B]">{inc.examen}{inc.detalle ? ` · ${inc.detalle}` : ''}</p>
-                      <Link to={`/dashboard/control/${inc.idExamen}/informacion`} onClick={onClose} className="mt-1 inline-block text-xs font-semibold text-[#0439D9] hover:underline">
-                        Ver en el examen →
+                      <Link to={enlace.a} onClick={onClose} className="mt-1 inline-block text-xs font-semibold text-[#0439D9] hover:underline">
+                        {enlace.texto} →
                       </Link>
                     </div>
                     <span className="shrink-0 text-xs tabular-nums text-[#627A9B]">{inc.fechaHora.slice(11, 16)}</span>

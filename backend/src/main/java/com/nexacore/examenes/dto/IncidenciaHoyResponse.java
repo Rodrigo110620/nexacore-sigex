@@ -7,4 +7,4 @@ import java.time.LocalDateTime;
  * (expulsión, intento incorrecto, excepción de no habilitado, ingreso manual, traslado y QR duplicado).
  */
 public record IncidenciaHoyResponse(String tipo, LocalDateTime fechaHora, Integer idExamen, String examen,
-                                    String estudiante, String detalle) {}
+                                    Integer idEstudiante, String estudiante, String detalle) {}
