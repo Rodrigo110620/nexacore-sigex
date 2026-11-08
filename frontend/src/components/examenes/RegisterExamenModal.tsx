@@ -48,6 +48,7 @@ import {
   aulasAdicionalesOcupadas,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
+import { gruposDeMateria, type GrupoDto } from '../../services/materiaService'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import HoraSelector from './HoraSelector'
@@ -55,6 +56,7 @@ import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialo
 import { useAuth } from '../../context/AuthContext'
 import FechaInput from './FechaInput'
 import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../ui/ErrorCarga'
 
 interface RegisterExamenModalProps {
   isOpen: boolean
@@ -76,6 +78,8 @@ const STEP_DESCRIPCION: Record<Step, string> = {
   3: 'Revise las normas del examen y confirme los datos antes de registrar.',
 }
 
+const ERROR_AMBIENTES = 'No se pudo cargar el catálogo de ambientes.'
+
 export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
   const auth = useAuth()
   const { nombre } = auth
@@ -87,6 +91,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [form, setForm] = useState<RegisterExamenFormState>(INITIAL_EXAMEN_FORM)
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
+  const [recargaAmbientes, setRecargaAmbientes] = useState(0)
   const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
@@ -116,11 +121,30 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [docenteOk, setDocenteOk] = useState(false)
   const [idMateria, setIdMateria] = useState<number | null>(null)
   const [idDocente, setIdDocente] = useState<number | null>(null)
+  // Si el docente tiene varios grupos (G1, G2…) en la materia, hay que elegir el del examen.
+  const [grupos, setGrupos] = useState<GrupoDto[]>([])
+  const [idParalelo, setIdParalelo] = useState<number | null>(null)
   const [dirty, setDirty] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
   const [offlineOpen, setOfflineOpen] = useState(false)
   const [expandedNormas, setExpandedNormas] = useState<Record<string, boolean>>({})
   const [normaGeneralError, setNormaGeneralError] = useState('')
+
+  useEffect(() => {
+    let vigente = true
+    if (!idMateria || (!esDocente && !idDocente)) {
+      queueMicrotask(() => { if (vigente) { setGrupos([]); setIdParalelo(null) } })
+      return () => { vigente = false }
+    }
+    gruposDeMateria(idMateria, esDocente ? null : idDocente)
+      .then((lista) => {
+        if (!vigente) return
+        setGrupos(lista)
+        setIdParalelo(lista.length === 1 ? lista[0].idParalelo : null)
+      })
+      .catch(() => { if (vigente) { setGrupos([]); setIdParalelo(null) } })
+    return () => { vigente = false }
+  }, [idMateria, idDocente, esDocente])
 
   useEffect(() => {
     return () => {
@@ -156,7 +180,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           if (!cancelled) setAmbientes((prev) => (prev.some((a) => a.disponible !== undefined) ? prev : data))
         })
         .catch(() => {
-          if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.')
+          if (!cancelled) setGeneralError(ERROR_AMBIENTES)
         })
         .finally(() => {
           if (!cancelled) setLoadingAmbientes(false)
@@ -166,7 +190,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       cancelled = true
       window.clearTimeout(handle)
     }
-  }, [isOpen])
+  }, [isOpen, recargaAmbientes])
 
   // Refrescar disponibilidad cuando cambian fecha, hora o duración
   useEffect(() => {
@@ -218,6 +242,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const resetAll = () => {
     setStep(1)
     setForm(INITIAL_EXAMEN_FORM)
+    setGrupos([])
+    setIdParalelo(null)
     setErrors({})
     setGeneralError('')
     setSuccess(false)
@@ -306,6 +332,10 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
       setGeneralError('Completa los campos obligatorios de este paso para continuar.')
       return
     }
+    if (step === 1 && grupos.length > 1 && !idParalelo) {
+      setGeneralError('El docente tiene varios grupos en esta materia: elige el grupo del examen.')
+      return
+    }
     // BUG 3 (2.º test run): las aulas sin aforo o ocupadas se corrigen en el paso 2, no al final.
     if (step === 2) {
       const problema = problemaDeAulas()
@@ -374,6 +404,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
         normasParticulares: [],
         idMateria,
         idDocente,
+        idParalelo,
         idAmbientesAdicionales: adicionalesVigentes,
         modoReparto,
       })
@@ -597,6 +628,21 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
                   )}
                 </div>
               </div>
+              {grupos.length > 1 && (
+                <div className="mt-3 sm:w-1/2">
+                  <label htmlFor="registrar-grupo" className="mb-1 block text-xs font-medium text-[#011140]">
+                    Grupo <span className="text-red-500">*</span>
+                  </label>
+                  <select id="registrar-grupo" value={idParalelo ?? ''} className={fieldClass()}
+                    onChange={(e) => { setIdParalelo(e.target.value ? Number(e.target.value) : null); setDirty(true); if (generalError) setGeneralError('') }}>
+                    <option value="">Elige el grupo</option>
+                    {grupos.map((g) => (
+                      <option key={g.idParalelo} value={g.idParalelo}>{g.nombreGrupo} · {g.inscritos} {g.inscritos === 1 ? 'inscrito' : 'inscritos'}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-[#627A9B]">Al asociar estudiantes se traen los inscritos de este grupo.</p>
+                </div>
+              )}
             </section>
             )}
 
@@ -1027,7 +1073,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
           </div>
 
           <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
-            {generalError && (
+            {generalError === ERROR_AMBIENTES ? (
+              <ErrorCarga className="mb-2" mensaje={generalError} onReintentar={() => { setGeneralError(''); setRecargaAmbientes((n) => n + 1) }} />
+            ) : generalError && (
               <div role="alert" className="mb-2 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-2.5">
                 <CircleAlert className="mr-2 mt-0.5 shrink-0 text-[#B91C1C]" size={16} />
                 <p className="text-xs text-[#B91C1C]">{generalError}</p>
@@ -1043,7 +1091,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
               <p className="hidden text-[10px] text-gray-400 sm:flex sm:items-center">
                 <span className="text-[#3B82F6]"><Dot /></span> Campos con (*) son mandatorios
               </p>
-              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
+              <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
                   onClick={step === 1 ? requestClose : goBack}

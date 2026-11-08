@@ -3,6 +3,9 @@ import {
   ArrowRight,
   ArrowLeft,
   BadgeCheck,
+  BookOpen,
+  CalendarDays,
+  School,
   CheckCircle2,
   AlertTriangle,
   ShieldAlert,
@@ -136,9 +139,9 @@ export default function VerificacionHabilitacionModal(p: Props) {
             </div>
             {(mTxt || fTxt || p.aulaEstudiante) && (
               <div className="col-span-2 flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-[10.5px] font-medium text-[#475569]">
-                {mTxt && <span>📖 {mTxt}</span>}
-                {fTxt && <span>📅 {fTxt}</span>}
-                {p.aulaEstudiante && <span>🏫 Aula del estudiante: {p.aulaEstudiante}</span>}
+                {mTxt && <span className="inline-flex items-center gap-1"><BookOpen size={12} aria-hidden="true" />{mTxt}</span>}
+                {fTxt && <span className="inline-flex items-center gap-1"><CalendarDays size={12} aria-hidden="true" />{fTxt}</span>}
+                {p.aulaEstudiante && <span className="inline-flex items-center gap-1"><School size={12} aria-hidden="true" />Aula del estudiante: {p.aulaEstudiante}</span>}
               </div>
             )}
           </div>
@@ -207,7 +210,7 @@ export default function VerificacionHabilitacionModal(p: Props) {
                 </button>
               </>
             ) : (
-              <div className="flex w-full flex-col-reverse sm:flex-row gap-2.5">
+              <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row sm:flex-row gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsExcepcionOpen(true)}

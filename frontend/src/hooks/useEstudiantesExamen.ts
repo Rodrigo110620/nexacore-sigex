@@ -14,6 +14,7 @@ interface Resultado {
   clave: string
   pagina?: PageResponse<EstudianteAsignado>
   error?: string
+  accesoDenegado?: boolean
 }
 
 function mensajeDeError(error: unknown): string {
@@ -65,10 +66,16 @@ export default function useEstudiantesExamen(idExamen: number) {
     let vigente = true
     listarEstudiantesExamen(idExamen, estado, page, pageSize)
       .then((pagina) => {
-        if (vigente) setResultado({ clave, pagina })
+        if (!vigente) return
+        const ultimaPagina = Math.max(0, pagina.totalPaginas - 1)
+        if (page > ultimaPagina) {
+          setPage(ultimaPagina)
+          return
+        }
+        setResultado({ clave, pagina })
       })
       .catch((error) => {
-        if (vigente) setResultado({ clave, error: mensajeDeError(error) })
+        if (vigente) setResultado({ clave, error: mensajeDeError(error), accesoDenegado: axios.isAxiosError(error) && error.response?.status === 403 })
       })
     return () => {
       vigente = false
@@ -82,5 +89,5 @@ export default function useEstudiantesExamen(idExamen: number) {
   }
 
   const refetch = () => setRecarga((n) => n + 1)
-  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, cargando: !actual, refetch }
+  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, accesoDenegado: actual?.accesoDenegado, cargando: !actual, refetch }
 }

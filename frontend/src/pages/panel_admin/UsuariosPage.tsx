@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterUserModal from '../../components/admin/RegisterUserModal'
@@ -8,7 +8,9 @@ import useUserStats from '../../hooks/useUserStats'
 import EditUserModal from '../../components/users/EditUserModal'
 import ConfirmarEstadoUsuarioModal from '../../components/users/ConfirmarEstadoUsuarioModal'
 import ImportarUsuariosModal from '../../components/users/ImportarUsuariosModal'
-import { cambiarEstadoUsuario, exportarUsuarios } from '../../services/userService'
+import { cambiarEstadoUsuario } from '../../services/userService'
+import VistaPreviaDescarga, { type FormatoDescarga } from '../../components/ui/VistaPreviaDescarga'
+import { obtenerArchivo } from '../../services/descargas'
 import type { UserFilterParams, UserListItem } from '../../types/user'
 
 /** Mensaje del backend ({ mensaje }) o uno genérico si no hay respuesta. */
@@ -46,7 +48,14 @@ export default function UsuariosPage() {
     retryStats()
   }
 
-  const handleExport = (filters: UserFilterParams) => exportarUsuarios(filters)
+  // Exportar abre primero la vista previa (CSV o Excel) con los filtros aplicados.
+  const [previaFiltros, setPreviaFiltros] = useState<UserFilterParams | null>(null)
+  const handleExport = async (filters: UserFilterParams) => { setPreviaFiltros(filters) }
+  const obtenerExportacion = useCallback((f: FormatoDescarga) => {
+    const params = { search: previaFiltros?.search?.trim() || undefined, rol: previaFiltros?.rol || undefined, estado: previaFiltros?.estado || undefined }
+    return obtenerArchivo(`/usuarios/exportar.${f}`, params, `usuarios.${f}`)
+  }, [previaFiltros])
+  const obtenerCsvUsuarios = useCallback(() => obtenerExportacion('csv'), [obtenerExportacion])
 
   const handleConfirmToggle = async (activo: boolean) => {
     if (!userToToggle) return
@@ -83,6 +92,8 @@ export default function UsuariosPage() {
           onExportClick={handleExport}
           onImportClick={() => setIsImportOpen(true)}
         />
+        <VistaPreviaDescarga open={previaFiltros !== null} titulo="Usuarios" formatos={FORMATOS_USUARIOS}
+          obtener={obtenerExportacion} obtenerCsv={obtenerCsvUsuarios} onClose={() => setPreviaFiltros(null)} />
         <MobileBottomNav />
         <RegisterUserModal
           isOpen={isModalOpen}
@@ -122,3 +133,5 @@ export default function UsuariosPage() {
     </PanelLayout>
   )
 }
+
+const FORMATOS_USUARIOS: FormatoDescarga[] = ['csv', 'xlsx']

@@ -27,7 +27,11 @@ export default function ResumenExamenCards({ resumen, idExamen }: { resumen?: Re
       titulo: 'Habilitados', valor: habilitados, icono: CircleCheck, colores: 'bg-[#E9F1FF] text-[#0439D9]', numero: 'text-[#011140]',
       detalle: resumen ? `de ${resumen.total} asignados${resumen.noHabilitados ? ` · ${resumen.noHabilitados} con observación` : ''}` : '',
     },
-    { titulo: 'Ingresados', valor: ingresados, icono: UserCheck, colores: 'bg-[#DCFCE7] text-[#166534]', numero: 'text-[#166534]', detalle: resumen ? porcentaje : '' },
+    {
+      titulo: 'Ingresados', valor: ingresados, icono: UserCheck, colores: 'bg-[#DCFCE7] text-[#166534]', numero: 'text-[#166534]',
+      // Un expulsado entró al aula: sigue contando como ingresado, con su propia marca.
+      detalle: resumen ? (resumen.expulsados ? `${porcentaje} · incluye ${resumen.expulsados} ${resumen.expulsados === 1 ? 'expulsado' : 'expulsados'}` : porcentaje) : '',
+    },
     {
       titulo: 'Ausentes', valor: ausentes, icono: Clock3, colores: 'bg-[#FFF7E6] text-[#B45309]', numero: ausentes ? 'text-[#B45309]' : 'text-[#011140]',
       detalle: resumen ? (ausentes ? 'Aún no ingresan' : 'Todos ingresaron') : '',

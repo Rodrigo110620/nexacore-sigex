@@ -4,6 +4,10 @@ import com.nexacore.examenes.dto.AmbienteDisponibilidadResponse;
 import com.nexacore.examenes.dto.AmbienteResponse;
 import com.nexacore.examenes.dto.CrearAmbienteRequest;
 import com.nexacore.examenes.exceptions.AmbienteDuplicadoException;
+import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.security.Permiso;
+import com.nexacore.examenes.security.Permisos;
+import org.springframework.http.HttpStatus;
 import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.repositories.AmbienteRepository;
 import com.nexacore.examenes.models.Examen;
@@ -68,10 +72,21 @@ public class AmbienteService {
         }
     }
 
+    /**
+     * Registra el aforo de un aula. Quien programa exámenes (también el DOCENTE) puede registrarlo si el
+     * aula todavía no lo tiene, para no depender del ADMIN; cambiar uno ya registrado es solo de quien
+     * gestiona los ambientes, porque afecta el reparto de los exámenes de otros en esa aula.
+     */
     @Transactional
     public AmbienteResponse actualizarAforo(Integer id, Integer capacidad) {
-        Ambiente ambiente = ambienteRepository.findById(id)
+        // Con bloqueo: si dos docentes registran el aforo de la misma aula a la vez, el segundo ve el del primero.
+        Ambiente ambiente = ambienteRepository.bloquear(id)
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
+        if (ambiente.getCapacidad() != null && !ambiente.getCapacidad().equals(capacidad)
+                && !Permisos.tiene(Permiso.AMBIENTES_GESTIONAR)) {
+            throw new ControlIngresoException(HttpStatus.FORBIDDEN, "El aforo de " + ambiente.getNombre() + " ya está registrado ("
+                    + ambiente.getCapacidad() + "). Para cambiarlo, pide al administrador.");
+        }
         ambiente.setCapacidad(capacidad);
         return toResponse(ambienteRepository.save(ambiente));
     }

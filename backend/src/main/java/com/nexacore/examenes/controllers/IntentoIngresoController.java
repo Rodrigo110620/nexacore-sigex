@@ -17,7 +17,12 @@ import java.util.List;
 @RequestMapping("/intentos-ingreso")
 public class IntentoIngresoController {
     private final IntentoIngresoService service;
-    public IntentoIngresoController(IntentoIngresoService service) { this.service = service; }
+    private final com.nexacore.examenes.services.ExamenAccesoService acceso;
+
+    public IntentoIngresoController(IntentoIngresoService service, com.nexacore.examenes.services.ExamenAccesoService acceso) {
+        this.service = service;
+        this.acceso = acceso;
+    }
 
     @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping
@@ -43,13 +48,21 @@ public class IntentoIngresoController {
         return ResponseEntity.ok(service.listar(idExamen, idEstudiante));
     }
 
-    /** DASH-06 / HU#7: reporte de intentos incorrectos de todos los exámenes (o de uno). Solo ADMIN. */
-    @PreAuthorize("@permisos.tiene(authentication, 'REPORTES_VER')")
+    /**
+     * DASH-06 / HU#7: reporte de intentos incorrectos de todos los exámenes (o de uno). Con REPORTES_VER
+     * (ADMIN), de todos; el DOCENTE y el CONTROL, solo de sus exámenes (los suyos o los asignados).
+     */
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')"
+            + " and (#idExamen == null or @examenAccesoService.veTodosLosReportes(authentication) or @examenAccesoService.esMio(#idExamen, authentication))")
     @GetMapping("/reporte")
     public ResponseEntity<com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse>> reporte(
             @RequestParam(required = false) Integer idExamen,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(service.reporte(idExamen, page, size));
+            @RequestParam(defaultValue = "20") int size,
+            org.springframework.security.core.Authentication authentication) {
+        // Sin REPORTES_VER, solo sus exámenes; si no se encuentra el usuario, ninguno (nunca todos).
+        Integer soloDe = acceso.veTodosLosReportes(authentication) ? null
+                : java.util.Objects.requireNonNullElse(acceso.idUsuario(authentication), -1);
+        return ResponseEntity.ok(service.reporte(idExamen, page, size, soloDe));
     }
 }

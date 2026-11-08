@@ -71,7 +71,7 @@ public class ControlIngresoService {
 
     private final NotificacionService notificacionService;
     /** Máximo del detalle opcional de denegación definido por el cambio upstream D02. */
-    public static final int DETALLE_DENEGACION_MAX = 500;
+    public static final int DETALLE_DENEGACION_MAX = 100;
     /** Observaciones opcionales del control (ACCS-02 CA-53/54): de 10 a 100 caracteres. */
     public static final int OBSERVACIONES_MIN = 10;
     public static final int OBSERVACIONES_MAX = 100;
@@ -94,6 +94,12 @@ public class ControlIngresoService {
 
     private final TrasladoAmbienteRepository trasladoAmbienteRepository;
     private final AmbienteRepository ambienteRepository;
+
+    /** Personal de control asignado (V53), para marcar los reemplazos; por campo para no cambiar los constructores. */
+    @Autowired(required = false)
+    private com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
+    @Autowired(required = false)
+    private com.nexacore.examenes.repositories.ExamenRepository examenRepositorioReemplazo;
 
     @Autowired
     public ControlIngresoService(
@@ -325,7 +331,34 @@ public class ControlIngresoService {
         }
 
         return crearRespuesta(asistencia, control, request, true, "AUTORIZADO", null, ahora, request.incidencias().size(),
-                aula.nombre());
+                aula.nombre(), avisoDeAforo(request.idExamen(), idAula, control));
+    }
+
+    /** Ocupación de las aulas (alerta de aforo); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AforoService aforoService;
+
+    /**
+     * DASH-03 (alerta de aforo): tras registrar un ingreso, avisa si el aula quedó casi llena o llena. Justo cuando
+     * llega a su capacidad, notifica al personal del examen (una vez: el siguiente ya la encuentra llena).
+     */
+    private String avisoDeAforo(Integer idExamen, Integer idAula, Usuario control) {
+        if (aforoService == null || idAula == null) return null;
+        var ocupacion = aforoService.delAula(idExamen, idAula).orElse(null);
+        if (ocupacion == null) return null;
+        String cifras = ocupacion.ocupados() + "/" + ocupacion.capacidad();
+        if (com.nexacore.examenes.dto.OcupacionAulaResponse.LLENA.equals(ocupacion.estado())) {
+            if (ocupacion.ocupados() == ocupacion.capacidad()) {
+                notificacionService.publicar(Notificacion.AULA_LLENA, "Aula " + ocupacion.nombre() + " llena",
+                        notificacionService.materia(idExamen) + " · " + cifras + " estudiantes dentro. Los siguientes deben ir a otra aula.",
+                        idExamen, null, enlaceInformacion(idExamen), control.getEmail());
+            }
+            return "El aula " + ocupacion.nombre() + " está llena (" + cifras + "). Envía a los siguientes estudiantes a otra aula.";
+        }
+        if (com.nexacore.examenes.dto.OcupacionAulaResponse.CASI_LLENA.equals(ocupacion.estado())) {
+            return "El aula " + ocupacion.nombre() + " está casi llena (" + cifras + ").";
+        }
+        return null;
     }
 
     /**
@@ -416,6 +449,14 @@ public class ControlIngresoService {
         }
         String detalle = ValidacionTextoLibre.validarOpcional(
                 request.detalleDenegacion(), "El detalle adicional", 10, DETALLE_DENEGACION_MAX);
+        if (detalle != null) {
+            if (!detalle.matches("[\\p{L}\\p{N} ]+") || detalle.contains("  "))
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El detalle adicional solo permite letras, números y un espacio entre palabras");
+            validarTextoLibre(detalle);
+            detalle = detalle.toLowerCase(java.util.Locale.forLanguageTag("es"));
+            var primera = java.util.regex.Pattern.compile("\\p{L}").matcher(detalle);
+            if (primera.find()) detalle = detalle.substring(0, primera.start()) + primera.group().toUpperCase(java.util.Locale.forLanguageTag("es")) + detalle.substring(primera.end());
+        }
         if (detalle == null && razon.startsWith(OTRA_RAZON)) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "Especifique la razón de la denegación");
         }
@@ -567,6 +608,10 @@ public class ControlIngresoService {
 
         Map<Integer, Map<LocalDateTime, List<IncidenciaRegistradaResponse>>> incidenciasPorEstudiante =
                 incidenciasDelExamen(idExamen);
+        java.util.Set<Integer> asignados = examenControlRepository == null ? java.util.Set.of()
+                : new java.util.HashSet<>(examenControlRepository.asignadosA(idExamen));
+        Integer docenteDelExamen = examenRepositorioReemplazo == null ? null
+                : examenRepositorioReemplazo.findFirstByIdIdExamen(idExamen).map(com.nexacore.examenes.models.Examen::getIdDocente).orElse(null);
         return registroRepository.listarPorExamen(idExamen).stream()
                 .filter(registro -> cierre == null || registro.getFechaHora() == null || registro.getFechaHora().isAfter(cierre))
                 .map(registro -> {
@@ -616,9 +661,19 @@ public class ControlIngresoService {
                             motivoTraslado, observacionTraslado,
                             registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
                                     .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
-                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()));
+                                    .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()),
+                            esReemplazo(control, asignados, docenteDelExamen));
                 })
                 .toList();
+    }
+
+    /** Un CONTROL que registra en un examen con personal asignado, sin estar asignado ni ser su docente. */
+    private static boolean esReemplazo(Usuario control, java.util.Set<Integer> asignados, Integer docenteDelExamen) {
+        if (control == null || asignados.isEmpty() || asignados.contains(control.getId()) || control.getId().equals(docenteDelExamen)) {
+            return false;
+        }
+        return control.getUsuarioRoles() != null && control.getUsuarioRoles().stream()
+                .anyMatch(ur -> ur.getIdRol() != null && "CONTROL".equals(ur.getIdRol().getNombre()));
     }
 
     private AutorizarIngresoResponse crearRespuesta(
@@ -631,7 +686,7 @@ public class ControlIngresoService {
             LocalDateTime ahora,
             int incidenciasRegistradas) {
         return crearRespuesta(asistencia, control, request, autorizado, resultado, causa, ahora,
-                incidenciasRegistradas, null);
+                incidenciasRegistradas, null, null);
     }
 
     /** aula: la asignada al autorizar; null en las denegaciones (se informa el aula principal). */
@@ -644,7 +699,8 @@ public class ControlIngresoService {
             String causa,
             LocalDateTime ahora,
             int incidenciasRegistradas,
-            String aula) {
+            String aula,
+            String avisoAforo) {
         List<String> verificaciones = request.verificacionesAdicionales().stream()
                 .map(ControlIngresoService::limpiar)
                 .filter(valor -> valor != null && !valor.isBlank())
@@ -667,7 +723,8 @@ public class ControlIngresoService {
                 ahora,
                 asistencia.getObservacionesControl(),
                 verificaciones,
-                incidenciasRegistradas);
+                incidenciasRegistradas,
+                avisoAforo);
     }
 
     /** Con incidencias se conserva exactamente la hora usada al guardarlas para poder consultarlas juntas. */
@@ -838,17 +895,6 @@ public class ControlIngresoService {
         }
     }
 
-    /** Devuelve true si el texto consiste únicamente en el mismo carácter alfabético repetido
-     *  (ignorando espacios), ej: "SSS SSSSS", "AAAAA", "111 111". */
-    private static boolean esSoloUnaLetraRepetida(String texto) {
-        String letras = texto.replaceAll("\\s", "").toUpperCase();
-        if (letras.isEmpty()) return false;
-        char primera = letras.charAt(0);
-        for (int i = 1; i < letras.length(); i++) {
-            if (letras.charAt(i) != primera) return false;
-        }
-        return true;
-    }
     @Transactional
     public ReasignarAmbienteResponse reasignarAmbiente(
             Integer idExamen, 
@@ -861,33 +907,14 @@ public class ControlIngresoService {
 
         notificacionService.emitirCambio(NotificacionService.CAMBIO_INGRESO, idExamen, idEstudiante);
 
-        // Validar y normalizar motivo (C01-C04): letras con tildes, ü y ñ (TextoTraslado)
-        String motivoLimpio = limpiar(request.motivo());
-        if (motivoLimpio == null || motivoLimpio.isBlank()) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo es obligatorio");
+        // IMP-14: el motivo del traslado sigue la misma regla que el de expulsión (MotivoEscrito): espacios
+        // simples, de 10 a 200 caracteres, sin garabatos y en formato de oración que conserva siglas y aulas («690B»).
+        String motivoLimpio;
+        try {
+            motivoLimpio = com.nexacore.examenes.utils.MotivoEscrito.validar(request.motivo(), "El motivo del traslado", "el traslado");
+        } catch (IllegalArgumentException e) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
-        // C04: no permitir espacios iniciales, finales ni múltiples entre palabras
-        String motivoOriginal = request.motivo();
-        if (motivoOriginal != null && (!motivoOriginal.equals(motivoOriginal.trim()) || motivoOriginal.contains("  "))) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "No uses espacios al inicio o final, ni múltiples espacios entre palabras");
-        }
-        if (motivoLimpio.length() < TextoTraslado.MOTIVO_MIN) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe contener al menos 10 caracteres");
-        }
-        if (motivoLimpio.length() > TextoTraslado.MAX) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede superar 65 caracteres");
-        }
-        if (!Character.isLetter(motivoLimpio.charAt(0))) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo debe comenzar con una letra");
-        }
-        if (!TextoTraslado.motivoValido(motivoLimpio)) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo solo permite letras, números y espacios simples entre palabras");
-        }
-        if (esSoloUnaLetraRepetida(motivoLimpio)) {
-            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El motivo no puede ser solo el mismo carácter repetido");
-        }
-        // Formato de oración; los códigos de aula ("690B") quedan en mayúscula.
-        motivoLimpio = TextoTraslado.formatoOracion(motivoLimpio);
 
         // Validar y normalizar observación (C01-C04)
         String observacionLimpia = limpiar(request.observacion());
@@ -908,6 +935,18 @@ public class ControlIngresoService {
             }
             if (!TextoTraslado.observacionValida(observacionLimpia)) {
                 throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación solo permite letras y espacios simples entre palabras");
+            }
+            if (TextoTraslado.tieneRepetidosConsecutivos(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación no puede contener más de 3 caracteres iguales seguidos");
+            }
+            if (!TextoTraslado.tieneAlMenosUnaVocal(observacionLimpia)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación debe contener al menos una vocal");
+            }
+            if (TextoTraslado.maxConsonantesSeguidas(observacionLimpia) >= 3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación contiene demasiadas consonantes seguidas; escribe una frase con sentido");
+            }
+            if (observacionLimpia.length() > 8 && TextoTraslado.proporcionVocales(observacionLimpia) < 0.3) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La observación parece no tener sentido; escribe una frase con palabras completas");
             }
             observacionLimpia = TextoTraslado.formatoOracion(observacionLimpia);
         }

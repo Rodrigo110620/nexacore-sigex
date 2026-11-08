@@ -45,7 +45,7 @@ it.each(['Cerrar formulario', 'Cancelar'])('BUG 10: %s advierte antes de descart
 it('BUG 10: solo el botón revisado recibe el estilo verde', () => {
   render(<ReporteQrDuplicadoModal idExamen={7} idEstudianteQr={10} onClose={vi.fn()} />)
   fireEvent.click(screen.getByRole('button', { name: 'Marcar como revisado' }))
-  const boton = screen.getByRole('button', { name: 'Carnet revisado ✓' })
+  const boton = screen.getByRole('button', { name: 'Carnet revisado' })
   expect(boton).toHaveClass('reviewed-active')
   expect(boton.closest('section')).not.toHaveClass('done')
   expect(screen.getByRole('button', { name: 'No presentó carnet' })).not.toHaveClass('reviewed-active')

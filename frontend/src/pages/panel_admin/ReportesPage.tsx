@@ -3,22 +3,30 @@ import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ExpulsionesReporte from '../../components/control/ExpulsionesReporte'
 import ExcepcionesNoHabilitadoReporte from '../../components/control/ExcepcionesNoHabilitadoReporte'
+import FotosReportadasReporte from '../../components/control/FotosReportadasReporte'
 import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
-import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
+import { useAuth } from '../../context/AuthContext'
+import { tienePermiso } from '../../utils/permisos'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
-import { fechaHoraNumerica, formatFecha } from '../../utils/examenFormat'
+import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones'
+import { Download, Lock } from 'lucide-react'
+import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
+import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
+  { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
 ]
 const TAMANO = 20
 
-const nombreExamen = (e: ExamenDto) => `${e.asignatura} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
+const nombreExamen = (e: ExamenDto) => `${materiaYGrupo(e)} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
 
 function EtiquetaTipo({ tipo }: { tipo: IntentoReporte['tipo'] }) {
   return tipo === 'AULA_INCORRECTA'
@@ -145,24 +153,30 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
   )
 }
 
-/** Reportes del ADMIN (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. */
+/**
+ * Reportes (Épica 5): intentos incorrectos de todos los exámenes; expulsiones y excepciones por examen. El ADMIN
+ * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
+ */
 export default function ReportesPage() {
+  const auth = useAuth() 
+  const soloMios = !tienePermiso(auth, 'REPORTES_VER')
+  const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR') 
+  
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
 
   useEffect(() => {
     let vigente = true
-    listarExamenes()
+    ;(soloMios ? listarMisExamenes() : listarExamenes())
       .then((lista) => {
         if (!vigente) return
         setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))
       })
       .catch(() => { if (vigente) setExamenes([]) })
     return () => { vigente = false }
-  }, [])
+  }, [soloMios])
 
-  // Registros del control del examen elegido: dan el nombre y el código SIS de los expulsados.
   const [controles, setControles] = useState<{ idExamen: number; registros: RegistroControlIngresoExamen[] }>()
   useEffect(() => {
     if (idExamen == null || pestana !== 'expulsiones') return
@@ -176,6 +190,20 @@ export default function ReportesPage() {
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
+  // DASH-05: solo un examen que ya empezó; el Excel lleva el nombre del servidor y un error se avisa con el modal.
+  const iniciado = ['en_curso', 'finalizado'].includes(examen?.estado?.toLowerCase() ?? '')
+  const [resultadoDescarga, setResultadoDescarga] = useState<Resultado | null>(null)
+  // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
+  const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
+  const descargarExcel = () => {
+    if (!idExamen || !iniciado) return
+    setPrevia('xlsx')
+  }
+  const descargarPDF = () => {
+    if (!idExamen || !iniciado) return
+    setPrevia('pdf')
+  }
+
   return (
     <PanelLayout compactDesktop>
       <div
@@ -184,25 +212,66 @@ export default function ReportesPage() {
       >
         <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
           <div className="mx-auto max-w-7xl">
-            {/* El título visible ya está en la barra superior ("REPORTES"); aquí queda para lectores de pantalla. */}
             <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
 
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <label htmlFor="reportes-examen" className="text-xs font-semibold text-[#011140]">Examen</label>
-              <select
-                id="reportes-examen"
-                value={idExamen ?? ''}
-                onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
-                className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
-              >
-                <option value="">Todos los exámenes</option>
-                {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
-              </select>
-            </div>
+              
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  id="reportes-examen"
+                  value={idExamen ?? ''}
+                  onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
+                  className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
+                >
+                  <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
+                  {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
+                </select>
 
-            {/* En el celular: control segmentado de 3, con áreas táctiles de 44 px; en pantallas anchas, pestañas. */}
+                {idExamen != null && puedeExportar && (
+                  <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                    {puedeExportar && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarPDF()}
+                        disabled={!iniciado}
+                        className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                      >
+                        <Download size={16} aria-hidden="true" />
+                        Descargar PDF
+                      </button>
+                    )}
+                    {puedeExportar && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarExcel()}
+                        disabled={!iniciado}
+                        className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
+                      >
+                        <Download size={16} aria-hidden="true" />
+                        Descargar Excel
+                      </button>
+                    )}
+                    {!iniciado && (
+                      <span className="flex basis-full items-center gap-1 text-[11px] font-semibold text-[#B45309] sm:basis-auto">
+                        <Lock size={12} aria-hidden="true" /> El examen aún no ha iniciado
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {soloMios && (
+              <p className="mt-2 text-xs text-[#627A9B]">
+                {examenes.length === 0
+                  ? 'Aún no tienes exámenes: aquí aparecen los tuyos y aquellos donde te asignaron como personal de control.'
+                  : 'Solo ves tus exámenes: los tuyos y aquellos donde te asignaron como personal de control.'}
+              </p>
+            )}
+
             <div role="tablist" aria-label="Tipo de reporte"
-              className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
+              className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
                 <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} aria-label={p.texto} onClick={() => setPestana(p.id)}
                   className={`min-h-11 rounded-lg px-1 text-[13px] transition-colors sm:min-h-0 sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
@@ -215,7 +284,8 @@ export default function ReportesPage() {
 
             <div className="mt-4">
               {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} />}
-              {pestana !== 'intentos' && idExamen == null && (
+              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} />}
+              {pestana !== 'intentos' && pestana !== 'fotos' && idExamen == null && (
                 <p className="rounded-xl border border-dashed border-[#B8CBEF] bg-white/70 p-8 text-center text-sm text-[#627A9B]">
                   Elige un examen para ver sus {pestana === 'expulsiones' ? 'expulsiones' : 'excepciones de no habilitados'}.
                 </p>
@@ -227,6 +297,8 @@ export default function ReportesPage() {
           </div>
         </section>
       </div>
+      <ResultadoModal resultado={resultadoDescarga} onClose={() => setResultadoDescarga(null)} />
+      <VistaPreviaExamen idExamen={idExamen ?? null} formato={previa} onClose={() => setPrevia(null)} />
       <MobileBottomNav />
     </PanelLayout>
   )

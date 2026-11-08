@@ -17,11 +17,21 @@ public record EstudianteAsignadoResponse(
         /** INCI-03: aula original si lo trasladaron en la sesión actual ("Trasladado desde ..."); null si no. */
         String trasladadoDesde,
         /** INCI-03: aula actual tras el traslado ("Trasladado de 691A a 692B"); null si no lo trasladaron. */
-        String trasladadoA
+        String trasladadoA,
+        /** Nombre del aula donde ingresó (p. ej. «608»); null si aún no ingresó. */
+        String aulaIngreso
 ) {
     public EstudianteAsignadoResponse(Integer idEstudiante, String nombre, String apellidos, String codigoSis, String ci,
                                       String carrera, IdentificacionResponse.Estado estado, String motivoInhabilitacion,
                                       boolean ingresado) {
-        this(idEstudiante, nombre, apellidos, codigoSis, ci, carrera, estado, motivoInhabilitacion, ingresado, null, null, null, null);
+        this(idEstudiante, nombre, apellidos, codigoSis, ci, carrera, estado, motivoInhabilitacion, ingresado, null, null, null, null, null);
+    }
+
+    public EstudianteAsignadoResponse(Integer idEstudiante, String nombre, String apellidos, String codigoSis, String ci,
+                                      String carrera, IdentificacionResponse.Estado estado, String motivoInhabilitacion,
+                                      boolean ingresado, Integer idAmbienteIngreso, String fotoUrl, String trasladadoDesde,
+                                      String trasladadoA) {
+        this(idEstudiante, nombre, apellidos, codigoSis, ci, carrera, estado, motivoInhabilitacion, ingresado,
+                idAmbienteIngreso, fotoUrl, trasladadoDesde, trasladadoA, null);
     }
 }

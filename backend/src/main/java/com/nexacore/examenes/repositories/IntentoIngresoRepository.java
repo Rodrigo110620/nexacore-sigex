@@ -65,14 +65,20 @@ public interface IntentoIngresoRepository extends JpaRepository<IntentoIngreso, 
             JOIN usuario u ON u.id_usuario = i.id_usuario_control
             WHERE (CAST(:idExamen AS INTEGER) IS NULL OR i.id_examen = CAST(:idExamen AS INTEGER))
               AND (CAST(:desde AS TIMESTAMP) IS NULL OR i.fecha_hora > CAST(:desde AS TIMESTAMP))
+              AND (CAST(:idUsuario AS INTEGER) IS NULL OR i.id_examen IN (
+                   SELECT d.id_examen FROM examen d WHERE d.id_docente = CAST(:idUsuario AS INTEGER)
+                   UNION SELECT c.id_examen FROM examen_control c WHERE c.id_usuario = CAST(:idUsuario AS INTEGER)))
             ORDER BY i.fecha_hora DESC, i.id_intento DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM intento_ingreso i
             WHERE (CAST(:idExamen AS INTEGER) IS NULL OR i.id_examen = CAST(:idExamen AS INTEGER))
               AND (CAST(:desde AS TIMESTAMP) IS NULL OR i.fecha_hora > CAST(:desde AS TIMESTAMP))
+              AND (CAST(:idUsuario AS INTEGER) IS NULL OR i.id_examen IN (
+                   SELECT d.id_examen FROM examen d WHERE d.id_docente = CAST(:idUsuario AS INTEGER)
+                   UNION SELECT c.id_examen FROM examen_control c WHERE c.id_usuario = CAST(:idUsuario AS INTEGER)))
             """,
             nativeQuery = true)
     Page<Object[]> reporte(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde,
-                           Pageable pageable);
+                           @Param("idUsuario") Integer idUsuario, Pageable pageable);
 }

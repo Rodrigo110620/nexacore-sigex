@@ -150,4 +150,14 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
     /** Hora real en Bolivia (ver V45), independiente de la zona de la sesión del pool. */
     @Query(value = "SELECT timezone('America/La_Paz', clock_timestamp())", nativeQuery = true)
     LocalDateTime obtenerFechaHoraServidor();
+
+    /** Trae las asistencias de un examen (para la exportación de actas). */
+    @Query("""
+            SELECT a FROM AsistenciaExamen a
+            JOIN FETCH a.estudiante
+            WHERE a.id.idExamen = :idExamen
+            ORDER BY a.estudiante.apellidos, a.estudiante.nombre
+            """)
+    List<AsistenciaExamen> buscarPorIdExamen(@Param("idExamen") Integer idExamen);
 }
+

@@ -106,7 +106,8 @@ public class ImportacionUsuariosService {
             LecturaCsv.valor(fila, "email").toLowerCase(Locale.ROOT),
             LecturaCsv.valor(fila, "rol").toUpperCase(Locale.ROOT),
             !estado.equals("inactivo"),
-            true
+            true,
+            null
         );
 
         Set<ConstraintViolation<RegisterUserRequest>> violaciones = validator.validate(request);

@@ -49,21 +49,20 @@ it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', 
   montar()
   fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
   const modal = screen.getByRole('dialog', { name: 'Expulsar estudiante' })
-  expect(within(modal).getByText('Lucía Aguilar')).toBeInTheDocument()
-  expect(within(modal).getByText('Examen: Ingeniería')).toBeInTheDocument()
-  expect(within(modal).getByText('Fecha: 31/10/2026')).toBeInTheDocument()
-  expect(within(modal).getByText('Horario: 14:00 – 15:30')).toBeInTheDocument()
-  expect(within(modal).getByText('Ambiente del examen: Aula 201')).toBeInTheDocument()
-  expect(within(modal).getByText('Al confirmar, se registrará:')).toBeInTheDocument()
+  // Sección 24: el estudiante en una línea bajo el título, «Motivo *», motivos frecuentes y el aviso.
+  expect(within(modal).getByText('Lucía Aguilar · 2026001 · Ingeniería')).toBeInTheDocument()
+  expect(within(modal).getByText('Entre 10 y 200 caracteres, con palabras que expliquen la expulsión.')).toBeInTheDocument()
+  expect(within(modal).getByRole('group', { name: 'Motivos frecuentes' })).toBeInTheDocument()
+  expect(within(modal).getByText(/La expulsión queda registrada con la fecha y hora del servidor/)).toBeInTheDocument()
   fireEvent.change(within(modal).getByRole('textbox'), { target: { value: '   ' } })
-  expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
+  expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).not.toHaveBeenCalled()
   fireEvent.click(within(modal).getByRole('button', { name: 'Cancelar' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
-it.each([0, 1])('vista %s: valida junto al motivo y limita también el texto pegado a 65', (indice) => {
+it.each([0, 1])('vista %s: valida junto al motivo y limita también el texto pegado a 200', (indice) => {
   montar()
   fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
   const modal = screen.getByRole('dialog')
@@ -72,17 +71,17 @@ it.each([0, 1])('vista %s: valida junto al motivo y limita también el texto peg
     fireEvent.change(campo, { target: { value: motivo } })
     expect(campo).toHaveAttribute('aria-invalid', 'true')
     expect(campo).toHaveAccessibleDescription(/motivo/i)
-    expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
+    expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
     fireEvent.submit(modal.querySelector('form')!)
   }
   expect(api.post).not.toHaveBeenCalled()
-  fireEvent.change(campo, { target: { value: 'Uso de ' + 'a '.repeat(28) + 'qrs' } })
+  fireEvent.change(campo, { target: { value: 'Uso de ' + 'a '.repeat(97) + 'qrs' } })
   expect(campo).not.toHaveAttribute('maxlength') // El límite se aplica después de normalizar, también al pegar.
-  expect((campo as HTMLTextAreaElement).value).toHaveLength(65)
-  expect(within(modal).getByText('65/65')).toBeInTheDocument()
+  expect((campo as HTMLTextAreaElement).value).toHaveLength(200)
+  expect(within(modal).getByText('200/200')).toBeInTheDocument()
   fireEvent.change(campo, { target: { value: 'Copia oral' } })
   expect(campo).toHaveAttribute('aria-invalid', 'false')
-  expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeEnabled()
+  expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeEnabled()
 })
 
 it.each([0, 1])('vista %s: pegar texto normaliza antes de limitar y permite los cuatro motivos legítimos', async (indice) => {
@@ -94,17 +93,38 @@ it.each([0, 1])('vista %s: pegar texto normaliza antes de limitar y permite los 
   await user.click(campo)
   await user.paste(limite.replace(/ /g, '   '))
   expect(campo).toHaveValue(limite)
-  expect(screen.getByText('65/65')).toBeInTheDocument()
+  expect(screen.getByText(`${limite.length}/200`)).toBeInTheDocument()
   for (const motivo of ['Uso de WhatsApp durante el examen', 'Consulta de archivo PDF', 'Uso de ChatGPT durante el examen', 'Uso de código en C durante el examen']) {
     fireEvent.change(campo, { target: { value: motivo } })
     expect(campo).toHaveAttribute('aria-invalid', 'false')
-    expect(screen.getByRole('button', { name: 'Confirmar expulsión' })).toBeEnabled()
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Expulsar' })).toBeEnabled()
   }
   fireEvent.change(campo, { target: { value: 'Uso   de celular' } })
   expect(campo).toHaveValue('Uso de celular')
   expect(api.post).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Cerrar expulsión' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('IMP-14: conserva siglas y aula desde el campo hasta la confirmación oficial', async () => {
+  const motivo = 'Uso de CI y SIS en aula 690B'
+  vi.mocked(api.post).mockResolvedValueOnce({ data: {
+    idExpulsion: 90, idEstudiante: 10, idExamen: 20, motivo,
+    idResponsable: 7, responsable: 'Ana Rojas', fechaHora: '2026-10-24T14:00:00',
+  } })
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[0])
+  const modal = screen.getByRole('dialog')
+  const campo = within(modal).getByRole('textbox')
+  fireEvent.change(campo, { target: { value: 'USO DE CI Y SIS EN AULA 690B' } })
+  fireEvent.blur(campo)
+  expect(campo).toHaveValue(motivo)
+  expect(campo).toHaveAttribute('aria-invalid', 'false')
+  expect(within(modal).getByText(`${motivo.length}/200`)).toBeInTheDocument()
+  fireEvent.submit(modal.querySelector('form')!)
+  expect(await screen.findByRole('status')).toHaveTextContent('Expulsión registrada correctamente.')
+  expect(api.post).toHaveBeenCalledWith('/control-ingresos/expulsar', { idEstudiante: 10, idExamen: 20, motivo })
+  expect(campo).toHaveValue(motivo)
 })
 
 it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar', async (indice) => {
@@ -127,9 +147,9 @@ it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar',
   expect(campo).toHaveValue('Uso de celular')
   expect(screen.queryByText('EXPULSADO')).not.toBeInTheDocument()
   vi.mocked(api.post).mockResolvedValueOnce({ data: null })
-  fireEvent.click(within(modal).getByRole('button', { name: 'Confirmar expulsión' }))
+  fireEvent.click(within(modal).getByRole('button', { name: 'Expulsar' }))
   expect(await screen.findByRole('status')).toHaveTextContent('sin registro verificable')
-  expect(within(modal).getByRole('button', { name: 'Confirmar expulsión' })).toBeDisabled()
+  expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).toHaveBeenCalledTimes(2)
   expect(screen.getAllByText('INGRESÓ')).toHaveLength(2)
@@ -171,4 +191,24 @@ it('una respuesta válida de otro estudiante no confirma ni solicita recarga', a
   } finally {
     window.removeEventListener(EVENTO_CAMBIO, avisos)
   }
+})
+
+
+it.each([['ADMIN', true], ['DOCENTE', true], ['CONTROL', false]])('reasignar: %s = %s', (rol, visible) => {
+  const { container } = montar(rol)
+  for (const selector of ['table', 'ul']) {
+    expect(within(container.querySelector(selector)!).queryAllByRole('button', { name: 'Reasignar' })).toHaveLength(visible ? 1 : 0)
+  }
+})
+
+it('sección 24: un motivo frecuente llena el campo y permite expulsar', () => {
+  montar()
+  fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[0])
+  const modal = screen.getByRole('dialog', { name: 'Expulsar estudiante' })
+  const frecuentes = within(modal).getByRole('group', { name: 'Motivos frecuentes' })
+  expect(within(frecuentes).getAllByRole('button').map((b) => b.textContent)).toEqual(['Uso de celular', 'Copia o plagio', 'Suplantación de identidad', 'Conducta inapropiada'])
+  fireEvent.click(within(frecuentes).getByRole('button', { name: 'Copia o plagio' }))
+  expect(within(modal).getByRole('textbox')).toHaveValue('Copia o plagio')
+  expect(within(frecuentes).getByRole('button', { name: 'Copia o plagio' })).toHaveAttribute('aria-pressed', 'true')
+  expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeEnabled()
 })

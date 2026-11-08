@@ -52,7 +52,7 @@ describe('MobileBottomNav', () => {
     expect(within(navigation).getAllByRole('listitem')).toHaveLength(6)
   })
 
-  it('DOCENTE: Inicio, Exámenes, Control y Estudiantes, sin Usuarios', () => {
+  it('DOCENTE: Inicio, Exámenes, Control, Reportes y Estudiantes, sin Usuarios', () => {
     renderNav('/dashboard/examenes', ['DOCENTE'])
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
@@ -63,11 +63,12 @@ describe('MobileBottomNav', () => {
       '/dashboard/estudiantes',
     )
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
-    expect(screen.queryByText('Reportes')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+    // V53: Reportes de sus exámenes.
+    expect(screen.getByRole('link', { name: 'Reportes' })).toHaveAttribute('href', '/dashboard/reportes')
+    expect(screen.getAllByRole('listitem')).toHaveLength(5)
   })
 
-  it('CONTROL: Inicio, Control y Estudiantes están disponibles en el mismo panel', () => {
+  it('CONTROL: Inicio, Control, Reportes y Estudiantes están disponibles en el mismo panel', () => {
     renderNav('/dashboard/examenes', ['CONTROL'])
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
@@ -78,7 +79,8 @@ describe('MobileBottomNav', () => {
     )
     expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByRole('link', { name: 'Reportes' })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
   })
 
   it('ADMIN + CONTROL conserva Usuarios y muestra Exámenes', () => {
@@ -88,14 +90,14 @@ describe('MobileBottomNav', () => {
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
   })
 
-  it('DOCENTE + CONTROL muestra Inicio, Control y Estudiantes sin acceso a Usuarios', () => {
+  it('DOCENTE + CONTROL muestra Inicio, Control, Reportes y Estudiantes sin acceso a Usuarios', () => {
     renderNav('/dashboard/examenes', ['DOCENTE', 'CONTROL'])
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Control' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Estudiantes' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getAllByRole('listitem')).toHaveLength(4)
   })
 
   it('en Control conserva las seis opciones globales del ADMIN y no muestra Ajustes', () => {

@@ -98,10 +98,24 @@ describe('AulasAdicionalesEditor', () => {
     expect(onAforoGuardado).toHaveBeenCalledWith(expect.objectContaining({ id: 3, capacidad: 35 }))
   })
 
-  it('quien no es admin ve que debe pedirlo', () => {
+  it('BUG 1 (QA): el docente registra el aforo que falta, pero no cambia uno ya registrado', async () => {
+    vi.mocked(ambienteService.actualizarAforo).mockResolvedValue({ ...AMBIENTES[2], capacidad: 35 })
+    const { onAforoGuardado } = renderEditor({ value: [3], esAdmin: false })
+    expect(screen.getByText('Registra cuántos estudiantes caben. Después, solo el administrador podrá cambiarlo.')).toBeInTheDocument()
+    // Las aulas con aforo no se pueden editar: solo el ADMIN tiene «Editar aforo».
+    expect(screen.queryByRole('button', { name: /Editar aforo/ })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Aforo (cuántos caben):'), { target: { value: '35' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar aforo' }))
+    await waitFor(() => expect(ambienteService.actualizarAforo).toHaveBeenCalledWith(3, 35))
+    expect(onAforoGuardado).toHaveBeenCalledWith(expect.objectContaining({ id: 3, capacidad: 35 }))
+  })
+
+  it('si el servidor rechaza el aforo, muestra su motivo', async () => {
+    vi.mocked(ambienteService.actualizarAforo).mockRejectedValue({ response: { data: { mensaje: 'El aforo de 692F ya está registrado (40). Para cambiarlo, pide al administrador.' } } })
     renderEditor({ value: [3], esAdmin: false })
-    expect(screen.getByText('Pide al administrador que registre el aforo de esta aula.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Guardar aforo' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Aforo (cuántos caben):'), { target: { value: '35' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar aforo' }))
+    expect(await screen.findByText('El aforo de 692F ya está registrado (40). Para cambiarlo, pide al administrador.')).toBeInTheDocument()
   })
 
   it('con una sola aula no muestra aforos ni pregunta cómo repartir', () => {

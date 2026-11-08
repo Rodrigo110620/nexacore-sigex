@@ -28,6 +28,8 @@ export async function getEstudiantes(
       idFacultad: params.idFacultad || undefined,
       idCarrera: params.idCarrera || undefined,
       idExamen: params.idExamen,
+      idMateria: params.idMateria || undefined,
+      idParalelo: params.idParalelo || undefined,
     },
     signal,
   })
@@ -80,15 +82,50 @@ export async function importarEstudiantes(file: File): Promise<ImportarEstudiant
 }
 
 /** Descarga la planilla con los estudiantes registrados (CSV para importar, PDF para imprimir). */
-export async function descargarPlanillaEstudiantes(formato: 'csv' | 'pdf'): Promise<void> {
-  const { data } = await api.get<Blob>(`/estudiantes/planilla.${formato}`, { responseType: 'blob' })
-  const url = URL.createObjectURL(data)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `planilla_estudiantes.${formato}`
-  link.click()
-  URL.revokeObjectURL(url)
+/** Sección 22, paso «Revisar»: lo que pasaría al importar, sin guardar nada. */
+export interface RevisionImportacion {
+  archivo: string
+  tipo: 'CSV' | 'Excel'
+  filas: number
+  listas: number
+  conErrores: number
+  yaRegistradas: number
+  errores: { fila: number; columna: string | null; mensaje: string }[]
 }
+
+/** Sección 22, pasos «Importando» y «Listo». */
+export interface ProgresoImportacion {
+  id: string
+  estado: 'EN_CURSO' | 'LISTA' | 'FALLIDA'
+  procesadas: number
+  total: number
+  resultado: ImportarEstudiantesResponse | null
+  segundos: number | null
+  error: string | null
+}
+
+const conArchivo = (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return formData
+}
+const multipart = { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 2 * 60 * 1000 }
+
+export async function revisarImportacion(file: File): Promise<RevisionImportacion> {
+  const { data } = await api.post<RevisionImportacion>('/estudiantes/importar/revisar', conArchivo(file), multipart)
+  return data
+}
+
+export async function iniciarImportacion(file: File): Promise<ProgresoImportacion> {
+  const { data } = await api.post<ProgresoImportacion>('/estudiantes/importar/iniciar', conArchivo(file), multipart)
+  return data
+}
+
+export async function progresoImportacion(id: string): Promise<ProgresoImportacion> {
+  const { data } = await api.get<ProgresoImportacion>(`/estudiantes/importar/${id}`)
+  return data
+}
+
 
 export async function getEstudianteById(
   id: number,
@@ -121,5 +158,10 @@ export async function quitarFotoEstudiante(id: number): Promise<void> {
 /** La foto se pide con el token (un <img src> no lo enviaría). */
 export async function descargarFotoEstudiante(fotoUrl: string, signal?: AbortSignal): Promise<Blob> {
   const { data } = await api.get<Blob>(fotoUrl, { responseType: 'blob', signal })
+  return data
+}
+
+export async function getMateriasDocente(signal?: AbortSignal) {
+  const { data } = await api.get<import('../types/estudiante').MateriaDocenteInfo[]>('/estudiantes/materias-docente', { signal })
   return data
 }

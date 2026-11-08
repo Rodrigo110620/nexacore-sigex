@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ArrowLeft, ChevronDown, X, CircleAlert } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import api from '../../services/api'
@@ -36,6 +36,18 @@ const toSentenceCase = (text: string) => {
   return lower.charAt(0).toUpperCase() + lower.slice(1)
 }
 
+const esTextoInconsistente = (texto: string) => {
+  const palabras = texto.split(/\s+/);
+  for (const palabra of palabras) {
+    if (palabra.length >= 5) {
+      const vocales = (palabra.match(/[aeiouáéíóúü]/ig) || []).length;
+      if (vocales / palabra.length < 0.25) return true;
+    }
+  }
+  if (/[bcdfghjklmnñpqrstvwxyz]{4,}/i.test(texto)) return true;
+  return false;
+}
+
 export default function RegistrarNoHabilitadoModal({
   isOpen, onClose, estudiante, idEstudiante, idExamen, idAmbiente, onGuardadoExitoso,
 }: Props) {
@@ -50,6 +62,7 @@ export default function RegistrarNoHabilitadoModal({
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [confirmarCierre, setConfirmarCierre] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -83,6 +96,17 @@ export default function RegistrarNoHabilitadoModal({
     }, 150)
   }
 
+  const hayCambios = accion.trim().length > 0 || observaciones.trim().length > 0
+
+  const solicitarCierre = () => {
+    if (isSaving) return
+    if (hayCambios) {
+      setConfirmarCierre(true)
+    } else {
+      onClose()
+    }
+  }
+
   const handleGuardar = async () => {
     const textoAccion = accion.trim();
     const textoObs = observaciones.trim();
@@ -101,21 +125,8 @@ export default function RegistrarNoHabilitadoModal({
         showError('observaciones', 'Las observaciones no pueden superar los 200 caracteres.')
         return
       }
-
-      const regexSoloLetras = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]+$/;
-      if (!regexSoloLetras.test(textoObs)) {
-        showError('observaciones', 'Solo se permiten letras y espacios. No se admiten números ni símbolos.')
-        return
-      }
-
-      const soloLetras = textoObs.replace(/\s/g, '')
-      if (/^(.)\1+$/.test(soloLetras)) {
-        showError('observaciones', 'Las observaciones no pueden ser una sola letra repetida.')
-        return
-      }
-      // 2. Si hay una misma letra repetida más de 3 veces seguidas (ej: "holaaaa", "reeeetiró")
-      if (/([a-zA-ZáéíóúÁÉÍÓÚüÜñÑ])\1{3,}/.test(textoObs)) {
-        showError('observaciones', 'Las observaciones tienen letras repetidas de forma inconsistente.')
+      if (esTextoInconsistente(textoObs)) {
+        showError('observaciones', 'El texto ingresado parece no tener sentido (datos inconsistentes). Por favor, escribe una observación real.')
         return
       }
     }
@@ -148,6 +159,7 @@ export default function RegistrarNoHabilitadoModal({
     <>
       <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/25 p-0 sm:p-4">
         <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-[#D8E3F5] bg-white p-5 sm:p-7 shadow-[0_20px_50px_-15px_rgba(1,17,64,.25)] transition-all">
+          
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626]">
@@ -157,6 +169,15 @@ export default function RegistrarNoHabilitadoModal({
                 Registrar Excepción
               </h2>
             </div>
+            <button
+              type="button"
+              onClick={solicitarCierre}
+              disabled={isSaving}
+              aria-label="Cerrar"
+              className="rounded-full p-1.5 text-[#627A9B] transition-colors hover:bg-gray-100 disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <div>
@@ -246,8 +267,8 @@ export default function RegistrarNoHabilitadoModal({
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-1">
-              <button onClick={onClose} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
+            <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row sm:flex-row gap-2.5 pt-1">
+              <button onClick={solicitarCierre} disabled={isSaving} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-[#C9D7EC] bg-white px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-[#F1F5F9] disabled:opacity-50">
                 <ArrowLeft size={15} /> Cancelar
               </button>
               <button onClick={handleGuardar} disabled={isSaving || !accion} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-[#BA1A1A] px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-[#B91C1C] disabled:opacity-50 ml-auto">
@@ -270,6 +291,39 @@ export default function RegistrarNoHabilitadoModal({
         resultado={resultado} 
         onClose={() => setResultado(null)} 
       />
+      
+      {confirmarCierre && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/25 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <CircleAlert size={22} />
+              </span>
+              <h3 className="text-lg font-bold text-[#011140]">¿Descartar cambios?</h3>
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              Si sales ahora, perderás la información que has ingresado en el formulario.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button 
+                onClick={() => setConfirmarCierre(false)} 
+                className="px-4 py-2.5 text-sm font-semibold text-[#45628D] hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Quedarme
+              </button>
+              <button 
+                onClick={() => {
+                  setConfirmarCierre(false)
+                  onClose()
+                }} 
+                className="px-4 py-2.5 text-sm font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+              >
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -1,126 +1,141 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ArrowRight, BookOpen, Building2, LoaderCircle, UsersRound } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { BookOpen, Info, LoaderCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
+import ErrorCarga from '../../components/ui/ErrorCarga'
 import { useAuth } from '../../context/AuthContext'
-import { getFacultades } from '../../services/estudianteService'
+import useEnVivo from '../../hooks/useEnVivo'
+import useReloj from '../../hooks/useReloj'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
-import type { FacultadOption } from '../../types/estudiante'
+import { offsetServidorMinutos } from '../../services/tiempoService'
+import { formatFecha, horaCorta } from '../../utils/examenFormat'
+import useResumenesExamenes from '../../hooks/useResumenesExamenes'
+import { obtenerInicioDocente, type InicioDocente } from '../../services/inicioService'
+import { BannerDocente, ExamenesHoyDocente, IndicadoresDocente, MisMaterias, RegistrosDocente } from '../../components/inicio/PanelDocente'
+import { tienePermiso } from '../../utils/permisos'
+import { ordenarPorFase, tiempoExamen } from '../../utils/tiempoExamen'
 
-/** Punto de entrada del docente: permite elegir un grupo propio antes de ir a sus exámenes. */
 export default function InicioDocentePage() {
-  const { nombre } = useAuth()
-  const navigate = useNavigate()
-  const [facultades, setFacultades] = useState<FacultadOption[]>([])
+  const auth = useAuth()
+  const { nombre } = auth
+  const ahora = useReloj(15_000)
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
-  const [idFacultad, setIdFacultad] = useState('')
-  const [asignatura, setAsignatura] = useState('')
-  const [grupo, setGrupo] = useState('')
   const [cargando, setCargando] = useState(true)
+  // Sección 18: materias, totales y registros del docente (GET /inicio/docente).
+  const [panelDocente, setPanelDocente] = useState<InicioDocente | null>(null)
+  const [errorPanel, setErrorPanel] = useState(false)
+  const [recargaPanel, setRecargaPanel] = useState(0)
   const [error, setError] = useState('')
+  const [recarga, setRecarga] = useState(0)
+
+  useEnVivo((cambio) => cambio.tipo === 'EXAMEN', () => setRecarga((n) => n + 1))
+
+  useEnVivo((cambio) => ['INGRESO', 'EXAMEN', 'HABILITACION'].includes(cambio.tipo), () => setRecargaPanel((n) => n + 1))
+  useEffect(() => {
+    const id = window.setInterval(() => setRecargaPanel((n) => n + 1), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+  useEffect(() => {
+    let vigente = true
+    obtenerInicioDocente()
+      .then((d) => { if (vigente) { setPanelDocente(d); setErrorPanel(false) } })
+      .catch(() => { if (vigente) setErrorPanel(true) })
+    return () => { vigente = false }
+  }, [recargaPanel])
 
   useEffect(() => {
     let vigente = true
-    Promise.all([getFacultades(), listarExamenes()])
-      .then(([listaFacultades, listaExamenes]) => {
+    listarExamenes()
+      .then((listaExamenes) => {
         if (!vigente) return
-        setFacultades(listaFacultades)
-        setIdFacultad(String(listaFacultades[0]?.id ?? ''))
+        setError('')
         setExamenes(listaExamenes.filter((examen) => examen.estado?.toLowerCase() !== 'cancelado'))
       })
       .catch(() => {
-        if (vigente) setError('No se pudieron cargar tus grupos. Intenta nuevamente desde Exámenes.')
+        if (vigente) setError('No se pudieron cargar tus exámenes y grupos.')
       })
       .finally(() => {
         if (vigente) setCargando(false)
       })
     return () => { vigente = false }
-  }, [])
+  }, [recarga])
 
-  const materias = useMemo(() => {
-    const unicas = new Map<string, string>()
-    examenes.forEach((examen) => unicas.set(examen.asignatura, examen.sigla ? `${examen.asignatura} (${examen.sigla})` : examen.asignatura))
-    return [...unicas.entries()].map(([valor, etiqueta]) => ({ valor, etiqueta })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
-  }, [examenes])
+  const offset = offsetServidorMinutos()
+  const fechaServidor = new Date(ahora + offset * 60_000)
+  const hoy = fechaServidor.toISOString().slice(0, 10)
+  const horaActual = fechaServidor.toISOString().slice(11, 16)
+  const hora = fechaServidor.getUTCHours()
+  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const primerNombre = nombre?.trim().split(/\s+/)[0]
+  const examenesHoy = ordenarPorFase(examenes.filter((examen) => examen.fecha === hoy), ahora, offset)
+    .map((examen) => ({ examen, tiempo: tiempoExamen(examen, ahora, offset) }))
+  const enCurso = examenesHoy.filter(({ tiempo }) => tiempo.fase === 'en_curso').length
+  const proximo = ordenarPorFase(examenes.filter((examen) => examen.fecha > hoy), ahora, offset)
+    .find((examen) => tiempoExamen(examen, ahora, offset).fase === 'programado')
+  const puedeProgramar = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS', 'EXAMENES_GESTIONAR_TODOS')
 
-  const grupos = useMemo(
-    () => [...new Map(examenes
-      .filter((examen) => asignatura && examen.asignatura === asignatura)
-      .map((examen) => [examen.idParalelo, examen])).values()],
-    [asignatura, examenes],
-  )
-
-  const seleccionarMateria = (valor: string) => {
-    setAsignatura(valor)
-    setGrupo('')
-  }
-
-  const irAMisExamenes = () => {
-    if (!grupo) return
-    navigate(`/dashboard/examenes?paralelo=${encodeURIComponent(grupo)}`)
-  }
+  const resumenes = useResumenesExamenes(examenesHoy.map(({ examen }) => examen.idExamen), ahora - (ahora % 30_000)).resumenes
+  const totalHoy = examenesHoy.reduce((t, { examen }) => {
+    const r = resumenes[examen.idExamen]
+    return r && r !== 'error' ? { habilitados: t.habilitados + r.habilitados, ingresados: t.ingresados + r.ingresados } : t
+  }, { habilitados: 0, ingresados: 0 })
+  const proximoHoy = examenesHoy.find(({ tiempo }) => tiempo.fase === 'programado')?.examen
 
   return (
-    <PanelLayout
-      compactDesktop
-      title={`Bienvenido${nombre ? `, ${nombre}` : ''}`}
-      description="Administra, controla exámenes y revisa reportes estadísticos."
-    >
-      <div className="min-h-full bg-[#F8FAFC] px-4 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7 min-[960px]:px-6 min-[960px]:py-5 min-[960px]:pb-8 xl:px-8">
-        <section aria-labelledby="docente-grupo-title" className="mx-auto max-w-6xl rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:p-5">
-          <h1 id="docente-grupo-title" className="text-xl font-extrabold tracking-tight text-[#011140]">¿Qué grupo deseas gestionar hoy?</h1>
-          <p className="mt-1 text-xs text-[#627A9B]">Selecciona la facultad, materia y grupo para registrar y revisar detalles de exámenes.</p>
-
+    <PanelLayout compactDesktop topBarVariant="docenteInicio" title="MI PANEL DOCENTE" description="Tus materias, exámenes y estudiantes">
+      <div className="min-h-full bg-[#f2f5fa] text-[#011140]">
+        <div className="mx-auto grid max-w-[1500px] gap-[18px] px-[18px] py-5 pb-[calc(4.75rem+env(safe-area-inset-bottom))] min-[960px]:px-[30px] min-[960px]:pb-6">
           {cargando ? (
-            <div role="status" className="flex min-h-40 items-center justify-center gap-2 text-sm text-[#627A9B]">
-              <LoaderCircle className="animate-spin text-[#0439D9]" size={20} aria-hidden="true" />
-              Cargando tus grupos…
+            <div role="status" className={`${panel} flex min-h-40 items-center justify-center gap-2 text-sm text-[#42618e]`}>
+              <LoaderCircle className="animate-spin text-[#0439D9]" size={20} aria-hidden="true" /> Cargando tu panel…
             </div>
+          ) : error ? (
+            <ErrorCarga mensaje={error} onReintentar={() => { setError(''); setCargando(true); setRecarga((n) => n + 1) }} />
           ) : (
             <>
-              <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                <SelectorCard icon={<Building2 size={16} />} label="1. Facultad">
-                  <select value={idFacultad} onChange={(event) => setIdFacultad(event.target.value)} aria-label="Facultad" className="h-10 w-full rounded-md border border-[#D8E3F5] bg-white px-3 text-sm text-[#011140] outline-none focus:ring-2 focus:ring-[#0439D9]">
-                    {facultades.length === 0 ? <option value="">Sin facultades disponibles</option> : facultades.map((facultad) => <option key={facultad.id} value={facultad.id}>{facultad.nombre}</option>)}
-                  </select>
-                </SelectorCard>
-                <SelectorCard icon={<BookOpen size={16} />} label="2. Materia">
-                  <select value={asignatura} onChange={(event) => seleccionarMateria(event.target.value)} aria-label="Materia" className="h-10 w-full rounded-md border border-[#D8E3F5] bg-white px-3 text-sm text-[#011140] outline-none focus:ring-2 focus:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-slate-100" disabled={materias.length === 0}>
-                    <option value="">{materias.length === 0 ? 'Sin materias asignadas' : 'Selecciona una materia'}</option>
-                    {materias.map((materia) => <option key={materia.valor} value={materia.valor}>{materia.etiqueta}</option>)}
-                  </select>
-                </SelectorCard>
-                <SelectorCard icon={<UsersRound size={16} />} label="3. Grupo">
-                  <select value={grupo} onChange={(event) => setGrupo(event.target.value)} aria-label="Grupo" className="h-10 w-full rounded-md border border-[#D8E3F5] bg-white px-3 text-sm text-[#011140] outline-none focus:ring-2 focus:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-slate-100" disabled={grupos.length === 0}>
-                    <option value="">{grupos.length === 0 ? 'Sin grupos disponibles' : 'Selecciona un grupo'}</option>
-                    {grupos.map((examen) => <option key={`${examen.idExamen}-${examen.idParalelo}`} value={examen.idParalelo}>Grupo {examen.idParalelo}</option>)}
-                  </select>
-                </SelectorCard>
-              </div>
+              {/* Sección 18: banner con el saludo, el resumen del día y el avance de ingreso de hoy. */}
+              <BannerDocente nombre={primerNombre} fecha={fechaConDia(hoy, true)} horaActual={horaActual} saludo={saludo}
+                materias={panelDocente?.materias.length ?? 0} examenesHoy={examenesHoy.length} enCurso={enCurso}
+                ingresados={totalHoy.ingresados} habilitados={totalHoy.habilitados} puedeProgramar={puedeProgramar} />
 
-              {error && <p role="alert" className="mt-4 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>}
-              {!error && examenes.length === 0 && <p className="mt-4 text-sm text-[#627A9B]">Aún no tienes exámenes o grupos asignados.</p>}
+              {panelDocente && (
+                <IndicadoresDocente datos={panelDocente} examenesHoy={examenesHoy.length} enCurso={enCurso}
+                  proximoHoy={proximoHoy ? horaCorta(proximoHoy.horaInicio) : null} hora={hora} />
+              )}
+              {errorPanel && !panelDocente && (
+                <ErrorCarga mensaje="No se pudieron cargar tus materias." onReintentar={() => setRecargaPanel((n) => n + 1)} />
+              )}
 
-              <div className="mt-5 flex justify-end">
-                <button type="button" onClick={irAMisExamenes} disabled={!grupo} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#0439D9] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0C41E1] disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto">
-                  Ir a mis exámenes de este grupo <ArrowRight size={17} aria-hidden="true" />
-                </button>
-              </div>
+              {/* Sección 18: sus materias; abajo, sus exámenes de hoy (DASH-01) junto a sus registros. */}
+              {panelDocente && panelDocente.materias.length === 0 ? (
+                <section className={`${panel} flex flex-col items-center gap-3 px-5 py-8 text-center`} aria-labelledby="sin-materias">
+                  <span className="grid size-14 place-items-center rounded-full bg-[#edf2fe] text-[#0439D9]"><BookOpen size={25} aria-hidden="true" /></span>
+                  <h2 id="sin-materias" className="text-lg font-bold">Aún no tienes materias asignadas</h2>
+                  <p className="max-w-md text-sm text-[#42618e]">El administrador debe asignarte tus materias para que puedas programar exámenes y ver a tus estudiantes.</p>
+                  <p className="inline-flex items-center gap-1.5 rounded-lg bg-[#edf2fe] px-3 py-2 text-xs font-semibold text-[#0439D9]"><Info size={14} aria-hidden="true" /> Contacta al administrador del sistema.</p>
+                </section>
+              ) : (
+                <>
+                  {panelDocente && <MisMaterias datos={panelDocente} hoy={hoy} horaActual={horaActual} puedeProgramar={puedeProgramar} />}
+                  <div className="grid items-start gap-[18px] min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <ExamenesHoyDocente examenes={examenesHoy} resumenes={resumenes} proximo={proximo} />
+                    {panelDocente && <RegistrosDocente registros={panelDocente.recientes} />}
+                  </div>
+                </>
+              )}
             </>
           )}
-        </section>
+        </div>
       </div>
       <MobileBottomNav />
     </PanelLayout>
   )
 }
 
-function SelectorCard({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-[#011140]"><span className="text-[#4264A2]" aria-hidden="true">{icon}</span>{label}</p>
-      {children}
-    </div>
-  )
+const panel = 'rounded-[14px] border border-[#e1e8f2] bg-white shadow-sm'
+const diaSemana = new Intl.DateTimeFormat('es-BO', { weekday: 'long', timeZone: 'UTC' })
+
+function fechaConDia(fecha: string, mayuscula = false) {
+  const dia = diaSemana.format(new Date(`${fecha}T00:00:00Z`))
+  return `${mayuscula ? dia[0].toUpperCase() + dia.slice(1) : dia} ${formatFecha(fecha)}`
 }

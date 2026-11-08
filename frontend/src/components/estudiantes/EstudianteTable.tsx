@@ -1,3 +1,4 @@
+import MateriasDocente from './MateriasDocente'
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
@@ -6,6 +7,8 @@ import EstadoCuentaBadge from './EstadoCuentaBadge'
 
 interface EstudianteTableProps {
   estudiantes: EstudianteListItem[]
+  /** El docente eligió un grupo: sus materias sobran (son todas esa) y se muestra la carrera. */
+  ocultarMaterias?: boolean
   onViewClick?: (estudiante: EstudianteListItem) => void
   onEditClick?: (estudiante: EstudianteListItem) => void
   puedeEditar?: boolean
@@ -26,25 +29,34 @@ export default function EstudianteTable({
   onViewClick,
   onEditClick,
   puedeEditar = true,
+  ocultarMaterias = false,
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
-      <table className="w-full text-left">
+      <table className="w-full min-w-[1100px] table-fixed text-left">
+        <colgroup>
+          <col className="w-[24%]" />
+          <col className="w-[12%]" />
+          <col className="w-[26%]" />
+          <col className="w-[11%]" />
+          <col className="w-[14%]" />
+          <col className="w-[13%]" />
+        </colgroup>
         <caption className="sr-only">Lista de estudiantes registrados</caption>
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
           <tr>
-            <th scope="col" className="px-5 py-3 font-bold">Estudiante / Código</th>
-            <th scope="col" className="px-5 py-3 font-bold">Documento (DNI)</th>
-            <th scope="col" className="px-5 py-3 font-bold">Carrera Profesional</th>
-            <th scope="col" className="px-5 py-3 font-bold text-center">Matrícula</th>
-            <th scope="col" className="px-5 py-3 font-bold text-center">Cuenta</th>
-            <th scope="col" className="px-5 py-3 text-center font-bold">Acciones</th>
+            <th scope="col" className="px-3 py-3 font-bold">Estudiante / Código</th>
+            <th scope="col" className="px-3 py-3 font-bold">Documento (DNI)</th>
+            <th scope="col" className="px-3 py-3 font-bold">{estudiantes.some(e => (!ocultarMaterias && e.materiasDocente != null)) ? 'Materias' : 'Carrera Profesional'}</th>
+            <th scope="col" className="px-3 py-3 font-bold text-center">Matrícula</th>
+            <th scope="col" className="px-3 py-3 font-bold text-center">Cuenta</th>
+            <th scope="col" className="px-3 py-3 text-center font-bold">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EDF1F7] bg-white text-sm text-[#011140]">
           {estudiantes.map((e) => (
-            <tr key={e.id}>
-              <th scope="row" className="px-5 py-3 font-normal">
+            <tr key={e.id} className="h-24">
+              <th scope="row" className="px-3 py-3 font-normal">
                 <div className="flex items-center gap-3">
                   <FotoEstudiante
                     fotoUrl={e.fotoUrl}
@@ -52,19 +64,21 @@ export default function EstudianteTable({
                     iniciales={getInitials(e.nombre, e.apellidos)}
                     className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}
                   />
-                  <span>
-                    <span className="block font-semibold">{e.nombre} {e.apellidos}</span>
+                  <span className="min-w-0">
+                    <span title={`${e.nombre} ${e.apellidos}`} className="block truncate font-semibold">{e.nombre} {e.apellidos}</span>
                     <span className="mt-1 block text-xs text-gray-500">Cód: {e.codigoSis}</span>
                   </span>
                 </div>
               </th>
-              <td className="whitespace-nowrap px-5 py-3 text-gray-600">{e.ci}</td>
-              <td className="px-5 py-3">
+              <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci}</td>
+              <td className="px-3 py-3">
+                {(!ocultarMaterias && e.materiasDocente != null) ? <MateriasDocente materias={e.materiasDocente!} compacto /> : <>
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>
-                <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span>
+                <span className="block text-xs text-gray-500">{formatFacultad(e.carreras)}</span></>}
+
               </td>
              
-              <td className="px-5 py-3 text-center">
+              <td className="px-3 py-3 text-center">
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                   e.estadoMatricula === 'NO_MATRICULADO' 
                     ? 'bg-red-50 text-red-600' 
@@ -73,13 +87,13 @@ export default function EstudianteTable({
                   {e.estadoMatricula === 'NO_MATRICULADO' ? 'No matriculado' : 'Matriculado'}
                 </span>
               </td>
-              <td className="px-5 py-3 text-center"><EstadoCuentaBadge tieneCuenta={e.tieneCuenta} /></td>
-              <td className="px-5 py-3">
+              <td className="whitespace-nowrap px-3 py-3 text-center"><EstadoCuentaBadge tieneCuenta={e.tieneCuenta} /></td>
+              <td className="px-3 py-3">
                 <div className="flex justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => onViewClick?.(e)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-[#E1ECFF] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#D0E2FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-[#E1ECFF] px-3 py-1.5 text-xs font-semibold text-[#0439D9] hover:bg-[#D0E2FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2"
                   >
                     <Eye size={14} aria-hidden="true" />
                     Ver Ficha

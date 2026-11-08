@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, BarChart3, Settings } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, LayoutGrid, BarChart3, Settings } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
@@ -20,7 +20,7 @@ interface PanelTopBarProps {
   title?: string
   description?: string
   locationLabel?: string
-  variant?: 'default' | 'control' | 'controlMinimal'
+  variant?: 'default' | 'control' | 'controlMinimal' | 'docenteInicio'
 }
 
 export default function PanelTopBar({
@@ -54,10 +54,11 @@ export default function PanelTopBar({
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
         : isConfiguracion
-          ? 'Roles del sistema y roles extra con sus permisos.'
+          ? 'Roles y permisos, y respaldo de la base de datos.'
           : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
+  const docenteInicio = variant === 'docenteInicio'
   const minimalControlHeader = variant === 'controlMinimal'
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -94,7 +95,7 @@ export default function PanelTopBar({
 
   return (
     <>
-      <header className={`sticky top-0 z-30 flex w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 px-4 backdrop-blur sm:px-5 ${minimalControlHeader ? 'py-1 sm:h-11' : 'py-2 sm:h-20'} ${compactDesktop ? 'min-[960px]:px-6' : 'lg:px-6'} ${minimalControlHeader ? '' : compactDesktop ? 'min-[960px]:py-6' : 'lg:py-6'}`}>
+      <header className={`sticky top-0 z-30 flex w-full shrink-0 items-center border-b border-[#D8E3F5] bg-white/95 px-4 backdrop-blur sm:px-5 ${docenteInicio ? 'min-h-[60px] min-[960px]:h-[74px]' : minimalControlHeader ? 'py-1 sm:h-11' : 'py-2 sm:h-20'} ${compactDesktop ? 'min-[960px]:px-6' : 'lg:px-6'} ${minimalControlHeader || docenteInicio ? '' : compactDesktop ? 'min-[960px]:py-6' : 'lg:py-6'}`}>
         <div className="min-w-0 flex-1">
           <div className={compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}>
             <img src="/logo_app.png" alt="SIGEX" className="h-8 w-auto max-w-[9rem] object-contain object-left" />
@@ -106,7 +107,9 @@ export default function PanelTopBar({
             </span>
           )}
           {!minimalControlHeader && <div className={`hidden min-w-0 items-center gap-4 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'}`}>
-            {variant === 'control' ? (
+            {docenteInicio ? (
+              <span className={ICON_TILE}><LayoutGrid size={22} aria-hidden="true" /></span>
+            ) : variant === 'control' ? (
               <span aria-hidden="true" className={ICON_TILE}><ClipboardCheck size={24} /></span>
             ) : isExamenes ? (
               <span className={ICON_TILE}>
@@ -144,23 +147,23 @@ export default function PanelTopBar({
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={`Menú de cuenta: ${displayName}`}
-            className={`inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-[background-color,transform] duration-150 ease-out hover:bg-[#E9F1FF] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem] ${minimalControlHeader ? 'sm:h-8' : 'sm:h-11'}`}
+            className={`inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-[background-color,transform] duration-150 ease-out hover:bg-[#E9F1FF] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${docenteInicio ? 'min-[960px]:h-11 min-[960px]:max-w-[18rem] min-[960px]:rounded-xl min-[960px]:bg-[#F8FAFC] min-[960px]:px-2.5' : `sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem] ${minimalControlHeader ? 'sm:h-8' : 'sm:h-11'}`}`}
           >
             <span
               aria-hidden="true"
-              className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-[11px] font-bold text-white sm:inline-flex sm:h-8 sm:w-8 sm:text-xs"
+              className={`hidden size-8 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-xs font-bold text-white ${docenteInicio ? 'min-[960px]:inline-flex' : 'sm:inline-flex'}`}
             >
               {getInitials(nombre)}
             </span>
-            <span className="max-w-16 truncate sm:hidden">{roles.includes('ADMIN') ? 'ADMIN' : roleLabel}</span>
-            <span className="hidden min-w-0 flex-1 text-left sm:block">
+            <span className={`max-w-16 truncate ${docenteInicio ? 'min-[960px]:hidden' : 'sm:hidden'}`}>{roles.includes('ADMIN') ? 'ADMIN' : roleLabel}</span>
+            <span className={`hidden min-w-0 flex-1 text-left ${docenteInicio ? 'min-[960px]:block' : 'sm:block'}`}>
               <span className="block truncate text-sm font-semibold leading-tight text-[#011140]">{displayName}</span>
               <span className="block truncate text-[11px] leading-tight text-[#627A9B]">{roleLabel}</span>
             </span>
             <ChevronDown
               size={16}
               aria-hidden="true"
-              className={`hidden shrink-0 text-[#627A9B] transition-transform duration-[160ms] ease-out-strong sm:block ${open ? 'rotate-180' : ''}`}
+              className={`hidden shrink-0 text-[#627A9B] transition-transform duration-[160ms] ease-out-strong ${docenteInicio ? 'min-[960px]:block' : 'sm:block'} ${open ? 'rotate-180' : ''}`}
             />
           </button>
 
@@ -216,7 +219,7 @@ export default function PanelTopBar({
           )}
         </div>
       </header>
-      {!minimalControlHeader && !isExamenes && !isEstudiantes && (
+      {!docenteInicio && !minimalControlHeader && !isExamenes && !isEstudiantes && (
         <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
           <p className="text-base font-bold text-[#011140]">{effectiveTitle}</p>
           <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{effectiveDescription}</p>

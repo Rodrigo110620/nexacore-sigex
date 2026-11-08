@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 /**
  * Datos para registrar o actualizar un usuario del sistema.
  *
@@ -53,5 +55,28 @@ public record RegisterUserRequest(
         Boolean activo,
 
         /** Si true, se envía la contraseña temporal por correo. Null se trata como false. */
-        Boolean notificarEmail
-) {}
+        Boolean notificarEmail,
+
+        /**
+         * IMP-12: materias del DOCENTE (al menos una). Null cuando no se envían (importación por archivo
+         * o edición): sus materias se asignan aparte desde Usuarios.
+         */
+        List<Integer> idMaterias,
+
+        /** Datos profesionales del DOCENTE (título, especialidad, categoría). Null: no se cambian. */
+        @jakarta.validation.Valid
+        DatosDocenteRequest docente,
+
+        /** Grupos de cada materia del DOCENTE ({@code {idMateria: ["G1", "G2"]}}). Null: se crean al programar. */
+        java.util.Map<Integer, List<String>> grupos
+) {
+    public RegisterUserRequest(String nombre, String apellidos, String ci, String email, String rol, Boolean activo,
+                               Boolean notificarEmail, List<Integer> idMaterias) {
+        this(nombre, apellidos, ci, email, rol, activo, notificarEmail, idMaterias, null, null);
+    }
+
+    public RegisterUserRequest(String nombre, String apellidos, String ci, String email, String rol, Boolean activo,
+                               Boolean notificarEmail, List<Integer> idMaterias, DatosDocenteRequest docente) {
+        this(nombre, apellidos, ci, email, rol, activo, notificarEmail, idMaterias, docente, null);
+    }
+}

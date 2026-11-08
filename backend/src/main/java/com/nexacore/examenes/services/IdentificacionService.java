@@ -39,7 +39,7 @@ public class IdentificacionService {
     public static final String MOTIVO_PENDIENTE = "Pendiente de habilitación";
 
     private static final int TAMANO_MAXIMO_PAGINA = 100;
-    private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS");
+    private static final Set<String> FILTROS_ESTADO = Set.of("TODOS", "HABILITADOS", "NO_HABILITADOS", "AUSENTES");
 
     private final EstudianteRepository estudianteRepository;
     private final ExamenRepository examenRepository;
@@ -96,13 +96,19 @@ public class IdentificacionService {
     public PageResponse<EstudianteAsignadoResponse> listarAsignados(Integer idExamen, String estado, int page, int size) {
         String filtro = estado == null || estado.isBlank() ? "TODOS" : estado.trim().toUpperCase(Locale.ROOT);
         if (!FILTROS_ESTADO.contains(filtro)) {
-            throw new IllegalArgumentException("El estado debe ser TODOS, HABILITADOS o NO_HABILITADOS");
+            throw new IllegalArgumentException("El estado debe ser TODOS, HABILITADOS, NO_HABILITADOS o AUSENTES");
         }
         verificarExamen(idExamen);
         PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Map<Integer, String[]> traslados = trasladosDeLaSesion(idExamen);
-        return PageResponse.de(estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina)
-                .map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()))));
+        var filas = estudianteRepository.listarAsignadosAlExamen(idExamen, filtro, pagina);
+        // Nombre del aula de ingreso de cada fila, en una sola consulta: así lo ve también el CONTROL,
+        // que no tiene permiso para listar las aulas.
+        Set<Integer> aulas = new java.util.HashSet<>();
+        filas.forEach(f -> { if (f.idAmbienteIngreso() != null) aulas.add(f.idAmbienteIngreso()); });
+        Map<Integer, String> nombres = new java.util.HashMap<>();
+        if (!aulas.isEmpty()) ambienteRepository.findAllById(aulas).forEach(a -> nombres.put(a.getId(), a.getNombre()));
+        return PageResponse.de(filas.map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()), nombres.get(fila.idAmbienteIngreso()))));
     }
 
     /**
@@ -125,15 +131,20 @@ public class IdentificacionService {
         return resultado;
     }
 
+    /** Ocupación de las aulas (alerta de aforo); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AforoService aforoService;
+
     /** @throws ControlIngresoException si el examen no existe (404) */
     @Transactional(readOnly = true)
     public ResumenEstudiantesResponse resumir(Integer idExamen) {
         verificarExamen(idExamen);
         ResumenEstudiantesResponse r = estudianteRepository.resumirAsignadosAlExamen(idExamen);
         java.time.LocalDateTime cierre = sesionExamenService.ultimoCierre(idExamen);
-        long incidencias = estudianteRepository.contarIncidencias(idExamen,
-                cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre);
-        return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias);
+        java.time.LocalDateTime desde = cierre == null ? java.time.LocalDateTime.of(2000, 1, 1, 0, 0) : cierre;
+        long incidencias = estudianteRepository.contarIncidencias(idExamen, desde);
+        return new ResumenEstudiantesResponse(r.total(), r.habilitados(), r.noHabilitados(), r.ingresados(), incidencias,
+                estudianteRepository.contarExpulsados(idExamen, desde), estudianteRepository.contarTrasladados(idExamen, desde), aforoService == null ? java.util.List.of() : aforoService.delExamen(idExamen));
     }
 
     private void verificarExamen(Integer idExamen) {
@@ -150,13 +161,13 @@ public class IdentificacionService {
                 motivoDe(fila, estado), fila.condicion());
     }
 
-    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String[] traslado) {
+    private EstudianteAsignadoResponse aAsignado(EstudianteExamenFila fila, String[] traslado, String aulaIngreso) {
         IdentificacionResponse.Estado estado = estadoDe(fila);
         return new EstudianteAsignadoResponse(fila.idEstudiante(), fila.nombre(), fila.apellidos(), fila.codigoSis(),
                 fila.ci(), fila.carrera(), estado, motivoDe(fila, estado), fila.fechaHoraIngreso() != null,
                 fila.idAmbienteIngreso(),
                 EstudianteService.fotoUrl(fila.idEstudiante(), fila.tieneFoto()),
-                traslado == null ? null : traslado[0], traslado == null ? null : traslado[1]);
+                traslado == null ? null : traslado[0], traslado == null ? null : traslado[1], aulaIngreso);
     }
 
     private IdentificacionResponse.Estado estadoDe(EstudianteExamenFila fila) {

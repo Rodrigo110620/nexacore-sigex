@@ -42,6 +42,12 @@ public class EstudianteController {
     private final EstudianteFotoService estudianteFotoService;
     private final EstudianteAlcanceService estudianteAlcance;
 
+    /** Quién revisa una foto reportada (el DOCENTE y el CONTROL, en sus exámenes); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.FotoRevisionAcceso fotoRevisionAcceso;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
+
     public EstudianteController(
             EstudianteService estudianteService,
             ImportacionEstudiantesService importacionEstudiantesService,
@@ -92,10 +98,15 @@ public class EstudianteController {
     @Operation(summary = "Revisión de fotos",
             description = "Cambios de foto enviados por los estudiantes y fotos reportadas por el personal de control, "
                     + "de la más antigua a la más reciente. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REVISAR', 'FOTOS_REPORTAR')")
     @GetMapping("/fotos-pendientes")
-    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes() {
-        return ResponseEntity.ok(estudianteFotoService.listarRevision());
+    public ResponseEntity<List<FotoPendienteResponse>> fotosPendientes(Authentication authentication) {
+        // El ADMIN ve todo; el DOCENTE y el CONTROL, solo las fotos reportadas en sus exámenes (suyos o asignados).
+        if (com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.FOTOS_REVISAR)) {
+            return ResponseEntity.ok(estudianteFotoService.listarRevision());
+        }
+        return ResponseEntity.ok(estudianteFotoService.listarReportesDeExamenes(
+                idExamen -> examenAccesoService.esMio(idExamen, authentication)));
     }
 
     @Operation(summary = "Reportar foto que no coincide",
@@ -120,9 +131,22 @@ public class EstudianteController {
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
+    @Operation(summary = "Revisar el reporte de una foto",
+            description = "El reporte abierto con su examen, la foto nueva si el estudiante ya la envió y si quien consulta "
+                    + "puede resolverlo (ADMIN, o el DOCENTE y el CONTROL en sus exámenes). 204 si no hay reporte abierto.")
+    @PreAuthorize("@permisos.alguno(authentication, 'FOTOS_REPORTAR', 'FOTOS_REVISAR') and @estudianteAlcance.puedeVer(#id, authentication)")
+    @GetMapping("/{id}/foto/reporte/revision")
+    public ResponseEntity<com.nexacore.examenes.dto.RevisionReporteFotoResponse> revisionReporte(@PathVariable Integer id,
+                                                                                               Authentication authentication) {
+        return estudianteFotoService.revisionDelReporte(id, fotoRevisionAcceso.puedeRevisar(id, authentication))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @Operation(summary = "Descartar el reporte de una foto",
-            description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+            description = "La foto vigente es correcta: el estudiante ya no debe reemplazarla. ADMIN, o el DOCENTE y el "
+                    + "CONTROL si el reporte es de uno de sus exámenes.")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto/reportes/descartar")
     public ResponseEntity<Void> descartarReporte(@PathVariable Integer id) {
         estudianteFotoService.descartarReporte(id);
@@ -130,7 +154,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Foto enviada por el estudiante", description = "404 si no envió ninguna. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @GetMapping("/{id}/foto-solicitud")
     public ResponseEntity<byte[]> fotoSolicitud(@PathVariable Integer id) {
         return estudianteFotoService.obtenerSolicitud(id)
@@ -144,7 +168,7 @@ public class EstudianteController {
 
     @Operation(summary = "Aprobar la foto enviada",
             description = "Pasa a ser la foto que ve el personal de control. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto-solicitud/aprobar")
     public ResponseEntity<Void> aprobarFoto(@PathVariable Integer id) {
         estudianteFotoService.aprobarSolicitud(id);
@@ -153,7 +177,7 @@ public class EstudianteController {
 
     @Operation(summary = "Rechazar la foto enviada",
             description = "La foto actual no cambia; el estudiante ve el motivo. ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'FOTOS_REVISAR')")
+    @PreAuthorize("@fotoRevisionAcceso.puedeRevisar(#id, authentication)")
     @PostMapping("/{id}/foto-solicitud/rechazar")
     public ResponseEntity<Void> rechazarFoto(@PathVariable Integer id, @Valid @RequestBody RechazarFotoRequest request) {
         estudianteFotoService.rechazarSolicitud(id, request.motivo());
@@ -172,12 +196,21 @@ public class EstudianteController {
             @RequestParam(required = false) Integer idFacultad,
             @RequestParam(required = false) Integer idCarrera,
             @RequestParam(required = false) Integer idExamen,
+            @RequestParam(required = false) Integer idMateria,
+            @RequestParam(required = false) Integer idParalelo,
             Authentication authentication
     ) {
         Integer idDocente = estudianteAlcance.docenteParaFiltrar(idExamen, authentication);
         return ResponseEntity.ok(
-                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente)
+                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente, idMateria, idParalelo)
         );
+    }
+
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER')")
+    @GetMapping("/materias-docente")
+    public ResponseEntity<List<com.nexacore.examenes.dto.MateriaDocenteResponse>> materiasDocente(Authentication authentication) {
+        return ResponseEntity.ok(estudianteService.materiasDelDocente(
+                estudianteAlcance.docenteParaFiltrar(null, authentication)));
     }
 
     @Operation(summary = "Listar carreras",
@@ -194,8 +227,9 @@ public class EstudianteController {
             description = "Devuelve un estudiante con sus carreras. ADMIN, DOCENTE y CONTROL.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_VER') and @estudianteAlcance.puedeVer(#id, authentication)")
     @GetMapping("/{id}")
-    public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id) {
-        return ResponseEntity.ok(estudianteService.obtenerPorId(id));
+    public ResponseEntity<EstudianteListResponse> obtenerPorId(@PathVariable Integer id, Authentication authentication) {
+        return ResponseEntity.ok(estudianteService.conMaterias(estudianteService.obtenerPorId(id),
+                estudianteAlcance.docenteParaFiltrar(null, authentication)));
     }
 
     @Operation(summary = "Actualizar estudiante",
@@ -229,7 +263,7 @@ public class EstudianteController {
     }
 
     @Operation(summary = "Importar estudiantes masivamente",
-            description = "Importa estudiantes desde un CSV (separado por ',' o ';') con las columnas "
+            description = "Importa estudiantes desde un CSV (separado por ',' o ';') o un Excel .xlsx (primera hoja) con las columnas "
             + "codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
@@ -239,21 +273,89 @@ public class EstudianteController {
         return ResponseEntity.ok(importacionEstudiantesService.importar(file));
     }
 
-    @Operation(summary = "Descargar planilla de estudiantes en CSV",
-            description = "Estudiantes registrados con las columnas de la importación masiva (IDs de facultad y carrera). Solo ADMIN.")
+    @Operation(summary = "Revisar una importación (sin guardar)",
+            description = "Sección 22, paso Revisar: filas listas, con errores (fila, columna y mensaje) y ya registradas. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @PostMapping(value = "/importar/revisar", consumes = "multipart/form-data")
+    public com.nexacore.examenes.dto.RevisionImportacionResponse revisarImportacion(@RequestParam("file") MultipartFile file) {
+        return importacionEstudiantesService.revisar(file);
+    }
+
+    @Operation(summary = "Iniciar una importación con avance",
+            description = "Sección 22, paso Importando: valida y guarda en segundo plano por bloques de 500. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @PostMapping(value = "/importar/iniciar", consumes = "multipart/form-data")
+    public com.nexacore.examenes.dto.ProgresoImportacionResponse iniciarImportacion(@RequestParam("file") MultipartFile file) {
+        return importacionEstudiantesService.iniciar(file);
+    }
+
+    @Operation(summary = "Avance de una importación", description = "Filas procesadas y, al terminar, el resultado. Solo quien la inició.")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @GetMapping("/importar/{id}")
+    public ResponseEntity<com.nexacore.examenes.dto.ProgresoImportacionResponse> progresoImportacion(@PathVariable String id) {
+        var progreso = importacionEstudiantesService.progreso(id);
+        return progreso == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(progreso);
+    }
+
+    @Operation(summary = "Plantilla para importar estudiantes (CSV)",
+            description = "Sección 22: solo los encabezados y una fila de ejemplo. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @GetMapping("/plantilla.csv")
+    public ResponseEntity<byte[]> plantillaCsv() {
+        return descarga(planillaEstudiantesService.plantillaCsv(), "plantilla_estudiantes.csv",
+                new MediaType("text", "csv", StandardCharsets.UTF_8));
+    }
+
+    @Operation(summary = "Plantilla para importar estudiantes (Excel)",
+            description = "Sección 22: solo los encabezados y una fila de ejemplo. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+    @GetMapping("/plantilla.xlsx")
+    public ResponseEntity<byte[]> plantillaXlsx() {
+        return descarga(planillaEstudiantesService.plantillaXlsx(), "plantilla_estudiantes.xlsx", XLSX);
+    }
+
+    private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    /** Los filtros de la pantalla de Estudiantes; el DOCENTE solo descarga a los estudiantes de sus materias y grupos. */
+    private com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro filtro(String search, Integer idFacultad,
+            Integer idCarrera, Integer idMateria, Integer idParalelo, Authentication authentication) {
+        return new com.nexacore.examenes.services.PlanillaEstudiantesService.Filtro(search, idFacultad, idCarrera,
+                estudianteAlcance.docenteParaFiltrar(null, authentication), idMateria, idParalelo);
+    }
+
+    @Operation(summary = "Descargar planilla de estudiantes en Excel",
+            description = "Los estudiantes con los filtros de la pantalla (facultad, carrera, materia y grupo). ADMIN; el DOCENTE, los suyos.")
+    @PreAuthorize("@permisos.alguno(authentication, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')")
+    @GetMapping("/planilla.xlsx")
+    public ResponseEntity<byte[]> planillaXlsx(@RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer idFacultad, @RequestParam(required = false) Integer idCarrera,
+            @RequestParam(required = false) Integer idMateria, @RequestParam(required = false) Integer idParalelo,
+            Authentication authentication) {
+        return descarga(planillaEstudiantesService.xlsx(filtro(search, idFacultad, idCarrera, idMateria, idParalelo, authentication)),
+                "planilla_estudiantes.xlsx", XLSX);
+    }
+
+    @Operation(summary = "Descargar planilla de estudiantes en CSV",
+            description = "Estudiantes con los filtros de la pantalla y las columnas de la importación (IDs de facultad y carrera). ADMIN; el DOCENTE, los suyos.")
+    @PreAuthorize("@permisos.alguno(authentication, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')")
     @GetMapping("/planilla.csv")
-    public ResponseEntity<byte[]> planillaCsv() {
-        return descarga(planillaEstudiantesService.csv(), "planilla_estudiantes.csv",
+    public ResponseEntity<byte[]> planillaCsv(@RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer idFacultad, @RequestParam(required = false) Integer idCarrera,
+            @RequestParam(required = false) Integer idMateria, @RequestParam(required = false) Integer idParalelo,
+            Authentication authentication) {
+        return descarga(planillaEstudiantesService.csv(filtro(search, idFacultad, idCarrera, idMateria, idParalelo, authentication)), "planilla_estudiantes.csv",
                 new MediaType("text", "csv", StandardCharsets.UTF_8));
     }
 
     @Operation(summary = "Descargar planilla de estudiantes en PDF",
-            description = "Estudiantes registrados con los nombres de su facultad y carrera. Solo ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
+            description = "Estudiantes con los filtros de la pantalla, con el nombre de su facultad y carrera. ADMIN; el DOCENTE, los suyos.")
+    @PreAuthorize("@permisos.alguno(authentication, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')")
     @GetMapping("/planilla.pdf")
-    public ResponseEntity<byte[]> planillaPdf() {
-        return descarga(planillaEstudiantesService.pdf(), "planilla_estudiantes.pdf", MediaType.APPLICATION_PDF);
+    public ResponseEntity<byte[]> planillaPdf(@RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer idFacultad, @RequestParam(required = false) Integer idCarrera,
+            @RequestParam(required = false) Integer idMateria, @RequestParam(required = false) Integer idParalelo,
+            Authentication authentication) {
+        return descarga(planillaEstudiantesService.pdf(filtro(search, idFacultad, idCarrera, idMateria, idParalelo, authentication)), "planilla_estudiantes.pdf", MediaType.APPLICATION_PDF);
     }
 
     private static ResponseEntity<byte[]> descarga(byte[] contenido, String nombreArchivo, MediaType tipo) {

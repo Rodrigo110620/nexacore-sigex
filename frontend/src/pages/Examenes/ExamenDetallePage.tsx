@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   Clock,
+  Download,
   FileText,
   Hourglass,
   LoaderCircle,
@@ -16,6 +17,7 @@ import {
   Trash2,
   UserRoundCheck,
   Users,
+  Lock,
 } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -24,6 +26,7 @@ import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabi
 import { useAuth } from '../../context/AuthContext'
 import { getEstudianteById } from '../../services/estudianteService'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
+import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import {
   addMinutes,
   codigoExamen,
@@ -31,6 +34,7 @@ import {
   horaCorta,
   initialsOfName,
   semanaDelAnio,
+  materiaYGrupo,
 } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
@@ -39,6 +43,9 @@ import useTiempoExamen from '../../hooks/useTiempoExamen'
 import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
 import { tienePermiso } from '../../utils/permisos'
+import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
+import ErrorCarga from '../../components/ui/ErrorCarga'
+import PersonalControlSeccion from '../../components/examenes/PersonalControlSeccion'
 
 const PARTICULAR_PALETTES = [
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
@@ -155,6 +162,16 @@ export default function ExamenDetallePage() {
   const puedeReprogramar = finalizado && gestionaExamenes
   // El DOCENTE crea y edita sus exámenes igual que el ADMIN (el backend verifica que sea suyo).
   const puedeEditar = gestionaExamenes
+  // DASH-04: el acta la descarga quien tiene permiso de exportar (el ADMIN, y el DOCENTE en sus exámenes).
+  const puedeExportarActa = tienePermiso(auth, 'REPORTES_EXPORTAR')
+  const [resultadoActa, setResultadoActa] = useState<Resultado | null>(null)
+  const iniciado = examen ? ['en_curso', 'finalizado'].includes(examen.estado?.toLowerCase() ?? '') : false
+  // Antes de descargar se ve la vista previa del acta (y de la asistencia en Excel).
+  const [previaActa, setPreviaActa] = useState<'pdf' | 'xlsx' | null>(null)
+  const descargarActa = () => {
+    if (!idExamen || !iniciado) return
+    setPreviaActa('pdf')
+  }
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
@@ -185,16 +202,14 @@ export default function ExamenDetallePage() {
               <p className="mt-3 text-sm font-semibold">Cargando examen...</p>
             </div>
           ) : error || !examen ? (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error || 'No se encontró el examen.'}
-            </p>
+            <ErrorCarga mensaje={error || 'No se encontró el examen.'} onReintentar={() => void load()} />
           ) : (
             <div className="flex flex-col gap-4">
               <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">{examen.asignatura}</h1>
+                      <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">{materiaYGrupo(examen)}</h1>
                       <span className="rounded-md border border-[#BFD2F8] bg-[#EAF2FF] px-2 py-0.5 text-[11px] font-semibold text-[#0439D9] min-[960px]:border-[#D8E3F5] min-[960px]:bg-[#F8FAFC] min-[960px]:text-[#627A9B]">
                         {codigoExamen(examen)}
                       </span>
@@ -237,6 +252,18 @@ export default function ExamenDetallePage() {
                           Eliminar
                         </button>
                       )}
+                      {puedeExportarActa && (
+                        <button
+                          type="button"
+                          onClick={() => void descargarActa()}
+                          disabled={!iniciado}
+                          title={iniciado ? undefined : 'El examen aún no ha iniciado'}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          {iniciado ? <Download size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                          Descargar PDF
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -247,7 +274,7 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
                 {(puedeEditar || puedeReprogramar) && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 min-[960px]:hidden">
+                  <div className="mt-3 flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 min-[960px]:hidden">
                     {puedeReprogramar ? (
                       <button
                         type="button"
@@ -275,6 +302,18 @@ export default function ExamenDetallePage() {
                       >
                         <Trash2 size={15} aria-hidden="true" />
                         Eliminar
+                      </button>
+                    )}
+                    {puedeExportarActa && (
+                      <button
+                        type="button"
+                        onClick={() => void descargarActa()}
+                        disabled={!iniciado}
+                        title={iniciado ? undefined : 'El examen aún no ha iniciado'}
+                        className="inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {iniciado ? <Download size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
+                        Descargar PDF
                       </button>
                     )}
                   </div>
@@ -369,6 +408,9 @@ export default function ExamenDetallePage() {
                     </dl>
                   </section>
 
+                  {/* V53: quién controla el ingreso; el docente lo ve y, como el ADMIN, lo asigna. */}
+                  <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado} />
+
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">
                       <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#E9F1FF] text-[#0439D9]">
@@ -462,7 +504,9 @@ export default function ExamenDetallePage() {
             </div>
           )}
         </div>
-        <MobileBottomNav />
+        <ResultadoModal resultado={resultadoActa} onClose={() => setResultadoActa(null)} />
+        <VistaPreviaExamen idExamen={idExamen ?? null} formato={previaActa} onClose={() => setPreviaActa(null)} />
+      <MobileBottomNav />
         {reprogramarOpen && examen && (
           <ReprogramarExamenModal
             examen={examen}

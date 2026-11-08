@@ -96,7 +96,7 @@ describe('EstudiantesHabilitadosTab', () => {
     expect(screen.queryByText('Sin aula')).not.toBeInTheDocument()
   })
 
-  it('con una sola aula y todos ubicados no muestra la columna Aula', async () => {
+  it('con una sola aula y todos ubicados muestra la columna Aula con el nombre del aula', async () => {
     vi.mocked(habilitacionService.obtenerRepartoAulas).mockResolvedValue({
       aulas: [{ idAmbiente: 1, nombre: '692A', capacidad: null, orden: 0, asignados: 2 }],
       sinAula: 0,
@@ -104,8 +104,8 @@ describe('EstudiantesHabilitadosTab', () => {
     await renderTab([{ ...ana, aula: '692A' }, { ...luis, aula: '692A' }])
 
     await waitFor(() => expect(habilitacionService.obtenerRepartoAulas).toHaveBeenCalled())
-    expect(screen.queryByRole('columnheader', { name: 'Aula' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Reparto por aula (orden alfabético)')).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Aula' })).toBeInTheDocument()
+    expect(screen.getAllByText('692A').length).toBeGreaterThan(1)
   })
   it('muestra el estado pendiente de los recién asociados', async () => {
     await renderTab()

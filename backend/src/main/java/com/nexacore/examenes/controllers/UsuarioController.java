@@ -1,14 +1,17 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.AsignarMateriasRequest;
 import com.nexacore.examenes.dto.CambiarEstadoUsuarioRequest;
 import com.nexacore.examenes.dto.CrearRolRequest;
 import com.nexacore.examenes.dto.ImportarUsuariosResponse;
+import com.nexacore.examenes.dto.MateriaResponse;
 import com.nexacore.examenes.dto.PageResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.dto.RegisterUserResponse;
 import com.nexacore.examenes.dto.UsuarioListResponse;
 import com.nexacore.examenes.dto.UsuarioStatsResponse;
 import com.nexacore.examenes.models.Rol;
+import com.nexacore.examenes.services.DocenteMateriaService;
 import com.nexacore.examenes.services.ImportacionUsuariosService;
 import com.nexacore.examenes.services.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +48,10 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
     private final ImportacionUsuariosService importacionUsuariosService;
-    public UsuarioController(UsuarioService usuarioService, ImportacionUsuariosService importacionUsuariosService) {
+    private final DocenteMateriaService docenteMateriaService;
+    public UsuarioController(UsuarioService usuarioService, ImportacionUsuariosService importacionUsuariosService,
+                             DocenteMateriaService docenteMateriaService) {
+        this.docenteMateriaService = docenteMateriaService;
         this.usuarioService = usuarioService;
         this.importacionUsuariosService = importacionUsuariosService;
     }
@@ -131,6 +137,21 @@ public class UsuarioController {
                 .body(usuarioService.exportarCsv(search, rol, estado));
     }
 
+    @Operation(summary = "Exportar usuarios en Excel",
+            description = "El mismo listado que el CSV (búsqueda y filtros, sin paginar), en .xlsx. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/exportar.xlsx")
+    public ResponseEntity<byte[]> exportarXlsx(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String rol,
+            @RequestParam(required = false) String estado) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename("usuarios.xlsx").build().toString())
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(com.nexacore.examenes.services.CsvAExcel.convertir(usuarioService.exportarCsv(search, rol, estado), "Usuarios"));
+    }
+
     @Operation(summary = "Importar usuarios masivamente",
             description = "Registra usuarios desde un CSV (separado por ',' o ';') con las columnas "
                     + "nombre, apellidos, ci, email, rol y, opcional, estado (activo/inactivo). "
@@ -160,5 +181,28 @@ public class UsuarioController {
         @PathVariable Integer id, 
             @Valid @RequestBody RegisterUserRequest request) {
         return ResponseEntity.ok(usuarioService.actualizar(id, request));
+    }
+
+    @Operation(summary = "Datos del docente", description = "Título, especialidad y categoría, para editarlos. 204 si no es docente. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{id}/docente")
+    public ResponseEntity<com.nexacore.examenes.dto.DatosDocenteRequest> datosDocente(@PathVariable Integer id) {
+        var datos = usuarioService.datosDocente(id);
+        return datos == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(datos);
+    }
+
+    @Operation(summary = "Materias del docente", description = "IMP-12: las materias que el docente puede usar al programar exámenes, con sus grupos (G1, G2…). Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{id}/materias")
+    public List<com.nexacore.examenes.dto.MateriaConGruposResponse> materias(@PathVariable Integer id) {
+        return docenteMateriaService.materiasConGrupos(id);
+    }
+
+    @Operation(summary = "Asignar materias al docente", description = "IMP-12: reemplaza sus materias (al menos una) y, si se envían, los grupos de cada una. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @PutMapping("/{id}/materias")
+    public List<com.nexacore.examenes.dto.MateriaConGruposResponse> asignarMaterias(@PathVariable Integer id, @Valid @RequestBody AsignarMateriasRequest request) {
+        docenteMateriaService.asignar(id, request.idMaterias(), request.grupos());
+        return docenteMateriaService.materiasConGrupos(id);
     }
 }

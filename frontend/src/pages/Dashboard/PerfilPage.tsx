@@ -19,13 +19,30 @@ import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/password
 import {
   cambiarPassword,
   getMiPerfil,
+  getPerfilDelRol,
+  type PerfilDelRol as DatosDelRol,
   type PerfilUsuario,
 } from '../../services/profileService'
+import ErrorCarga from '../../components/ui/ErrorCarga'
+import PerfilDelRol from '../../components/perfil/PerfilDelRol'
+import CabeceraPerfil from '../../components/perfil/CabeceraPerfil'
 
 export default function PerfilPage() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null)
   const [loadingPerfil, setLoadingPerfil] = useState(true)
   const [perfilError, setPerfilError] = useState('')
+  const [recargaPerfil, setRecargaPerfil] = useState(0)
+  const [rol, setRol] = useState<DatosDelRol | null>(null)
+  const [errorRol, setErrorRol] = useState(false)
+  const [recargaRol, setRecargaRol] = useState(0)
+
+  useEffect(() => {
+    let vigente = true
+    getPerfilDelRol()
+      .then((d) => { if (vigente) { setRol(d); setErrorRol(false) } })
+      .catch(() => { if (vigente) setErrorRol(true) })
+    return () => { vigente = false }
+  }, [recargaRol])
 
   const [passwordActual, setPasswordActual] = useState('')
   const [passwordNueva, setPasswordNueva] = useState('')
@@ -47,7 +64,7 @@ export default function PerfilPage() {
         const data = await getMiPerfil()
         if (!cancelled) setPerfil(data)
       } catch {
-        if (!cancelled) setPerfilError('No se pudo cargar tu perfil. Intenta más tarde.')
+        if (!cancelled) setPerfilError('No se pudo cargar tu perfil.')
       } finally {
         if (!cancelled) setLoadingPerfil(false)
       }
@@ -56,7 +73,7 @@ export default function PerfilPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [recargaPerfil])
 
   const handleSubmitPassword = async (event: FormEvent) => {
     event.preventDefault()
@@ -112,10 +129,10 @@ export default function PerfilPage() {
   return (
     <PanelLayout>
       <div className="min-h-full bg-[#F8FBFF] pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-8">
-        <section className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
           <div className="mb-6">
             <Link
-              to="/dashboard/usuarios"
+              to="/dashboard/inicio"
               className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
             >
               <ArrowLeft size={16} aria-hidden="true" />
@@ -123,7 +140,7 @@ export default function PerfilPage() {
             </Link>
             <h1 className="text-xl font-bold text-[#011140] sm:text-2xl">Mi perfil</h1>
             <p className="mt-1 text-sm text-gray-600">
-              Consulta tus datos y cambia tu contraseña de acceso.
+              Tus datos, lo propio de tu rol y el cambio de contraseña.
             </p>
           </div>
 
@@ -136,70 +153,70 @@ export default function PerfilPage() {
               <p className="mt-3 text-sm font-semibold">Cargando perfil...</p>
             </div>
           ) : perfilError ? (
-            <div role="alert" className="rounded-2xl border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-sm text-[#B91C1C]">
-              {perfilError}
-            </div>
+            <ErrorCarga mensaje={perfilError} onReintentar={() => setRecargaPerfil((n) => n + 1)} />
           ) : perfil ? (
-            <div className="rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
-              <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-lg font-bold text-white">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <h2 className="truncate text-lg font-bold text-[#011140]">{nombreCompleto}</h2>
-                  <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-[#0439D9]">
-                    <Shield size={14} aria-hidden="true" />
-                    {roleLabel}
-                  </p>
-                </div>
-              </div>
-
-              <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-[#EDF1F7] pt-5 sm:grid-cols-2">
-                <div className="flex items-start gap-3">
-                  <UserRound size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Nombres</dt>
-                    <dd className="mt-0.5 break-words text-sm font-medium text-[#011140]">{perfil.nombre}</dd>
+            <>
+              <CabeceraPerfil nombre={nombreCompleto} iniciales={initials} email={perfil.email} roles={perfil.roles}
+                fotoUrl={rol?.fotoUrl ?? null} onFotoCambiada={() => setRecargaRol((n) => n + 1)} />
+              <section aria-label="Datos personales" className="mt-5 rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
+                <h2 className="text-base font-bold text-[#011140]">Datos personales</h2>
+                <p className="mb-4 mt-1 text-sm text-gray-600">Para cambiarlos, pide al administrador.</p>
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="flex items-start gap-3">
+                    <UserRound size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Nombres</dt>
+                      <dd className="mt-0.5 break-words text-sm font-medium text-[#011140]">{perfil.nombre}</dd>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <UserRound size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Apellidos</dt>
-                    <dd className="mt-0.5 break-words text-sm font-medium text-[#011140]">{perfil.apellidos}</dd>
+                  <div className="flex items-start gap-3">
+                    <UserRound size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Apellidos</dt>
+                      <dd className="mt-0.5 break-words text-sm font-medium text-[#011140]">{perfil.apellidos}</dd>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <IdCard size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">CI / Documento</dt>
-                    <dd className="mt-0.5 text-sm font-medium text-[#011140]">{perfil.ci}</dd>
+                  <div className="flex items-start gap-3">
+                    <IdCard size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">CI / Documento</dt>
+                      <dd className="mt-0.5 text-sm font-medium text-[#011140]">{perfil.ci}</dd>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Mail size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Correo</dt>
-                    <dd className="mt-0.5 break-all text-sm font-medium text-[#011140]">{perfil.email}</dd>
+                  <div className="flex items-start gap-3">
+                    <Mail size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Correo</dt>
+                      <dd className="mt-0.5 break-all text-sm font-medium text-[#011140]">{perfil.email}</dd>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Shield size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Estado</dt>
-                    <dd className="mt-0.5 text-sm font-medium capitalize text-[#011140]">{perfil.estado}</dd>
+                  <div className="flex items-start gap-3">
+                    <Shield size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Estado</dt>
+                      <dd className="mt-0.5 text-sm font-medium capitalize text-[#011140]">{perfil.estado}</dd>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Shield size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Roles</dt>
-                    <dd className="mt-0.5 text-sm font-medium text-[#011140]">{roleLabel}</dd>
+                  <div className="flex items-start gap-3">
+                    <Shield size={18} className="mt-0.5 shrink-0 text-[#627A9B]" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-[#627A9B]">Roles</dt>
+                      <dd className="mt-0.5 text-sm font-medium text-[#011140]">{roleLabel}</dd>
+                    </div>
                   </div>
-                </div>
-              </dl>
-            </div>
+                </dl>
+              </section>
+              {/* Lo propio de cada rol: datos y materias del docente, exámenes del control, permisos. */}
+              {errorRol ? (
+                <ErrorCarga className="mt-5" mensaje="No se pudo cargar la información de tu rol." onReintentar={() => setRecargaRol((n) => n + 1)} />
+              ) : rol ? (
+                <PerfilDelRol datos={rol} esAdmin={perfil.roles.includes('ADMIN')} />
+              ) : (
+                <p role="status" className="mt-5 text-sm text-[#627A9B]">Cargando la información de tu rol…</p>
+              )}
+            </>
           ) : null}
+
 
           <div className="mt-5 rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-5 flex items-start gap-3">

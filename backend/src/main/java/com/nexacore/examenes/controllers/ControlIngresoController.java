@@ -107,7 +107,7 @@ public class ControlIngresoController {
         return ResponseEntity.ok(service.listarTiposIncidencia());
     }
 @Operation(summary = "Reasignar ambiente por contingencia", description = "Reasigna al estudiante a un nuevo ambiente manteniendo intacta su hora de ingreso original.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeReasignar(#idExamen, authentication)")
     @PostMapping("/{idExamen}/{idEstudiante}/reasignar") // <-- Cambiado el orden en la URL
     public ResponseEntity<ReasignarAmbienteResponse> reasignarAmbiente(
             @PathVariable Integer idExamen,      // <-- Primero el idExamen

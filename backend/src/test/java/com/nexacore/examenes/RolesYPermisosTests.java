@@ -60,10 +60,9 @@ class RolesYPermisosTests {
         assertThat(Permisos.deRoles(List.of("ADMIN"))).containsAll(Permisos.todos());
         assertThat(Permisos.deRoles(List.of("DOCENTE"))).containsExactlyInAnyOrder(
                 "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "HABILITACION_GESTIONAR_PROPIOS",
-                "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
+                "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR", "REPORTES_EXPORTAR");
         assertThat(Permisos.deRoles(List.of("CONTROL"))).containsExactlyInAnyOrder(
-                "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR",
-                "NOTIFICACIONES_TODAS");
+                "EXAMENES_VER_TODOS", "HABILITACION_VER", "CONTROL_INGRESO_TODOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR");
         assertThat(Set.of(Permiso.values())).allSatisfy(p ->
                 assertThat(p.soloAdmin()).isEqualTo(p == Permiso.USUARIOS_GESTIONAR || p == Permiso.ROLES_GESTIONAR));
     }
@@ -121,5 +120,25 @@ class RolesYPermisosTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].nombre").value("ADMIN"))
                 .andExpect(jsonPath("$[0].delSistema").value(true));
+    }
+
+    @Test
+    void elPermisoDeExportarEsDelAdminYDelDocenteYSePuedeDarAUnRolExtra() throws Exception {
+        // El DOCENTE exporta solo sus exámenes (ExamenAccesoService.puedeExportar); el CONTROL no exporta.
+        assertThat(Permisos.deRoles(List.of("ADMIN"))).contains("REPORTES_EXPORTAR");
+        assertThat(Permisos.deRoles(List.of("DOCENTE"))).contains("REPORTES_EXPORTAR");
+        assertThat(Permisos.deRoles(List.of("CONTROL"))).doesNotContain("REPORTES_EXPORTAR");
+        mockMvc.perform(get("/roles/permisos").with(user("admin@sigex.test").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.codigo == 'REPORTES_EXPORTAR')].modulo").value("Reportes"))
+                .andExpect(jsonPath("$[?(@.codigo == 'REPORTES_EXPORTAR')].soloAdmin").value(false));
+
+        String creado = mockMvc.perform(post("/roles").with(user("admin@sigex.test").roles("ADMIN")).contentType("application/json")
+                        .content("{\"nombre\":\"ACTAS\",\"descripcion\":\"Descarga actas y asistencia\",\"permisos\":[\"REPORTES_EXPORTAR\"]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.permisos[0]").value("REPORTES_EXPORTAR"))
+                .andReturn().getResponse().getContentAsString();
+        int id = com.jayway.jsonpath.JsonPath.read(creado, "$.id");
+        mockMvc.perform(delete("/roles/" + id).with(user("admin@sigex.test").roles("ADMIN"))).andExpect(status().isNoContent());
     }
 }

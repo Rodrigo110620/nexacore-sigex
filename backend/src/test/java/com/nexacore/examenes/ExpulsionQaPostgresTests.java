@@ -26,9 +26,12 @@ class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
         String limite = "Uso de celular durante el examen para copiar respuestas de física";
         return Stream.of(Arguments.of("Uso   de celular", "Uso de celular"),
                 Arguments.of("Uso de WhatsApp durante el examen", "Uso de whatsapp durante el examen"),
-                Arguments.of("Consulta de archivo PDF", "Consulta de archivo pdf"),
+                Arguments.of("Consulta de archivo PDF", "Consulta de archivo PDF"),
                 Arguments.of("Uso de ChatGPT durante el examen", "Uso de chatgpt durante el examen"),
-                Arguments.of("Uso de código en C durante el examen", "Uso de código en c durante el examen"),
+                Arguments.of("Uso de código en C durante el examen", "Uso de código en C durante el examen"),
+                Arguments.of("USO DE CI EN AULA 690B", "Uso de CI en aula 690B"),
+                Arguments.of("Uso de SIS durante el examen", "Uso de SIS durante el examen"),
+                Arguments.of("uSO de cI y sIs en aula 690B", "Uso de CI y SIS en aula 690B"),
                 Arguments.of(limite.replace(" ", "   "), limite));
     }
 
@@ -55,6 +58,18 @@ class ExpulsionQaPostgresTests extends ExpulsionPostgresBase {
                                 + ",\"idExamen\":" + examen + ",\"motivo\":\"Copia ora\"}"))
                 .andExpect(status().isBadRequest());
         assertEquals(0, expulsiones.deSesionActual(examen, null).size());
+    }
+
+    @ParameterizedTest
+    @MethodSource("com.nexacore.examenes.ExpulsionValidacionesTests#motivosAnulacionValidos")
+    void anulacionPersisteTextoCanonicoSinAlterarElRegistroInicial(String entrada, String esperado) throws Exception {
+        var original = control.expulsar(new ExpulsarEstudianteRequest(estudiante, examen, "Uso de celular"), admin(email));
+        mvc.perform(post("/control-ingresos/examen/{examen}/expulsiones/{expulsion}/anular", examen, original.idExpulsion())
+                        .with(user(email).roles("ADMIN")).contentType("application/json")
+                        .content(mapper.writeValueAsString(java.util.Map.of("motivo", entrada))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.motivoAnulacion").value(esperado));
+        assertEquals(esperado, jdbc.queryForObject("SELECT motivo_anulacion FROM expulsion WHERE id_expulsion=?", String.class, original.idExpulsion()));
+        assertEquals(original.fechaHora(), expulsiones.fechaHoraRegistrada(original.idExpulsion()));
     }
 
     @Test

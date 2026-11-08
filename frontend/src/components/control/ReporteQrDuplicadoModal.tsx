@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   AlertOctagon,
   Camera,
+  Check,
   CheckCircle2,
   ChevronRight,
   Info,
@@ -322,7 +323,7 @@ export default function ReporteQrDuplicadoModal({
                 <div className="report-incidence-verification-actions">
                   <button type="button" className={revisado ? "reviewed-active" : ""} onClick={() => { setRevisado(!revisado); setSinCarnet(false); limpiarError("carnet") }}>
                     <CheckCircle2 size={16} />
-                    {revisado ? "Carnet revisado ✓" : "Marcar como revisado"}
+                    {revisado ? "Carnet revisado" : "Marcar como revisado"}
                   </button>
                   <button type="button" className={sinCarnet ? "absence-active" : ""} onClick={() => { setSinCarnet(!sinCarnet); setRevisado(false); limpiarError("carnet"); limpiarError("ci"); if (!sinCarnet) setCi("") }}>
                     No presentó carnet
@@ -360,7 +361,7 @@ export default function ReporteQrDuplicadoModal({
                     <span className="upload-icon">
                       <Camera size={21} />
                     </span>
-                    {foto && <span className="photo-preview">✓</span>}
+                    {foto && <span className="photo-preview"><Check size={20} aria-hidden="true" /></span>}
                     <span>
                       <strong>
                         {foto ? "Tomar otra fotografía" : "Tomar fotografía"}

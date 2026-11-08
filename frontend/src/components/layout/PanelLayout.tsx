@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -12,8 +12,10 @@ interface PanelLayoutProps {
   title?: string
   description?: string
   locationLabel?: string
-  topBarVariant?: 'default' | 'control' | 'controlMinimal'
+  topBarVariant?: 'default' | 'control' | 'controlMinimal' | 'docenteInicio'
 }
+
+const CLAVE_MENU = 'sigex.menuContraido'
 
 export default function PanelLayout({
   children,
@@ -32,18 +34,37 @@ export default function PanelLayout({
   }
 
   const navItems = navItemsFor(roles, permisos)
+  // Menú contraído: solo íconos. Se recuerda por navegador (si no hay almacenamiento, expandido).
+  const [contraido, setContraido] = useState(() => { try { return localStorage.getItem(CLAVE_MENU) === '1' } catch { return false } })
+  const alternar = () => setContraido((c) => {
+    try { localStorage.setItem(CLAVE_MENU, c ? '0' : '1') } catch { /* sin almacenamiento */ }
+    return !c
+  })
+  const item = `relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium ${contraido ? 'justify-center px-0' : 'px-3'}`
 
   return (
     <div className="flex h-dvh overflow-hidden">
       {/* Sidebar fijo al alto del viewport; Cerrar sesión siempre visible */}
       <aside
-        className={`hidden h-full shrink-0 flex-col xl:w-56 ${compactDesktop ? 'w-44 min-[960px]:flex lg:w-52' : 'w-52 lg:flex'}`}
+        aria-label="Menú principal"
+        className={`hidden h-full shrink-0 flex-col transition-[width] duration-200 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'} ${
+          contraido ? 'w-[72px]' : `xl:w-56 ${compactDesktop ? 'w-44 lg:w-52' : 'w-52'}`}`}
         style={{ background: 'linear-gradient(180deg, #011140 0%, #0439D9 100%)' }}
       >
         {/* min-h-20 = alto del PanelTopBar: ambos bordes inferiores quedan en la misma línea */}
-        <div className="flex min-h-20 shrink-0 items-center border-b border-white/10 px-6">
-          <img src="/logo_app.png" alt="SIGEX" className="h-10 object-contain" />
-        </div>
+        {/* El logo de la app contrae y expande el menú */}
+        <button
+          type="button"
+          onClick={alternar}
+          aria-expanded={!contraido}
+          aria-label={contraido ? 'Expandir menú' : 'Contraer menú'}
+          title={contraido ? 'Expandir menú' : 'Contraer menú'}
+          className={`flex min-h-20 shrink-0 items-center border-b border-white/10 transition-colors duration-150 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/50 ${contraido ? 'justify-center px-2' : 'px-6'}`}
+        >
+          {contraido
+            ? <img src="/favicon.png" alt="" className="h-9 w-9 object-contain" />
+            : <img src="/logo_app.png" alt="" className="h-10 object-contain" />}
+        </button>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {navItems.map(({ label, icon: Icon, to, disabled }) =>
@@ -51,25 +72,27 @@ export default function PanelLayout({
               <div
                 key={label}
                 aria-disabled="true"
-                className="flex cursor-not-allowed select-none items-center gap-3 rounded-lg px-3 py-2.5 text-white/40"
+                title={contraido ? label : undefined}
+                className={`${item} cursor-not-allowed select-none text-white/40`}
               >
-                <Icon size={18} className="shrink-0" />
-                <span className="text-sm font-medium">{label}</span>
+                <Icon size={18} className="shrink-0" aria-hidden="true" />
+                <span className={contraido ? 'sr-only' : ''}>{label}</span>
               </div>
             ) : (
               <NavLink
                 key={label}
                 to={to}
+                title={contraido ? label : undefined}
                 className={({ isActive }) =>
-                  `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
+                  `${item} transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
                     isActive
                       ? 'bg-white/15 text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-white'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`
                 }
               >
-                <Icon size={18} className="shrink-0" />
-                <span className="truncate">{label}</span>
+                <Icon size={18} className="shrink-0" aria-hidden="true" />
+                <span className={contraido ? 'sr-only' : 'truncate'}>{label}</span>
               </NavLink>
             )
           )}
@@ -79,10 +102,11 @@ export default function PanelLayout({
           <button
             type="button"
             onClick={handleLogout}
-            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/10 active:scale-[0.98] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            title={contraido ? 'Cerrar sesión' : undefined}
+            className={`flex min-h-11 w-full items-center gap-3 rounded-lg text-left ${contraido ? 'justify-center' : 'px-3'} text-sm font-medium text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/10 active:scale-[0.98] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50`}
           >
             <LogOut size={18} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">Cerrar sesión</span>
+            <span className={contraido ? 'sr-only' : 'truncate'}>Cerrar sesión</span>
           </button>
         </div>
       </aside>

@@ -1,25 +1,14 @@
 import api from './api'
-import { validarTextoLibre } from '../utils/textoLibreValidators'
-import { primerGarabato } from '../utils/palabras'
+import { MOTIVO_ESCRITO, normalizarMotivo, validarMotivoEscrito } from '../utils/motivoEscrito'
 
-export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', min: 10, max: 65 }
+// IMP-14: la misma regla que el motivo del traslado (utils/motivoEscrito); sección 24: de 10 a 200 caracteres.
+export const MOTIVO_EXPULSION = { campo: 'El motivo de expulsión', ...MOTIVO_ESCRITO }
 
 export function validarMotivoExpulsion(motivo: string): string | null {
-  motivo = normalizarMotivoExpulsion(motivo)
-  if (!motivo.trim()) return 'El motivo es obligatorio.'
-  const error = validarTextoLibre(motivo, MOTIVO_EXPULSION)
-  if (error) return error
-  if (/[\r\n]/.test(motivo)) return 'El motivo solo permite un espacio entre palabras'
-  if (!/\p{L}/u.test(motivo)) return 'El motivo debe contener palabras que expliquen la expulsión'
-  // Excepciones locales; esta heurística no garantiza que cualquier frase tenga significado.
-  const garabato = primerGarabato(motivo.replace(/\b(?:qr|ci|sis|whatsapp|pdf|chatgpt|c|smartwatch)\b/gi, 'documento'))
-  return garabato ? `El motivo contiene contenido no válido: ${garabato}` : null
+  return validarMotivoEscrito(motivo, MOTIVO_EXPULSION.campo, 'la expulsión')
 }
 
-/** Los 10–65 caracteres se cuentan sobre el texto sin extremos, con espacios simples y formato oración. */
-export function normalizarMotivoExpulsion(motivo: string): string {
-  return motivo.trim().replace(/ +/g, ' ').toLocaleLowerCase('es').replace(/\p{L}/u, (letra) => letra.toLocaleUpperCase('es'))
-}
+export const normalizarMotivoExpulsion = normalizarMotivo
 
 export interface ExpulsionResponse {
   idExpulsion: number
@@ -62,3 +51,41 @@ export async function anularExpulsion(idExamen: number, idExpulsion: number, mot
   const { data } = await api.post<ExpulsionResponse>(`/control-ingresos/examen/${idExamen}/expulsiones/${idExpulsion}/anular`, { motivo })
   return data
 }
+
+/** Sección 24: motivos frecuentes que el personal elige con un toque y luego puede completar. */
+export const MOTIVOS_FRECUENTES_EXPULSION = ['Uso de celular', 'Copia o plagio', 'Suplantación de identidad', 'Conducta inapropiada']
+
+/** Evidencia de una expulsión (hasta 3 fotos o capturas). La ven el ADMIN, el docente y el control del examen. */
+export interface EvidenciaExpulsion {
+  idEvidencia: number
+  tipo: string
+  tamano: number
+  subidaEn: string
+}
+
+export const MAX_EVIDENCIAS = 3
+export const MAX_BYTES_EVIDENCIA = 5 * 1024 * 1024
+
+const rutaEvidencias = (idExamen: number, idExpulsion: number) =>
+  `/control-ingresos/examen/${idExamen}/expulsiones/${idExpulsion}/evidencias`
+
+export async function listarEvidencias(idExamen: number, idExpulsion: number): Promise<EvidenciaExpulsion[]> {
+  const { data } = await api.get<EvidenciaExpulsion[]>(rutaEvidencias(idExamen, idExpulsion))
+  return data
+}
+
+export async function imagenEvidencia(idExamen: number, idExpulsion: number, idEvidencia: number): Promise<Blob> {
+  const { data } = await api.get<Blob>(`${rutaEvidencias(idExamen, idExpulsion)}/${idEvidencia}`, { responseType: 'blob' })
+  return data
+}
+
+/** Sube una foto (una por petición: el servidor acepta hasta 6 MB por envío). */
+export async function subirEvidencia(idExamen: number, idExpulsion: number, foto: File): Promise<EvidenciaExpulsion[]> {
+  const datos = new FormData()
+  datos.append('files', foto)
+  const { data } = await api.post<EvidenciaExpulsion[]>(rutaEvidencias(idExamen, idExpulsion), datos, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60_000,
+  })
+  return data
+}
+

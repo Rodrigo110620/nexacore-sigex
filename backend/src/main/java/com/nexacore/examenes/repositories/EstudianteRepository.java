@@ -77,10 +77,11 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
     String FILTRO_ESTADO = """
              AND (:estado = 'TODOS'
                   OR (:estado = 'HABILITADOS' AND a.habilitado = true)
-                  OR (:estado = 'NO_HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = false)))
+                  OR (:estado = 'NO_HABILITADOS' AND (a.habilitado IS NULL OR a.habilitado = false))
+                  OR (:estado = 'AUSENTES' AND a.habilitado = true AND a.fechaHoraIngreso IS NULL))
             """;
 
-    /** estado llega validado por el service (TODOS, HABILITADOS o NO_HABILITADOS). */
+    /** El service valida estado; contenido y conteo comparten el filtro antes de paginar. */
     @Query(value = FILA_ESTUDIANTE_EXAMEN + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO
             + "ORDER BY e.apellidos, e.nombre, e.id",
             countQuery = "SELECT COUNT(e.id) " + ASIGNADOS_AL_EXAMEN + FILTRO_ESTADO)
@@ -115,6 +116,16 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
             """, nativeQuery = true)
     long contarIncidencias(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
 
+    /** DASH-01: estudiantes expulsados (expulsión vigente) en la sesión actual del examen. */
+    @Query(value = "SELECT COUNT(DISTINCT id_estudiante) FROM expulsion WHERE id_examen = :idExamen AND fecha_hora > :desde AND anulada_en IS NULL",
+            nativeQuery = true)
+    long contarExpulsados(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
+
+    /** DASH-01: estudiantes trasladados de aula en la sesión actual del examen. */
+    @Query(value = "SELECT COUNT(DISTINCT id_estudiante) FROM traslado_ambiente WHERE id_examen = :idExamen AND fecha_hora_traslado > :desde",
+            nativeQuery = true)
+    long contarTrasladados(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde);
+
 
     /**
  * Listado general de estudiantes con búsqueda y filtros (paginado).
@@ -125,58 +136,91 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
         SELECT DISTINCT e FROM Estudiante e
         LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
         WHERE (:search IS NULL OR :search = '' OR
-               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+               CAST(FUNCTION('translate', LOWER(e.nombre), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.apellidos), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.nombre, ' ', e.apellidos)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.apellidos, ' ', e.nombre)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.codigoSis), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.ci), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%'))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
-          AND (:idDocente IS NULL
-               OR EXISTS (SELECT 1 FROM InscripcionParalelo ip
-                          WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
-               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
-                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
-                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
+          AND (:idDocente IS NULL OR (e.estadoMatricula = 'MATRICULADO' AND EXISTS (
+               SELECT 1 FROM InscripcionParalelo ip
+               WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente
+                 AND LOWER(ip.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         ORDER BY e.apellidos, e.nombre
         """,
         countQuery = """
         SELECT COUNT(DISTINCT e) FROM Estudiante e
         LEFT JOIN EstudianteCarrera ec ON ec.id.idEstudiante = e.id
         WHERE (:search IS NULL OR :search = '' OR
-               LOWER(e.nombre) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.apellidos) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.nombre, ' ', e.apellidos)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(CONCAT(e.apellidos, ' ', e.nombre)) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.codigoSis) LIKE LOWER(CONCAT('%', :search, '%')) OR
-               LOWER(e.ci) LIKE LOWER(CONCAT('%', :search, '%')))
+               CAST(FUNCTION('translate', LOWER(e.nombre), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.apellidos), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.nombre, ' ', e.apellidos)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(CONCAT(e.apellidos, ' ', e.nombre)), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.codigoSis), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%') OR
+               CAST(FUNCTION('translate', LOWER(e.ci), 'áéíóúàèìòùäëïöüâêîôûñ', 'aeiouaeiouaeiouaeioun') AS String) LIKE CONCAT('%', :search, '%'))
           AND (:idFacultad IS NULL OR ec.id.idFacultad = :idFacultad)
           AND (:idCarrera IS NULL OR ec.id.idCarrera = :idCarrera)
-          AND (:idDocente IS NULL
-               OR EXISTS (SELECT 1 FROM InscripcionParalelo ip
-                          WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
-               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
-                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
-                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
+          AND (:idDocente IS NULL OR (e.estadoMatricula = 'MATRICULADO' AND EXISTS (
+               SELECT 1 FROM InscripcionParalelo ip
+               WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente
+                 AND LOWER(ip.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ip.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ip.id.idParalelo = :idParalelo))))
+          AND (:idDocente IS NOT NULL OR (:idMateria IS NULL AND :idParalelo IS NULL) OR EXISTS (
+               SELECT 1 FROM InscripcionParalelo ia
+               WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
+                 AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
+                 AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
         """)
 Page<Estudiante> buscarConFiltros(
     @Param("search") String search,
     @Param("idFacultad") Integer idFacultad,
     @Param("idCarrera") Integer idCarrera,
     @Param("idDocente") Integer idDocente,
+    @Param("idMateria") Integer idMateria,
+    @Param("idParalelo") Integer idParalelo,
     Pageable pageable
 );
 
-/** true si el estudiante está inscrito en un paralelo del docente o asociado a uno de sus exámenes. */
+default Page<Estudiante> buscarConFiltros(String search, Integer idFacultad, Integer idCarrera,
+        Integer idDocente, Pageable pageable) {
+    return buscarConFiltros(search, idFacultad, idCarrera, idDocente, null, null, pageable);
+}
+
 @Query("""
         SELECT COUNT(e) > 0 FROM Estudiante e
-        WHERE e.id = :idEstudiante
-          AND (EXISTS (SELECT 1 FROM InscripcionParalelo ip
-                       WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente)
-               OR EXISTS (SELECT 1 FROM AsistenciaExamen ae, Examen x
-                          WHERE ae.id.idEstudiante = e.id AND x.id.idExamen = ae.id.idExamen
-                            AND x.id.idParalelo = ae.idParalelo AND x.idDocente = :idDocente))
+        WHERE e.id = :idEstudiante AND e.estadoMatricula = 'MATRICULADO'
+          AND EXISTS (SELECT 1 FROM InscripcionParalelo ip
+                      WHERE ip.id.idEstudiante = e.id AND ip.id.idDocente = :idDocente
+                        AND LOWER(ip.estado) = 'inscrito')
         """)
 boolean esDelDocente(@Param("idEstudiante") Integer idEstudiante, @Param("idDocente") Integer idDocente);
+
+@Query("""
+        SELECT new com.nexacore.examenes.dto.MateriaDocenteResponse(
+            p.id.idMateria, p.materia.nombre, p.id.idParalelo, p.nombreGrupo)
+        FROM Paralelo p WHERE p.id.idDocente = :idDocente
+        ORDER BY p.materia.nombre, p.nombreGrupo
+        """)
+List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelDocente(@Param("idDocente") Integer idDocente);
+
+@Query("""
+        SELECT new com.nexacore.examenes.dto.MateriaDocenteResponse(
+            i.id.idMateria, i.paralelo.materia.nombre, i.id.idParalelo, i.paralelo.nombreGrupo)
+        FROM InscripcionParalelo i
+        WHERE i.id.idDocente = :idDocente AND i.id.idEstudiante = :idEstudiante
+          AND LOWER(i.estado) = 'inscrito'
+        ORDER BY i.paralelo.materia.nombre, i.paralelo.nombreGrupo
+        """)
+List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelEstudiante(
+    @Param("idDocente") Integer idDocente, @Param("idEstudiante") Integer idEstudiante);
 }

@@ -91,42 +91,40 @@ describe('UserListContent', () => {
     expect(onToggleBlockClick).toHaveBeenCalledWith(users[2])
   })
 
-  it('exporta con los filtros activos y deshabilita el botón mientras descarga', async () => {
-    let terminar: () => void = () => {}
-    const onExportClick = vi.fn(() => new Promise<void>((resolve) => { terminar = resolve }))
-    render(<UserListContent users={users} onExportClick={onExportClick} onFiltersChange={vi.fn()} />)
+  // Importar y exportar están en un solo menú «Importar / Exportar».
+  const abrirMenu = () => fireEvent.click(screen.getByRole('button', { name: /Importar \/ Exportar/ }))
 
-    const boton = screen.getByRole('button', { name: 'Exportar usuarios en CSV' })
-    expect(boton).toBeEnabled()
-    fireEvent.click(boton)
+  it('exporta con los filtros activos desde el menú', async () => {
+    const onExportClick = vi.fn().mockResolvedValue(undefined)
+    render(<UserListContent users={users} onExportClick={onExportClick} onImportClick={vi.fn()} onFiltersChange={vi.fn()} />)
 
+    abrirMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Exportar usuarios/ }))
     expect(onExportClick).toHaveBeenCalledWith({ search: '', rol: '', estado: '' })
-    expect(boton).toBeDisabled()
-    expect(boton).toHaveTextContent('Exportando...')
-    terminar()
-    await waitFor(() => expect(boton).toBeEnabled())
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
   })
 
   it('informa si la exportación falla', async () => {
     const onExportClick = vi.fn().mockRejectedValue(new Error('Network Error'))
-    render(<UserListContent users={users} onExportClick={onExportClick} />)
+    render(<UserListContent users={users} onExportClick={onExportClick} onImportClick={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Exportar usuarios en CSV' }))
+    abrirMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Exportar usuarios/ }))
     expect(await screen.findByText(/No se pudo exportar el listado/)).toBeInTheDocument()
   })
 
-  it('abre la importación con el botón Importar', () => {
+  it('abre la importación desde el menú', () => {
     const onImportClick = vi.fn()
-    render(<UserListContent users={users} onImportClick={onImportClick} />)
+    render(<UserListContent users={users} onImportClick={onImportClick} onExportClick={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Importar usuarios desde CSV' }))
+    abrirMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Importar usuarios/ }))
     expect(onImportClick).toHaveBeenCalled()
   })
 
-  it('deja exportar e importar deshabilitados si no hay callback', () => {
+  it('sin importar ni exportar no muestra el menú', () => {
     render(<UserListContent users={users} />)
-    expect(screen.getByRole('button', { name: 'Exportar usuarios en CSV' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Importar usuarios desde CSV' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Importar|Exportar/ })).not.toBeInTheDocument()
   })
 
   it('prioriza en móvil las acciones y estadísticas reales antes de las tarjetas', () => {

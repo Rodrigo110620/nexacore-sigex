@@ -43,7 +43,7 @@ class ReporteIntentosControllerTests {
         var fila = new IntentoReporteResponse(1, 20, "Física I", LocalDate.parse("2026-10-31"), LocalTime.parse("08:30"),
                 10, "Zoe Quispe Luna", "201901234", "201901234", "No inscrito en la materia",
                 IntentoReporteResponse.NO_CORRESPONDE, "Luis Paz", LocalDateTime.parse("2026-10-31T08:47:10"));
-        when(service.reporte(20, 0, 20)).thenReturn(new PageResponse<>(List.of(fila), 0, 20, 1, 1));
+        when(service.reporte(20, 0, 20, null)).thenReturn(new PageResponse<>(List.of(fila), 0, 20, 1, 1));
         mockMvc.perform(get("/intentos-ingreso/reporte").param("idExamen", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalRegistros").value(1))
@@ -53,10 +53,21 @@ class ReporteIntentosControllerTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"CONTROL", "DOCENTE", "ESTUDIANTE"})
+    @ValueSource(strings = {"ESTUDIANTE", "AUXILIAR"})
     void otrosRolesReciben403(String rol) throws Exception {
         mockMvc.perform(get("/intentos-ingreso/reporte").with(user("x@sigex.test").roles(rol)))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(service);
+    }
+
+    // V53: el DOCENTE y el CONTROL ven el reporte, pero solo de sus exámenes (sin usuario conocido, de ninguno).
+    @ParameterizedTest
+    @ValueSource(strings = {"CONTROL", "DOCENTE"})
+    void elDocenteYElControlVenSoloSusExamenes(String rol) throws Exception {
+        when(service.reporte(null, 0, 20, -1)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0));
+        mockMvc.perform(get("/intentos-ingreso/reporte").with(user("x@sigex.test").roles(rol)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRegistros").value(0));
+        org.mockito.Mockito.verify(service).reporte(null, 0, 20, -1);
     }
 }

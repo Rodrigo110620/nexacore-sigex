@@ -47,10 +47,10 @@ const reportada: SolicitudRevisionFoto = {
   reporte: { motivo: 'NO_SE_PARECE', detalle: 'No se parece a la foto registrada.', reportadoPor: 'Carla Méndez', reportadoEn: '2026-10-20T06:12:00' },
 }
 
-function renderPagina() {
+function renderPagina(ruta = '/dashboard/estudiantes/fotos') {
   render(
     <AuthProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[ruta]}>
         <RevisionFotosPage />
       </MemoryRouter>
     </AuthProvider>,
@@ -180,5 +180,19 @@ describe('fechaCorta', () => {
     expect(fechaCorta('2026-10-20T06:12:00', ahora)).toBe('hoy · 06:12')
     expect(fechaCorta('2026-10-19T21:14:00', ahora)).toBe('ayer · 21:14')
     expect(fechaCorta('2026-10-15T07:55:00', ahora)).toMatch(/^15 oct\.? · 07:55$/)
+  })
+
+  // El DOCENTE y el CONTROL usan la misma pantalla: el servidor les manda solo las fotos reportadas en sus exámenes.
+  it('el docente revisa con la misma pantalla, con el estudiante del aviso ya elegido', async () => {
+    localStorage.setItem('roles', JSON.stringify(['DOCENTE']))
+    const otra = { ...reportada, idEstudiante: 3, nombre: 'Zoe', apellidos: 'Quispe' }
+    vi.mocked(fotoRevision.listarRevisionFotos).mockResolvedValue([otra, reportada])
+    vi.mocked(fotoRevision.descartarReporteFoto).mockResolvedValue()
+    renderPagina('/dashboard/estudiantes/fotos?estudiante=2')
+
+    expect(await screen.findByText(/Las fotos reportadas en tus exámenes/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Luis Fernández Quiroga', level: 2 })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar reporte' }))
+    await waitFor(() => expect(fotoRevision.descartarReporteFoto).toHaveBeenCalledWith(2))
   })
 })

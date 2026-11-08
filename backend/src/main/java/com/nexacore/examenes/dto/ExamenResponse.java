@@ -24,5 +24,7 @@ public record ExamenResponse(
         /** Aula principal y adicionales, en el orden en que se llenan. */
         List<AulaExamenResponse> aulas,
         /** ALFABETICO o LLEGADA. */
-        String modoReparto
+        String modoReparto,
+        /** Nombre del grupo (G1, G2…) del examen. */
+        String grupo
 ) {}

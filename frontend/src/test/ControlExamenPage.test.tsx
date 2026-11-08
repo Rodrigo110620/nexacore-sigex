@@ -34,6 +34,12 @@ function Destino() {
   return <p>Destino {pathname + search}</p>
 }
 
+/** La tabla completa va oculta tras «Ver todos los estudiantes» de la tarjeta «Ingresos recientes». */
+async function abrirTabla() {
+  fireEvent.click(await screen.findByRole('button', { name: /Ver todos los estudiantes/ }))
+  return screen.findByRole('table')
+}
+
 function renderPage() {
   render(
     <AuthProvider>
@@ -64,9 +70,31 @@ describe('ControlExamenPage', () => {
     })
   })
 
+  it('oculta acciones del examen cuando el servidor niega el acceso', async () => {
+    vi.mocked(listarEstudiantesExamen).mockRejectedValue({ isAxiosError: true, response: { status: 403 } })
+    renderPage()
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para acceder a este examen')
+    expect(screen.queryByRole('link', { name: /Iniciar Control de Ingreso/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Volver a Control' })).toHaveAttribute('href', '/dashboard/control')
+  })
+
+  it('DASH-03: avisa cuando un aula está llena o casi llena, con su ocupación', async () => {
+    vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 40, incidencias: 0, aulas: [
+      { idAmbiente: 4, nombre: '608', capacidad: 40, ocupados: 40, estado: 'LLENA' },
+      { idAmbiente: 59, nombre: '690A', capacidad: 20, ocupados: 18, estado: 'CASI_LLENA' },
+      { idAmbiente: 60, nombre: '690B', capacidad: 20, ocupados: 2, estado: 'LIBRE' },
+    ] })
+    renderPage()
+    expect(await screen.findByText('Aula 608 llena')).toBeInTheDocument()
+    expect(screen.getByText(/40\/40 estudiantes dentro/)).toBeInTheDocument()
+    expect(screen.getByText('Aula 690A casi llena')).toBeInTheDocument()
+    expect(screen.queryByText(/Aula 690B/)).not.toBeInTheDocument()
+  })
+
   it('muestra las estadísticas del resumen y las filas con su estado', async () => {
     renderPage()
-    const filas = within(await screen.findByRole('table')).getAllByRole('row')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument() // oculta hasta «Ver todos»
+    const filas = within(await abrirTabla()).getAllByRole('row')
 
     // DASH-01: habilitados, ingresados, ausentes (habilitados que aún no ingresan) e incidencias.
     const habilitados = within(await screen.findByRole('region', { name: 'Habilitados' }))
@@ -99,20 +127,21 @@ describe('ControlExamenPage', () => {
 
   it('al cambiar de pestaña pide ese estado desde la página 0', async () => {
     renderPage()
-    await screen.findByRole('table')
+    await abrirTabla()
     fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
     await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'TODOS', 1, 5))
     await screen.findByRole('table')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'No habilitados (3)' }))
+    const filtros = within(screen.getByRole('group', { name: 'Filtrar por estado' }))
+    fireEvent.click(await filtros.findByRole('button', { name: 'No habilitados (3)' }))
 
-    expect(screen.getByRole('button', { name: 'No habilitados (3)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(filtros.getByRole('button', { name: 'No habilitados (3)' })).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenLastCalledWith(7, 'NO_HABILITADOS', 0, 5))
   })
 
   it('el ojo lleva a la identificación con ?codigo= del estudiante', async () => {
     renderPage()
-    const tabla = await screen.findByRole('table')
+    const tabla = await abrirTabla()
 
     fireEvent.click(within(tabla).getByRole('link', { name: 'Identificar a Luis Flores' }))
 
@@ -124,6 +153,7 @@ describe('ControlExamenPage', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
     try {
       renderPage()
+      await abrirTabla()
       await waitFor(() => expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 3))
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: anterior })

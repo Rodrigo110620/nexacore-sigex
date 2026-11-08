@@ -55,6 +55,7 @@ import HoraSelector from './HoraSelector'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import FechaInput from './FechaInput'
 import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
+import ErrorCarga from '../ui/ErrorCarga'
 
 interface EditExamenModalProps {
   isOpen: boolean
@@ -87,6 +88,8 @@ function calcHoraFin(horaInicio: string, duracionMinutos: number): string {
   return formatHora24(Math.floor(totalMin / 60) % 24, totalMin % 60)
 }
 
+const ERROR_AMBIENTES = 'No se pudo cargar el catálogo de ambientes.'
+
 export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: EditExamenModalProps) {
   // Solo ADMIN da de alta ambientes; el resto elige del catálogo.
   const auth = useAuth()
@@ -103,6 +106,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
   })
   const [errors, setErrors] = useState<RegisterExamenFormErrors>({})
   const [generalError, setGeneralError] = useState('')
+  const [recargaAmbientes, setRecargaAmbientes] = useState(0)
   const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
   const [ambientes, setAmbientes] = useState<AmbienteDto[]>([])
@@ -243,11 +247,11 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
       listarAmbientes()
         // Si la disponibilidad ya llegó, no la pisa con la lista sin "Ocupado".
         .then((data) => { if (!cancelled) setAmbientes((prev) => (prev.some((a) => a.disponible !== undefined) ? prev : data)) })
-        .catch(() => { if (!cancelled) setGeneralError('No se pudo cargar el catálogo de ambientes.') })
+        .catch(() => { if (!cancelled) setGeneralError(ERROR_AMBIENTES) })
         .finally(() => { if (!cancelled) setLoadingAmbientes(false) })
     }, 0)
     return () => { cancelled = true; window.clearTimeout(handle) }
-  }, [isOpen])
+  }, [isOpen, recargaAmbientes])
 
   // Refrescar disponibilidad cuando cambian fecha, hora o duración (excluyendo el propio examen)
   useEffect(() => {
@@ -932,7 +936,9 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
           </div>
 
           <div className="shrink-0 border-t border-[#e3eaf1] bg-white px-4 py-3 sm:bg-[#f8fbff] sm:px-6 sm:py-4">
-            {generalError && (
+            {generalError === ERROR_AMBIENTES ? (
+              <ErrorCarga className="mb-2" mensaje={generalError} onReintentar={() => { setGeneralError(''); setRecargaAmbientes((n) => n + 1) }} />
+            ) : generalError && (
               <div role="alert" className="mb-2 flex items-start rounded-md border border-[#FECACA] bg-[#FEF2F2] p-2.5">
                 <CircleAlert className="mr-2 mt-0.5 shrink-0 text-[#B91C1C]" size={16} />
                 <p className="text-xs text-[#B91C1C]">{generalError}</p>
@@ -948,7 +954,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
               <p className="hidden text-[10px] text-gray-400 sm:flex sm:items-center">
                 <span className="text-[#3B82F6]"><Dot /></span> Campos con (*) son mandatorios
               </p>
-              <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:gap-3">
+              <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row gap-2 sm:w-auto sm:flex-row sm:gap-3">
                 <button
                   type="button"
                   onClick={requestClose}

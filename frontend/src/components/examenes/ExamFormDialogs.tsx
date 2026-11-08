@@ -9,8 +9,8 @@ interface ConfirmDiscardProps {
 export function ConfirmDiscardDialog({ open, onStay, onLeave }: ConfirmDiscardProps) {
   if (!open) return null
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#011140]/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center rounded-[inherit] bg-white/60 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-[0_16px_48px_rgba(1,17,64,0.22)]">
         <h3 className="text-sm font-bold text-[#011140]">¿Descartar los datos?</h3>
         <p className="mt-2 text-xs text-gray-600">
           Hay información sin guardar. Si sales ahora se perderá lo ingresado.
@@ -44,8 +44,8 @@ interface OfflineDialogProps {
 export function OfflineDialog({ open, onClose }: OfflineDialogProps) {
   if (!open) return null
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#011140]/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-xl">
+    <div className="absolute inset-0 z-40 flex items-center justify-center rounded-[inherit] bg-white/60 p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-[0_16px_48px_rgba(1,17,64,0.22)]">
         <h3 className="text-sm font-bold text-[#011140]">Sin conexión a Internet</h3>
         <p className="mt-2 text-xs leading-relaxed text-gray-600">
           No se pudo guardar y registrar el examen porque no hay conexión a Internet. Verifica tu

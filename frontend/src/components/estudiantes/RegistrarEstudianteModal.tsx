@@ -223,7 +223,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
           </>}
         </div>
 
-        <footer className="flex flex-col-reverse gap-2 border-t border-[#D8E3F5] px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
+        <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-[#D8E3F5] px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
           <button type="button" onClick={step === 1 ? pedirCerrar : () => setStep(1)} onMouseDown={(e) => e.preventDefault()} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">{step === 1 ? 'Cancelar' : '← Atrás'}</button>
           {step === 1 ? <button type="button" onClick={() => validateStep1() && setStep(2)}  className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md">Siguiente paso →</button> : <button type="button" disabled={saving} onClick={submit} className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">{saving ? 'Registrando...' : 'Registrar Estudiante'}</button>}
         </footer>

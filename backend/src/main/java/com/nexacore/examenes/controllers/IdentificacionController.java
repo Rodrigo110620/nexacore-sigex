@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Estudiantes de un examen en el control de ingreso (HU ACCS-01); 404 si el examen no existe.
  *
- *   GET /api/v1/examenes/{idExamen}/estudiantes?estado=TODOS|HABILITADOS|NO_HABILITADOS&page=0&size=10
+ *   GET /api/v1/examenes/{idExamen}/estudiantes?estado=TODOS|HABILITADOS|NO_HABILITADOS|AUSENTES&page=0&size=10
  *   GET /api/v1/examenes/{idExamen}/estudiantes/resumen
  *   GET /api/v1/examenes/{idExamen}/estudiantes/identificar?tipo=codigo|ci&valor=...
  *
@@ -44,7 +44,7 @@ public class IdentificacionController {
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteAsignadoResponse>> listar(
             @PathVariable Integer idExamen,
-            @Parameter(description = "TODOS, HABILITADOS o NO_HABILITADOS")
+            @Parameter(description = "TODOS, HABILITADOS, NO_HABILITADOS o AUSENTES (habilitados sin ingreso)")
             @RequestParam(defaultValue = "TODOS") String estado,
             @Parameter(description = "Número de página, empezando en 0")
             @RequestParam(defaultValue = "0") int page,
@@ -52,6 +52,19 @@ public class IdentificacionController {
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(identificacionService.listarAsignados(idExamen, estado, page, size));
     }
+
+    @Operation(summary = "Ingresos recientes del examen",
+            description = "DASH-02: los últimos ingresos de la sesión actual, del más reciente al más antiguo (hasta 50 por página), y el total.")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @GetMapping("/recientes")
+    public com.nexacore.examenes.dto.IngresosRecientesResponse recientes(@PathVariable Integer idExamen,
+            @RequestParam(defaultValue = "6") int cantidad, @RequestParam(defaultValue = "0") int pagina) {
+        return ingresosRecientesService.recientes(idExamen, cantidad, pagina);
+    }
+
+    /** DASH-02; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.IngresosRecientesService ingresosRecientesService;
 
     @Operation(summary = "Resumen de estudiantes del examen",
             description = "Total de asignados, habilitados, no habilitados e ingresados. ADMIN, CONTROL o su DOCENTE.")
