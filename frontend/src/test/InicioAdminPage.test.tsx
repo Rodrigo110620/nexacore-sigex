@@ -92,8 +92,9 @@ describe('InicioAdminPage', () => {
     }
     // Con incidencias, "Revisar" muestra aquí mismo cuáles hubo hoy.
     vi.mocked(obtenerIncidenciasHoy).mockResolvedValue([
-      { tipo: 'TRASLADO', fechaHora: '2026-11-07T18:22:00', idExamen: 4, examen: 'Base de Datos I · G1', estudiante: 'Carla Luna Ortiz', detalle: '608 → 690A' },
-      { tipo: 'INGRESO_MANUAL', fechaHora: '2026-11-07T19:18:00', idExamen: 4, examen: 'Base de Datos I · G1', estudiante: 'Fabio Paz Rivas', detalle: 'Llegó tarde' },
+      { tipo: 'TRASLADO', fechaHora: '2026-11-07T18:22:00', idExamen: 4, examen: 'Base de Datos I · G1', idEstudiante: 13, estudiante: 'Carla Luna Ortiz', detalle: '608 → 690A' },
+      { tipo: 'INGRESO_MANUAL', fechaHora: '2026-11-07T19:18:00', idExamen: 4, examen: 'Base de Datos I · G1', idEstudiante: 16, estudiante: 'Fabio Paz Rivas', detalle: 'Llegó tarde' },
+      { tipo: 'INTENTO_INCORRECTO', fechaHora: '2026-11-07T19:30:05', idExamen: 4, examen: 'Base de Datos I · G1', idEstudiante: null, estudiante: null, detalle: 'Aula incorrecta' },
     ])
     fireEvent.click(within(within(resumen).getByRole('article', { name: 'Incidencias' })).getByRole('button', { name: 'Revisar las incidencias de hoy' }))
     const dialogo = await screen.findByRole('dialog', { name: 'Incidencias de hoy' })
@@ -101,7 +102,11 @@ describe('InicioAdminPage', () => {
     expect(filas[0]).toHaveTextContent('Traslado de aula: Carla Luna Ortiz')
     expect(filas[0]).toHaveTextContent('608 → 690A')
     expect(filas[1]).toHaveTextContent('Ingreso manual: Fabio Paz Rivas')
-    expect(within(filas[1]).getByRole('link', { name: /Ver en el examen/ })).toHaveAttribute('href', '/dashboard/control/4/informacion')
+    // Cada una lleva directo a su incidente: el traslado al panel con el estudiante resaltado, el ingreso manual
+    // a Excepciones y el intento (sin estudiante) a Intentos por su hora.
+    expect(within(filas[0]).getByRole('link', { name: /Ver al estudiante en el examen/ })).toHaveAttribute('href', '/dashboard/control/4?estudiante=13')
+    expect(within(filas[1]).getByRole('link', { name: /Ver en Excepciones/ })).toHaveAttribute('href', '/dashboard/control/4/informacion?estudiante=16&pestana=excepciones')
+    expect(within(filas[2]).getByRole('link', { name: /Ver en Intentos/ })).toHaveAttribute('href', '/dashboard/control/4/informacion?pestana=intentos&hora=2026-11-07T19%3A30')
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // 82 de 108 habilitados (ingresaron + por ingresar + ausentes).

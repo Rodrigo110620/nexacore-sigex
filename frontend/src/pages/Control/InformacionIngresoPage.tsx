@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarClock,
@@ -39,6 +39,9 @@ import { fechaHoraNumerica, formatFecha } from "../../utils/examenFormat";
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
 const fechaHora = (valor: string) => fechaHoraNumerica(valor);
+const PESTAÑAS: PestañaIngreso[] = ["autorizados", "excepciones", "intentos"];
+/** Clases de la fila a la que se llega desde «Incidencias de hoy» (inicio del ADMIN). */
+const RESALTADO = " ring-2 ring-[#F59E0B]";
 
 export default function InformacionIngresoPage() {
   const idExamen = Number(useParams().idExamen);
@@ -62,7 +65,16 @@ export default function InformacionIngresoPage() {
     estado: "error" | "listo";
   }>();
   const [reintentosCarga, setReintentosCarga] = useState(0);
-  const [pestaña, setPestaña] = useState<PestañaIngreso>("autorizados");
+  // Desde «Incidencias → Revisar»: ?pestana=intentos&estudiante=12&hora=2026-11-07T19:18 abre la pestaña y resalta la fila.
+  const [parametros] = useSearchParams();
+  const estudianteFoco = Number(parametros.get("estudiante")) || null;
+  const horaFoco = parametros.get("hora")?.slice(0, 16) ?? null;
+  const esFoco = (idEstudiante: number | null | undefined, fecha?: string | null) =>
+    (estudianteFoco != null && idEstudiante === estudianteFoco) || (horaFoco != null && idEstudiante == null && fecha?.slice(0, 16) === horaFoco);
+  const [pestaña, setPestaña] = useState<PestañaIngreso>(() => {
+    const p = parametros.get("pestana") as PestañaIngreso | null;
+    return p && PESTAÑAS.includes(p) ? p : "autorizados";
+  });
   const [registroExpandido, setRegistroExpandido] = useState<number | null>(null);
 
   // Estado para saber qué fila está expandida
@@ -90,6 +102,17 @@ export default function InformacionIngresoPage() {
       vigente = false;
     };
   }, [idExamen, idValido, reintentosCarga]);
+
+  // Al cargar, lleva la fila resaltada a la vista (solo el contenido, no la ventana).
+  const listo = resultadoCarga?.idExamen === idExamen && resultadoCarga.estado === "listo";
+  useEffect(() => {
+    if (!listo || (estudianteFoco == null && horaFoco == null)) return;
+    requestAnimationFrame(() => {
+      const fila = [...document.querySelectorAll<HTMLElement>('[data-foco="true"]')].find((el) => el.offsetParent !== null);
+      const main = fila?.closest("main");
+      if (fila && main?.scrollTo) main.scrollTo({ top: main.scrollTop + fila.getBoundingClientRect().top - main.getBoundingClientRect().top - 96, behavior: "smooth" });
+    });
+  }, [listo, pestaña, estudianteFoco, horaFoco]);
 
   useEnVivo(
     (c) => c.idExamen === idExamen,
@@ -279,7 +302,8 @@ export default function InformacionIngresoPage() {
                   {reportes?.map((reporte) => (
                     <article
                       key={reporte.idReporte}
-                      className="rounded-xl border border-[#F1C4C9] bg-[#FFF8F8] p-4 text-sm"
+                      data-foco={horaFoco != null && reporte.fechaHora?.slice(0, 16) === horaFoco ? "true" : undefined}
+                      className={`rounded-xl border border-[#F1C4C9] bg-[#FFF8F8] p-4 text-sm${horaFoco != null && reporte.fechaHora?.slice(0, 16) === horaFoco ? RESALTADO : ""}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -325,7 +349,8 @@ export default function InformacionIngresoPage() {
                     return (
                       <li
                         key={intento.idIntento}
-                        className="rounded-xl border border-[#E1E7F0] bg-slate-50 p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]"
+                        data-foco={esFoco(intento.idEstudiante, intento.fechaHora) ? "true" : undefined}
+                        className={`rounded-xl border border-[#E1E7F0] bg-slate-50 p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]${esFoco(intento.idEstudiante, intento.fechaHora) ? RESALTADO : ""}`}
                       >
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                           <div className="min-w-0">
@@ -392,7 +417,8 @@ export default function InformacionIngresoPage() {
                 {(lista as RegistroControlIngresoExamen[]).map((registro) => (
                   <li
                     key={registro.idRegistro}
-                    className="rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]"
+                    data-foco={esFoco(registro.idEstudiante) ? "true" : undefined}
+                    className={`rounded-xl border border-[#E1E7F0] bg-white p-4 shadow-[0_2px_8px_rgba(1,17,64,.05)]${esFoco(registro.idEstudiante) ? RESALTADO : ""}`}
                   >
                     <p className="font-bold text-[#011140] text-sm md:text-base">
                       {registro.estudiante}
