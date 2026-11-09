@@ -137,7 +137,7 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
                     <span className="shrink-0 text-[11px] font-semibold text-[#011140]">Asistencia {m.asistencia} %</span>
                   </div>
                 ) : !px && puedeProgramar ? (
-                  <Link to="/dashboard/examenes?nuevo=1" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0439D9] hover:underline">
+                  <Link to={`/dashboard/examenes?nuevo=1&materia=${m.idMateria}&nombre=${encodeURIComponent(m.nombre)}`} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0439D9] hover:underline">
                     <Plus size={13} aria-hidden="true" /> Programar el primer examen
                   </Link>
                 ) : <p className="text-[11px] text-[#627A9B]">Aún sin exámenes realizados</p>}
