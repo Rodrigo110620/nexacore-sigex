@@ -41,7 +41,7 @@ public class IntentoIngresoController {
                 .body(service.registrarAmbienteIncorrecto(request, authentication.getName()));
     }
 
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping
     public ResponseEntity<List<IntentoIngresoResponse>> listar(@RequestParam Integer idExamen,
                                                                  @RequestParam(required = false) Integer idEstudiante) {

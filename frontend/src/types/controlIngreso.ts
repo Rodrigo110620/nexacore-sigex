@@ -20,6 +20,10 @@ export interface ContextoControlIngreso {
   condicion?: string | null
   /** Ruta de la API para descargar la foto, o null si no tiene. */
   fotoUrl?: string | null
+  /** Hora de salida registrada (V56); null si no salió. */
+  fechaHoraSalida?: string | null
+  /** Expulsado en la sesión actual: no se le registra salida. */
+  expulsado?: boolean
 }
 
 export interface AutorizarIngresoPayload {

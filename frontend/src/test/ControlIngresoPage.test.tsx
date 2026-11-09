@@ -353,11 +353,24 @@ describe('ControlIngresoPage', () => {
   it('renderiza normas generales y particulares como listas separadas', async () => {
     renderPage({ ...contextoBase, normasGenerales: ['No usar celular', 'Mantener silencio'], normasParticulares: ['Calculadora permitida', 'Tiempo adicional'] })
     await screen.findByText('Laura Paredes')
-    const listas = screen.getAllByRole('list').filter((list) => list.classList.contains('control-rules-list'))
+    // Solo lo necesario a la vista: las normas particulares del estudiante; las generales, dentro de «Más opciones».
+    const listas = Array.from(document.querySelectorAll('ol.control-rules-list'))
     expect(listas).toHaveLength(2)
-    listas.forEach(lista => expect(lista.tagName).toBe('OL'))
-    expect(within(listas[0]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['No usar celular', 'Mantener silencio'])
-    expect(within(listas[1]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Calculadora permitida', 'Tiempo adicional'])
+    const [particulares, generales] = listas
+    expect(within(particulares as HTMLElement).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Calculadora permitida', 'Tiempo adicional'])
+    expect(particulares.closest('#control-mas-opciones')).toBeNull()
+    expect(within(generales as HTMLElement).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['No usar celular', 'Mantener silencio'])
+    expect(generales.closest('#control-mas-opciones')).not.toBeNull()
+
+    // «Más opciones» se abre y se cierra con su botón, que avisa su estado.
+    const boton = screen.getByRole('button', { name: /Más opciones/ })
+    expect(boton).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById('control-mas-opciones')).toHaveAttribute('inert')
+    fireEvent.click(boton)
+    expect(boton).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById('control-mas-opciones')).not.toHaveAttribute('inert')
+    fireEvent.click(boton)
+    expect(boton).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText(/No usar celular;/)).not.toBeInTheDocument()
   })
 
@@ -408,6 +421,19 @@ describe('ControlIngresoPage', () => {
     expect(screen.getByText('Carla Control')).toBeInTheDocument()
     expect(screen.getByText('Fecha y hora oficial')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Registrar siguiente estudiante/ })).toBeInTheDocument()
+  })
+
+  it('«Más opciones» cerrado avisa lo que tiene adentro (observación, incidencias, ingreso manual)', async () => {
+    renderPage()
+    await screen.findByText('Laura Paredes')
+    const boton = screen.getByRole('button', { name: /Más opciones/ })
+    expect(boton).toHaveTextContent('Ingreso manual, observaciones, incidencias y normas generales')
+    fireEvent.click(boton)
+    fireEvent.change(screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla'), { target: { value: 'Llegó con el carnet vencido' } })
+    fireEvent.click(screen.getAllByRole('checkbox').find((c) => c.closest('label')?.textContent?.includes('Documento en mal estado'))!)
+    fireEvent.click(boton)
+    expect(boton).toHaveAttribute('aria-expanded', 'false')
+    expect(boton).toHaveTextContent('Con observación · 1 incidencia')
   })
 
   it('no registra observaciones con contenido repetitivo reportado por QA', async () => {

@@ -75,3 +75,10 @@ export async function listarRegistrosControlExamen(idExamen: number): Promise<Re
   const { data } = await api.get<RegistroControlIngresoExamen[]>(`/control-ingresos/examen/${idExamen}/registros`)
   return data
 }
+
+/** V56: registra la salida del estudiante (entregó y se retiró). Solo quien ingresó, no fue expulsado y aún no salió. */
+export async function registrarSalida(idEstudiante: number, idExamen: number): Promise<{ fechaHoraSalida: string }> {
+  const { data } = await api.post<{ fechaHoraSalida: string }>('/control-ingresos/salida', { idEstudiante, idExamen })
+  emitirCambioLocal({ tipo: 'INGRESO', idExamen, idEstudiante })
+  return data
+}

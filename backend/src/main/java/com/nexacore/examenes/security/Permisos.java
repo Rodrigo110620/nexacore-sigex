@@ -53,8 +53,21 @@ public final class Permisos {
         return DEL_SISTEMA.contains(rol);
     }
 
+    /**
+     * El ADMIN administra: tiene todos los permisos menos programar exámenes (los registra cada DOCENTE) y
+     * registrar el control de ingreso (lo hace el CONTROL asignado). Supervisa el control con REPORTES_VER.
+     * Quien además es DOCENTE o CONTROL los recibe por ese rol.
+     */
+    public static Set<String> delAdmin() {
+        Set<String> res = new HashSet<>(todos());
+        res.remove(Permiso.EXAMENES_GESTIONAR_PROPIOS.name());
+        res.remove(Permiso.CONTROL_INGRESO_TODOS.name());
+        res.remove(Permiso.CONTROL_INGRESO_PROPIOS.name());
+        return res;
+    }
+
     public static Set<String> porDefecto(String rol) {
-        if (ADMIN.equals(rol)) return todos();
+        if (ADMIN.equals(rol)) return delAdmin();
         return POR_DEFECTO.getOrDefault(rol, Set.of()).stream().map(Enum::name).collect(Collectors.toSet());
     }
 
@@ -66,7 +79,6 @@ public final class Permisos {
     public static Set<String> deRoles(Collection<String> roles) {
         Set<String> res = new HashSet<>();
         for (String rol : roles) {
-            if (ADMIN.equals(rol)) return todos();
             res.addAll(esDelSistema(rol) ? porDefecto(rol) : fuente.apply(rol));
         }
         return res;

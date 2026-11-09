@@ -1,12 +1,12 @@
 import { normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
+import { AlertTriangle, ChevronDown, LogOut, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import { useAuth } from '../../context/AuthContext'
 import './ControlIngresoPage.css'
-import { autorizarIngreso, denegarIngreso, obtenerContextoControl, obtenerTiposIncidencia } from '../../services/controlIngresoService'
+import { autorizarIngreso, denegarIngreso, obtenerContextoControl, obtenerTiposIncidencia, registrarSalida } from '../../services/controlIngresoService'
 import type { AutorizarIngresoResultado, ContextoControlIngreso, TipoIncidencia } from '../../types/controlIngreso'
 import { primerGarabato } from '../../utils/palabras'
 import TextoLibreCampo from '../../components/control/TextoLibreCampo'
@@ -92,6 +92,21 @@ export default function ControlIngresoPage() {
   const idEstudiante = Number(p.idEstudiante), idExamen = Number(p.idExamen)
   const valid = Number.isInteger(idEstudiante) && Number.isInteger(idExamen)
   const [ctx, setCtx] = useState<ContextoControlIngreso | null>(null)
+  const [masOpciones, setMasOpciones] = useState(() => new URLSearchParams(window.location.search).get('ingreso') === 'manual')
+  // V56: el estudiante que termina antes vuelve a pasar por el control y se registra su salida (dos toques).
+  const [salida, setSalida] = useState<{ paso: 'listo' | 'confirmar' | 'guardando'; error: string }>({ paso: 'listo', error: '' })
+  const registrarLaSalida = async () => {
+    if (!ctx) return
+    if (salida.paso === 'listo') { setSalida({ paso: 'confirmar', error: '' }); return }
+    setSalida({ paso: 'guardando', error: '' })
+    try {
+      const r = await registrarSalida(ctx.idEstudiante, ctx.idExamen)
+      setCtx({ ...ctx, fechaHoraSalida: r.fechaHoraSalida })
+      setSalida({ paso: 'listo', error: '' })
+    } catch (e) {
+      setSalida({ paso: 'listo', error: (e as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje ?? 'No se pudo registrar la salida.' })
+    }
+  }
   const [types, setTypes] = useState<TipoIncidencia[]>([])
   const [selectedIncidents, setSelectedIncidents] = useState<number[]>([])
   const otraIncidenciaSeleccionada = types.some(t => t.nombre === 'OTRA_INCIDENCIA' && selectedIncidents.includes(t.id))
@@ -165,17 +180,30 @@ export default function ControlIngresoPage() {
     return siguiente
   })
 
+  const resumenMasOpciones = [
+    ingresoManual && 'Ingreso manual',
+    obs.trim() && 'Con observación',
+    selectedIncidents.length > 0 && `${selectedIncidents.length} ${selectedIncidents.length === 1 ? 'incidencia' : 'incidencias'}`,
+  ].filter(Boolean).join(' · ')
+  /** Abre «Más opciones» y lleva el foco al campo con error, para que no quede escondido. */
+  const mostrarCampo = (id: string) => {
+    setMasOpciones(true)
+    requestAnimationFrame(() => document.getElementById(id)?.focus())
+  }
+
   const submit = async (denegar = false) => {
     const errorJustificacion = validarJustificacion(justificacionManual)
     if (!denegar && ingresoManual && errorJustificacion) {
       setJustificacionError(errorJustificacion)
+      mostrarCampo('justificacion-manual')
       return
     }
     const errorIncidencia = otraIncidenciaSeleccionada ? validarTextoLibre(incident, DETALLE_INCIDENCIA) : null
-    if (errorIncidencia) { setTextErrorField('incidencia'); setError(errorIncidencia); return }
+    if (errorIncidencia) { setTextErrorField('incidencia'); setError(errorIncidencia); setMasOpciones(true); return }
     if (denegar && detalleError) return
     if (obsError) {
       setTextErrorField('observaciones')
+      mostrarCampo('control-observaciones')
       return
     }
     if (denegar && denialDetail.length > MAX_DETALLE_DENEGACION) {
@@ -195,6 +223,7 @@ export default function ControlIngresoPage() {
     if (invalido?.garabato) {
       setTextErrorField(invalido.field)
       setError(`El texto contiene contenido no válido: "${invalido.garabato}".`)
+      if (invalido.field !== 'denialDetail') setMasOpciones(true)
       return
     }
     setTextErrorField(null)
@@ -264,11 +293,26 @@ export default function ControlIngresoPage() {
               <div className="flex flex-col gap-1.5 border-t border-[#E6EDF8] pt-2 text-xs sm:items-end sm:border-0 sm:pt-0"><label className="flex cursor-pointer items-center gap-2 font-medium text-[#15213B]"><input type="checkbox" checked={ambienteConfirmado} onChange={e=>setAmbienteConfirmado(e.target.checked)} className="rounded border-gray-300 text-[#0439D9] focus:ring-[#0439D9]"/>Confirmo que el estudiante está físicamente en el {ctx.ambiente || 'aula'}</label><button type="button" onClick={()=>setVerificarAmbienteOpen(true)} className="text-left text-[11px] font-semibold text-amber-700 underline sm:text-right">¿Aula incorrecta? → Reportar ubicación incorrecta</button></div>
             </div>
           </article>
-          <article className="control-rules"><Title icon={<ListChecks size={14}/>} text="Normas del examen"/><div className="control-rules-box"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales:</b>{ctx.normasGenerales.length ? <ol className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ol> : <p>No registradas.</p>}</div></div><div className="mt-2 flex items-start gap-2"><ClipboardList size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas particulares:</b>{ctx.normasParticulares.length ? <ol className="control-rules-list">{ctx.normasParticulares.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`p-${i}`)} onToggle={()=>alternarNorma(`p-${i}`)}/></li>)}</ol> : <p>No se registraron normas particulares para este estudiante.</p>}</div></div></div></article>
+          {/* Solo lo necesario a la vista: las normas particulares de este estudiante, si tiene; las generales, en «Más opciones». */}
+          {ctx.normasParticulares.length > 0 && <article className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-3 text-sm text-[#7C2D12]"><p className="mb-1 flex items-center gap-2 font-semibold"><ClipboardList size={14} aria-hidden="true"/>Normas particulares de este estudiante</p><ol className="control-rules-list">{ctx.normasParticulares.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`p-${i}`)} onToggle={()=>alternarNorma(`p-${i}`)}/></li>)}</ol></article>}
         </section>
-        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button>}</div></section>}
+        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<><p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen{ctx.fechaHoraIngreso ? ` a las ${ctx.fechaHoraIngreso.slice(11, 19)}` : ''}.</p>{ctx.fechaHoraSalida&&<p className="mt-0.5 text-sm font-semibold text-[#334155]">Salió a las {ctx.fechaHoraSalida.slice(11, 19)}.</p>}{ctx.expulsado&&<p className="mt-0.5 text-sm">Fue expulsado: no se registra su salida.</p>}{salida.error&&<p role="alert" className="mt-1 text-xs font-semibold">{salida.error}</p>}</>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<div className="flex shrink-0 flex-wrap gap-2">{!ctx.fechaHoraSalida&&!ctx.expulsado&&<button type="button" onClick={()=>void registrarLaSalida()} onBlur={()=>{ if (salida.paso==='confirmar') setSalida({ paso: 'listo', error: '' }) }} disabled={salida.paso==='guardando'} className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold disabled:opacity-60 ${salida.paso==='confirmar' ? 'bg-[#0439D9] text-white' : 'border border-[#0439D9] bg-white text-[#0439D9] hover:bg-[#F1F6FF]'}`}><LogOut size={14} aria-hidden="true"/>{salida.paso==='confirmar' ? '¿Confirmar salida?' : salida.paso==='guardando' ? 'Guardando…' : 'Registrar salida'}</button>}<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button></div>}</div></section>}
         {!ctx.ingresoRegistrado && <section className="control-register">
-          <Title icon={<ListChecks size={14}/>} text="Registro de control"/>
+          {/* A la vista solo la verificación obligatoria; lo demás, en «Más opciones». */}
+          <fieldset><legend className="sr-only">Verificaciones adicionales</legend><label className={`control-verification ${checks.length ? 'is-verified' : ''}`}><Fingerprint size={17} className="shrink-0 text-[#45628D]"/><input aria-label={VERIFICACION} type="checkbox" checked={checks.length>0} onChange={e=>setChecks(e.target.checked?[VERIFICACION]:[])}/><span>{VERIFICACION}</span></label></fieldset>
+          {/* «Más opciones»: botón con su estado (aria-expanded), chevron que gira y despliegue suave. Cerrado, el
+              contenido no recibe foco (inert). Muestra qué tiene adentro para que nada quede escondido sin aviso. */}
+          <div className="mt-3 overflow-hidden rounded-lg border border-[#E6EDF8] bg-white">
+            <button type="button" aria-expanded={masOpciones} aria-controls="control-mas-opciones" onClick={()=>setMasOpciones(v=>!v)}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F8FAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9]/40">
+              <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[#0439D9] transition-transform duration-200 ${masOpciones ? 'rotate-180' : ''}`}/>
+              <span className="font-semibold text-[#0439D9]">Más opciones</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-[#627A9B]">{resumenMasOpciones || 'Ingreso manual, observaciones, incidencias y normas generales'}</span>
+            </button>
+            <div id="control-mas-opciones" className={`grid transition-[grid-template-rows] duration-200 ease-out ${masOpciones ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+              ref={el=>{ if (el) el.toggleAttribute('inert', !masOpciones) }}>
+              <div className="min-h-0 overflow-hidden">
+                <div className="border-t border-[#E6EDF8] p-3">
           <div className="mb-4 rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">
             {searchParams.get('ingreso') === 'manual' ? (
               <div className="flex items-center gap-2 text-sm font-bold text-[#0439D9]">
@@ -291,9 +335,14 @@ export default function ControlIngresoPage() {
           <div className="control-fields">
             <div>
               <TextoLibreCampo id="control-observaciones" className="block text-xs" label={<>Observaciones <span className="text-[#7586A0]">(opcional)</span></>} max={OBSERVACIONES_CONTROL.max} rows={3} value={obs} onChange={v=>{setObs(v); if(textErrorField==='observaciones'){setTextErrorField(null);setError('')}}} error={obsError ?? (textErrorField==='observaciones' ? error : null)} placeholder="Estudiante ingresa con credencial oficial en regla"/>
-              <fieldset className="mt-3"><legend className="text-xs">Verificaciones adicionales</legend><label className={`control-verification ${checks.length ? 'is-verified' : ''}`}><Fingerprint size={17} className="shrink-0 text-[#45628D]"/><input aria-label={VERIFICACION} type="checkbox" checked={checks.length>0} onChange={e=>setChecks(e.target.checked?[VERIFICACION]:[])}/><span>{VERIFICACION}</span></label></fieldset>
+              
             </div>
             <fieldset className="control-incidents"><legend className="sr-only">Incidencias detectadas</legend><p className="mb-3 flex items-center gap-2 font-semibold text-[#A6450A]"><AlertTriangle size={14}/>Incidencias Detectadas</p>{types.filter(t=>['LLEGADA_TARDE','DOCUMENTO_MAL_ESTADO','OTRA_INCIDENCIA'].includes(t.nombre)).map(t=><label key={t.id} className="mb-2 flex items-start gap-2"><input type="checkbox" checked={selectedIncidents.includes(t.id)} onChange={()=>{setSelectedIncidents(v=>v.includes(t.id)?v.filter(id=>id!==t.id):[...v,t.id]); if(t.nombre==='OTRA_INCIDENCIA'){setIncident(''); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}}}/>{ETIQUETA_INCIDENCIA[t.nombre]}</label>)}{otraIncidenciaSeleccionada&&<><textarea aria-label="Detalle de incidencias" aria-invalid={textErrorField==='incidencia'} value={incident} onChange={e=>{setIncident(e.target.value); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}} rows={2} maxLength={1000} className="control-input" placeholder="Opcional: describe la incidencia..."/>{textErrorField==='incidencia'&&<p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}</>}</fieldset>
+          </div>
+              <div className="control-rules-box mt-3"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales del examen:</b>{ctx.normasGenerales.length ? <ol className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ol> : <p>No registradas.</p>}</div></div></div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>}
         {sinFoto&&!examenTerminado&&!ctx.ingresoRegistrado&&<p role="alert" className="mx-1 mb-2 rounded-lg border border-[#FECACA] bg-[#FFF5F5] p-3 text-xs text-[#7F1D1D]"><strong>Sin foto registrada:</strong> no se puede verificar su identidad ni autorizar su ingreso. Debe registrarla en su portal, o la administración o el docente desde su ficha. Puedes denegar el ingreso o reportar la incidencia.</p>}

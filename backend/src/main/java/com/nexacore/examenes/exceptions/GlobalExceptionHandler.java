@@ -61,7 +61,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> manejarValidaciones(MethodArgumentNotValidException ex) {
         Map<String, String> errores = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
-                .forEach(error -> errores.put(error.getField(), error.getDefaultMessage()));
+                // emailDelCodigoSis (el correo del estudiante = su código SIS) se muestra en el campo email.
+                .forEach(error -> errores.putIfAbsent(
+                        "emailDelCodigoSis".equals(error.getField()) ? "email" : error.getField(), error.getDefaultMessage()));
 
         
         String mensajePrincipal = errores.values().stream()

@@ -237,7 +237,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard/control/:idExamen/identificar"
           element={
-            <IdentificacionRoute>
+            <IdentificacionRoute registrar>
               <IdentificacionPage />
             </IdentificacionRoute>
           }
@@ -248,7 +248,7 @@ export default function AppRouter() {
         <Route
           path="/dashboard/control-ingresos/:idEstudiante/:idExamen"
           element={
-            <ControlRoute>
+            <ControlRoute registrar>
               <ControlIngresoPage />
             </ControlRoute>
           }

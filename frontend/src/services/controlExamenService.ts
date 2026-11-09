@@ -24,6 +24,8 @@ export interface EstudianteAsignado {
   trasladadoA?: string | null
   /** Nombre del aula donde ingresó («608»); null si aún no ingresó. */
   aulaIngreso?: string | null
+  /** Hora en que salió del examen (V56); null si no salió. */
+  fechaHoraSalida?: string | null
   /** Estado derivado exclusivamente de la consulta de expulsiones de la sesión actual. */
   expulsado?: boolean
   expulsion?: ExpulsionResponse

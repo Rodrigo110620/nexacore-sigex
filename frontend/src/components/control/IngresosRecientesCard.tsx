@@ -12,21 +12,49 @@ const cantidad = () => (typeof window !== 'undefined' && window.innerWidth < 640
 type Vista = 'todos' | 'ausentes'
 
 interface Fila {
-  id: number
+  clave: string
   nombre: string
   codigo: string
   fotoUrl: string | null
-  hora: string | null
-  estado: 'ingreso' | 'expulsado' | 'ausente'
+  ingreso: string | null
+  salida: string | null
+  alCierre: boolean
+  estado: { texto: string; clase: string }
+  /** Traslado o motivo de la expulsión, bajo el nombre. */
+  detalle: string | null
 }
 
-const desdeIngreso = (i: IngresoReciente): Fila => ({
-  id: i.idEstudiante, nombre: `${i.apellidos}, ${i.nombre}`, codigo: i.codigoSis, fotoUrl: i.fotoUrl,
-  hora: i.fechaHoraIngreso.slice(11, 19), estado: i.expulsado ? 'expulsado' : 'ingreso',
-})
+const hora = (f?: string | null) => (f ? f.slice(11, 19) : null)
+const ESTADOS = {
+  enExamen: { texto: 'En el examen', clase: 'bg-[#ECFDF3] text-[#15803D]' },
+  salio: { texto: 'Salió', clase: 'bg-[#EEF2F7] text-[#334155]' },
+  alCierre: { texto: 'Terminó al cierre', clase: 'bg-[#EEF2F7] text-[#334155]' },
+  expulsado: { texto: 'Expulsado', clase: 'bg-[#FEF2F2] text-[#B91C1C]' },
+  ausente: { texto: 'No ingresó', clase: 'bg-[#FFFBEB] text-[#B45309]' },
+}
+
+const desdeIngreso = (f: IngresoReciente): Fila => {
+  const expulsado = !!f.fechaHoraExpulsion && !f.expulsionAnulada
+  const estado = expulsado ? { ...ESTADOS.expulsado, texto: `Expulsado ${hora(f.fechaHoraExpulsion)!.slice(0, 5)}` }
+    : f.salidaAlCierre ? ESTADOS.alCierre : f.fechaHoraSalida ? ESTADOS.salio : ESTADOS.enExamen
+  const detalles = [
+    f.traslado && `Trasladado ${f.traslado} · ${hora(f.fechaHoraTraslado)!.slice(0, 5)}`,
+    expulsado && f.motivoExpulsion,
+    f.fechaHoraExpulsion && f.expulsionAnulada && 'Expulsión anulada',
+  ].filter(Boolean)
+  return {
+    clave: `I-${f.idEstudiante}`, nombre: `${f.apellidos}, ${f.nombre}`, codigo: f.codigoSis, fotoUrl: f.fotoUrl,
+    ingreso: hora(f.fechaHoraIngreso), salida: hora(f.fechaHoraSalida), alCierre: f.salidaAlCierre, estado,
+    detalle: detalles.length ? detalles.join(' · ') : null,
+  }
+}
 const desdeAusente = (e: EstudianteAsignado): Fila => ({
-  id: e.idEstudiante, nombre: `${e.apellidos}, ${e.nombre}`, codigo: e.codigoSis, fotoUrl: e.fotoUrl ?? null, hora: null, estado: 'ausente',
+  clave: `A-${e.idEstudiante}`, nombre: `${e.apellidos}, ${e.nombre}`, codigo: e.codigoSis, fotoUrl: e.fotoUrl ?? null,
+  ingreso: null, salida: null, alCierre: false, estado: ESTADOS.ausente, detalle: null,
 })
+
+// Columnas fijas (escritorio): así la hora de ingreso, la de salida y el estado quedan alineados fila a fila.
+const COLUMNAS = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:grid-cols-[minmax(0,1fr)_84px_132px_150px] sm:gap-x-4'
 
 /**
  * Sección 11 del diseño: «Ingresos recientes» del examen. Todos (DASH-02): los últimos ingresos, del más reciente
@@ -77,7 +105,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
           <h2 id="ingresos-recientes-titulo" className="text-base font-bold text-[#011140]">{vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}</h2>
           <p className="text-xs text-[#627A9B]">
-            {vista === 'todos' ? 'Del más reciente al más antiguo · se actualiza en vivo' : 'Habilitados que aún no ingresaron · se actualiza en vivo'}
+            {vista === 'todos' ? 'Ingreso, salida y estado de cada estudiante, el más reciente primero · en vivo' : 'Habilitados que aún no ingresaron · se actualiza en vivo'}
           </p>
         </div>
         <div role="group" aria-label="Filtrar ingresos" className="flex gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px]">
@@ -110,31 +138,44 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
           <p className="text-sm text-[#627A9B]">{vista === 'ausentes' ? 'No queda ningún estudiante habilitado por ingresar.' : 'Aquí aparecerán los estudiantes a medida que ingresen.'}</p>
         </div>
       ) : (
-        <ul aria-label={vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}>
-          {filas.map((f) => (
-            <li key={f.id} className="flex items-center gap-2.5 border-b border-[#EDF1F7] py-2.5 sm:gap-3.5 sm:px-4">
-              {f.fotoUrl
-                ? <FotoEstudiante fotoUrl={f.fotoUrl} nombre={f.nombre} iniciales={f.nombre.slice(0, 2).toUpperCase()} className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4ECFA] object-cover" />
-                : <img src={silueta} alt="" className="h-10 w-10 shrink-0 rounded-full bg-[#E4ECFA]" />}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-[#011140]">{f.nombre}</span>
-                <span className="block text-xs text-[#627A9B]">SIS {f.codigo}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2 sm:gap-3.5">
-              <span className="text-sm font-semibold tabular-nums text-[#011140]">{f.hora ?? '—'}</span>
-              <span className={`rounded-full px-2 py-1 text-xs font-semibold sm:px-2.5 ${
-                f.estado === 'ingreso' ? 'bg-[#ECFDF3] text-[#15803D]' : f.estado === 'expulsado' ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#FFFBEB] text-[#B45309]'}`}>
-                {f.estado === 'ingreso' ? 'Ingresó' : f.estado === 'expulsado' ? 'Expulsado' : 'No ingresó'}
-              </span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div>
+          <div aria-hidden="true" className={`${COLUMNAS} hidden border-b border-[#EDF1F7] px-4 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[#627A9B] sm:grid`}>
+            <span>Estudiante</span><span>Ingreso</span><span>Salida</span><span>Estado</span>
+          </div>
+          <ul aria-label={vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}>
+            {filas.map((f) => (
+              <li key={f.clave} className={`${COLUMNAS} border-b border-[#EDF1F7] py-2.5 sm:px-4`}>
+                <span className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
+                  {f.fotoUrl
+                    ? <FotoEstudiante fotoUrl={f.fotoUrl} nombre={f.nombre} iniciales={f.nombre.slice(0, 2).toUpperCase()} className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4ECFA] object-cover" />
+                    : <img src={silueta} alt="" className="h-10 w-10 shrink-0 rounded-full bg-[#E4ECFA]" />}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#011140]">{f.nombre}</span>
+                    <span className="block truncate text-xs text-[#627A9B]">SIS {f.codigo}{f.detalle ? ` · ${f.detalle}` : ''}</span>
+                    {/* En celular, ingreso y salida van bajo el nombre (no hay columnas). */}
+                    {vista === 'todos' && (
+                      <span className="block text-[11px] tabular-nums text-[#45628D] sm:hidden">
+                        Ingreso {f.ingreso ?? '—'} · Salida {f.salida ? `${f.salida}${f.alCierre ? ' (al cierre)' : ''}` : '—'}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="hidden text-sm font-semibold tabular-nums text-[#011140] sm:block">{f.ingreso ?? '—'}</span>
+                <span className="hidden text-sm tabular-nums text-[#011140] sm:block">
+                  {f.salida ?? '—'}{f.alCierre && <span className="block text-[11px] text-[#627A9B]">al cierre</span>}
+                </span>
+                <span className={`w-fit justify-self-end whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold sm:justify-self-start ${f.estado.clase}`}>
+                  {f.estado.texto}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {!cargando && total > 0 && (
         <TablePagination compact page={pagina} totalPages={Math.ceil(total / tamano)} totalRecords={total} pageSize={tamano}
-          onPageChange={setPagina} itemLabel={vista === 'todos' ? 'ingresos' : 'ausentes'} />
+          onPageChange={setPagina} itemLabel={vista === 'todos' ? 'estudiantes' : 'ausentes'} />
       )}
       {onAlternarTabla && (
         <button type="button" onClick={onAlternarTabla} aria-expanded={tablaAbierta} aria-controls="estudiantes-examen-tabla"

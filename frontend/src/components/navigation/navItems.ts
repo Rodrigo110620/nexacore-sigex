@@ -30,7 +30,8 @@ export function navItemsFor(roles: string[], permisos?: string[] | null): NavIte
   if (puede('EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS') && !esControlSinAdmin) {
     items.push({ label: 'Exámenes', to: '/dashboard/examenes', icon: BookCheck })
   }
-  if (puede('CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')) {
+  // Control: quien lo registra y el ADMIN, que lo supervisa (con REPORTES_VER) sin registrar ingresos.
+  if (puede('CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS', 'REPORTES_VER')) {
     items.push({ label: 'Control', to: '/dashboard/control', icon: ClipboardCheck })
   }
   // El ADMIN ve los reportes de todos; el DOCENTE y el CONTROL, solo de sus exámenes (los suyos o asignados).

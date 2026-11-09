@@ -552,7 +552,10 @@ public class ControlIngresoService {
                 fila.map(com.nexacore.examenes.dto.EstudianteExamenFila::carrera).orElse(null),
                 estudiante.getCondicion(),
                 EstudianteService.fotoUrl(idEstudiante,
-                        fila.map(com.nexacore.examenes.dto.EstudianteExamenFila::tieneFoto).orElse(false)));
+                        fila.map(com.nexacore.examenes.dto.EstudianteExamenFila::tieneFoto).orElse(false)),
+                asistencia.getFechaHoraSalida(),
+                expulsionRepository != null && sesionExamenService != null
+                        && expulsionRepository.expulsadoEnSesionActual(idEstudiante, idExamen, sesionExamenService.ultimoCierre(idExamen)));
     }
 
     @Transactional(readOnly = true)

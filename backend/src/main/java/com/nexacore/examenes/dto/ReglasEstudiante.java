@@ -34,6 +34,20 @@ public final class ReglasEstudiante {
     public static final String MSG_EMAIL =
             "Use un correo institucional UMSS con al menos 3 caracteres antes de @; no se aceptan caracteres repetidos";
 
+    /** El correo del estudiante es su código SIS en el dominio de estudiantes: 201904725@est.umss.edu. */
+    public static final String DOMINIO_ESTUDIANTE = "est.umss.edu";
+    public static final String MSG_EMAIL_SIS = "El correo del estudiante debe ser su código SIS @est.umss.edu (por ejemplo, 201904725@est.umss.edu)";
+
+    public static String correoDe(String codigoSis) {
+        return codigoSis.trim() + "@" + DOMINIO_ESTUDIANTE;
+    }
+
+    /** Sin correo o con un código SIS inválido no se juzga aquí: esos campos ya tienen su propio mensaje. */
+    public static boolean correoDelCodigoSis(String email, String codigoSis) {
+        if (email == null || email.isBlank() || codigoSis == null || !codigoSis.trim().matches(CODIGO_SIS)) return true;
+        return email.trim().equalsIgnoreCase(correoDe(codigoSis));
+    }
+
     /** Vacío = sin teléfono (al editar, lo quita). */
     public static final String TELEFONO = EstadoMatricula.PATRON_TELEFONO;
     public static final String MSG_TELEFONO = "El teléfono debe tener 7 u 8 dígitos y empezar con 2, 3, 4, 6 o 7";

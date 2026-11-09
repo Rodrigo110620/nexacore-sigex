@@ -60,8 +60,9 @@ public class ExamenController {
         return ResponseEntity.ok(examenService.listar());
     }
 
-    @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. ADMIN o DOCENTE; el docente queda asignado a sí mismo.")
-    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. Solo el DOCENTE "
+            + "registra sus propios exámenes (queda asignado a sí mismo); el ADMIN supervisa, edita, reprograma y cancela, pero no crea.")
+    @PreAuthorize("@permisos.tiene(authentication, 'EXAMENES_GESTIONAR_PROPIOS')")
     @PostMapping
     public ResponseEntity<ExamenResponse> crear(@Valid @RequestBody CrearExamenRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(examenService.crear(request));
@@ -91,7 +92,7 @@ public class ExamenController {
 
     @Operation(summary = "Historial de sesiones del examen",
             description = "Sesiones anteriores de un examen reprogramado, con el resultado de cada estudiante.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/{idExamen}/{idParalelo}/sesiones")
     public ResponseEntity<List<SesionExamenResponse>> sesiones(@PathVariable Integer idExamen,
                                                               @PathVariable Integer idParalelo) {

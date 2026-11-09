@@ -41,7 +41,9 @@ it.each([
   for (const selector of ['table', 'ul']) {
     const vista = within(container.querySelector(selector)!)
     expect(vista.queryAllByRole('button', { name: 'Expulsar' })).toHaveLength(visible ? 1 : 0)
-    expect(vista.getByRole('link', { name: 'Identificar a Lucía Aguilar' })).toHaveAttribute('href', '/dashboard/control/20/identificar?codigo=2026001')
+    // Identificar es parte de registrar el control: el ADMIN lo supervisa y no ve el ojo.
+    if (rol === 'ADMIN') expect(vista.queryByRole('link', { name: 'Identificar a Lucía Aguilar' })).not.toBeInTheDocument()
+    else expect(vista.getByRole('link', { name: 'Identificar a Lucía Aguilar' })).toHaveAttribute('href', '/dashboard/control/20/identificar?codigo=2026001')
   }
 })
 

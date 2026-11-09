@@ -72,7 +72,7 @@ export default function InicioDocentePage() {
   const enCurso = examenesHoy.filter(({ tiempo }) => tiempo.fase === 'en_curso').length
   const proximo = ordenarPorFase(examenes.filter((examen) => examen.fecha > hoy), ahora, offset)
     .find((examen) => tiempoExamen(examen, ahora, offset).fase === 'programado')
-  const puedeProgramar = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS', 'EXAMENES_GESTIONAR_TODOS')
+  const puedeProgramar = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS')
 
   const resumenes = useResumenesExamenes(examenesHoy.map(({ examen }) => examen.idExamen), ahora - (ahora % 30_000)).resumenes
   const totalHoy = examenesHoy.reduce((t, { examen }) => {

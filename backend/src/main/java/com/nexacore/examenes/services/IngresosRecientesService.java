@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-/** DASH-02: los últimos ingresos de un examen (sesión actual), del más reciente al más antiguo. */
+/** DASH-02: una fila por estudiante que ingresó (ingreso, salida, expulsión y traslado), por actividad más reciente. */
 @Service
 public class IngresosRecientesService {
 
@@ -22,6 +22,10 @@ public class IngresosRecientesService {
     private final NamedParameterJdbcTemplate jdbc;
     private final ExamenRepository examenRepository;
     private final SesionExamenService sesionExamenService;
+
+    /** Salida al cierre (V56); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SalidaExamenService salidaExamenService;
 
     public IngresosRecientesService(NamedParameterJdbcTemplate jdbc, ExamenRepository examenRepository,
                                     SesionExamenService sesionExamenService) {
@@ -48,20 +52,39 @@ public class IngresosRecientesService {
         p.addValue("desplazamiento", (long) Math.max(pagina, 0) * (Integer) p.getValue("cantidad"));
         Long total = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM asistencia_examen WHERE id_examen = :examen AND fecha_hora_ingreso IS NOT NULL", p, Long.class);
+        LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         var ingresos = jdbc.query("""
-                SELECT a.id_estudiante, e.nombre, e.apellidos, e.codigo_sis, a.fecha_hora_ingreso, am.nombre,
-                       EXISTS (SELECT 1 FROM estudiante_foto f WHERE f.id_estudiante = a.id_estudiante),
-                       EXISTS (SELECT 1 FROM expulsion x WHERE x.id_examen = :examen AND x.id_estudiante = a.id_estudiante
-                                 AND x.anulada_en IS NULL AND x.fecha_hora > :desde)
+                SELECT a.id_estudiante, e.nombre, e.apellidos, e.codigo_sis, a.fecha_hora_ingreso, am.nombre, a.fecha_hora_salida,
+                       x.fecha_hora, x.motivo, x.anulada_en IS NOT NULL, t.fecha_hora_traslado,
+                       CASE WHEN t.id_traslado IS NULL THEN NULL ELSE COALESCE(ao.nombre, '?') || ' → ' || COALESCE(ad.nombre, '?') END,
+                       EXISTS (SELECT 1 FROM estudiante_foto f WHERE f.id_estudiante = a.id_estudiante)
                 FROM asistencia_examen a
                 JOIN estudiante e ON e.id_estudiante = a.id_estudiante
                 LEFT JOIN ambiente am ON am.id_ambiente = a.id_ambiente_ingreso
+                LEFT JOIN LATERAL (SELECT fecha_hora, motivo, anulada_en FROM expulsion
+                                   WHERE id_examen = :examen AND id_estudiante = a.id_estudiante AND fecha_hora > :desde
+                                   ORDER BY fecha_hora DESC LIMIT 1) x ON TRUE
+                LEFT JOIN LATERAL (SELECT id_traslado, fecha_hora_traslado, id_ambiente_origen, id_ambiente_destino FROM traslado_ambiente
+                                   WHERE id_examen = :examen AND id_estudiante = a.id_estudiante AND fecha_hora_traslado > :desde
+                                   ORDER BY fecha_hora_traslado DESC LIMIT 1) t ON TRUE
+                LEFT JOIN ambiente ao ON ao.id_ambiente = t.id_ambiente_origen
+                LEFT JOIN ambiente ad ON ad.id_ambiente = t.id_ambiente_destino
                 WHERE a.id_examen = :examen AND a.fecha_hora_ingreso IS NOT NULL
-                ORDER BY a.fecha_hora_ingreso DESC, a.id_estudiante
+                ORDER BY GREATEST(a.fecha_hora_ingreso, COALESCE(a.fecha_hora_salida, a.fecha_hora_ingreso),
+                                  COALESCE(x.fecha_hora, a.fecha_hora_ingreso), COALESCE(t.fecha_hora_traslado, a.fecha_hora_ingreso)) DESC,
+                         a.id_estudiante
                 LIMIT :cantidad OFFSET :desplazamiento
-                """, p, (rs, i) -> new IngresosRecientesResponse.Ingreso(rs.getInt(1), rs.getString(2), rs.getString(3),
-                rs.getString(4), EstudianteService.fotoUrl(rs.getInt(1), rs.getBoolean(7)),
-                rs.getTimestamp(5).toLocalDateTime(), rs.getString(6), rs.getBoolean(8)));
+                """, p, (rs, n) -> {
+            LocalDateTime salida = rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toLocalDateTime();
+            LocalDateTime expulsion = rs.getTimestamp(8) == null ? null : rs.getTimestamp(8).toLocalDateTime();
+            boolean anulada = rs.getBoolean(10);
+            // Sin salida marcada, sin expulsión vigente y con el examen terminado: salió al cierre.
+            boolean alCierre = salida == null && fin != null && (expulsion == null || anulada);
+            return new IngresosRecientesResponse.Fila(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                    EstudianteService.fotoUrl(rs.getInt(1), rs.getBoolean(13)), rs.getTimestamp(5).toLocalDateTime(), rs.getString(6),
+                    alCierre ? fin : salida, alCierre, expulsion, rs.getString(9), anulada,
+                    rs.getTimestamp(11) == null ? null : rs.getTimestamp(11).toLocalDateTime(), rs.getString(12));
+        });
         return new IngresosRecientesResponse(total == null ? 0 : total, ingresos);
     }
 }

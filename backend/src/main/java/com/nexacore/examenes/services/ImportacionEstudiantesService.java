@@ -305,7 +305,8 @@ public class ImportacionEstudiantesService {
     /** Nombre de cada campo como lo ve el usuario (columna del error en la revisión). */
     private static final java.util.Map<String, String> COLUMNA_VISIBLE = java.util.Map.of(
         "codigoSis", "Código SIS", "nombre", "Nombres", "apellidos", "Apellidos", "ci", "CI", "email", "Correo",
-        "telefono", "Teléfono", "idFacultad", "Facultad", "idCarrera", "Carrera", "estadoMatricula", "Matrícula");
+        "telefono", "Teléfono", "idFacultad", "Facultad", "idCarrera", "Carrera", "estadoMatricula", "Matrícula",
+        "emailDelCodigoSis", "Correo");
 
     private Validacion validarFila(
         CSVRecord fila, Set<String> sisEnArchivo, Set<String> ciEnArchivo, Set<String> emailEnArchivo

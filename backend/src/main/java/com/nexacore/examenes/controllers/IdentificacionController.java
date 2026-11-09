@@ -40,7 +40,7 @@ public class IdentificacionController {
 
     @Operation(summary = "Listar estudiantes del examen",
             description = "Asignados al examen, paginados por apellidos y nombre. ADMIN, CONTROL o su DOCENTE.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping
     public ResponseEntity<PageResponse<EstudianteAsignadoResponse>> listar(
             @PathVariable Integer idExamen,
@@ -55,7 +55,7 @@ public class IdentificacionController {
 
     @Operation(summary = "Ingresos recientes del examen",
             description = "DASH-02: los últimos ingresos de la sesión actual, del más reciente al más antiguo (hasta 50 por página), y el total.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/recientes")
     public com.nexacore.examenes.dto.IngresosRecientesResponse recientes(@PathVariable Integer idExamen,
             @RequestParam(defaultValue = "6") int cantidad, @RequestParam(defaultValue = "0") int pagina) {
@@ -68,7 +68,7 @@ public class IdentificacionController {
 
     @Operation(summary = "Resumen de estudiantes del examen",
             description = "Total de asignados, habilitados, no habilitados e ingresados. ADMIN, CONTROL o su DOCENTE.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/resumen")
     public ResponseEntity<ResumenEstudiantesResponse> resumen(@PathVariable Integer idExamen) {
         return ResponseEntity.ok(identificacionService.resumir(idExamen));
@@ -81,7 +81,7 @@ public class IdentificacionController {
     @Operation(summary = "Identificar estudiante",
             description = "Busca al estudiante por código universitario o CI y devuelve sus datos y su estado "
                     + "en el examen: HABILITADO, DESHABILITADO o NO_VINCULADO. ADMIN, CONTROL o su DOCENTE.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/identificar")
     public ResponseEntity<IdentificacionResponse> identificar(
             @PathVariable Integer idExamen,

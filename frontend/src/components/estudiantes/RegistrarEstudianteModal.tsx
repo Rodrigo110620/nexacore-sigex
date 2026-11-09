@@ -3,7 +3,7 @@ import { Check, ChevronDown, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
-import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateStudentEmail, validateNombre, validateTelefono } from '../../utils/validators'
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateStudentEmail, validateNombre, validateTelefono, codigoSisDelCorreo } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
@@ -96,7 +96,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     if (field === 'nombre') return validateNombre(value)
     if (field === 'apellidos') return validateApellidos(value)
     if (field === 'ci') return validateDocumento(value)
-    if (field === 'email') return validateStudentEmail(value)
+    if (field === 'email') return validateStudentEmail(value, form.codigoSis)
     if (field === 'codigoSis') return validateCodigoSis(value)
     return ''
   }
@@ -119,6 +119,9 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     const next: Record<string, string> = {}
     const sisErr = validateCodigoSis(form.codigoSis) || validateSisDistintoDeCi(form.codigoSis, form.ci)
     if (sisErr) next.codigoSis = sisErr
+    // El correo (paso 1) debe ser este mismo código SIS @est.umss.edu.
+    const correoErr = sisErr ? '' : validateStudentEmail(form.email, form.codigoSis)
+    if (correoErr) { setStep(1); showFirstError({ email: correoErr }); return }
     if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'
     if (!form.idCarrera) next.idCarrera = 'Selecciona una carrera.'
     if (Object.keys(next).length) { showFirstError(next); return }
@@ -188,7 +191,7 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
                   maxLength={FIELD_LIMITS.email.max}
                   onChange={(e) => update('email', e.target.value)}
                   onBlur={() => handleBlur('email')}
-                  placeholder="Ej: maria.gonzalez@umss.edu"
+                  placeholder="Ej: 201904725@est.umss.edu"
                   className={`${inputClass} pr-32`}
                 />
                 {!form.email.includes('@') && (
@@ -225,7 +228,12 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
 
         <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-[#D8E3F5] px-4 py-3 sm:flex-row sm:justify-between sm:px-5">
           <button type="button" onClick={step === 1 ? pedirCerrar : () => setStep(1)} onMouseDown={(e) => e.preventDefault()} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">{step === 1 ? 'Cancelar' : '← Atrás'}</button>
-          {step === 1 ? <button type="button" onClick={() => validateStep1() && setStep(2)}  className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md">Siguiente paso →</button> : <button type="button" disabled={saving} onClick={submit} className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">{saving ? 'Registrando...' : 'Registrar Estudiante'}</button>}
+          {step === 1 ? <button type="button" onClick={() => {
+            if (!validateStep1()) return
+            // El código SIS sale del correo (201904725@est.umss.edu → 201904725) si aún no lo escribió.
+            if (!form.codigoSis.trim()) update('codigoSis', codigoSisDelCorreo(form.email))
+            setStep(2)
+          }}  className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md">Siguiente paso →</button> : <button type="button" disabled={saving} onClick={submit} className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">{saving ? 'Registrando...' : 'Registrar Estudiante'}</button>}
         </footer>
       </div>
 
