@@ -48,6 +48,12 @@ export default function ExamenesPage() {
   const [page, setPage] = useState(0)
   // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
   const [isModalOpen, setIsModalOpen] = useState(() => searchParams.get('nuevo') === '1')
+  // …y con &materia=&nombre= (Mis materias del inicio) llega con esa materia ya elegida.
+  const [materiaInicial, setMateriaInicial] = useState(() => {
+    const id = Number(searchParams.get('materia'))
+    const nombre = searchParams.get('nombre')
+    return id > 0 && nombre ? { id, nombre } : null
+  })
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -440,8 +446,9 @@ export default function ExamenesPage() {
         <MobileBottomNav />
         <RegisterExamenModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => { setIsModalOpen(false); setMateriaInicial(null) }}
           onSuccess={() => void load()}
+          materiaInicial={materiaInicial}
         />
       </div>
     </PanelLayout>

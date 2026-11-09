@@ -62,6 +62,8 @@ interface RegisterExamenModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  /** Materia ya elegida (desde «Programar el primer examen» de Mis materias del inicio del docente). */
+  materiaInicial?: { id: number; nombre: string } | null
 }
 
 type Step = 1 | 2 | 3
@@ -80,7 +82,7 @@ const STEP_DESCRIPCION: Record<Step, string> = {
 
 const ERROR_AMBIENTES = 'No se pudo cargar el catálogo de ambientes.'
 
-export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: RegisterExamenModalProps) {
+export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materiaInicial }: RegisterExamenModalProps) {
   const auth = useAuth()
   const { nombre } = auth
   // Quien solo gestiona sus propios exámenes (DOCENTE) los crea a su nombre.
@@ -129,6 +131,16 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess }: Regi
   const [offlineOpen, setOfflineOpen] = useState(false)
   const [expandedNormas, setExpandedNormas] = useState<Record<string, boolean>>({})
   const [normaGeneralError, setNormaGeneralError] = useState('')
+
+  // Al abrir con una materia ya elegida, el formulario llega con ella seleccionada (y sus grupos).
+  useEffect(() => {
+    if (!isOpen || !materiaInicial) return
+    queueMicrotask(() => {
+      setForm((f) => ({ ...f, asignatura: materiaInicial.nombre }))
+      setAsignaturaOk(true)
+      setIdMateria(materiaInicial.id)
+    })
+  }, [isOpen, materiaInicial])
 
   useEffect(() => {
     let vigente = true
