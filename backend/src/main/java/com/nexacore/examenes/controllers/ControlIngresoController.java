@@ -52,6 +52,19 @@ public class ControlIngresoController {
         return ResponseEntity.ok(service.anularExpulsion(idExamen, idExpulsion, request.motivo(), authentication));
     }
 
+    @Operation(summary = "Registrar salida", description = "Cuando el estudiante entrega y se retira: guarda la hora del servidor. "
+            + "Solo quien ingresó, no fue expulsado y aún no salió. Quien controla el examen (CONTROL o su docente).")
+    @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
+    @PostMapping("/salida")
+    public com.nexacore.examenes.dto.SalidaResponse registrarSalida(
+            @Valid @RequestBody com.nexacore.examenes.dto.SalidaRequest request, Authentication authentication) {
+        return salidaExamenService.registrar(request.idExamen(), request.idEstudiante(), authentication.getName());
+    }
+
+    /** Salida del examen (V56); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.SalidaExamenService salidaExamenService;
+
     @Operation(summary = "Autorizar ingreso", description = "Registra evidencia y autoriza una sola vez con timestamp del servidor.")
     @PreAuthorize("@examenAccesoService.puedeControlar(#request.idExamen, authentication)")
     @PostMapping("/autorizar")

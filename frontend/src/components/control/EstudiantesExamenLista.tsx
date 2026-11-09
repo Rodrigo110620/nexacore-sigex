@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, CameraOff, Eye } from 'lucide-react'
+import { Ban, CameraOff, Eye, LogOut } from 'lucide-react'
+import { registrarSalida } from '../../services/controlIngresoService'
 import { useAuth } from '../../context/AuthContext'
 import ExpulsarEstudianteModal from './ExpulsarEstudianteModal'
 import RegistroExpulsion from './RegistroExpulsion'
@@ -93,9 +94,36 @@ function nombreAulaEstudiante(estudiante: EstudianteAsignado, aulas: AmbienteDto
   return '—'
 }
 
-function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void}) {
+/** V56: «Registrar salida» en dos toques (el segundo confirma), para no marcarla por error. */
+function BotonSalida({ idExamen, estudiante, onExito }: { idExamen: number; estudiante: EstudianteAsignado; onExito?: () => void }) {
+  const [paso, setPaso] = useState<'listo' | 'confirmar' | 'guardando'>('listo')
+  const [error, setError] = useState('')
+  const registrar = async () => {
+    if (paso === 'listo') { setPaso('confirmar'); setError(''); return }
+    setPaso('guardando')
+    try {
+      await registrarSalida(estudiante.idEstudiante, idExamen)
+      onExito?.()
+    } catch (e) {
+      setError((e as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje ?? 'No se pudo registrar la salida.')
+    } finally { setPaso('listo') }
+  }
+  return (
+    <span className="inline-flex flex-col items-start">
+      <button type="button" onClick={() => void registrar()} onBlur={() => { if (paso === 'confirmar') setPaso('listo') }} disabled={paso === 'guardando'}
+        aria-label={`${paso === 'confirmar' ? 'Confirmar la salida de' : 'Registrar salida de'} ${estudiante.nombre} ${estudiante.apellidos}`}
+        className={`inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-xs font-semibold md:min-h-8 disabled:opacity-60 ${paso === 'confirmar' ? 'bg-[#0439D9] text-white' : 'bg-[#EEF2F7] text-[#334155] hover:bg-[#E2E8F0]'}`}>
+        <LogOut size={14} aria-hidden="true" /> {paso === 'confirmar' ? '¿Confirmar salida?' : paso === 'guardando' ? 'Guardando…' : 'Salida'}
+      </button>
+      {error && <span role="alert" className="mt-1 max-w-48 text-[10px] text-[#B91C1C]">{error}</span>}
+    </span>
+  )
+}
+
+function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, salida, onExito }: { idExamen: number; estudiante: EstudianteAsignado; onExpulsar?: () => void;onReasignar?: () => void; salida?: boolean; onExito?: () => void }) {
   return (
     <span className="inline-flex items-center gap-2">
+      {salida && <BotonSalida idExamen={idExamen} estudiante={estudiante} onExito={onExito} />}
       {onExpulsar && (
         <button type="button" onClick={onExpulsar} className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#FDECEC] px-3 text-xs font-semibold text-[#B91C1C] hover:bg-red-100 md:min-h-8">
           <Ban size={14} aria-hidden="true" /> Expulsar
@@ -117,14 +145,14 @@ function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, }: { idExamen:
 
 const colorCi = (habilitado: boolean) => (habilitado ? 'text-[#0439D9]' : 'text-[#B91C1C]')
 
-function EstadoIngresoBadge({ ingresado, expulsado }: { ingresado: boolean; expulsado?: boolean }) {
+function EstadoIngresoBadge({ ingresado, expulsado, salida }: { ingresado: boolean; expulsado?: boolean; salida?: string | null }) {
   return (
     <span
       className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-        expulsado ? 'bg-[#FDECEC] text-[#B91C1C]' : ingresado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#FEF3C7] text-[#92400E]'
+        expulsado ? 'bg-[#FDECEC] text-[#B91C1C]' : salida ? 'bg-[#EEF2F7] text-[#334155]' : ingresado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#FEF3C7] text-[#92400E]'
       }`}
     >
-      {expulsado ? 'EXPULSADO' : ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
+      {expulsado ? 'EXPULSADO' : salida ? `SALIÓ ${salida.slice(11, 16)}` : ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
     </span>
   )
 }
@@ -138,6 +166,10 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   const puedeExpulsar = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const puedeReasignar = auth.roles?.some(rol => rol === 'ADMIN' || rol === 'DOCENTE') ?? false
   const [seleccionado, setSeleccionado] = useState<EstudianteAsignado | null>(null)
+  // V56: la salida la registra quien controla (CONTROL o el docente): solo a quien ingresó, sin expulsión y sin salida.
+  const registra = registraControl(auth)
+  const puedeSalida = (estudiante: EstudianteAsignado) =>
+    registra && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
     puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
@@ -203,13 +235,13 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
                 <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
                 <td className="px-4 py-3">
-                  <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                  <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
                   {estudiante.ingresado && estudiante.trasladadoDesde && (
                     <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-[#011140] font-medium">{nombreAulaEstudiante(estudiante, aulasExamen)}</td>
-                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} /></td>
+                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} /></td>
               </tr>
             )
           })}
@@ -234,7 +266,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     <p className="min-w-0 text-xs font-semibold leading-tight text-[#011140]">
                       {estudiante.nombre} {estudiante.apellidos}
                     </p>
-                    <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} />
+                    <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
                     {estudiante.ingresado && estudiante.trasladadoDesde && (
                       <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
                     )}
@@ -247,7 +279,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                       <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>
                       {estudiante.carrera && <p className="mt-0.5 truncate text-[#627A9B]">{estudiante.carrera}</p>}
                     </div>
-                    <Acciones idExamen={idExamen} estudiante={estudiante} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} />
+                    <Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} />
                   </div>
                   {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </div>

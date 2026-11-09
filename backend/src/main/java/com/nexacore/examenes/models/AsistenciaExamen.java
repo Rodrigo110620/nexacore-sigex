@@ -55,6 +55,13 @@ public class AsistenciaExamen {
     @JoinColumn(name = "id_ambiente_ingreso", referencedColumnName = "id_ambiente", insertable = false, updatable = false)
     private Ambiente ambienteIngreso;
 
+    /** Salida del examen (V56): la registra el CONTROL o el docente; null mientras no salió. */
+    @Column(name = "fecha_hora_salida")
+    private LocalDateTime fechaHoraSalida;
+
+    @Column(name = "id_usuario_salida")
+    private Integer idUsuarioSalida;
+
     /** Usuario CONTROL que autorizó el último ingreso efectivo. */
     @Column(name = "id_usuario_control")
     private Integer idUsuarioControl;

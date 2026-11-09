@@ -120,7 +120,8 @@ public class SesionExamenService {
         jdbc.update("""
                 UPDATE asistencia_examen
                 SET fecha_hora_ingreso = NULL, id_ambiente_ingreso = NULL,
-                    id_usuario_control = NULL, observaciones_control = NULL
+                    id_usuario_control = NULL, observaciones_control = NULL,
+                    fecha_hora_salida = NULL, id_usuario_salida = NULL
                 WHERE id_examen = ? AND id_paralelo = ?
                 """, idExamen, idParalelo);
     }

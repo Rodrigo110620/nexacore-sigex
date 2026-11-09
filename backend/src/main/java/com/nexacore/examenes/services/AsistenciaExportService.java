@@ -69,11 +69,13 @@ public class AsistenciaExportService {
         validarExamenIniciado(idExamen); 
 
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
+        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
+        java.util.Set<Integer> expulsados = salidaExamenService == null ? java.util.Set.of() : salidaExamenService.expulsados(idExamen);
         var out = new ByteArrayOutputStream();
         var formato = CSVFormat.DEFAULT.builder()
                 .setDelimiter(';')
                 .setRecordSeparator("\n")
-                .setHeader("Código SIS", "Nombre", "Apellidos", "Estado", "Hora")
+                .setHeader("Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida")
                 .build();
 
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
@@ -85,7 +87,7 @@ public class AsistenciaExportService {
                 boolean esAsistio = a.getFechaHoraIngreso() != null;
                 String estado = esAsistio ? "Asistió" : "Ausente";
                 String hora = esAsistio ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-";
-                printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(), estado, hora);
+                printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(), estado, hora, salida(a, fin, expulsados));
             }
             printer.flush();
         } catch (IOException e) {
@@ -99,6 +101,8 @@ public class AsistenciaExportService {
         validarExamenIniciado(idExamen);
 
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
+        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
+        java.util.Set<Integer> expulsados = salidaExamenService == null ? java.util.Set.of() : salidaExamenService.expulsados(idExamen);
         
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100); 
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -109,7 +113,8 @@ public class AsistenciaExportService {
             header.createCell(1).setCellValue("Nombre");
             header.createCell(2).setCellValue("Apellidos");
             header.createCell(3).setCellValue("Estado");
-            header.createCell(4).setCellValue("Hora");
+            header.createCell(4).setCellValue("Hora de ingreso");
+            header.createCell(5).setCellValue("Hora de salida");
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
@@ -122,6 +127,7 @@ public class AsistenciaExportService {
                 row.createCell(2).setCellValue(a.getEstudiante().getApellidos());
                 row.createCell(3).setCellValue(esAsistio ? "Asistió" : "Ausente");
                 row.createCell(4).setCellValue(esAsistio ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-");
+                row.createCell(5).setCellValue(salida(a, fin, expulsados));
             }
 
             workbook.write(out);
@@ -131,4 +137,19 @@ public class AsistenciaExportService {
             throw new UncheckedIOException("Error al generar Excel", e);
         }
     }
+
+    /**
+     * Hora de salida (V56), como en el acta PDF: la marcada; si no la marcó, no fue expulsado y el examen terminó,
+     * la hora de fin «(al cierre)»; si no, "-".
+     */
+    private String salida(AsistenciaExamen a, java.time.LocalDateTime fin, java.util.Set<Integer> expulsados) {
+        if (a.getFechaHoraSalida() != null) return a.getFechaHoraSalida().format(HORA_FORMATO);
+        if (a.getFechaHoraIngreso() == null || fin == null || expulsados.contains(a.getEstudiante().getId())) return "-";
+        return fin.format(HORA_FORMATO) + SalidaExamenService.AL_CIERRE;
+    }
+
+    /** Salida al cierre (V56); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SalidaExamenService salidaExamenService;
+
 }

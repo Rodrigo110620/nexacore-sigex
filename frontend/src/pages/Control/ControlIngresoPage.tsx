@@ -1,12 +1,12 @@
 import { normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
+import { AlertTriangle, LogOut, ListChecks, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import { useAuth } from '../../context/AuthContext'
 import './ControlIngresoPage.css'
-import { autorizarIngreso, denegarIngreso, obtenerContextoControl, obtenerTiposIncidencia } from '../../services/controlIngresoService'
+import { autorizarIngreso, denegarIngreso, obtenerContextoControl, obtenerTiposIncidencia, registrarSalida } from '../../services/controlIngresoService'
 import type { AutorizarIngresoResultado, ContextoControlIngreso, TipoIncidencia } from '../../types/controlIngreso'
 import { primerGarabato } from '../../utils/palabras'
 import TextoLibreCampo from '../../components/control/TextoLibreCampo'
@@ -92,6 +92,20 @@ export default function ControlIngresoPage() {
   const idEstudiante = Number(p.idEstudiante), idExamen = Number(p.idExamen)
   const valid = Number.isInteger(idEstudiante) && Number.isInteger(idExamen)
   const [ctx, setCtx] = useState<ContextoControlIngreso | null>(null)
+  // V56: el estudiante que termina antes vuelve a pasar por el control y se registra su salida (dos toques).
+  const [salida, setSalida] = useState<{ paso: 'listo' | 'confirmar' | 'guardando'; error: string }>({ paso: 'listo', error: '' })
+  const registrarLaSalida = async () => {
+    if (!ctx) return
+    if (salida.paso === 'listo') { setSalida({ paso: 'confirmar', error: '' }); return }
+    setSalida({ paso: 'guardando', error: '' })
+    try {
+      const r = await registrarSalida(ctx.idEstudiante, ctx.idExamen)
+      setCtx({ ...ctx, fechaHoraSalida: r.fechaHoraSalida })
+      setSalida({ paso: 'listo', error: '' })
+    } catch (e) {
+      setSalida({ paso: 'listo', error: (e as { response?: { data?: { mensaje?: string } } }).response?.data?.mensaje ?? 'No se pudo registrar la salida.' })
+    }
+  }
   const [types, setTypes] = useState<TipoIncidencia[]>([])
   const [selectedIncidents, setSelectedIncidents] = useState<number[]>([])
   const otraIncidenciaSeleccionada = types.some(t => t.nombre === 'OTRA_INCIDENCIA' && selectedIncidents.includes(t.id))
@@ -266,7 +280,7 @@ export default function ControlIngresoPage() {
           </article>
           <article className="control-rules"><Title icon={<ListChecks size={14}/>} text="Normas del examen"/><div className="control-rules-box"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales:</b>{ctx.normasGenerales.length ? <ol className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ol> : <p>No registradas.</p>}</div></div><div className="mt-2 flex items-start gap-2"><ClipboardList size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas particulares:</b>{ctx.normasParticulares.length ? <ol className="control-rules-list">{ctx.normasParticulares.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`p-${i}`)} onToggle={()=>alternarNorma(`p-${i}`)}/></li>)}</ol> : <p>No se registraron normas particulares para este estudiante.</p>}</div></div></div></article>
         </section>
-        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen.</p>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button>}</div></section>}
+        {(!ctx.habilitado||ctx.ingresoRegistrado)&&<section className="rounded-xl border border-[#FFBFC9] bg-[#FFF6F7] px-4 py-3 text-[#C7193F]"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 shrink-0" size={19}/><div><b className="block text-sm">No se puede autorizar el ingreso</b>{ctx.ingresoRegistrado?<><p className="mt-0.5 text-sm">El ingreso ya fue registrado para este examen{ctx.fechaHoraIngreso ? ` a las ${ctx.fechaHoraIngreso.slice(11, 19)}` : ''}.</p>{ctx.fechaHoraSalida&&<p className="mt-0.5 text-sm font-semibold text-[#334155]">Salió a las {ctx.fechaHoraSalida.slice(11, 19)}.</p>}{ctx.expulsado&&<p className="mt-0.5 text-sm">Fue expulsado: no se registra su salida.</p>}{salida.error&&<p role="alert" className="mt-1 text-xs font-semibold">{salida.error}</p>}</>:<RazonesInhabilitacion motivo={ctx.motivoInhabilitacion} sinRazon="El estudiante no está habilitado." className="text-sm"/>}</div></div>{ctx.ingresoRegistrado&&<div className="flex shrink-0 flex-wrap gap-2">{!ctx.fechaHoraSalida&&!ctx.expulsado&&<button type="button" onClick={()=>void registrarLaSalida()} onBlur={()=>{ if (salida.paso==='confirmar') setSalida({ paso: 'listo', error: '' }) }} disabled={salida.paso==='guardando'} className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold disabled:opacity-60 ${salida.paso==='confirmar' ? 'bg-[#0439D9] text-white' : 'border border-[#0439D9] bg-white text-[#0439D9] hover:bg-[#F1F6FF]'}`}><LogOut size={14} aria-hidden="true"/>{salida.paso==='confirmar' ? '¿Confirmar salida?' : salida.paso==='guardando' ? 'Guardando…' : 'Registrar salida'}</button>}<button type="button" onClick={()=>setReporteQrOpen(true)} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md border border-[#D81B3D] bg-white px-3 text-xs font-bold text-[#B91C34] hover:bg-red-50">Reportar incidencia</button></div>}</div></section>}
         {!ctx.ingresoRegistrado && <section className="control-register">
           <Title icon={<ListChecks size={14}/>} text="Registro de control"/>
           <div className="mb-4 rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">

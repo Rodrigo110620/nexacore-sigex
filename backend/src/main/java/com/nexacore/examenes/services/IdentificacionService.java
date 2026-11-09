@@ -108,7 +108,27 @@ public class IdentificacionService {
         filas.forEach(f -> { if (f.idAmbienteIngreso() != null) aulas.add(f.idAmbienteIngreso()); });
         Map<Integer, String> nombres = new java.util.HashMap<>();
         if (!aulas.isEmpty()) ambienteRepository.findAllById(aulas).forEach(a -> nombres.put(a.getId(), a.getNombre()));
-        return PageResponse.de(filas.map(fila -> aAsignado(fila, traslados.get(fila.idEstudiante()), nombres.get(fila.idAmbienteIngreso()))));
+        // Hora de salida de los de esta página (V56), en una sola consulta.
+        Map<Integer, java.time.LocalDateTime> salidas = new java.util.HashMap<>();
+        Set<Integer> ids = new java.util.HashSet<>();
+        filas.forEach(f -> ids.add(f.idEstudiante()));
+        if (!ids.isEmpty() && jdbc != null) {
+            jdbc.query("SELECT id_estudiante, fecha_hora_salida FROM asistencia_examen WHERE id_examen = :examen "
+                    + "AND id_estudiante IN (:ids) AND fecha_hora_salida IS NOT NULL",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("examen", idExamen).addValue("ids", ids),
+                    rs -> { salidas.put(rs.getInt(1), rs.getTimestamp(2).toLocalDateTime()); });
+        }
+        // Sin salida marcada, sin expulsión vigente y con el examen terminado: salió al cierre (hora de fin).
+        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
+        Set<Integer> expulsados = fin == null ? Set.of() : salidaExamenService.expulsados(idExamen);
+        return PageResponse.de(filas.map(fila -> {
+            var a = aAsignado(fila, traslados.get(fila.idEstudiante()), nombres.get(fila.idAmbienteIngreso()));
+            var salida = salidas.get(fila.idEstudiante());
+            boolean alCierre = salida == null && fin != null && a.ingresado() && !expulsados.contains(fila.idEstudiante());
+            return new EstudianteAsignadoResponse(a.idEstudiante(), a.nombre(), a.apellidos(), a.codigoSis(), a.ci(), a.carrera(),
+                    a.estado(), a.motivoInhabilitacion(), a.ingresado(), a.idAmbienteIngreso(), a.fotoUrl(), a.trasladadoDesde(),
+                    a.trasladadoA(), a.aulaIngreso(), alCierre ? fin : salida, alCierre);
+        }));
     }
 
     /**
@@ -130,6 +150,14 @@ public class IdentificacionService {
         ids.forEach((idEstudiante, par) -> resultado.put(idEstudiante, new String[]{nombres.get(par[0]), nombres.get(par[1])}));
         return resultado;
     }
+
+    /** Salida al cierre (V56); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SalidaExamenService salidaExamenService;
+
+    /** Consultas sueltas (hora de salida); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
 
     /** Ocupación de las aulas (alerta de aforo); por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
