@@ -353,11 +353,15 @@ describe('ControlIngresoPage', () => {
   it('renderiza normas generales y particulares como listas separadas', async () => {
     renderPage({ ...contextoBase, normasGenerales: ['No usar celular', 'Mantener silencio'], normasParticulares: ['Calculadora permitida', 'Tiempo adicional'] })
     await screen.findByText('Laura Paredes')
-    const listas = screen.getAllByRole('list').filter((list) => list.classList.contains('control-rules-list'))
+    // Solo lo necesario a la vista: las normas particulares del estudiante; las generales, dentro de «Más opciones».
+    const listas = Array.from(document.querySelectorAll('ol.control-rules-list'))
     expect(listas).toHaveLength(2)
-    listas.forEach(lista => expect(lista.tagName).toBe('OL'))
-    expect(within(listas[0]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['No usar celular', 'Mantener silencio'])
-    expect(within(listas[1]).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Calculadora permitida', 'Tiempo adicional'])
+    const [particulares, generales] = listas
+    expect(within(particulares as HTMLElement).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Calculadora permitida', 'Tiempo adicional'])
+    expect(particulares.closest('details')).toBeNull()
+    expect(within(generales as HTMLElement).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['No usar celular', 'Mantener silencio'])
+    expect(generales.closest('details')).not.toBeNull()
+    expect(screen.getByText('Más opciones')).toBeInTheDocument()
     expect(screen.queryByText(/No usar celular;/)).not.toBeInTheDocument()
   })
 
