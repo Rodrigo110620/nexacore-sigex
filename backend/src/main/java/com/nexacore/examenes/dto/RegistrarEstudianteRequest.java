@@ -49,4 +49,12 @@ public record RegistrarEstudianteRequest(
         @Pattern(regexp = EstadoMatricula.PATRON, message = "El estado de matrícula debe ser Matriculado o No matriculado")
         String estadoMatricula
 ) {
+
+    /** El correo debe ser el código SIS @est.umss.edu (se informa en la columna Correo). */
+    @jakarta.validation.constraints.AssertTrue(message = ReglasEstudiante.MSG_EMAIL_SIS)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @io.swagger.v3.oas.annotations.Hidden
+    public boolean isEmailDelCodigoSis() {
+        return ReglasEstudiante.correoDelCodigoSis(email, codigoSis);
+    }
 }

@@ -19,7 +19,7 @@ class TelefonoMatriculaTests {
 
     private RegistrarEstudianteRequest request(String telefono, String estadoMatricula) {
         // Orden: nombre, apellidos, ci, telefono, email, codigoSis, facultad, carrera, condicion, estado
-        return new RegistrarEstudianteRequest("María", "González", "7489210", telefono, "maria.gonzalez@est.umss.edu", 
+        return new RegistrarEstudianteRequest("María", "González", "7489210", telefono, "202104010@est.umss.edu", 
                 "202104010", 1, 10, null, estadoMatricula);
     }
 
@@ -81,8 +81,21 @@ class TelefonoMatriculaTests {
 
     @Test
     void alEditarElTelefonoVacioEsValidoYLoQuita() {
-        assertThat(validator.validate(edicion("202104010", "", "maria.gonzalez@est.umss.edu"))).isEmpty();
+        assertThat(validator.validate(edicion("202104010", "", "202104010@est.umss.edu"))).isEmpty();
         assertThat(EstadoMatricula.normalizarTelefono("", "71234567")).isNull();
+    }
+
+    /** El correo del estudiante es su código SIS @est.umss.edu, al registrar y al editar (sin distinguir mayúsculas). */
+    @Test
+    void elCorreoDelEstudianteEsSuCodigoSis() {
+        assertThat(validator.validate(edicion("202104010", null, "202104010@EST.umss.edu"))).isEmpty();
+        assertThat(validator.validate(edicion("202104010", null, "maria.gonzalez@est.umss.edu")))
+                .anyMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
+        assertThat(validator.validate(edicion("202104010", null, "202104011@est.umss.edu")))
+                .anyMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
+        // Con un código SIS inválido solo se informa ese error, no también el del correo.
+        assertThat(validator.validate(edicion("12345678", null, "maria.gonzalez@est.umss.edu")))
+                .noneMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
     }
 
     /** La edición aplica las mismas reglas que el registro (antes aceptaba esto y fallaba al guardar). */
@@ -93,7 +106,7 @@ class TelefonoMatriculaTests {
         assertThat(validator.validate(edicion("202104010", null, "maria@gmail.com")))
                 .anyMatch(v -> v.getPropertyPath().toString().equals("email"));
         var nombreConNumeros = new com.nexacore.examenes.dto.ActualizarEstudianteRequest("María2", "González",
-                "202104010", "7489210", null, "maria.gonzalez@est.umss.edu", 1, 10, null, null);
+                "202104010", "7489210", null, "202104010@est.umss.edu", 1, 10, null, null);
         assertThat(validator.validate(nombreConNumeros))
                 .anyMatch(v -> v.getPropertyPath().toString().equals("nombre"));
     }

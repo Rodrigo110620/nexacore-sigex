@@ -113,22 +113,22 @@ class ImportacionEstudiantesServiceTests {
     @Test
     void importaCsvDeExcelConBomYPuntoYComa() {
         var file = csv("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera\n"
-            + "202404012;María;González Flores;7489210;Maria@umss.edu;1;10\n");
+            + "202404012;María;González Flores;7489210;202404012@EST.umss.edu;1;10\n");
 
         var result = service.importar(file);
 
         assertEquals(1, result.insertados());
         assertEquals(0, result.ignorados());
         verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
-            r.codigoSis().equals("202404012") && r.email().equals("maria@umss.edu")
+            r.codigoSis().equals("202404012") && r.email().equals("202404012@est.umss.edu")
                 && r.idFacultad() == 1 && r.idCarrera() == 10));
     }
 
     @Test
     void importaTelefonoYEstadoDeMatriculaOpcionales() {
         var file = csv("codigoSis,nombre,apellidos,ci,email,idFacultad,idCarrera,telefono,estadoMatricula\n"
-            + "202404012,María,González Flores,7489210,maria@umss.edu,1,10,71234567,NO_MATRICULADO\n"
-            + "202404013,Luis,Rojas Paz,7489211,luis@umss.edu,1,10,41234567,\n");
+            + "202404012,María,González Flores,7489210,202404012@est.umss.edu,1,10,71234567,NO_MATRICULADO\n"
+            + "202404013,Luis,Rojas Paz,7489211,202404013@est.umss.edu,1,10,41234567,\n");
 
         var result = service.importar(file);
 
@@ -146,7 +146,7 @@ class ImportacionEstudiantesServiceTests {
         var file = csv(ENCABEZADO
             + "12345,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
             + "202404013,Luis,Rojas,7489211,,1,10\n"
-            + "202404014,Eva,Soto,7489212,eva@umss.edu,uno,10\n");
+            + "202404014,Eva,Soto,7489212,202404014@est.umss.edu,uno,10\n");
 
         var result = service.importar(file);
 
@@ -169,9 +169,9 @@ class ImportacionEstudiantesServiceTests {
             return null;
         });
         var file = csv(ENCABEZADO
-            + "202404012,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
-            + "202404012,Ana,Pérez,7489219,ana2@umss.edu,1,10\n"
-            + "202404015,Leo,Mena,7489213,leo@umss.edu,1,10\n");
+            + "202404012,Ana,Pérez,7489210,202404012@est.umss.edu,1,10\n"
+            + "202404012,Ana,Pérez,7489219,202404012@est.umss.edu,1,10\n"
+            + "202404015,Leo,Mena,7489213,202404015@est.umss.edu,1,10\n");
 
         var result = service.importar(file);
 
@@ -199,11 +199,22 @@ class ImportacionEstudiantesServiceTests {
     }
 
     @Test
+    void unaFilaConCorreoConNombreSeRechazaEnLaColumnaCorreo() {
+        var result = service.importar(csv(ENCABEZADO
+            + "202404012,Ana,Pérez,7489210,ana.perez@est.umss.edu,1,10\n"
+            + "202404013,Leo,Mena,7489213,202404013@est.umss.edu,1,10\n"));
+
+        assertEquals(1, result.insertados());
+        org.assertj.core.api.Assertions.assertThat(result.errores()).singleElement().asString()
+            .startsWith("Fila 2: El correo del estudiante debe ser su código SIS @est.umss.edu");
+    }
+
+    @Test
     void guardaPorBloquesDeQuinientos() {
         StringBuilder contenido = new StringBuilder(ENCABEZADO);
         for (int i = 0; i < 1200; i++) {
             contenido.append(202400000 + i * 7 + 13).append(",Ana,Pérez,").append(3000000 + i * 11 + 17)
-                .append(",ana").append(i).append("@umss.edu,1,10\n");
+                .append(",").append(202400000 + i * 7 + 13).append("@est.umss.edu,1,10\n");
         }
 
         var result = service.importar(csv(contenido.toString()));
@@ -217,8 +228,8 @@ class ImportacionEstudiantesServiceTests {
     void siLaBaseRechazaElBloqueLoReintentaFilaPorFila() {
         doThrow(new org.springframework.dao.DataIntegrityViolationException("duplicado")).when(registroLote).registrar(any());
         var file = csv(ENCABEZADO
-            + "202404012,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
-            + "202404015,Leo,Mena,7489213,leo@umss.edu,1,10\n");
+            + "202404012,Ana,Pérez,7489210,202404012@est.umss.edu,1,10\n"
+            + "202404015,Leo,Mena,7489213,202404015@est.umss.edu,1,10\n");
 
         var result = service.importar(file);
 
@@ -297,7 +308,7 @@ class ImportacionEstudiantesServiceTests {
         var revision = service.revisar(xlsx(ENCABEZADO_XLSX,
             new Object[] {202404013, "Ana", "Rojas Vargas", 7489211, "202404013@est.umss.edu", 1, 10},
             new Object[] {202404015, "Ana", "Rojas Vargas", 123456, "202404015@est.umss.edu", 1, 10},
-            new Object[] {202404013, "Luis", "Paz Rivas", 7489299, "202404099@est.umss.edu", 1, 10}));
+            new Object[] {202404013, "Luis", "Paz Rivas", 7489299, "202404013@est.umss.edu", 1, 10}));
 
         assertEquals("Excel", revision.tipo());
         assertEquals(3, revision.filas());

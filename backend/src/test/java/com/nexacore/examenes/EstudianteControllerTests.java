@@ -28,7 +28,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 @AutoConfigureMockMvc
 class EstudianteControllerTests {
     private static final String JSON_VALIDO = """
-        {"nombre":"María","apellidos":"González","ci":"74892104","email":"maria@umss.edu",
+        {"nombre":"María","apellidos":"González","ci":"74892104","email":"202404012@est.umss.edu",
          "codigoSis":"202404012","idFacultad":1,"idCarrera":10}
         """;
 
@@ -56,6 +56,16 @@ class EstudianteControllerTests {
             1, "202404012", "María", "González", "74892104", null, "maria@umss.edu", List.of(), null, null, null, false));    
         mockMvc.perform(post("/estudiantes").contentType("application/json").content(JSON_VALIDO))
             .andExpect(status().isCreated());
+    }
+
+    // El correo del estudiante es su código SIS @est.umss.edu; el error llega en el campo email.
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void elCorreoDelEstudianteDebeSerSuCodigoSis() throws Exception {
+        mockMvc.perform(post("/estudiantes").contentType("application/json")
+                .content(JSON_VALIDO.replace("202404012@est.umss.edu", "maria.gonzalez@est.umss.edu")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errores.email").value(org.hamcrest.Matchers.containsString("código SIS @est.umss.edu")));
     }
 
     // Desde la V49 el registro de estudiantes es del ADMIN: el docente ve a los suyos, pero no los edita.
