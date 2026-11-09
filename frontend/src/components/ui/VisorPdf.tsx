@@ -9,13 +9,20 @@ export default function VisorPdf({ datos, titulo }: { datos: Blob; titulo: strin
   const contenedor = useRef<HTMLDivElement>(null)
   const [estado, setEstado] = useState<'cargando' | 'listo' | 'error'>('cargando')
   const [paginas, setPaginas] = useState(0)
+  const abrir = () => {
+    const url = URL.createObjectURL(datos)
+    window.open(url, '_blank', 'noopener')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
 
   useEffect(() => {
     let vigente = true
     const destino = contenedor.current
     const dibujar = async () => {
-      const pdfjs = await import('pdfjs-dist')
-      const { default: worker } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+      // Versión «legacy»: trae lo que falta en navegadores de celular más antiguos (p. ej. Promise.withResolvers
+      // en Safari < 17.4 o Chrome < 119); con la normal, ahí fallaba y solo quedaba descargar.
+      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+      const { default: worker } = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')
       pdfjs.GlobalWorkerOptions.workerSrc = worker
       const pdf = await pdfjs.getDocument({ data: new Uint8Array(await datos.arrayBuffer()) }).promise
       if (!vigente || !destino) return
@@ -53,7 +60,15 @@ export default function VisorPdf({ datos, titulo }: { datos: Blob; titulo: strin
           <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> Dibujando el PDF…
         </p>
       )}
-      {estado === 'error' && <p role="alert" className="rounded-lg bg-white p-3 text-sm text-red-700">No se pudo mostrar el PDF. Puedes descargarlo igual.</p>}
+      {estado === 'error' && (
+        <div role="alert" className="rounded-lg bg-white p-3 text-sm text-red-700">
+          <p>No se pudo dibujar el PDF en esta pantalla.</p>
+          {/* Respaldo: el visor de PDF del propio navegador o del celular, sin descargar. */}
+          <button type="button" onClick={abrir} className="mt-2 inline-flex min-h-10 items-center rounded-lg bg-[#0439D9] px-3 text-sm font-semibold text-white hover:bg-[#0027a2]">
+            Abrir el PDF
+          </button>
+        </div>
+      )}
       {estado === 'listo' && <p className="mb-2 text-center text-xs text-white/80">{paginas} {paginas === 1 ? 'página' : 'páginas'}</p>}
       <div ref={contenedor} />
     </div>

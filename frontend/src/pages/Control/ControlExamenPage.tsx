@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import IngresosRecientesCard from '../../components/control/IngresosRecientesCard'
-import type { OcupacionAula } from '../../services/controlExamenService'
+import { listarEstudiantesExamen, type OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 
 export default function ControlExamenPage() {
@@ -39,7 +39,37 @@ export default function ControlExamenPage() {
   // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
   const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
   // La tabla completa va oculta: el panel muestra solo «Ingresos recientes» (sección 11).
-  const [tablaAbierta, setTablaAbierta] = useState(false)
+  // Desde «Incidencias de hoy» (?estudiante=): la tabla se abre en la página de ese estudiante y lo resalta.
+  const estudianteFoco = Number(useSearchParams()[0].get('estudiante')) || null
+  const [tablaAbierta, setTablaAbierta] = useState(estudianteFoco != null)
+  const { setPage, pagina } = datos
+  const [buscado, setBuscado] = useState<number | null>(null)
+  useEffect(() => {
+    if (estudianteFoco == null || buscado === estudianteFoco) return
+    let vigente = true
+    // Busca en qué página está (mismo tamaño de página que la tabla); como mucho 20 páginas.
+    const tamano = window.innerWidth < 768 ? 3 : 5
+    void (async () => {
+      for (let p = 0; p < 20 && vigente; p++) {
+        const r = await listarEstudiantesExamen(idExamen, 'TODOS', p, tamano).catch(() => null)
+        if (!r || !vigente) return
+        if (r.contenido.some((e) => e.idEstudiante === estudianteFoco)) { setPage(p); break }
+        if (p + 1 >= r.totalPaginas) break
+      }
+      if (vigente) setBuscado(estudianteFoco)
+    })()
+    return () => { vigente = false }
+  }, [estudianteFoco, buscado, idExamen, setPage])
+  // Cuando la fila ya está en pantalla, la lleva a la vista (solo el contenido, no la ventana).
+  useEffect(() => {
+    if (estudianteFoco == null || buscado !== estudianteFoco || !pagina) return
+    requestAnimationFrame(() => {
+      // La primera visible: en celular la fila de la tabla de escritorio está oculta.
+      const fila = [...document.querySelectorAll<HTMLElement>('[data-foco="true"]')].find((el) => el.offsetParent !== null)
+      const main = fila?.closest('main')
+      if (fila && main?.scrollTo) main.scrollTo({ top: main.scrollTop + fila.getBoundingClientRect().top - main.getBoundingClientRect().top - 120, behavior: 'smooth' })
+    })
+  }, [estudianteFoco, buscado, pagina])
   const descargar = (formato: 'pdf' | 'excel') => {
     if (!examenIniciado || !idValido) return
     setPrevia(formato === 'pdf' ? 'pdf' : 'xlsx')
@@ -194,7 +224,7 @@ export default function ControlExamenPage() {
             }} />
             {tablaAbierta && (
               <div id="estudiantes-examen-tabla">
-                <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} />
+                <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} resaltar={estudianteFoco} />
               </div>
             )}
           </>

@@ -50,6 +50,7 @@ export interface IncidenciaHoy {
   fechaHora: string
   idExamen: number
   examen: string
+  idEstudiante: number | null
   estudiante: string | null
   detalle: string | null
 }

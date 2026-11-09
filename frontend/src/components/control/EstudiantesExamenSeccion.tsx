@@ -24,6 +24,8 @@ interface EstudiantesExamenSeccionProps {
   error?: string
   cargando: boolean
   refetch?: () => void
+  /** Estudiante a resaltar (desde «Incidencias de hoy»). */
+  resaltar?: number | null
 }
 
 /** Lista "Estudiantes del examen" con pestañas por estado, carga, vacío, error y paginación. */
@@ -39,6 +41,7 @@ export default function EstudiantesExamenSeccion({
   error,
   cargando,
   refetch,
+  resaltar,
 }: EstudiantesExamenSeccionProps) {
   const cuentas = resumen ? { ...resumen, ausentes: Math.max(0, resumen.habilitados - resumen.ingresados) } : undefined
   return (
@@ -92,7 +95,7 @@ export default function EstudiantesExamenSeccion({
         </p>
       ) : (
         <>
-          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} />
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} />
           <div className="mt-3">
             <UserPagination
               compact

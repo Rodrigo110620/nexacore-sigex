@@ -145,7 +145,7 @@ public class InicioAdminService {
                 .addValue("marca", MARCA_EXCEPCION);
         return jdbc.query("""
                 SELECT i.tipo, i.fecha_hora, i.id_examen,
-                       m.nombre || COALESCE(' · ' || pa.nombre_grupo, '') AS examen,
+                       m.nombre || COALESCE(' · ' || pa.nombre_grupo, '') AS examen, es.id_estudiante,
                        CASE WHEN es.id_estudiante IS NULL THEN NULL ELSE es.nombre || ' ' || es.apellidos END AS estudiante,
                        i.detalle
                 FROM (
@@ -172,7 +172,7 @@ public class InicioAdminService {
                 LEFT JOIN estudiante es ON es.id_estudiante = i.id_estudiante
                 ORDER BY i.fecha_hora DESC
                 """, p, (rs, n) -> new com.nexacore.examenes.dto.IncidenciaHoyResponse(rs.getString(1),
-                rs.getTimestamp(2).toLocalDateTime(), rs.getInt(3), rs.getString(4), rs.getString(5), rs.getString(6)));
+                rs.getTimestamp(2).toLocalDateTime(), rs.getInt(3), rs.getString(4), (Integer) rs.getObject(5), rs.getString(6), rs.getString(7)));
     }
 
     /** Las mismas incidencias que cuenta el control del examen (DASH-01), por día. */

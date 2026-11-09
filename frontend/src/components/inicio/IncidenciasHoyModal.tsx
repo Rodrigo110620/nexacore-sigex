@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ArrowRightLeft, Ban, ClipboardPen, Copy, ShieldAlert, UserX, X } from 'lucide-react'
 import { obtenerIncidenciasHoy, type IncidenciaHoy } from '../../services/inicioService'
+import { enlaceIncidencia } from '../../utils/incidencias'
 import ErrorCarga from '../ui/ErrorCarga'
 
 const TIPOS: Record<IncidenciaHoy['tipo'], { nombre: string; icono: typeof Ban; clase: string }> = {
@@ -56,14 +57,15 @@ export default function IncidenciasHoyModal({ onClose }: { onClose: () => void }
             <ul className="divide-y divide-[#EEF2F7]" aria-label="Incidencias de hoy">
               {lista.map((inc, i) => {
                 const { nombre, icono: Icono, clase } = TIPOS[inc.tipo] ?? TIPOS.INTENTO_INCORRECTO
+                const enlace = enlaceIncidencia(inc)
                 return (
                   <li key={`${inc.tipo}-${inc.fechaHora}-${i}`} className="flex items-start gap-3 py-3">
                     <span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${clase}`}><Icono size={15} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-[#011140]">{nombre}{inc.estudiante ? `: ${inc.estudiante}` : ''}</p>
                       <p className="text-xs text-[#627A9B]">{inc.examen}{inc.detalle ? ` · ${inc.detalle}` : ''}</p>
-                      <Link to={`/dashboard/control/${inc.idExamen}/informacion`} onClick={onClose} className="mt-1 inline-block text-xs font-semibold text-[#0439D9] hover:underline">
-                        Ver en el examen →
+                      <Link to={enlace.a} onClick={onClose} className="mt-1 inline-block text-xs font-semibold text-[#0439D9] hover:underline">
+                        {enlace.texto} →
                       </Link>
                     </div>
                     <span className="shrink-0 text-xs tabular-nums text-[#627A9B]">{inc.fechaHora.slice(11, 16)}</span>
