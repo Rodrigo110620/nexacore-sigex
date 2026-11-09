@@ -1,6 +1,6 @@
 import { normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, LogOut, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
+import { AlertTriangle, ChevronDown, LogOut, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -180,17 +180,30 @@ export default function ControlIngresoPage() {
     return siguiente
   })
 
+  const resumenMasOpciones = [
+    ingresoManual && 'Ingreso manual',
+    obs.trim() && 'Con observación',
+    selectedIncidents.length > 0 && `${selectedIncidents.length} ${selectedIncidents.length === 1 ? 'incidencia' : 'incidencias'}`,
+  ].filter(Boolean).join(' · ')
+  /** Abre «Más opciones» y lleva el foco al campo con error, para que no quede escondido. */
+  const mostrarCampo = (id: string) => {
+    setMasOpciones(true)
+    requestAnimationFrame(() => document.getElementById(id)?.focus())
+  }
+
   const submit = async (denegar = false) => {
     const errorJustificacion = validarJustificacion(justificacionManual)
     if (!denegar && ingresoManual && errorJustificacion) {
       setJustificacionError(errorJustificacion)
+      mostrarCampo('justificacion-manual')
       return
     }
     const errorIncidencia = otraIncidenciaSeleccionada ? validarTextoLibre(incident, DETALLE_INCIDENCIA) : null
-    if (errorIncidencia) { setTextErrorField('incidencia'); setError(errorIncidencia); return }
+    if (errorIncidencia) { setTextErrorField('incidencia'); setError(errorIncidencia); setMasOpciones(true); return }
     if (denegar && detalleError) return
     if (obsError) {
       setTextErrorField('observaciones')
+      mostrarCampo('control-observaciones')
       return
     }
     if (denegar && denialDetail.length > MAX_DETALLE_DENEGACION) {
@@ -210,6 +223,7 @@ export default function ControlIngresoPage() {
     if (invalido?.garabato) {
       setTextErrorField(invalido.field)
       setError(`El texto contiene contenido no válido: "${invalido.garabato}".`)
+      if (invalido.field !== 'denialDetail') setMasOpciones(true)
       return
     }
     setTextErrorField(null)
@@ -286,9 +300,19 @@ export default function ControlIngresoPage() {
         {!ctx.ingresoRegistrado && <section className="control-register">
           {/* A la vista solo la verificación obligatoria; lo demás, en «Más opciones». */}
           <fieldset><legend className="sr-only">Verificaciones adicionales</legend><label className={`control-verification ${checks.length ? 'is-verified' : ''}`}><Fingerprint size={17} className="shrink-0 text-[#45628D]"/><input aria-label={VERIFICACION} type="checkbox" checked={checks.length>0} onChange={e=>setChecks(e.target.checked?[VERIFICACION]:[])}/><span>{VERIFICACION}</span></label></fieldset>
-          <details className="mt-3 rounded-lg border border-[#E6EDF8] bg-white" open={masOpciones || !!textErrorField || !!justificacionError || ingresoManual} onToggle={e=>setMasOpciones((e.currentTarget as HTMLDetailsElement).open)}>
-            <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-semibold text-[#0439D9]">Más opciones <span className="font-normal text-[#627A9B]">· ingreso manual, observaciones, incidencias y normas generales</span></summary>
-            <div className="border-t border-[#E6EDF8] p-3">
+          {/* «Más opciones»: botón con su estado (aria-expanded), chevron que gira y despliegue suave. Cerrado, el
+              contenido no recibe foco (inert). Muestra qué tiene adentro para que nada quede escondido sin aviso. */}
+          <div className="mt-3 overflow-hidden rounded-lg border border-[#E6EDF8] bg-white">
+            <button type="button" aria-expanded={masOpciones} aria-controls="control-mas-opciones" onClick={()=>setMasOpciones(v=>!v)}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-[#F8FAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9]/40">
+              <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-[#0439D9] transition-transform duration-200 ${masOpciones ? 'rotate-180' : ''}`}/>
+              <span className="font-semibold text-[#0439D9]">Más opciones</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-[#627A9B]">{resumenMasOpciones || 'Ingreso manual, observaciones, incidencias y normas generales'}</span>
+            </button>
+            <div id="control-mas-opciones" className={`grid transition-[grid-template-rows] duration-200 ease-out ${masOpciones ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+              ref={el=>{ if (el) el.toggleAttribute('inert', !masOpciones) }}>
+              <div className="min-h-0 overflow-hidden">
+                <div className="border-t border-[#E6EDF8] p-3">
           <div className="mb-4 rounded-lg border border-[#D8E3F5] bg-[#F1F6FF] p-3">
             {searchParams.get('ingreso') === 'manual' ? (
               <div className="flex items-center gap-2 text-sm font-bold text-[#0439D9]">
@@ -316,8 +340,10 @@ export default function ControlIngresoPage() {
             <fieldset className="control-incidents"><legend className="sr-only">Incidencias detectadas</legend><p className="mb-3 flex items-center gap-2 font-semibold text-[#A6450A]"><AlertTriangle size={14}/>Incidencias Detectadas</p>{types.filter(t=>['LLEGADA_TARDE','DOCUMENTO_MAL_ESTADO','OTRA_INCIDENCIA'].includes(t.nombre)).map(t=><label key={t.id} className="mb-2 flex items-start gap-2"><input type="checkbox" checked={selectedIncidents.includes(t.id)} onChange={()=>{setSelectedIncidents(v=>v.includes(t.id)?v.filter(id=>id!==t.id):[...v,t.id]); if(t.nombre==='OTRA_INCIDENCIA'){setIncident(''); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}}}/>{ETIQUETA_INCIDENCIA[t.nombre]}</label>)}{otraIncidenciaSeleccionada&&<><textarea aria-label="Detalle de incidencias" aria-invalid={textErrorField==='incidencia'} value={incident} onChange={e=>{setIncident(e.target.value); if(textErrorField==='incidencia'){setTextErrorField(null);setError('')}}} rows={2} maxLength={1000} className="control-input" placeholder="Opcional: describe la incidencia..."/>{textErrorField==='incidencia'&&<p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}</>}</fieldset>
           </div>
               <div className="control-rules-box mt-3"><div className="flex items-start gap-2"><Gavel size={14} className="mt-0.5 shrink-0 text-[#0439D9]"/><div className="min-w-0"><b>Normas generales del examen:</b>{ctx.normasGenerales.length ? <ol className="control-rules-list">{ctx.normasGenerales.map((x,i)=><li key={`${i}-${x}`}><NormaTexto texto={x} expanded={normasAbiertas.has(`g-${i}`)} onToggle={()=>alternarNorma(`g-${i}`)}/></li>)}</ol> : <p>No registradas.</p>}</div></div></div>
+                </div>
+              </div>
             </div>
-          </details>
+          </div>
         </section>}
         {sinFoto&&!examenTerminado&&!ctx.ingresoRegistrado&&<p role="alert" className="mx-1 mb-2 rounded-lg border border-[#FECACA] bg-[#FFF5F5] p-3 text-xs text-[#7F1D1D]"><strong>Sin foto registrada:</strong> no se puede verificar su identidad ni autorizar su ingreso. Debe registrarla en su portal, o la administración o el docente desde su ficha. Puedes denegar el ingreso o reportar la incidencia.</p>}
         {controlCerrado&&apertura&&!ctx.ingresoRegistrado&&<p role="status" className="mx-1 mb-2 rounded-lg border border-[#BFD2F8] bg-[#EAF2FF] p-3 text-xs text-[#011140]"><strong>El control de ingreso aún no está habilitado:</strong> se habilita el {apertura.fecha} a las {apertura.hora}, {MINUTOS_APERTURA_CONTROL} minutos antes del inicio del examen.</p>}
