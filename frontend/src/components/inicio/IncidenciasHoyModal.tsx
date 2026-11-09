@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ArrowRightLeft, Ban, ClipboardPen, Copy, ShieldAlert, UserX, X } from 'lucide-react'
 import { obtenerIncidenciasHoy, type IncidenciaHoy } from '../../services/inicioService'
+import { enlaceIncidencia } from '../../utils/incidencias'
 import ErrorCarga from '../ui/ErrorCarga'
 
 const TIPOS: Record<IncidenciaHoy['tipo'], { nombre: string; icono: typeof Ban; clase: string }> = {
@@ -12,30 +13,6 @@ const TIPOS: Record<IncidenciaHoy['tipo'], { nombre: string; icono: typeof Ban; 
   INGRESO_MANUAL: { nombre: 'Ingreso manual', icono: ClipboardPen, clase: 'bg-[#EEF2FF] text-[#4338CA]' },
   TRASLADO: { nombre: 'Traslado de aula', icono: ArrowRightLeft, clase: 'bg-[#E9F1FF] text-[#0439D9]' },
   QR_DUPLICADO: { nombre: 'QR duplicado', icono: Copy, clase: 'bg-[#FFF7ED] text-[#C2410C]' },
-}
-
-/**
- * Lleva directo al incidente elegido: intentos y QR duplicados a la pestaña Intentos, ingresos manuales y
- * excepciones a Excepciones (con la fila resaltada); traslados y expulsiones al panel del examen con el
- * estudiante resaltado en la tabla.
- */
-export function enlaceIncidencia(inc: IncidenciaHoy): { a: string; texto: string } {
-  const base = `/dashboard/control/${inc.idExamen}`
-  const parametros = new URLSearchParams()
-  if (inc.idEstudiante != null) parametros.set('estudiante', String(inc.idEstudiante))
-  switch (inc.tipo) {
-    case 'TRASLADO':
-    case 'EXPULSION':
-      return { a: `${base}?${parametros}`, texto: 'Ver al estudiante en el examen' }
-    case 'INGRESO_MANUAL':
-    case 'EXCEPCION':
-      parametros.set('pestana', 'excepciones')
-      return { a: `${base}/informacion?${parametros}`, texto: 'Ver en Excepciones' }
-    default:
-      parametros.set('pestana', 'intentos')
-      parametros.set('hora', inc.fechaHora.slice(0, 16))
-      return { a: `${base}/informacion?${parametros}`, texto: 'Ver en Intentos' }
-  }
 }
 
 /** «Incidencias → Revisar» del inicio del ADMIN: qué incidencias hubo hoy, sin salir del inicio. */
