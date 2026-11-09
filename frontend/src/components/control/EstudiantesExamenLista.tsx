@@ -10,7 +10,7 @@ import type { EstudianteAsignado } from '../../services/controlExamenService'
 import type { ExamenDto } from '../../services/examenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import ReasignarAmbienteModal from './ReasignarAmbienteModal'
-import { tienePermiso } from '../../utils/permisos'
+import { registraControl, tienePermiso } from '../../utils/permisos'
 
 
 interface FilaProps {
@@ -62,6 +62,8 @@ function Identidad({ estudiante, habilitado, children }: FilaProps & { children?
 
 /** El ojo abre la identificación con el código ya buscado. */
 function Ver({ idExamen, estudiante }: { idExamen: number; estudiante: EstudianteAsignado }) {
+  // Identificar es parte de registrar el control; el ADMIN supervisa sin registrar.
+  if (!registraControl(useAuth())) return null
   return (
     <Link
       to={`/dashboard/control/${idExamen}/identificar?codigo=${encodeURIComponent(estudiante.codigoSis)}`}

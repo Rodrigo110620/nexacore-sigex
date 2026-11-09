@@ -24,12 +24,12 @@ public class ReporteQrDuplicadoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idExamen, idEstudianteQr, nombresPresentado,
                 ciPresentado, presentoCarnet, codigoSisPresentado, detalle, fechaHoraDispositivo, foto, authentication.getName()));
     }
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/examen/{idExamen}")
     public ResponseEntity<java.util.List<com.nexacore.examenes.dto.ReporteQrDuplicadoResponse>> listar(@PathVariable Integer idExamen) {
         return ResponseEntity.ok(service.listar(idExamen));
     }
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/examen/{idExamen}/{idReporte}/foto")
     public ResponseEntity<byte[]> foto(@PathVariable Integer idExamen, @PathVariable Integer idReporte) {
         var reporte = service.obtener(idExamen, idReporte);

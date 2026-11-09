@@ -57,7 +57,13 @@ class RolesYPermisosTests {
 
     @Test
     void losRolesDelSistemaConservanSusPermisosDeSiempre() {
-        assertThat(Permisos.deRoles(List.of("ADMIN"))).containsAll(Permisos.todos());
+        // El ADMIN administra: todo menos programar exámenes y registrar el control (los supervisa).
+        assertThat(Permisos.deRoles(List.of("ADMIN"))).containsAll(Permisos.delAdmin())
+                .doesNotContain("EXAMENES_GESTIONAR_PROPIOS", "CONTROL_INGRESO_TODOS", "CONTROL_INGRESO_PROPIOS")
+                .contains("EXAMENES_GESTIONAR_TODOS", "REPORTES_VER", "EXPULSAR_TODOS");
+        // Con otro rol del sistema, lo recibe por ese rol.
+        assertThat(Permisos.deRoles(List.of("ADMIN", "CONTROL"))).contains("CONTROL_INGRESO_TODOS");
+        assertThat(Permisos.deRoles(List.of("ADMIN", "DOCENTE"))).contains("EXAMENES_GESTIONAR_PROPIOS");
         assertThat(Permisos.deRoles(List.of("DOCENTE"))).containsExactlyInAnyOrder(
                 "EXAMENES_VER_PROPIOS", "EXAMENES_GESTIONAR_PROPIOS", "HABILITACION_VER", "HABILITACION_GESTIONAR_PROPIOS",
                 "CONTROL_INGRESO_PROPIOS", "EXPULSAR_PROPIOS", "ESTUDIANTES_VER", "FOTOS_REPORTAR", "REPORTES_EXPORTAR");

@@ -91,7 +91,7 @@ class ControlIngresoControllerTests {
 
     // INCI-04: la ruta se borró una vez al resolver un conflicto de fusión; estas pruebas lo detectan.
     @ParameterizedTest
-    @ValueSource(strings = {"ADMIN", "CONTROL"})
+    @ValueSource(strings = {"CONTROL"})
     void registrarExcepcionDeNoHabilitadoGuardaLaExcepcion(String rol) throws Exception {
         mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").with(user("control@sigex.test").roles(rol))
                         .contentType(APPLICATION_JSON).content(EXCEPCION))
@@ -194,12 +194,12 @@ class ControlIngresoControllerTests {
                 .andExpect(status().isOk());
     }
 
+    // Los tipos de incidencia solo se usan al registrar el control: el ADMIN lo supervisa, no lo registra.
     @Test
     @WithMockUser(roles = "ADMIN")
-    void permiteUsuarioConRolAdmin() throws Exception {
-        when(service.listarTiposIncidencia()).thenReturn(List.of());
+    void elAdminNoPideLosTiposDeIncidencia() throws Exception {
         mockMvc.perform(get("/control-ingresos/tipos-incidencia"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test

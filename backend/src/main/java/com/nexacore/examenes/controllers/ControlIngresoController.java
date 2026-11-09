@@ -74,7 +74,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar historial", description = "Devuelve autorizaciones y denegaciones registradas para el estudiante y examen.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/{idEstudiante}/{idExamen}")
     public ResponseEntity<List<RegistroControlIngresoResponse>> historial(
             @PathVariable Integer idEstudiante,
@@ -84,7 +84,7 @@ public class ControlIngresoController {
 
     @Operation(summary = "Consultar registros de ingreso del examen",
             description = "Devuelve las autorizaciones y denegaciones del examen para el informe de ingreso en tiempo real.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/examen/{idExamen}/registros")
     public ResponseEntity<List<RegistroControlIngresoExamenResponse>> registrosExamen(
             @PathVariable Integer idExamen) {
@@ -92,7 +92,7 @@ public class ControlIngresoController {
     }
 
     @Operation(summary = "Consultar contexto", description = "Devuelve estudiante, examen, normas y condiciones previas para el flujo de autorización.")
-    @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/{idEstudiante}/{idExamen}/contexto")
     public ResponseEntity<ContextoControlIngresoResponse> contexto(
             @PathVariable Integer idEstudiante,

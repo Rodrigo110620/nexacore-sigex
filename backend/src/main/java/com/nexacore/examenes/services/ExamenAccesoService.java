@@ -63,6 +63,14 @@ public class ExamenAccesoService {
         return segunPermiso(idExamen, authentication, Permiso.CONTROL_INGRESO_TODOS, Permiso.CONTROL_INGRESO_PROPIOS);
     }
 
+    /**
+     * Ver el control de un examen (panel, listas, contadores, registros) sin registrar nada: quien lo controla o
+     * quien supervisa con REPORTES_VER (el ADMIN). Registrar ingresos e incidencias sigue siendo puedeControlar.
+     */
+    public boolean puedeVerControl(Integer idExamen, Authentication authentication) {
+        return idExamen != null && (Permisos.tiene(authentication, Permiso.REPORTES_VER) || puedeControlar(idExamen, authentication));
+    }
+
     /** Reasignar está reservado al administrador o al docente titular del examen. */
     public boolean puedeReasignar(Integer idExamen, Authentication authentication) {
         if (idExamen == null || authentication == null || !authentication.isAuthenticated()) return false;
