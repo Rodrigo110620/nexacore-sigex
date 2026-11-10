@@ -103,3 +103,12 @@
     transform: none;
   }
 }
+
+/* Menú flotante del menú lateral contraído (GrupoMenu): entra con un leve desplazamiento. */
+@keyframes menuEntra {
+  from { opacity: 0; transform: translateX(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[menuEntra"] { animation: none; }
+}
