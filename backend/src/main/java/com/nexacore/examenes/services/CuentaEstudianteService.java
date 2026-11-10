@@ -53,6 +53,10 @@ public class CuentaEstudianteService {
     private final EmailService emailService;
     private final QrEstudianteService qrEstudianteService;
 
+    /** Historial de operaciones; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AuditoriaService auditoriaService;
+
     public CuentaEstudianteService(EstudianteRepository estudianteRepository,
                                    EstudianteActivacionRepository activacionRepository,
                                    UsuarioRepository usuarioRepository,
@@ -174,6 +178,12 @@ public class CuentaEstudianteService {
         if (qr != null) {
             emailService.enviarQrEstudiante(estudiante.getEmail(),
                     estudiante.getNombre() + " " + estudiante.getApellidos(), estudiante.getCodigoSis(), qr.png());
+        }
+        // Historial de operaciones: la activación queda a nombre del estudiante (lo hace sin sesión).
+        if (auditoriaService != null) {
+            auditoriaService.registrarComo(usuario.getId(), "CUENTA_ESTUDIANTE_ACTIVADA", AuditoriaService.datos(
+                    "idEstudiante", estudiante.getId(), "nombre", estudiante.getNombre() + " " + estudiante.getApellidos(),
+                    "codigoSis", estudiante.getCodigoSis(), "correo", usuario.getEmail(), "qrEnviado", qr != null ? true : null));
         }
     }
 

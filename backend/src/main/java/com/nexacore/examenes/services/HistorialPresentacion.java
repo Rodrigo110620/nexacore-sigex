@@ -45,6 +45,7 @@ class HistorialPresentacion {
         tipo("ESTUDIANTE_QUITADO_DEL_EXAMEN", "Exámenes", "Quitar");
         tipo("PERSONAL_CONTROL_ASIGNADO", "Exámenes", "Asignar");
         tipo("ESTUDIANTES_ASOCIADOS", "Exámenes", "Asociar");
+        tipo("CUENTA_ESTUDIANTE_ACTIVADA", "Estudiantes", "Activar");
         tipo("ESTUDIANTE_CREADO", "Estudiantes", "Crear");
         tipo("ESTUDIANTE_EDITADO", "Estudiantes", "Editar");
         tipo("ESTUDIANTES_IMPORTADOS", "Estudiantes", "Importar");
@@ -179,6 +180,9 @@ class HistorialPresentacion {
                     d.path("personal").isEmpty() ? "Quitó al personal de control del examen"
                             : "Asignó el personal de control: " + lista(d.path("personal")), null, List.of());
             case "ESTUDIANTES_ASOCIADOS" -> asociados(d);
+            case "CUENTA_ESTUDIANTE_ACTIVADA" -> new Vista(texto(d, "nombre"),
+                    "Activó su cuenta de estudiante" + (d.path("qrEnviado").asBoolean() ? " y recibió su QR por correo" : ""), null,
+                    datos(d, "codigoSis", "Código SIS", "correo", "Correo"));
             case "ESTUDIANTE_CREADO" -> new Vista(texto(d, "nombre"), "Registró al estudiante", null,
                     datos(d, "codigoSis", "Código SIS"));
             case "ESTUDIANTE_EDITADO" -> new Vista(texto(d, "nombre"), "Editó los datos del estudiante", null,
