@@ -11,8 +11,9 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => auth }))
 vi.mock('../components/layout/PanelLayout', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../components/navigation/MobileBottomNav', () => ({ default: () => null }))
 vi.mock('../components/examenes/CronometroExamen', () => ({ default: () => <span>cronómetro</span> }))
-// Hoy = 10/11/2026 a las 10:00 (hora de Bolivia).
-const AHORA = new Date('2026-11-10T10:00:00-04:00')
+// Hoy = 10/11/2026 a las 10:00 en la hora local del equipo: la pantalla compara con la hora local, y el CI
+// corre en UTC (con «-04:00» fijo, allí serían las 14:00 y el examen de las 09:30 ya habría terminado).
+const AHORA = new Date(2026, 10, 10, 10, 0, 0)
 vi.mock('../hooks/usePanelControl', () => ({ default: () => ({ examenes: panel.examenes, error: undefined, ahora: AHORA, recargar: vi.fn() }) }))
 vi.mock('../hooks/useResumenesExamenes', () => ({ default: () => ({ resumenes: { 1: { total: 30, habilitados: 30, noHabilitados: 0, ingresados: 27 } }, recargar: vi.fn() }) }))
 
