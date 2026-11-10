@@ -176,7 +176,7 @@ function Banner({ nombre, fecha, datos, hora }: { nombre?: string; fecha: string
           <p className="mt-1.5 text-sm text-[#DBE6FF]">{resumen}</p>
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
             <Link to="/dashboard/control" className="inline-flex items-center gap-2 rounded-[10px] bg-white px-4 py-2.5 text-[13px] font-bold text-[#0439D9] hover:bg-[#EEF3FF]">
-              <ScanLine size={16} aria-hidden="true" /> Controlar ingreso
+              <ScanLine size={16} aria-hidden="true" /> Supervisar el control
             </Link>
             <EnVivo oscuro texto={`En vivo · ${horaCorta(`${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}`)}`} />
           </div>
@@ -564,8 +564,8 @@ function ActividadReciente({ actividad }: { actividad: Notificacion[] }) {
 
 function AccesosRapidos({ auth }: { auth: Parameters<typeof tienePermiso>[0] }) {
   const accesos: [LucideIcon, string, string, string, string, boolean][] = [
-    [BookCheck, 'Exámenes', 'Programar y editar', '/dashboard/examenes', 'bg-[#EEF3FF] text-[#0439D9]', tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS')],
-    [ClipboardCheck, 'Control', 'Registrar ingresos', '/dashboard/control', 'bg-[#ECFDF3] text-[#16A34A]', tienePermiso(auth, 'CONTROL_INGRESO_TODOS')],
+    [BookCheck, 'Exámenes', 'Supervisar y reprogramar', '/dashboard/examenes', 'bg-[#EEF3FF] text-[#0439D9]', tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS')],
+    [ClipboardCheck, 'Control', 'Supervisar ingresos', '/dashboard/control', 'bg-[#ECFDF3] text-[#16A34A]', tienePermiso(auth, 'REPORTES_VER')],
     [GraduationCap, 'Estudiantes', 'Registrar e importar', '/dashboard/estudiantes', 'bg-[#FFF1E7] text-[#EA580C]', tienePermiso(auth, 'ESTUDIANTES_VER')],
     [BarChart3, 'Reportes', 'Intentos y excepciones', '/dashboard/reportes', 'bg-[#F3EEFF] text-[#7C3AED]', tienePermiso(auth, 'REPORTES_VER')],
     [ImageIcon, 'Revisión de fotos', 'Cambios y reportes', '/dashboard/estudiantes/fotos', 'bg-[#E0F5FA] text-[#0891B2]', tienePermiso(auth, 'FOTOS_REVISAR')],

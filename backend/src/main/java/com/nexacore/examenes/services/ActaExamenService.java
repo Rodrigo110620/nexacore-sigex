@@ -98,14 +98,23 @@ public class ActaExamenService {
         this.trasladoRepository = trasladoRepository;
     }
 
+    /** Salida al cierre (V56); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SalidaExamenService salidaExamenService;
+
     /** Datos de una fila del acta. */
     record FilaActa(
             String codigoSis,
             String nombreCompleto,
             String estado,      // Asistió / Ausente / Expulsado
             String hora,        // HH:MM:SS o "—"
-            String observacion  // Trasladado desde [aula] o null
-    ) {}
+            String observacion, // Trasladado desde [aula] o null
+            String salida       // Hora de salida (V56) HH:MM:SS o "—"
+    ) {
+        FilaActa(String codigoSis, String nombreCompleto, String estado, String hora, String observacion) {
+            this(codigoSis, nombreCompleto, estado, hora, observacion, SIN_HORA);
+        }
+    }
 
     /** Datos del examen para el encabezado. */
     record DatosExamen(
@@ -155,6 +164,8 @@ public class ActaExamenService {
         List<FilaActa> filas = new ArrayList<>();
         int asistidos = 0, ausentes = 0, expulsados = 0;
 
+        // Sin salida marcada y con el examen terminado, salió al cierre (V56).
+        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         for (AsistenciaExamen a : asistencias) {
             Estudiante e = a.getEstudiante();
 
@@ -197,7 +208,9 @@ public class ActaExamenService {
 
             if (a.getFechaHoraIngreso() != null) {
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
-                        "Asistió", a.getFechaHoraIngreso().format(HORA), observacion));
+                        "Asistió", a.getFechaHoraIngreso().format(HORA), observacion,
+                        a.getFechaHoraSalida() != null ? a.getFechaHoraSalida().format(HORA)
+                                : fin != null ? fin.format(HORA) + SalidaExamenService.AL_CIERRE : SIN_HORA));
                 asistidos++;
             } else {
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
@@ -373,12 +386,12 @@ public class ActaExamenService {
     }
 
     private PdfPTable tabla(List<FilaActa> filas, BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{0.5f, 1.4f, 5.1f, 1.2f, 1.5f});
+        var tabla = new PdfPTable(new float[]{0.5f, 1.4f, 4.3f, 1.2f, 1.4f, 1.4f});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
 
         var fuenteEncabezado = new Font(negrita, 8, Font.NORMAL, Color.WHITE);
-        for (String columna : List.of("N.°", "Código SIS", "Apellidos y nombres", "Estado", "Hora de ingreso")) {
+        for (String columna : List.of("N.°", "Código SIS", "Apellidos y nombres", "Estado", "Hora de ingreso", "Hora de salida")) {
             var celda = celda(columna, fuenteEncabezado);
             celda.setBackgroundColor(PRIMARIO);
             celda.setBorderColor(PRIMARIO);
@@ -388,7 +401,7 @@ public class ActaExamenService {
         var fuente = new Font(base, 8, Font.NORMAL, TINTA);
         if (filas.isEmpty()) {
             var vacia = celda("Sin estudiantes registrados en este examen.", fuente);
-            vacia.setColspan(5);
+            vacia.setColspan(6);
             vacia.setHorizontalAlignment(Element.ALIGN_CENTER);
             vacia.setPadding(12);
             tabla.addCell(vacia);
@@ -408,7 +421,8 @@ public class ActaExamenService {
                     celda(f.codigoSis(), fuente),
                     celdaNombre,
                     celda(f.estado(), fuente),
-                    celda(f.hora(), fuente));
+                    celda(f.hora(), fuente),
+                    celda(f.salida(), fuente));
             for (PdfPCell celda : celdas) {
                 celda.setBackgroundColor(fondo);
                 tabla.addCell(celda);

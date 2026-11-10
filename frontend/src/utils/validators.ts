@@ -174,15 +174,23 @@ export const validateEmail = (value: string): string => {
   return ''
 }
 
-/** Criterios QA-A01 de registro de estudiantes: parte local mínima y sin repetición trivial. */
-export const validateStudentEmail = (value: string): string => {
-  const baseError = validateInstitutionalEmailBase(value)
-  if (baseError) return baseError
+/** El correo del estudiante es su código SIS en el dominio de estudiantes: 201904725@est.umss.edu. */
+export const correoDelCodigoSis = (codigoSis: string): string => `${codigoSis.trim()}@${ALLOWED_EMAIL_DOMAIN}`
 
-  const [localPart] = value.trim().split('@')
-  if (localPart.length < 3) return 'La parte del correo antes de @ debe tener al menos 3 caracteres'
-  if (/^0+$/.test(localPart)) return 'La parte inicial del correo no puede ser todo ceros'
-  if (/^(\w)\1+$/.test(localPart)) return 'La parte del correo no puede repetir el mismo carácter'
+/** Código SIS del correo de un estudiante (201904725@est.umss.edu → 201904725), o '' si no tiene esa forma. */
+export const codigoSisDelCorreo = (email: string): string => /^(\d{9})@est\.umss\.edu$/i.exec(email.trim())?.[1] ?? ''
+
+/**
+ * Correo del estudiante: su código SIS @est.umss.edu. Con el código SIS a mano, además deben coincidir.
+ */
+export const validateStudentEmail = (value: string, codigoSis?: string): string => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'El correo es obligatorio'
+  if (!codigoSisDelCorreo(trimmed)) return 'El correo debe ser el código SIS del estudiante @est.umss.edu (por ejemplo, 201904725@est.umss.edu)'
+  const sis = codigoSis?.trim()
+  if (sis && /^\d{9}$/.test(sis) && trimmed.toLowerCase() !== correoDelCodigoSis(sis)) {
+    return `El correo debe ser ${correoDelCodigoSis(sis)}, con el mismo código SIS`
+  }
   return ''
 }
 

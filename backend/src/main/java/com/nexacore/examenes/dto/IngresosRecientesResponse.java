@@ -4,11 +4,19 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DASH-02 (sección 11, «Ingresos recientes»): los últimos ingresos del examen en la sesión actual, del más reciente al
- * más antiguo, y cuántos ingresaron en total. expulsado: entró y luego fue expulsado (se muestra con su marca).
+ * DASH-02 (sección 11, «Ingresos recientes»): una fila por estudiante que ingresó en la sesión actual, con columnas
+ * Ingreso · Salida · Estado, ordenadas por su actividad más reciente (ingreso, salida, expulsión o traslado).
+ * total = estudiantes que ingresaron.
  */
-public record IngresosRecientesResponse(long total, List<Ingreso> ingresos) {
+public record IngresosRecientesResponse(long total, List<Fila> ingresos) {
 
-    public record Ingreso(Integer idEstudiante, String nombre, String apellidos, String codigoSis, String fotoUrl,
-                          LocalDateTime fechaHoraIngreso, String aula, boolean expulsado) {}
+    /**
+     * salidaAlCierre: no marcó salida y el examen ya terminó: salió a la hora de fin. expulsion*: la última de la sesión
+     * (anulada = se anuló por error). traslado*: el último, «608 → 690A».
+     */
+    public record Fila(Integer idEstudiante, String nombre, String apellidos, String codigoSis, String fotoUrl,
+                       LocalDateTime fechaHoraIngreso, String aula,
+                       LocalDateTime fechaHoraSalida, boolean salidaAlCierre,
+                       LocalDateTime fechaHoraExpulsion, String motivoExpulsion, boolean expulsionAnulada,
+                       LocalDateTime fechaHoraTraslado, String traslado) {}
 }

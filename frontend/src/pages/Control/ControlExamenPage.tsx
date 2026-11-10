@@ -10,7 +10,7 @@ import useEstudiantesExamen from '../../hooks/useEstudiantesExamen'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import { useAuth } from '../../context/AuthContext'
-import { tienePermiso } from '../../utils/permisos'
+import { registraControl, tienePermiso } from '../../utils/permisos'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import IngresosRecientesCard from '../../components/control/IngresosRecientesCard'
 import { listarEstudiantesExamen, type OcupacionAula } from '../../services/controlExamenService'
@@ -41,6 +41,7 @@ export default function ControlExamenPage() {
   // La tabla completa va oculta: el panel muestra solo «Ingresos recientes» (sección 11).
   // Desde «Incidencias de hoy» (?estudiante=): la tabla se abre en la página de ese estudiante y lo resalta.
   const estudianteFoco = Number(useSearchParams()[0].get('estudiante')) || null
+  const registra = registraControl(auth)
   const [tablaAbierta, setTablaAbierta] = useState(estudianteFoco != null)
   const { setPage, pagina } = datos
   const [buscado, setBuscado] = useState<number | null>(null)
@@ -199,6 +200,8 @@ export default function ControlExamenPage() {
                   <TriangleAlert size={16} aria-hidden="true" />
                   Información de ingreso
                 </Link>
+                {/* Iniciar el control es del CONTROL (y del docente); el ADMIN lo supervisa. */}
+                {registra && (
                 <Link
                   to={`/dashboard/control/${idExamen}/identificar`}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-center text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
@@ -207,6 +210,7 @@ export default function ControlExamenPage() {
                   Iniciar Control de Ingreso
                   <ArrowRight size={16} aria-hidden="true" />
                 </Link>
+                )}
               </div>
             </section>
             <div className="mt-4">

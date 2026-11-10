@@ -22,7 +22,8 @@ class InicioControlTests {
 
     @Test
     void quienControlaVeSusRegistrosYElEstudianteNo() throws Exception {
-        for (String rol : new String[]{"CONTROL", "DOCENTE", "ADMIN"}) {
+        // El ADMIN tiene su propio inicio: no registra el control.
+        for (String rol : new String[]{"CONTROL", "DOCENTE"}) {
             mockMvc.perform(get("/inicio/control").with(user("x@umss.edu").roles(rol)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.ingresos").value(0))

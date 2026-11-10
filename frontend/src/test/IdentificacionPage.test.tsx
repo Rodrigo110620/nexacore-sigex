@@ -158,12 +158,13 @@ describe('IdentificacionPage', () => {
     expect(continuar()).toBeDisabled()
   })
 
-  it('ADMIN puede identificar y continuar a ACCS-02', async () => {
+  // El ADMIN supervisa el control pero no lo registra: no puede continuar a autorizar el ingreso.
+  it('ADMIN solo no continúa a ACCS-02 (registrar el control es del CONTROL)', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage(['ADMIN'])
     await buscarEstudiante()
 
-    expect(continuar()).toBeEnabled()
+    expect(continuar()).toBeDisabled()
   })
 
   it.each([

@@ -83,6 +83,7 @@ class PostgresIntegracionTests {
     @Autowired com.nexacore.examenes.services.ExpulsionEvidenciaService expulsionEvidenciaService;
     @Autowired com.nexacore.examenes.services.AforoService aforoService;
     @Autowired com.nexacore.examenes.services.IngresosRecientesService ingresosRecientesService;
+    @Autowired com.nexacore.examenes.services.SalidaExamenService salidaExamenService;
     @Autowired com.nexacore.examenes.services.UsuarioService usuarioService;
     @Autowired com.nexacore.examenes.services.RespaldoEstadoService respaldoEstadoService;
     @Autowired com.nexacore.examenes.services.InicioControlService inicioControlService;
@@ -1007,21 +1008,77 @@ class PostgresIntegracionTests {
         jdbc.update(ingresar, beto, examen, g1, java.sql.Timestamp.valueOf("2026-10-20 08:05:30"), idAmbiente);
         jdbc.update(ingresar, ciro, examen, g1, java.sql.Timestamp.valueOf("2026-10-20 08:03:10"), idAmbiente);
         jdbc.update(ingresar, dora, examen, g1, null, null); // habilitada sin ingreso: no aparece
+        jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular', ?)",
+                beto, examen, idDocente, java.sql.Timestamp.valueOf("2026-10-20 08:20:00"));
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_salida = ? WHERE id_examen = ? AND id_estudiante = ?",
+                java.sql.Timestamp.valueOf("2026-10-20 08:40:00"), examen, ciro);
+        sincronizar();
+
+        // Una fila por estudiante que ingresó (Dora no), por su actividad más reciente: Ciro salió 08:40, Beto fue
+        // expulsado 08:20 y Ana solo ingresó 08:01.
+        var r = ingresosRecientesService.recientes(examen, 2);
+        assertThat(r.total()).isEqualTo(3);
+        assertThat(r.ingresos()).extracting(f -> f.idEstudiante()).containsExactly(ciro, beto);
+        assertThat(r.ingresos().get(0)).satisfies(f -> {
+            assertThat(f.fechaHoraIngreso().toLocalTime()).hasToString("08:03:10");
+            assertThat(f.fechaHoraSalida().toLocalTime()).hasToString("08:40");
+            assertThat(f.salidaAlCierre()).isFalse();
+            assertThat(f.aula()).isNotBlank();
+        });
+        assertThat(r.ingresos().get(1)).satisfies(f -> {
+            assertThat(f.fechaHoraExpulsion().toLocalTime()).hasToString("08:20");
+            assertThat(f.motivoExpulsion()).isEqualTo("Uso de celular");
+            assertThat(f.expulsionAnulada()).isFalse();
+            assertThat(f.fechaHoraSalida()).isNull(); // el examen (mañana) no terminó
+        });
+        assertThat(ingresosRecientesService.recientes(examen, 2, 1).ingresos()).extracting(f -> f.idEstudiante()).containsExactly(ana);
+
+        // Con el examen terminado, quien no marcó salida y no fue expulsado salió al cierre (hora de fin).
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", examen);
+        sincronizar();
+        var alCierre = ingresosRecientesService.recientes(examen, 6).ingresos();
+        assertThat(alCierre).filteredOn(f -> f.idEstudiante() == ana).singleElement().satisfies(f -> {
+            assertThat(f.salidaAlCierre()).isTrue();
+            assertThat(f.fechaHoraSalida().toLocalTime()).hasToString("11:30"); // 10:00 + 90 min
+        });
+        assertThat(alCierre).filteredOn(f -> f.idEstudiante() == beto).singleElement()
+                .satisfies(f -> assertThat(f.fechaHoraSalida()).isNull()); // expulsado: no sale al cierre
+        assertThat(alCierre).filteredOn(f -> f.idEstudiante() == ciro).singleElement()
+                .satisfies(f -> assertThat(f.salidaAlCierre()).isFalse()); // ya había salido
+        assertThatThrownBy(() -> ingresosRecientesService.recientes(999999, 6)).hasMessageContaining("No se encontró el examen");
+    }
+
+    // V56: la salida se registra una vez, solo para quien ingresó y no fue expulsado; se reinicia al reprogramar.
+    @Test
+    void laSalidaSoloEsDeQuienIngresoYNoFueExpulsado() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("TST-SAL");
+        int examen = examen(g1, "10:00", 90);
+        String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
+        var ingreso = java.sql.Timestamp.valueOf("2026-10-20 08:01:00");
+        int ana = estudiante("202499601", "Ana"), beto = estudiante("202499602", "Beto"), ciro = estudiante("202499603", "Ciro");
+        jdbc.update(asociar, ana, examen, g1, ingreso);
+        jdbc.update(asociar, beto, examen, g1, ingreso);
+        jdbc.update(asociar, ciro, examen, g1, null);
         jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo) VALUES (?, ?, ?, 'Uso de celular')", beto, examen, idDocente);
         sincronizar();
 
-        var r = ingresosRecientesService.recientes(examen, 2);
-        assertThat(r.total()).isEqualTo(3);
-        assertThat(r.ingresos()).extracting(i -> i.idEstudiante()).containsExactly(beto, ciro);
-        assertThat(r.ingresos().get(0)).satisfies(i -> {
-            assertThat(i.expulsado()).isTrue();
-            assertThat(i.fechaHoraIngreso().toLocalTime()).hasToString("08:05:30");
-            assertThat(i.aula()).isNotBlank();
-        });
-        assertThat(r.ingresos().get(1).expulsado()).isFalse();
-        // Página 2 (de 2 en 2): el más antiguo.
-        assertThat(ingresosRecientesService.recientes(examen, 2, 1).ingresos()).extracting(i -> i.idEstudiante()).containsExactly(ana);
-        assertThatThrownBy(() -> ingresosRecientesService.recientes(999999, 6)).hasMessageContaining("No se encontró el examen");
+        var salida = salidaExamenService.registrar(examen, ana, "luis.paz@umss.edu");
+        assertThat(salida.fechaHoraSalida()).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT id_usuario_salida FROM asistencia_examen WHERE id_examen = ? AND id_estudiante = ?",
+                Integer.class, examen, ana)).isEqualTo(idDocente);
+        assertThatThrownBy(() -> salidaExamenService.registrar(examen, ana, "luis.paz@umss.edu")).hasMessageContaining("ya está registrada");
+        assertThatThrownBy(() -> salidaExamenService.registrar(examen, beto, "luis.paz@umss.edu")).hasMessageContaining("expulsado");
+        assertThatThrownBy(() -> salidaExamenService.registrar(examen, ciro, "luis.paz@umss.edu")).hasMessageContaining("aún no ingresó");
+        assertThatThrownBy(() -> salidaExamenService.registrar(examen, 999999, "luis.paz@umss.edu")).hasMessageContaining("no está asociado");
+
+        // El CSV de asistencia (DASH-05) lleva la hora de salida, como el acta PDF.
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", examen);
+        String csv = new String(asistenciaExportService.generarCsv(examen), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).contains("Hora de ingreso;Hora de salida");
+        String horaSalida = salida.fechaHoraSalida().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+        assertThat(csv.lines().filter(l -> l.startsWith("202499601;"))).singleElement().asString().endsWith(";" + horaSalida);
+        assertThat(csv.lines().filter(l -> l.startsWith("202499603;"))).singleElement().asString().endsWith(";-;-");
     }
 
     // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya

@@ -14,7 +14,7 @@ import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
 import { ordenarPorFase } from '../../utils/tiempoExamen'
 import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
-import { tienePermiso } from '../../utils/permisos'
+import { tienePermiso, registraControl, veControl } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import { contiene } from '../../utils/textoBusqueda'
 
@@ -38,8 +38,11 @@ export default function ExamenesPage() {
   const [searchParams] = useSearchParams()
   const isControlView = location.pathname === '/dashboard/control'
   const paraleloSeleccionado = searchParams.get('paralelo')
-  const canControl = tienePermiso(auth, 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')
-  const canRegister = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS') && !isControlView
+  // Quien registra el control lo inicia; el ADMIN solo lo supervisa («Ver control»).
+  const canControl = veControl(auth)
+  const registra = registraControl(auth)
+  // Solo el DOCENTE registra sus exámenes; el ADMIN supervisa, edita, reprograma y cancela, pero no crea.
+  const canRegister = tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS') && !isControlView
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
@@ -48,6 +51,12 @@ export default function ExamenesPage() {
   const [page, setPage] = useState(0)
   // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
   const [isModalOpen, setIsModalOpen] = useState(() => searchParams.get('nuevo') === '1')
+  // …y con &materia=&nombre= (Mis materias del inicio) llega con esa materia ya elegida.
+  const [materiaInicial, setMateriaInicial] = useState(() => {
+    const id = Number(searchParams.get('materia'))
+    const nombre = searchParams.get('nombre')
+    return id > 0 && nombre ? { id, nombre } : null
+  })
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -302,7 +311,7 @@ export default function ExamenesPage() {
                 <p className="mt-1 max-w-sm text-xs text-gray-500">
                   {query.trim() || ambienteFiltro || fechaFiltro || grupoFiltro
                     ? 'Sin resultados para los filtros aplicados.'
-                    : isControlView ? 'No hay exámenes disponibles para realizar control.' : 'Usa “Registrar Examen” para planificar una evaluación.'}
+                    : isControlView ? 'No hay exámenes disponibles para realizar control.' : canRegister ? 'Usa “Registrar Examen” para planificar una evaluación.' : 'Aún no hay exámenes: los programan los docentes.'}
                 </p>
               </section>
             ) : (
@@ -343,10 +352,10 @@ export default function ExamenesPage() {
                             {canControl && e.estado !== 'cancelado' && (
                               <Link
                                 to={`/dashboard/control/${e.idExamen}`}
-                                aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                                aria-label={`${registra ? 'Iniciar control de ingreso' : 'Ver el control de ingreso'} para ${e.asignatura}`}
                                 className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-2 py-1 text-[11px] font-semibold text-white"
                               >
-                                Iniciar control <ArrowRight size={12} aria-hidden="true" />
+                                {registra ? 'Iniciar control' : 'Ver control'} <ArrowRight size={12} aria-hidden="true" />
                               </Link>
                             )}
                             <button
@@ -403,9 +412,9 @@ export default function ExamenesPage() {
                             <div className="flex items-center justify-center gap-2">
                         {canControl && e.estado !== 'cancelado' && (
                           <Link to={`/dashboard/control/${e.idExamen}`}
-                            aria-label={`Iniciar control de ingreso para ${e.asignatura}`}
+                            aria-label={`${registra ? 'Iniciar control de ingreso' : 'Ver el control de ingreso'} para ${e.asignatura}`}
                             className="inline-flex items-center gap-1 rounded-md bg-[#0439D9] px-3 py-2 text-xs font-semibold text-white">
-                            Iniciar control <ArrowRight size={14} aria-hidden="true" />
+                            {registra ? 'Iniciar control' : 'Ver control'} <ArrowRight size={14} aria-hidden="true" />
                           </Link>
                         )}
                               <button
@@ -439,9 +448,10 @@ export default function ExamenesPage() {
         </section>
         <MobileBottomNav />
         <RegisterExamenModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          isOpen={isModalOpen && canRegister}
+          onClose={() => { setIsModalOpen(false); setMateriaInicial(null) }}
           onSuccess={() => void load()}
+          materiaInicial={materiaInicial}
         />
       </div>
     </PanelLayout>

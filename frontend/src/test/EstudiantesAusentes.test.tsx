@@ -25,8 +25,12 @@ beforeEach(() => {
   vi.mocked(api.get).mockImplementation(async (url, config) => {
     if (url.endsWith('/expulsiones')) return { data: [] }
     if (url.endsWith('/recientes')) return { data: { total: 8, ingresos: [
-      { idEstudiante: 7, nombre: 'Estudiante 7', apellidos: 'Prueba', codigoSis: '202600007', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:14:45', aula: '608', expulsado: false },
-      { idEstudiante: 9, nombre: 'Estudiante 9', apellidos: 'Prueba', codigoSis: '202600009', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:02:10', aula: '608', expulsado: true },
+      { idEstudiante: 7, nombre: 'Estudiante 7', apellidos: 'Prueba', codigoSis: '202600007', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:14:45', aula: '608',
+        fechaHoraSalida: '2026-11-07T10:30:00', salidaAlCierre: false, fechaHoraExpulsion: null, motivoExpulsion: null, expulsionAnulada: false, fechaHoraTraslado: null, traslado: null },
+      { idEstudiante: 9, nombre: 'Estudiante 9', apellidos: 'Prueba', codigoSis: '202600009', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:02:10', aula: '608',
+        fechaHoraSalida: null, salidaAlCierre: false, fechaHoraExpulsion: '2026-11-07T09:40:00', motivoExpulsion: 'Uso de celular', expulsionAnulada: false, fechaHoraTraslado: null, traslado: null },
+      { idEstudiante: 6, nombre: 'Estudiante 6', apellidos: 'Prueba', codigoSis: '202600006', fotoUrl: null, fechaHoraIngreso: '2026-11-07T09:00:00', aula: '690A',
+        fechaHoraSalida: '2026-11-07T11:00:00', salidaAlCierre: true, fechaHoraExpulsion: null, motivoExpulsion: null, expulsionAnulada: false, fechaHoraTraslado: '2026-11-07T09:20:00', traslado: '608 → 690A' },
     ] } }
     const { estado, page, size } = (config?.params ?? {}) as { estado: string; page: number; size: number }
     const filtrados = estudiantes.filter((e) => estado !== 'AUSENTES' || (e.estado === 'HABILITADO' && !e.ingresado))
@@ -40,13 +44,20 @@ const montar = () => render(<MemoryRouter><IngresosRecientesCard idExamen={20} /
 it('sección 11, Todos (DASH-02): los ingresos del más reciente al más antiguo, con hora y estado', async () => {
   montar()
   const lista = await screen.findByRole('list', { name: 'Ingresos recientes' })
+  // Una fila por estudiante con columnas Ingreso · Salida · Estado.
   const filas = within(lista).getAllByRole('listitem')
   expect(filas[0]).toHaveTextContent('Prueba, Estudiante 7')
   expect(filas[0]).toHaveTextContent('SIS 202600007')
   expect(filas[0]).toHaveTextContent('09:14:45')
-  expect(filas[0]).toHaveTextContent('Ingresó')
-  expect(filas[1]).toHaveTextContent('Expulsado')
-  expect(screen.getByRole('navigation', { name: 'Paginación de ingresos' })).toHaveTextContent('Mostrando 1–6 de 8')
+  expect(filas[0]).toHaveTextContent('10:30:00')
+  expect(filas[0]).toHaveTextContent('Salió')
+  expect(filas[1]).toHaveTextContent('Expulsado 09:40')
+  expect(filas[1]).toHaveTextContent('Uso de celular')
+  expect(filas[2]).toHaveTextContent('Trasladado 608 → 690A · 09:20')
+  expect(filas[2]).toHaveTextContent('11:00:00')
+  expect(filas[2]).toHaveTextContent('al cierre')
+  expect(filas[2]).toHaveTextContent('Terminó al cierre')
+  expect(screen.getByRole('navigation', { name: 'Paginación de estudiantes' })).toHaveTextContent('Mostrando 1–6 de 8')
   // Paginación: 6 por página; la 2.ª se pide al servidor.
   fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
   await waitFor(() => expect(api.get).toHaveBeenCalledWith('/examenes/20/estudiantes/recientes', { params: { cantidad: 6, pagina: 1 } }))

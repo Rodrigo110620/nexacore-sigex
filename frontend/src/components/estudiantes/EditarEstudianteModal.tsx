@@ -27,7 +27,7 @@ import {
     validateCodigoSis,
     validateSisDistintoDeCi,
     validateDocumento,
-    validateEmail,
+    validateStudentEmail,
     validateNombre,
     validateTelefono,
 } from '../../utils/validators'
@@ -239,7 +239,8 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         const apellidosError = validateApellidos(form.apellidos)
         const ciError = validateDocumento(form.ci)
         const telefonoError = validateTelefono(form.telefono)
-        const emailError = validateEmail(form.email)
+        // El correo del estudiante es su código SIS @est.umss.edu.
+        const emailError = validateStudentEmail(form.email, form.codigoSis)
 
         if (nombreError) next.nombre = nombreError
         if (apellidosError) next.apellidos = apellidosError

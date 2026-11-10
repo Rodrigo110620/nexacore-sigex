@@ -66,7 +66,7 @@ describe('Inicio del docente', () => {
     const materias = screen.getByRole('region', { name: 'Mis materias' })
     expect(within(materias).getByText('SIS-301 · Grupos G1 y G2')).toBeInTheDocument()
     expect(within(materias).getByText('Asistencia 94 %')).toBeInTheDocument()
-    expect(within(materias).getByRole('link', { name: /Programar el primer examen/ })).toHaveAttribute('href', '/dashboard/examenes?nuevo=1')
+    expect(within(materias).getByRole('link', { name: /Programar el primer examen/ })).toHaveAttribute('href', '/dashboard/examenes?nuevo=1&materia=2&nombre=Bases%20de%20Datos%20I')
     const registros = screen.getByRole('list', { name: 'Registros de mis exámenes' })
     expect(within(registros).getAllByRole('listitem')[0]).toHaveTextContent('Expulsión · Marco Paz Rivas')
     expect(within(registros).getAllByRole('listitem')[1]).toHaveTextContent('Programación Web · Aula 690B')
