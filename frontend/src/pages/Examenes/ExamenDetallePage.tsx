@@ -278,7 +278,9 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
                 {(puedeEditar || puedeReprogramar) && (
-                  <div className="mt-3 flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 min-[960px]:hidden">
+                  <div className="mt-3 min-[960px]:hidden">
+                  {/* Celular: Editar (o Reprogramar) y Descargar PDF lado a lado; Eliminar aparte y discreto, para no tocarlo por error. */}
+                  <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1">
                     {puedeReprogramar ? (
                       <button
                         type="button"
@@ -295,17 +297,7 @@ export default function ExamenDetallePage() {
                         className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
                       >
                         <Pencil size={15} aria-hidden="true" />
-                        Editar Examen
-                      </button>
-                    )}
-                    {isAdmin && !cancelado && (
-                      <button
-                        type="button"
-                        onClick={() => setCancelOpen(true)}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100"
-                      >
-                        <Trash2 size={15} aria-hidden="true" />
-                        Eliminar
+                        Editar
                       </button>
                     )}
                     {puedeExportarActa && (
@@ -320,6 +312,16 @@ export default function ExamenDetallePage() {
                         Descargar PDF
                       </button>
                     )}
+                  </div>
+                  {isAdmin && !cancelado && (
+                    <div className="mt-2 flex justify-end">
+                      <button type="button" onClick={() => setCancelOpen(true)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50">
+                        <Trash2 size={14} aria-hidden="true" />
+                        Eliminar examen
+                      </button>
+                    </div>
+                  )}
                   </div>
                 )}
                 <CronometroExamen examen={examen} className="mt-3" />
