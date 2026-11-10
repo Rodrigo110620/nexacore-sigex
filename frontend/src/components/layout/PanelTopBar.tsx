@@ -156,14 +156,15 @@ export default function PanelTopBar({
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={`Menú de cuenta: ${displayName}`}
-            className={`inline-flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] px-3 text-xs font-bold text-[#0439D9] transition-[background-color,transform] duration-150 ease-out hover:bg-[#E9F1FF] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${docenteInicio ? 'min-[960px]:h-11 min-[960px]:max-w-[18rem] min-[960px]:rounded-xl min-[960px]:bg-[#F8FAFC] min-[960px]:px-2.5' : `sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem] ${minimalControlHeader ? 'sm:h-8' : 'sm:h-11'}`}`}
+            className={`inline-flex h-9 max-w-[12rem] items-center gap-1.5 rounded-full border border-[#D8E3F5] bg-[#F1F6FF] pl-1 pr-3 text-xs sm:gap-2 font-bold text-[#0439D9] transition-[background-color,transform] duration-150 ease-out hover:bg-[#E9F1FF] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] ${docenteInicio ? 'min-[960px]:h-11 min-[960px]:max-w-[18rem] min-[960px]:rounded-xl min-[960px]:bg-[#F8FAFC] min-[960px]:px-2.5' : `sm:max-w-[16rem] sm:rounded-xl sm:bg-[#F8FAFC] sm:px-2.5 md:max-w-[18rem] ${minimalControlHeader ? 'sm:h-8' : 'sm:h-11'}`}`}
           >
             <span
               aria-hidden="true"
-              className={`hidden size-8 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-xs font-bold text-white ${docenteInicio ? 'min-[960px]:inline-flex' : 'sm:inline-flex'}`}
+              className={`inline-flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0439D9] text-[10px] font-bold text-white ${docenteInicio ? 'min-[960px]:size-8 min-[960px]:text-xs' : 'sm:size-8 sm:text-xs'}`}
             >
+              {/* También en celular: la foto (o las iniciales) junto al rol. */}
               <FotoEstudiante fotoUrl={`/auth/me/foto?v=${versionFoto}`} nombre={nombre ?? ''} iniciales={getInitials(nombre)}
-                className="flex size-8 items-center justify-center overflow-hidden rounded-full" />
+                className="flex size-full items-center justify-center overflow-hidden rounded-full" />
             </span>
             <span className={`max-w-16 truncate ${docenteInicio ? 'min-[960px]:hidden' : 'sm:hidden'}`}>{roles.includes('ADMIN') ? 'ADMIN' : roleLabel}</span>
             <span className={`hidden min-w-0 flex-1 text-left ${docenteInicio ? 'min-[960px]:block' : 'sm:block'}`}>
