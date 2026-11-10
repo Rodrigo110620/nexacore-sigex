@@ -1,10 +1,12 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { navItemsFor } from '../navigation/navItems'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
+import useEnVivo from '../../hooks/useEnVivo'
+import { contarPendientesAyuda } from '../../services/mesaAyudaService'
 
 interface PanelLayoutProps {
   children: ReactNode
@@ -34,6 +36,17 @@ export default function PanelLayout({
   }
 
   const navItems = navItemsFor(roles, permisos)
+  // Consultas pendientes de la mesa de ayuda (solo si el menú la muestra): se actualiza en vivo.
+  const conAyuda = navItems.some((i) => i.contador === 'ayuda')
+  const [pendientesAyuda, setPendientesAyuda] = useState(0)
+  const [recargaAyuda, setRecargaAyuda] = useState(0)
+  useEffect(() => {
+    if (!conAyuda) return
+    let vigente = true
+    contarPendientesAyuda().then((n) => { if (vigente) setPendientesAyuda(n) }).catch(() => {})
+    return () => { vigente = false }
+  }, [conAyuda, recargaAyuda])
+  useEnVivo((c) => conAyuda && c.tipo === 'AYUDA', () => setRecargaAyuda((n) => n + 1))
   // Menú contraído: solo íconos. Se recuerda por navegador (si no hay almacenamiento, expandido).
   const [contraido, setContraido] = useState(() => { try { return localStorage.getItem(CLAVE_MENU) === '1' } catch { return false } })
   const alternar = () => setContraido((c) => {
@@ -67,7 +80,7 @@ export default function PanelLayout({
         </button>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-          {navItems.map(({ label, icon: Icon, to, disabled }) =>
+          {navItems.map(({ label, icon: Icon, to, disabled, contador }) =>
             disabled ? (
               <div
                 key={label}
@@ -82,7 +95,7 @@ export default function PanelLayout({
               <NavLink
                 key={label}
                 to={to}
-                title={contraido ? label : undefined}
+                title={contraido ? (contador && pendientesAyuda > 0 ? `${label} (${pendientesAyuda} pendientes)` : label) : undefined}
                 className={({ isActive }) =>
                   `${item} transition-[background-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
                     isActive
@@ -91,8 +104,15 @@ export default function PanelLayout({
                   }`
                 }
               >
-                <Icon size={18} className="shrink-0" aria-hidden="true" />
-                <span className={contraido ? 'sr-only' : 'truncate'}>{label}</span>
+                <span className="relative shrink-0">
+                  <Icon size={18} aria-hidden="true" />
+                  {contador && pendientesAyuda > 0 && contraido && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-[#F87171] ring-2 ring-[#0B2FB8]" aria-hidden="true" />}
+                </span>
+                <span className={contraido ? 'sr-only' : 'min-w-0 flex-1 truncate'}>{label}</span>
+                {contador && pendientesAyuda > 0 && (
+                  <span className={contraido ? 'sr-only' : 'ml-auto shrink-0 rounded-full bg-[#F87171] px-1.5 text-[11px] font-bold leading-5 text-white'}
+                    aria-label={`${pendientesAyuda} pendientes`}>{pendientesAyuda}</span>
+                )}
               </NavLink>
             )
           )}

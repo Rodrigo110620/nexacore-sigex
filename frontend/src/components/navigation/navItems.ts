@@ -1,4 +1,4 @@
-import { BarChart3, BookCheck, ClipboardCheck, GraduationCap, LayoutGrid, Settings, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookCheck, ClipboardCheck, GraduationCap, LayoutGrid, LifeBuoy, Settings, Users, type LucideIcon } from 'lucide-react'
 import { tienePermiso } from '../../utils/permisos'
 
 export interface NavItem {
@@ -8,11 +8,13 @@ export interface NavItem {
   disabled?: boolean
   /** Solo en el menú lateral; en el celular va en el menú del usuario (la barra inferior no da para más). */
   soloEscritorio?: boolean
+  /** Muestra al lado cuántas cosas hay pendientes (p. ej. las consultas sin atender de la mesa de ayuda). */
+  contador?: 'ayuda'
 }
 
 /**
  * Menú según los permisos del usuario (sidebar y barra inferior móvil). Con los roles del sistema:
- * - ADMIN: Inicio, Exámenes, Control, Reportes, Estudiantes, Usuarios y Configuración.
+ * - ADMIN: Inicio, Exámenes, Control, Reportes, Estudiantes, Usuarios, Mesa de ayuda y Configuración.
  * - DOCENTE: Inicio, Exámenes, Control y Estudiantes.
  * - CONTROL: Inicio, Control y Estudiantes.
  * Un rol extra (p. ej. AUXILIAR) ve lo que permitan sus permisos.
@@ -38,7 +40,11 @@ export function navItemsFor(roles: string[], permisos?: string[] | null): NavIte
   // El CONTROL es operativo: lo suyo lo ve en su inicio y en la información de ingreso del examen, no en Reportes.
   if (puede('REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')) items.push({ label: 'Reportes', to: '/dashboard/reportes', icon: BarChart3 })
   if (puede('ESTUDIANTES_VER')) items.push({ label: 'Estudiantes', to: '/dashboard/estudiantes', icon: GraduationCap })
-  if (puede('USUARIOS_GESTIONAR')) items.push({ label: 'Usuarios', to: '/dashboard/usuarios', icon: Users })
+  if (puede('USUARIOS_GESTIONAR')) {
+    items.push({ label: 'Usuarios', to: '/dashboard/usuarios', icon: Users })
+    // En el celular el ADMIN la abre desde el menú de la cuenta.
+    items.push({ label: 'Mesa de ayuda', to: '/dashboard/mesa-ayuda', icon: LifeBuoy, soloEscritorio: true, contador: 'ayuda' })
+  }
   if (puede('ROLES_GESTIONAR')) {
     items.push({ label: 'Configuración', to: '/dashboard/configuracion', icon: Settings, soloEscritorio: true })
   }

@@ -135,6 +135,38 @@ public class EmailService {
         }
     }
 
+    /** Aviso al ADMIN de una consulta nueva en la mesa de ayuda, con el enlace a su bandeja. */
+    public void enviarAvisoAyudaAdmin(String destinatario, String admin, String nombre, String correo, String tema, String mensaje) {
+        if (!enabled || !StringUtils.hasText(username)) {
+            log.warn("Aviso de la mesa de ayuda no enviado (MAIL_ENABLED=false o MAIL_USERNAME vacío) para {}", destinatario);
+            return;
+        }
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(destinatario);
+            helper.setReplyTo(correo);
+            helper.setSubject("SIGEX — Nueva consulta en la mesa de ayuda: " + tema);
+            String enlace = frontendUrl + "/dashboard/mesa-ayuda";
+            helper.setText("<html><body style=\"font-family:Arial,sans-serif;color:#011140\"><p>Hola " + escapar(admin) + ",</p>"
+                    + "<p>Llegó una consulta nueva a la mesa de ayuda:</p>"
+                    + "<table style=\"border-collapse:collapse;font-size:14px\">"
+                    + "<tr><td style=\"padding:4px 12px 4px 0;color:#627A9B\">Tema</td><td><b>" + escapar(tema) + "</b></td></tr>"
+                    + "<tr><td style=\"padding:4px 12px 4px 0;color:#627A9B\">De</td><td>" + escapar(nombre) + " &lt;" + escapar(correo) + "&gt;</td></tr>"
+                    + "</table>"
+                    + "<p style=\"background:#F6F8FC;border-radius:8px;padding:12px\">" + escapar(mensaje).replace("\n", "<br>") + "</p>"
+                    + "<p><a href=\"" + escapar(enlace) + "\" style=\"display:inline-block;background:#0439D9;color:#fff;padding:10px 18px;"
+                    + "border-radius:8px;text-decoration:none;font-weight:bold\">Abrir la mesa de ayuda</a></p>"
+                    + "<p style=\"color:#627A9B;font-size:13px\">Respóndela desde SIGEX para que quede registrada como atendida.</p>"
+                    + "</body></html>", true);
+            mailSender.send(mimeMessage);
+            log.info("Aviso de la mesa de ayuda enviado a {}", destinatario);
+        } catch (MessagingException | MailException ex) {
+            log.error("No se pudo enviar el aviso de la mesa de ayuda a {}: {}", destinatario, ex.getMessage());
+        }
+    }
+
     /** Respuesta de la mesa de ayuda a quien consultó (con su consulta citada). */
     public void enviarRespuestaAyuda(String destinatario, String nombre, String consulta, String respuesta) {
         if (!enabled || !StringUtils.hasText(username)) {

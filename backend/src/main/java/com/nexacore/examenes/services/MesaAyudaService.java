@@ -19,6 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -74,8 +78,31 @@ public class MesaAyudaService {
         repository.save(s);
         notificacionService.publicar(Notificacion.AYUDA, "Nueva consulta en la mesa de ayuda",
                 TIPOS.getOrDefault(s.getTipo(), s.getTipo()) + " · " + s.getNombre(), null, null,
-                "/dashboard/configuracion#ayuda", conSesion ? authentication.getName() : "");
+                "/dashboard/mesa-ayuda", conSesion ? authentication.getName() : "");
         notificacionService.emitirCambio("AYUDA", null, null);
+        avisarPorCorreo(s);
+    }
+
+    /**
+     * Correo a cada ADMIN activo. Se envía cuando la consulta ya quedó guardada (si falla, no avisa) y en segundo
+     * plano: quien consulta no espera al servidor de correo.
+     */
+    private void avisarPorCorreo(SolicitudAyuda s) {
+        List<Usuario> admins = usuarioRepository.adminsActivos();
+        if (admins.isEmpty()) return;
+        String tema = TIPOS.getOrDefault(s.getTipo(), s.getTipo());
+        Runnable enviar = () -> CompletableFuture.runAsync(() -> admins.forEach(a -> emailService.enviarAvisoAyudaAdmin(
+                a.getEmail(), a.getNombre(), s.getNombre(), s.getCorreo(), tema, s.getMensaje())));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    enviar.run();
+                }
+            });
+        } else {
+            enviar.run();
+        }
     }
 
     @Transactional(readOnly = true)

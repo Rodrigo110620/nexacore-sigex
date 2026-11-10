@@ -81,23 +81,40 @@ describe('Mesa de ayuda', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Espera unos minutos')
   })
 
-  it('el ADMIN responde una consulta pendiente y se recarga la bandeja', async () => {
+  it('bandeja del ADMIN: lista a la izquierda, detalle con la respuesta y se recarga al atender', async () => {
     const consulta = {
       id: 5, nombre: 'Ana Pérez', correo: 'ana@est.umss.edu', tipo: 'ACTIVACION', mensaje: 'No me llega el código.',
       origen: 'LOGIN' as const, rol: null, estado: 'PENDIENTE' as const, creadaEn: '2026-11-10T10:00:00',
       respuesta: null, atendidaPor: null, atendidaEn: null,
     }
-    vi.mocked(listarSolicitudesAyuda).mockResolvedValue({ contenido: [consulta], pagina: 0, tamano: 10, totalRegistros: 1, totalPaginas: 1 })
+    const otra = { ...consulta, id: 6, nombre: 'Luis Rojas', correo: 'luis@umss.edu', tipo: 'QR', mensaje: 'Necesito un QR nuevo.', origen: 'PANEL' as const, rol: 'DOCENTE' }
+    vi.mocked(listarSolicitudesAyuda).mockResolvedValue({ contenido: [consulta, otra], pagina: 0, tamano: 20, totalRegistros: 2, totalPaginas: 1 })
     vi.mocked(atenderSolicitudAyuda).mockResolvedValue({ ...consulta, estado: 'ATENDIDA' })
     const onCambio = vi.fn()
     render(<BandejaAyuda onCambio={onCambio} />)
-    expect(await screen.findByText('No me llega el código.')).toBeInTheDocument()
-    expect(screen.getByText(/Desde el ingreso/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Marcar como atendida' })).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText(/Respuesta/), { target: { value: 'Ya te reenviamos el código.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Responder y marcar atendida' }))
+    const detalle = await screen.findByRole('complementary', { name: 'Detalle de la consulta' })
+    // La primera queda elegida: su detalle a la derecha.
+    expect(within(detalle).getByText('No me llega el código.')).toBeInTheDocument()
+    expect(within(detalle).getByText(/Desde el ingreso/)).toBeInTheDocument()
+    // Buscar filtra la lista.
+    fireEvent.change(screen.getByLabelText('Buscar consulta'), { target: { value: 'qr nuevo' } })
+    expect(screen.queryByRole('button', { name: /Ana Pérez/ })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Buscar consulta'), { target: { value: '' } })
+    fireEvent.change(within(detalle).getByLabelText('Tu respuesta'), { target: { value: 'Ya te reenviamos el código.' } })
+    fireEvent.click(within(detalle).getByRole('button', { name: 'Responder y marcar atendida' }))
     await waitFor(() => expect(atenderSolicitudAyuda).toHaveBeenCalledWith(5, 'Ya te reenviamos el código.'))
     await waitFor(() => expect(onCambio).toHaveBeenCalled())
-    expect(listarSolicitudesAyuda).toHaveBeenCalledWith('PENDIENTE', 0)
+    expect(listarSolicitudesAyuda).toHaveBeenCalledWith('PENDIENTE', 0, 20)
+  })
+})
+
+describe('Mesa de ayuda en el menú', () => {
+  it('el ADMIN la tiene en el menú lateral (solo escritorio, con contador); el docente no', async () => {
+    const { navItemsFor } = await import('../components/navigation/navItems')
+    const admin = navItemsFor(['ADMIN'])
+    const ayuda = admin.find((i) => i.label === 'Mesa de ayuda')
+    expect(ayuda).toMatchObject({ to: '/dashboard/mesa-ayuda', soloEscritorio: true, contador: 'ayuda' })
+    expect(admin.map((i) => i.label).indexOf('Mesa de ayuda')).toBe(admin.map((i) => i.label).indexOf('Usuarios') + 1)
+    expect(navItemsFor(['DOCENTE']).some((i) => i.label === 'Mesa de ayuda')).toBe(false)
   })
 })

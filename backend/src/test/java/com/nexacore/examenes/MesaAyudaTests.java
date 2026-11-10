@@ -64,6 +64,50 @@ class MesaAyudaTests {
         assertThat(avisos).isEqualTo(1);
     }
 
+    @Autowired com.nexacore.examenes.repositories.UsuarioRepository usuarioRepository;
+    @Autowired com.nexacore.examenes.repositories.RolRepository rolRepository;
+    @Autowired com.nexacore.examenes.repositories.UsuarioRolRepository usuarioRolRepository;
+    @Autowired org.springframework.transaction.support.TransactionTemplate transaccion;
+
+    /** Fuera de la transacción de la prueba: el aviso por correo sale al confirmarse la consulta. */
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void cadaAdminActivoRecibeElAvisoPorCorreo() throws Exception {
+        Integer[] ids = transaccion.execute(estado -> {
+            var rol = rolRepository.findByNombre("ADMIN").orElseGet(() -> {
+                var r = new com.nexacore.examenes.models.Rol();
+                r.setNombre("ADMIN");
+                return rolRepository.save(r);
+            });
+            var admin = new com.nexacore.examenes.models.Usuario();
+            admin.setNombre("Carla"); admin.setApellidos("Mendez"); admin.setCi("9123456");
+            admin.setEmail("qa.admin.ayuda@umss.edu.bo"); admin.setPassword("x"); admin.setEstado("activo");
+            admin = usuarioRepository.save(admin);
+            var ur = new com.nexacore.examenes.models.UsuarioRol();
+            var id = new com.nexacore.examenes.models.UsuarioRolId();
+            id.setIdUsuario(admin.getId());
+            id.setIdRol(rol.getId());
+            ur.setId(id);
+            ur.setIdUsuario(admin); ur.setIdRol(rol);
+            usuarioRolRepository.save(ur);
+            return new Integer[]{admin.getId()};
+        });
+        try {
+            mockMvc.perform(post("/ayuda/solicitar").contentType("application/json").content(CONSULTA)).andExpect(status().isCreated());
+            org.mockito.Mockito.verify(emailService, org.mockito.Mockito.timeout(3000)).enviarAvisoAyudaAdmin(
+                    eq("qa.admin.ayuda@umss.edu.bo"), eq("Carla"), eq("Ana Pérez"), eq("ana.perez@est.umss.edu"),
+                    eq("Activar mi cuenta de estudiante"), contains("código"));
+        } finally {
+            transaccion.executeWithoutResult(estado -> {
+                jdbc.update("DELETE FROM notificacion_leida WHERE id_notificacion IN (SELECT id_notificacion FROM notificacion WHERE tipo = 'AYUDA')");
+                jdbc.update("DELETE FROM notificacion WHERE tipo = 'AYUDA'");
+                repository.deleteAll();
+                jdbc.update("DELETE FROM usuario_rol WHERE id_usuario = ?", ids[0]);
+                jdbc.update("DELETE FROM usuario WHERE id_usuario = ?", ids[0]);
+            });
+        }
+    }
+
     @Test
     void conSesionGuardaElRolDeQuienEscribe() throws Exception {
         mockMvc.perform(post("/ayuda/solicitar").with(user("docente@umss.edu").roles("DOCENTE"))

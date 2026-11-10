@@ -65,7 +65,7 @@ export default function PanelTopBar({
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
         : isConfiguracion
-          ? 'Roles, permisos, respaldo, historial de operaciones y mesa de ayuda.'
+          ? 'Roles, permisos, respaldo e historial de operaciones.'
           : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
@@ -137,6 +137,10 @@ export default function PanelTopBar({
             ) : isConfiguracion ? (
               <span className={ICON_TILE}>
                 <Settings size={24} aria-hidden="true" />
+              </span>
+            ) : pathname.startsWith('/dashboard/mesa-ayuda') ? (
+              <span className={ICON_TILE}>
+                <LifeBuoy size={24} aria-hidden="true" />
               </span>
             ) : (
               <img src="/gestion-usuarios-icon.png" alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
@@ -219,15 +223,27 @@ export default function PanelTopBar({
                   <span className="truncate">Configuración</span>
                 </Link>
               )}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { setOpen(false); setAyuda(true) }}
-                className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#011140] hover:bg-[#F1F6FF] focus-visible:bg-[#F1F6FF] focus-visible:outline-none"
-              >
-                <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
-                <span className="truncate">Mesa de ayuda</span>
-              </button>
+              {tienePermiso(auth, 'USUARIOS_GESTIONAR') ? (
+                <Link
+                  role="menuitem"
+                  to="/dashboard/mesa-ayuda"
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-11 w-full items-center gap-2.5 px-3 text-sm font-medium text-[#011140] hover:bg-[#F1F6FF] focus-visible:bg-[#F1F6FF] focus-visible:outline-none"
+                >
+                  <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                  <span className="truncate">Mesa de ayuda</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setOpen(false); setAyuda(true) }}
+                  className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#011140] hover:bg-[#F1F6FF] focus-visible:bg-[#F1F6FF] focus-visible:outline-none"
+                >
+                  <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                  <span className="truncate">Mesa de ayuda</span>
+                </button>
+              )}
               <button
                 type="button"
                 role="menuitem"
