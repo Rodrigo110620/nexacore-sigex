@@ -78,7 +78,8 @@ describe('Configuración → Roles y permisos', () => {
 describe('permisos en el frontend', () => {
   it('un rol extra ve en el menú solo lo que permiten sus permisos', () => {
     const items = navItemsFor(['AUXILIAR'], ['CONTROL_INGRESO_TODOS', 'ESTUDIANTES_VER'])
-    expect(items.map((i) => i.label)).toEqual(['Inicio', 'Control', 'Reportes', 'Estudiantes'])
+    // Controlar todos los exámenes no da Reportes: eso es de quien supervisa (REPORTES_VER) o del docente.
+    expect(items.map((i) => i.label)).toEqual(['Inicio', 'Control', 'Estudiantes'])
   })
   it('sin permisos del servidor se calculan con los roles del sistema, como siempre', () => {
     expect(tienePermiso({ roles: ['DOCENTE'] }, 'EXAMENES_GESTIONAR_PROPIOS')).toBe(true)

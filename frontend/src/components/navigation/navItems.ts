@@ -35,7 +35,8 @@ export function navItemsFor(roles: string[], permisos?: string[] | null): NavIte
     items.push({ label: 'Control', to: '/dashboard/control', icon: ClipboardCheck })
   }
   // El ADMIN ve los reportes de todos; el DOCENTE y el CONTROL, solo de sus exámenes (los suyos o asignados).
-  if (puede('REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')) items.push({ label: 'Reportes', to: '/dashboard/reportes', icon: BarChart3 })
+  // El CONTROL es operativo: lo suyo lo ve en su inicio y en la información de ingreso del examen, no en Reportes.
+  if (puede('REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')) items.push({ label: 'Reportes', to: '/dashboard/reportes', icon: BarChart3 })
   if (puede('ESTUDIANTES_VER')) items.push({ label: 'Estudiantes', to: '/dashboard/estudiantes', icon: GraduationCap })
   if (puede('USUARIOS_GESTIONAR')) items.push({ label: 'Usuarios', to: '/dashboard/usuarios', icon: Users })
   if (puede('ROLES_GESTIONAR')) {

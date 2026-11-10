@@ -52,7 +52,7 @@ public class IntentoIngresoController {
      * DASH-06 / HU#7: reporte de intentos incorrectos de todos los exámenes (o de uno). Con REPORTES_VER
      * (ADMIN), de todos; el DOCENTE y el CONTROL, solo de sus exámenes (los suyos o los asignados).
      */
-    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')"
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')"
             + " and (#idExamen == null or @examenAccesoService.veTodosLosReportes(authentication) or @examenAccesoService.esMio(#idExamen, authentication))")
     @GetMapping("/reporte")
     public ResponseEntity<com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse>> reporte(
