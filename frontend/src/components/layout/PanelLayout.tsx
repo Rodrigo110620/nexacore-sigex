@@ -75,7 +75,7 @@ export default function PanelLayout({
       {/* Sidebar fijo al alto del viewport; Cerrar sesión siempre visible */}
       <aside
         aria-label="Menú principal"
-        className={`relative z-40 hidden h-full shrink-0 transition-[width] duration-200 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'} ${
+        className={`relative z-40 hidden h-full shrink-0 transition-[width] duration-200 ${compactDesktop ? 'min-[960px]:flex' : 'lg:flex'} ${
           contraido ? 'w-[72px]' : `xl:w-56 ${compactDesktop ? 'w-44 lg:w-52' : 'w-52'}`}`}
       >
         <div ref={panel}
