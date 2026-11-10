@@ -37,7 +37,7 @@ describe('Historial de operaciones del ADMIN', () => {
 
     expect(await screen.findByRole('heading', { name: 'Historial de operaciones' })).toBeInTheDocument()
     expect(screen.getByLabelText('Buscar usuario o detalle')).toBeInTheDocument()
-    expect(screen.getByText('Mostrando 1–8 de 10 operaciones')).toBeInTheDocument()
+    expect(await screen.findByText('Mostrando 1–8 de 10 operaciones')).toBeInTheDocument()
 
     const detalle = screen.getByRole('complementary', { name: 'Detalle de la operación' })
     expect(within(detalle).getByText('Editar')).toBeInTheDocument()
