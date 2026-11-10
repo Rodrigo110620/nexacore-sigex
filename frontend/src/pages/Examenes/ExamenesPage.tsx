@@ -139,8 +139,8 @@ export default function ExamenesPage() {
             'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)',
         }}
       >
-        <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-6 sm:py-3 min-[960px]:px-4 xl:px-10">
-          <div className="mx-auto max-w-7xl">
+        <section aria-label="Gestión de exámenes" className="bg-transparent px-3 py-4 sm:px-5 sm:py-3">
+          <div className="w-full">
             
             {!isControlView && (
               <div className="mb-4 border-b border-[#E6EAF0] pb-3 min-[960px]:hidden">

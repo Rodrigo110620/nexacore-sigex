@@ -210,8 +210,8 @@ export default function ReportesPage() {
         className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
         style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
       >
-        <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
-          <div className="mx-auto max-w-7xl">
+        <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-5">
+          <div className="w-full">
             <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">

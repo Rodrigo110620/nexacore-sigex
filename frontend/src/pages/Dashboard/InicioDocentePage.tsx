@@ -84,7 +84,7 @@ export default function InicioDocentePage() {
   return (
     <PanelLayout compactDesktop topBarVariant="docenteInicio" title="MI PANEL DOCENTE" description="Tus materias, exámenes y estudiantes">
       <div className="min-h-full bg-[#f2f5fa] text-[#011140]">
-        <div className="mx-auto grid max-w-[1500px] gap-[18px] px-[18px] py-5 pb-[calc(4.75rem+env(safe-area-inset-bottom))] min-[960px]:px-[30px] min-[960px]:pb-6">
+        <div className="grid w-full gap-[18px] px-4 py-5 pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:px-5 min-[960px]:pb-6">
           {cargando ? (
             <div role="status" className={`${panel} flex min-h-40 items-center justify-center gap-2 text-sm text-[#42618e]`}>
               <LoaderCircle className="animate-spin text-[#0439D9]" size={20} aria-hidden="true" /> Cargando tu panel…

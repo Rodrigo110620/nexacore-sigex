@@ -182,7 +182,7 @@ export default function InformacionIngresoPage() {
       topBarVariant="controlMinimal"
       locationLabel={ubicacion}
     >
-      <div className="mx-auto w-full max-w-6xl p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 md:p-6 md:pb-[calc(5rem+env(safe-area-inset-bottom))] min-[960px]:pb-6">
+      <div className="w-full p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 md:py-6 min-[960px]:pb-6">
         <Link
           to={`/dashboard/control/${idExamen}`}
           className="inline-flex items-center gap-1 text-sm font-semibold text-[#0439D9]"

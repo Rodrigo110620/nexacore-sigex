@@ -192,7 +192,7 @@ export default function ExamenDetallePage() {
             'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)',
         }}
       >
-        <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+        <div className="w-full px-3 py-4 sm:px-5 sm:py-6">
           <Link
             to="/dashboard/examenes"
             className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#0439D9] hover:text-[#032db0]"

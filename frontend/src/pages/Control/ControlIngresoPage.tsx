@@ -277,7 +277,7 @@ export default function ControlIngresoPage() {
   }, [result, autoVolver, nav, idExamen])
 
   return <div className="accs02-layout"><PanelLayout compactDesktop title="Autorizar ingreso" description="" topBarVariant="control">
-    <main className="control-screen min-h-full bg-[#F7F8FA] px-3 pb-28 pt-4 sm:px-6 min-[960px]:pb-8"><div className="mx-auto max-w-6xl">
+    <main className="control-screen min-h-full bg-[#F7F8FA] px-3 pb-28 pt-4 sm:px-6 min-[960px]:pb-8"><div className="w-full">
       <button onClick={() => nav(`/dashboard/control/${idExamen}/identificar`)} className="mb-3 inline-flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-[#0439D9]"><ChevronLeft size={15}/>Volver a identificar estudiante</button>
       {loading && <div role="status" className={`${card} p-12 text-center`}><LoaderCircle className="mx-auto animate-spin text-[#0439D9]"/>Cargando...</div>}
       {loadError && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><p>{loadError}</p><button type="button" onClick={reintentarCarga} className="mt-2 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-semibold text-red-700">Reintentar</button></div>}

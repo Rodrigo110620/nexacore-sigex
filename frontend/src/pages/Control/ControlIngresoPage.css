@@ -1,6 +1,6 @@
 .accs02-layout { height: 100%; color: #20242a; }
 .control-screen { padding: 14px 20px 32px; background: #fafafa; }
-.control-screen > div { max-width: 1080px; margin: 0 auto; }
+.control-screen > div { width: 100%; }
 .control-sheet { overflow: hidden; border-radius: 12px; background: white; box-shadow: 0 2px 3px #01114020; }
 .control-sheet > * + * { margin-top: 0; }
 .control-exam-header { background: #e8efff; border-bottom: 1px solid #e4e4e4; }
