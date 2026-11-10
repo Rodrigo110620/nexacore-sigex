@@ -97,6 +97,23 @@ public class UsuarioController {
             @RequestParam(required = false) String estado) {
         return ResponseEntity.ok(usuarioService.listar(page, size, search, rol, estado));
     }
+    @Operation(summary = "Foto de perfil de un usuario", description = "La foto opcional del personal (V54), para mostrarla en el listado. 404 si no tiene. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<byte[]> foto(@PathVariable Integer id) {
+        return usuarioFotoService.obtener(id)
+                .map(f -> ResponseEntity.ok()
+                        .contentType(org.springframework.http.MediaType.parseMediaType(f.tipoContenido()))
+                        .cacheControl(org.springframework.http.CacheControl.noStore())
+                        .header("X-Content-Type-Options", "nosniff")
+                        .body(f.contenido()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Foto de perfil del personal (V54); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
+
     /**
      * Lista todos los roles disponibles para el selector del formulario.
      * Solo accesible para administradores.
