@@ -213,12 +213,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   return (
     <>
       <table className="hidden w-full text-left md:table">
-        <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">
+        <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wide text-[#627A9B] [&_th]:whitespace-nowrap">
           <tr>
             <th scope="col" className="px-4 py-3 font-semibold">Estudiante</th>
-            <th scope="col" className="px-4 py-3 font-semibold">Carnet / CI</th>
-            <th scope="col" className="px-4 py-3 font-semibold">Carrera</th>
-            <th scope="col" className="px-4 py-3 font-semibold">Estado de ingreso</th>
+            <th scope="col" className="px-4 py-3 font-semibold">CI</th>
+            <th scope="col" className="hidden px-4 py-3 font-semibold xl:table-cell">Carrera</th>
+            <th scope="col" className="px-4 py-3 font-semibold">Estado</th>
             <th scope="col" className="px-4 py-3 font-semibold text-left">Aula</th>
             <th scope="col" className="px-4 py-3"><span className="sr-only">Acciones</span></th>
           </tr>
@@ -230,10 +230,12 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
               <tr key={estudiante.idEstudiante} data-foco={resaltar === estudiante.idEstudiante ? 'true' : undefined}
                 className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'} ${resaltar === estudiante.idEstudiante ? 'bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : ''}`}>
                 <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado}>
+                  {/* En laptop la carrera va bajo el nombre (su columna aparece desde xl) para no apretar la tabla. */}
+                  {estudiante.carrera && <p className="truncate text-[11px] text-[#627A9B] xl:hidden">{estudiante.carrera}</p>}
                   {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </Identidad></td>
                 <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
-                <td className="px-4 py-3 text-sm text-[#011140]">{estudiante.carrera ?? '—'}</td>
+                <td className="hidden px-4 py-3 text-sm text-[#011140] xl:table-cell">{estudiante.carrera ?? '—'}</td>
                 <td className="px-4 py-3">
                   <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
                   {estudiante.ingresado && estudiante.trasladadoDesde && (
