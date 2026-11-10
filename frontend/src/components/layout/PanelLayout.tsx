@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { navItemsFor } from '../navigation/navItems'
+import GrupoMenu from '../navigation/GrupoMenu'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
 import useEnVivo from '../../hooks/useEnVivo'
@@ -80,8 +81,10 @@ export default function PanelLayout({
         </button>
 
         <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-          {navItems.map(({ label, icon: Icon, to, disabled, contador }) =>
-            disabled ? (
+          {navItems.map(({ label, icon: Icon, to, disabled, contador, hijos, ...resto }) =>
+            hijos ? (
+              <GrupoMenu key={label} item={{ label, icon: Icon, to, hijos, ...resto }} contraido={contraido} clase={item} />
+            ) : disabled ? (
               <div
                 key={label}
                 aria-disabled="true"

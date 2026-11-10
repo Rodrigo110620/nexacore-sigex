@@ -1,4 +1,4 @@
-import { BarChart3, BookCheck, ClipboardCheck, GraduationCap, LayoutGrid, LifeBuoy, Settings, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookCheck, ClipboardCheck, DatabaseBackup, GraduationCap, History, LayoutGrid, LifeBuoy, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react'
 import { tienePermiso } from '../../utils/permisos'
 
 export interface NavItem {
@@ -10,6 +10,8 @@ export interface NavItem {
   soloEscritorio?: boolean
   /** Muestra al lado cuántas cosas hay pendientes (p. ej. las consultas sin atender de la mesa de ayuda). */
   contador?: 'ayuda'
+  /** Subopciones que se despliegan en el menú lateral (cada una con su dirección, p. ej. con #historial). */
+  hijos?: { label: string; to: string; icon: LucideIcon; /** Nombre completo si el del menú es corto. */ titulo?: string }[]
 }
 
 /**
@@ -46,7 +48,13 @@ export function navItemsFor(roles: string[], permisos?: string[] | null): NavIte
     items.push({ label: 'Mesa de ayuda', to: '/dashboard/mesa-ayuda', icon: LifeBuoy, soloEscritorio: true, contador: 'ayuda' })
   }
   if (puede('ROLES_GESTIONAR')) {
-    items.push({ label: 'Configuración', to: '/dashboard/configuracion', icon: Settings, soloEscritorio: true })
+    // El respaldo y el historial de operaciones son solo del ADMIN (un rol extra con ROLES_GESTIONAR ve solo los roles).
+    const hijos: NonNullable<NavItem['hijos']> = [{ label: 'Roles y permisos', to: '/dashboard/configuracion', icon: ShieldCheck }]
+    if (roles.includes('ADMIN')) {
+      hijos.push({ label: 'Respaldo', to: '/dashboard/configuracion#respaldo', icon: DatabaseBackup },
+        { label: 'Historial', to: '/dashboard/configuracion#historial', icon: History, titulo: 'Historial de operaciones' })
+    }
+    items.push({ label: 'Configuración', to: '/dashboard/configuracion', icon: Settings, soloEscritorio: true, ...(hijos.length > 1 ? { hijos } : {}) })
   }
   return items
 }

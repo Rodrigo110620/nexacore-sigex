@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -221,19 +221,11 @@ export default function ConfiguracionPage() {
   const esAdmin = useAuth().roles.includes('ADMIN')
   type Pestana = 'roles' | 'respaldo' | 'historial'
   const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : 'roles'
-  const [pestana, setPestana] = useState<Pestana>(() => deHash(window.location.hash))
-  // Un enlace con #historial o #respaldo abre esa pestaña también con Configuración ya abierta.
+  // La pestaña sale de la dirección (#respaldo, #historial): así el menú lateral y las pestañas siempre coinciden.
   const { hash } = useLocation()
-  const [hashVisto, setHashVisto] = useState(hash)
-  if (hash !== hashVisto) {
-    setHashVisto(hash)
-    setPestana(deHash(hash))
-  }
-  const cambiarPestana = (id: Pestana) => {
-    setPestana(id)
-    const hash = id === 'roles' ? '' : `#${id}`
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
-  }
+  const navigate = useNavigate()
+  const pestana = deHash(hash)
+  const cambiarPestana = (id: Pestana) => navigate({ hash: id === 'roles' ? '' : `#${id}` }, { replace: true })
   const descripcionDe = useMemo(() => new Map(catalogo.map((p) => [p.codigo, p.descripcion])), [catalogo])
 
   const borrar = async (rol: RolConPermisos) => {
