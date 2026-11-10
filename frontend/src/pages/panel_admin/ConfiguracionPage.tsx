@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Check, DatabaseBackup, History, LifeBuoy, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import BandejaAyuda from '../../components/ayuda/BandejaAyuda'
+import { contarPendientesAyuda } from '../../services/mesaAyudaService'
 import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -218,12 +221,25 @@ export default function ConfiguracionPage() {
   }, [recarga])
 
   const esAdmin = useAuth().roles.includes('ADMIN')
-  const [pestana, setPestana] = useState<'roles' | 'respaldo' | 'historial'>(() => {
-    if (window.location.hash === '#respaldo') return 'respaldo'
-    if (window.location.hash === '#historial') return 'historial'
-    return 'roles'
-  })
-  const cambiarPestana = (id: 'roles' | 'respaldo' | 'historial') => {
+  type Pestana = 'roles' | 'respaldo' | 'historial' | 'ayuda'
+  const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : hash === '#ayuda' ? 'ayuda' : 'roles'
+  const [pestana, setPestana] = useState<Pestana>(() => deHash(window.location.hash))
+  // Una notificación de la mesa de ayuda lleva a #ayuda también con Configuración ya abierta.
+  const { hash } = useLocation()
+  const [hashVisto, setHashVisto] = useState(hash)
+  if (hash !== hashVisto) {
+    setHashVisto(hash)
+    setPestana(deHash(hash))
+  }
+  const [pendientesAyuda, setPendientesAyuda] = useState(0)
+  const [recargaAyuda, setRecargaAyuda] = useState(0)
+  useEffect(() => {
+    if (!esAdmin) return
+    let vigente = true
+    contarPendientesAyuda().then((n) => { if (vigente) setPendientesAyuda(n) }).catch(() => {})
+    return () => { vigente = false }
+  }, [esAdmin, recargaAyuda])
+  const cambiarPestana = (id: Pestana) => {
     setPestana(id)
     const hash = id === 'roles' ? '' : `#${id}`
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
@@ -251,16 +267,19 @@ export default function ConfiguracionPage() {
             {esAdmin && (
               <div role="tablist" aria-label="Secciones de Configuración"
                 className={`mb-4 gap-2 overflow-x-auto ${pestana === 'historial' ? 'hidden min-[960px]:flex' : 'flex'}`}>
-                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History]] as const).map(([id, texto, Icono]) => (
+                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History], ['ayuda', 'Mesa de ayuda', LifeBuoy]] as const).map(([id, texto, Icono]) => (
                   <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => cambiarPestana(id)}
                     className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
                       pestana === id ? 'bg-[#0439D9] text-white shadow-sm' : 'border border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F1F6FF]'}`}>
                     <Icono size={16} aria-hidden="true" /> {texto}
+                    {id === 'ayuda' && pendientesAyuda > 0 && <span className={`ml-0.5 rounded-full px-1.5 text-[11px] font-bold ${pestana === id ? 'bg-white text-[#0439D9]' : 'bg-[#DC2626] text-white'}`} aria-label={`${pendientesAyuda} pendientes`}>{pendientesAyuda}</span>}
                   </button>
                 ))}
               </div>
             )}
-            {esAdmin && pestana === 'historial' ? (
+            {esAdmin && pestana === 'ayuda' ? (
+              <BandejaAyuda onCambio={() => setRecargaAyuda((n) => n + 1)} />
+            ) : esAdmin && pestana === 'historial' ? (
               <HistorialOperaciones />
             ) : esAdmin && pestana === 'respaldo' ? (
               // El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles.

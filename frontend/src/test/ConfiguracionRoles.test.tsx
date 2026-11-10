@@ -39,7 +39,7 @@ describe('Configuración → Roles y permisos', () => {
   })
 
   it('IMP-10: el ADMIN pasa a la pestaña Respaldo', async () => {
-    render(<ConfiguracionPage />)
+    render(<MemoryRouter><ConfiguracionPage /></MemoryRouter>)
     expect(await screen.findByRole('tab', { name: /Roles y permisos/, selected: true })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: /Respaldo/ }))
     expect(window.location.hash).toBe('#respaldo')

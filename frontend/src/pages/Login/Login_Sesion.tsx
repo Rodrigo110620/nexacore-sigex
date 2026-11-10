@@ -1,4 +1,5 @@
-import { ArrowRight, CircleAlert, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { ArrowRight, CircleAlert, Eye, EyeOff, LifeBuoy, LockKeyhole } from 'lucide-react';
+import MesaAyudaModal from '../../components/ayuda/MesaAyudaModal';
 import { validateEmailFormat, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +23,7 @@ function tituloError(mensaje: string): string {
 }
 
 export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
+    const [ayuda, setAyuda] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
@@ -87,6 +89,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
         : 'h-full w-full rounded-md border border-t-4 border-t-[#0439D9] bg-white px-8 py-10 shadow-lg shadow-[#92aad2] xl:px-12 xl:py-12';
 
     return (
+        <>
         <form onSubmit={handleSubmit} noValidate className={formClass}>
             <div className={`mb-2 flex flex-col gap-1 ${isMobile ? 'text-center' : 'text-left'}`}>
                 <h1 className="mt-1 text-2xl font-extrabold text-[#092068]">INICIAR SESIÓN</h1>
@@ -186,8 +189,20 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                     >
                         Activar mi cuenta
                     </Link>
+                    {/* En celular el encabezado no se muestra: este es el acceso a la mesa de ayuda. */}
+                    <button
+                        type="button"
+                        onClick={() => setAyuda(true)}
+                        className="mt-2 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[#45628D] transition-colors hover:text-[#0439D9]"
+                    >
+                        <LifeBuoy size={14} aria-hidden="true" />
+                        ¿Necesitas ayuda? Mesa de ayuda
+                    </button>
                 </div>
             </div>
         </form>
+        {/* Fuera del <form> de ingreso: un formulario dentro de otro enviaría el de ingreso. */}
+        <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} />
+        </>
     );
 }

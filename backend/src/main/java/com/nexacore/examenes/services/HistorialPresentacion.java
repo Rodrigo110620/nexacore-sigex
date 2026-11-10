@@ -73,6 +73,7 @@ class HistorialPresentacion {
         tipo("MI_FOTO_QUITADA", "Usuarios", "Eliminar");
         tipo("AMBIENTE_CREADO", "Ambientes", "Crear");
         tipo("AMBIENTE_AFORO_CAMBIADO", "Ambientes", "Editar");
+        tipo("AYUDA_ATENDIDA", "Mesa de ayuda", "Atender");
         tipo("RESPALDO_DESCARGADO", "Configuración", "Respaldo");
     }
 
@@ -227,6 +228,9 @@ class HistorialPresentacion {
             case "CONTRASENA_CAMBIADA" -> new Vista("Su cuenta", "Cambió su contraseña", null, List.of());
             case "MI_FOTO_CAMBIADA" -> new Vista("Su cuenta", "Cambió su foto de perfil", null, List.of());
             case "MI_FOTO_QUITADA" -> new Vista("Su cuenta", "Quitó su foto de perfil", null, List.of());
+            case "AYUDA_ATENDIDA" -> new Vista(texto(d, "nombre"),
+                    "Atendió la consulta (" + texto(d, "tipo") + ")" + (d.has("respuesta") ? " y respondió por correo" : ""),
+                    null, datos(d, "correo", "Correo", "respuesta", "Respuesta"));
             case "AMBIENTE_CREADO" -> new Vista("Aula " + texto(d, "nombre"), "Registró el aula", null,
                     datos(d, "capacidad", "Aforo", "ubicacion", "Ubicación"));
             case "AMBIENTE_AFORO_CAMBIADO" -> new Vista("Aula " + texto(d, "nombre"), "Registró el aforo del aula", null,

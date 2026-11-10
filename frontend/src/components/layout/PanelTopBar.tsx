@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X, GraduationCap, LayoutGrid, BarChart3, Settings } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LifeBuoy, LogOut, UserRound, X, GraduationCap, LayoutGrid, BarChart3, Settings } from 'lucide-react'
+import MesaAyudaModal from '../ayuda/MesaAyudaModal'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
@@ -32,6 +33,7 @@ export default function PanelTopBar({
   locationLabel,
   variant = 'default',
 }: PanelTopBarProps) {
+  const [ayuda, setAyuda] = useState(false)
   // Cambia al subir o quitar la foto en Mi perfil, para que el avatar del menú se actualice sin recargar.
   const [versionFoto, setVersionFoto] = useState(0)
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function PanelTopBar({
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
         : isConfiguracion
-          ? 'Roles, permisos, respaldo e historial de operaciones.'
+          ? 'Roles, permisos, respaldo, historial de operaciones y mesa de ayuda.'
           : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
@@ -220,6 +222,15 @@ export default function PanelTopBar({
               <button
                 type="button"
                 role="menuitem"
+                onClick={() => { setOpen(false); setAyuda(true) }}
+                className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#011140] hover:bg-[#F1F6FF] focus-visible:bg-[#F1F6FF] focus-visible:outline-none"
+              >
+                <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                <span className="truncate">Mesa de ayuda</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
                 onClick={handleLogout}
                 className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#B91C1C] hover:bg-[#FEF2F2] focus-visible:bg-[#FEF2F2] focus-visible:outline-none"
               >
@@ -230,6 +241,7 @@ export default function PanelTopBar({
           )}
         </div>
       </header>
+      <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} nombreInicial={nombre ?? ''} />
       {!docenteInicio && !minimalControlHeader && !isExamenes && !isEstudiantes && !isConfiguracion && (
         <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
           <p className="text-base font-bold text-[#011140]">{effectiveTitle}</p>

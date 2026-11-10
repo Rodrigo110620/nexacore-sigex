@@ -135,6 +135,30 @@ public class EmailService {
         }
     }
 
+    /** Respuesta de la mesa de ayuda a quien consultó (con su consulta citada). */
+    public void enviarRespuestaAyuda(String destinatario, String nombre, String consulta, String respuesta) {
+        if (!enabled || !StringUtils.hasText(username)) {
+            log.warn("Respuesta de la mesa de ayuda no enviada (MAIL_ENABLED=false o MAIL_USERNAME vacío) para {}", destinatario);
+            return;
+        }
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(from);
+            helper.setTo(destinatario);
+            helper.setSubject("SIGEX — Respuesta de la mesa de ayuda");
+            helper.setText("<html><body style=\"font-family:Arial,sans-serif;color:#011140\"><p>Hola "
+                    + escapar(nombre) + ",</p><p>" + escapar(respuesta).replace("\n", "<br>") + "</p>"
+                    + "<p style=\"margin-top:20px;color:#627A9B;font-size:13px\">Tu consulta:<br><i>"
+                    + escapar(consulta).replace("\n", "<br>") + "</i></p>"
+                    + "<p style=\"color:#627A9B;font-size:13px\">Mesa de ayuda de SIGEX</p></body></html>", true);
+            mailSender.send(mimeMessage);
+            log.info("Respuesta de la mesa de ayuda enviada a {}", destinatario);
+        } catch (MessagingException | MailException ex) {
+            log.error("No se pudo enviar la respuesta de la mesa de ayuda a {}: {}", destinatario, ex.getMessage());
+        }
+    }
+
     /**
      * Envía el código de 6 dígitos para activar la cuenta del estudiante.
      * No registra el código en los logs.

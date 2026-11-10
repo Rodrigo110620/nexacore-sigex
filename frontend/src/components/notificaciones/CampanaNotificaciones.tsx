@@ -23,6 +23,7 @@ const ETIQUETA: Record<string, string> = {
   INGRESO_MANUAL: 'Ingreso manual',
   TRASLADO_AMBIENTE: 'Traslado de aula',
   EXPULSION_ANULADA: 'Expulsión anulada',
+  AYUDA: 'Mesa de ayuda',
 }
 
 const hace = (iso: string) => {
