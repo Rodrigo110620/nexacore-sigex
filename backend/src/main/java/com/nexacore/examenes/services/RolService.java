@@ -39,13 +39,15 @@ public class RolService {
     private final RolPermisoRepository rolPermisoRepository;
     private final PermisoService permisoService;
     private final JdbcTemplate jdbc;
+    private final AuditoriaService auditoriaService;
 
     public RolService(RolRepository rolRepository, RolPermisoRepository rolPermisoRepository,
-                      PermisoService permisoService, JdbcTemplate jdbc) {
+                      PermisoService permisoService, JdbcTemplate jdbc, AuditoriaService auditoriaService) {
         this.rolRepository = rolRepository;
         this.rolPermisoRepository = rolPermisoRepository;
         this.permisoService = permisoService;
         this.jdbc = jdbc;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<PermisoResponse> catalogo() {
@@ -80,6 +82,7 @@ public class RolService {
         rol.setDescripcion(descripcion(request.descripcion()));
         rol = rolRepository.saveAndFlush(rol);
         guardarPermisos(rol.getId(), request.permisos());
+        auditoriaService.registrar("ROL_CREADO", Map.of("nombre", rol.getNombre(), "permisos", request.permisos()));
         return respuesta(rol, 0);
     }
 
@@ -91,6 +94,7 @@ public class RolService {
         rolPermisoRepository.borrarDelRol(id);
         rolPermisoRepository.flush();
         guardarPermisos(id, request.permisos());
+        auditoriaService.registrar("ROL_EDITADO", Map.of("nombre", rol.getNombre(), "permisos", request.permisos()));
         return respuesta(rol, contarUsuarios(id));
     }
 
@@ -104,6 +108,7 @@ public class RolService {
         }
         rolPermisoRepository.borrarDelRol(id);
         rolRepository.delete(rol);
+        auditoriaService.registrar("ROL_ELIMINADO", Map.of("nombre", rol.getNombre()));
         recargarAlConfirmar();
     }
 

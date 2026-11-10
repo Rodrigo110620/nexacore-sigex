@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, DatabaseBackup, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
 import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
+import HistorialOperaciones from '../../components/configuracion/HistorialOperaciones'
 import { useAuth } from '../../context/AuthContext'
 import {
   actualizarRol, crearRolConPermisos, eliminarRol, listarPermisos, listarRolesConPermisos,
@@ -217,8 +218,16 @@ export default function ConfiguracionPage() {
   }, [recarga])
 
   const esAdmin = useAuth().roles.includes('ADMIN')
-  // IMP-10: el ADMIN tiene dos pestañas; con #respaldo en la dirección se abre la del respaldo.
-  const [pestana, setPestana] = useState<'roles' | 'respaldo'>(() => (window.location.hash === '#respaldo' ? 'respaldo' : 'roles'))
+  const [pestana, setPestana] = useState<'roles' | 'respaldo' | 'historial'>(() => {
+    if (window.location.hash === '#respaldo') return 'respaldo'
+    if (window.location.hash === '#historial') return 'historial'
+    return 'roles'
+  })
+  const cambiarPestana = (id: 'roles' | 'respaldo' | 'historial') => {
+    setPestana(id)
+    const hash = id === 'roles' ? '' : `#${id}`
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`)
+  }
   const descripcionDe = useMemo(() => new Map(catalogo.map((p) => [p.codigo, p.descripcion])), [catalogo])
 
   const borrar = async (rol: RolConPermisos) => {
@@ -240,9 +249,10 @@ export default function ConfiguracionPage() {
           <div className="w-full">
             <h1 id="configuracion-titulo" className="sr-only">Configuración</h1>
             {esAdmin && (
-              <div role="tablist" aria-label="Secciones de Configuración" className="mb-4 flex gap-2 overflow-x-auto">
-                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup]] as const).map(([id, texto, Icono]) => (
-                  <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => setPestana(id)}
+              <div role="tablist" aria-label="Secciones de Configuración"
+                className={`mb-4 gap-2 overflow-x-auto ${pestana === 'historial' ? 'hidden min-[960px]:flex' : 'flex'}`}>
+                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History]] as const).map(([id, texto, Icono]) => (
+                  <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => cambiarPestana(id)}
                     className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
                       pestana === id ? 'bg-[#0439D9] text-white shadow-sm' : 'border border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F1F6FF]'}`}>
                     <Icono size={16} aria-hidden="true" /> {texto}
@@ -250,7 +260,9 @@ export default function ConfiguracionPage() {
                 ))}
               </div>
             )}
-            {esAdmin && pestana === 'respaldo' ? (
+            {esAdmin && pestana === 'historial' ? (
+              <HistorialOperaciones />
+            ) : esAdmin && pestana === 'respaldo' ? (
               // El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles.
               <RespaldoBase />
             ) : (<>
