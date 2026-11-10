@@ -95,8 +95,8 @@ export default function UserListContent({
   }, [debouncedSearch, draftFilters.rol, draftFilters.estado, onFiltersChange])
 
   return (
-    <section aria-label="Gestión de usuarios" className="bg-transparent px-3 py-4 sm:px-6 sm:py-8 min-[960px]:px-4 xl:px-10">
-      <div className="mx-auto max-w-7xl">
+    <section aria-label="Gestión de usuarios" className="bg-transparent px-3 py-4 sm:px-5 sm:py-6">
+      <div className="w-full">
         <div className="mb-4 bg-transparent sm:mb-6 min-[960px]:rounded-xl min-[960px]:bg-white min-[960px]:p-3 min-[960px]:shadow-sm min-[960px]:ring-1 min-[960px]:ring-[#D8E3F5]">
           <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end xl:flex-nowrap">
             <div className="min-w-0 flex-1 min-[960px]:basis-full xl:basis-auto">

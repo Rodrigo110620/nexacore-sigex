@@ -34,14 +34,32 @@ public class HistorialOperacionController {
         return service.listar(page, size, search, modulo, operacion, desde, hasta);
     }
 
-    @Operation(summary = "Exportar el historial filtrado")
+    @Operation(summary = "Exportar el historial filtrado en PDF")
+    @GetMapping("/exportar.pdf")
+    public ResponseEntity<byte[]> exportarPdf(@RequestParam(required = false) String search,
+            @RequestParam(required = false) String modulo, @RequestParam(required = false) String operacion,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(nombre(desde, hasta, "pdf")).build().toString())
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(service.exportarPdf(search, modulo, operacion, desde, hasta));
+    }
+
+    /** historial-operaciones_2026-11-03_a_2026-11-10.pdf */
+    private static String nombre(LocalDate desde, LocalDate hasta, String extension) {
+        String rango = (desde == null ? "" : "_" + desde) + (hasta == null ? "" : "_a_" + hasta);
+        return "historial-operaciones" + rango + "." + extension;
+    }
+
+    @Operation(summary = "Exportar el historial filtrado en CSV")
     @GetMapping("/exportar.csv")
     public ResponseEntity<byte[]> exportar(@RequestParam(required = false) String search,
             @RequestParam(required = false) String modulo, @RequestParam(required = false) String operacion,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename("historial-operaciones.csv").build().toString())
+                        ContentDisposition.attachment().filename(nombre(desde, hasta, "csv")).build().toString())
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .body(service.exportar(search, modulo, operacion, desde, hasta));
     }

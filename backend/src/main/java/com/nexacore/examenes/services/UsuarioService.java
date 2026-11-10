@@ -366,9 +366,14 @@ public class UsuarioService {
                 obtenerPrimerRol(usuario),
                 usuario.getEstado(),
                 titulo,
-                bloqueoVigente(usuario)
+                bloqueoVigente(usuario),
+                usuarioFotoService != null && usuarioFotoService.tiene(usuario.getId()) ? "/usuarios/" + usuario.getId() + "/foto" : null
         );
     }
+
+    /** Foto de perfil del personal (V54); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private UsuarioFotoService usuarioFotoService;
 
     /** Fin del bloqueo por intentos fallidos si sigue vigente; null si ya venció o no hay bloqueo. */
     private static LocalDateTime bloqueoVigente(Usuario usuario) {

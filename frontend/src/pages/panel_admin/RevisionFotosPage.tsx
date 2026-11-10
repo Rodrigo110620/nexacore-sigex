@@ -74,8 +74,8 @@ export default function RevisionFotosPage() {
         className="min-h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0"
         style={{ background: 'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)' }}
       >
-        <section aria-labelledby="revision-fotos-titulo" className="px-3 py-4 sm:px-6 min-[960px]:px-4 xl:px-10">
-          <div className="mx-auto max-w-7xl">
+        <section aria-labelledby="revision-fotos-titulo" className="px-3 py-4 sm:px-5">
+          <div className="w-full">
             <nav aria-label="Ruta" className="flex items-center gap-1.5 text-xs text-[#627A9B]">
               <Link to="/dashboard/estudiantes" className="inline-flex items-center gap-1 font-semibold text-[#0439D9] hover:underline">
                 <ArrowLeft size={14} aria-hidden="true" /> Estudiantes

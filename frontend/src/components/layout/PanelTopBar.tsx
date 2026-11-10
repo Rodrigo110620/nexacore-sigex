@@ -3,6 +3,8 @@ import { BookCheck, Building2, ChevronDown, ClipboardCheck, LogOut, UserRound, X
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { EVENTO_MI_FOTO } from '../../utils/miFoto'
 import { tienePermiso } from '../../utils/permisos'
 
 function getInitials(nombre: string | null): string {
@@ -30,6 +32,13 @@ export default function PanelTopBar({
   locationLabel,
   variant = 'default',
 }: PanelTopBarProps) {
+  // Cambia al subir o quitar la foto en Mi perfil, para que el avatar del menú se actualice sin recargar.
+  const [versionFoto, setVersionFoto] = useState(0)
+  useEffect(() => {
+    const alCambiar = () => setVersionFoto((v) => v + 1)
+    window.addEventListener(EVENTO_MI_FOTO, alCambiar)
+    return () => window.removeEventListener(EVENTO_MI_FOTO, alCambiar)
+  }, [])
   const auth = useAuth()
   const { nombre, roles, logout } = auth
   const navigate = useNavigate()
@@ -153,7 +162,8 @@ export default function PanelTopBar({
               aria-hidden="true"
               className={`hidden size-8 shrink-0 items-center justify-center rounded-full bg-[#0439D9] text-xs font-bold text-white ${docenteInicio ? 'min-[960px]:inline-flex' : 'sm:inline-flex'}`}
             >
-              {getInitials(nombre)}
+              <FotoEstudiante fotoUrl={`/auth/me/foto?v=${versionFoto}`} nombre={nombre ?? ''} iniciales={getInitials(nombre)}
+                className="flex size-8 items-center justify-center overflow-hidden rounded-full" />
             </span>
             <span className={`max-w-16 truncate ${docenteInicio ? 'min-[960px]:hidden' : 'sm:hidden'}`}>{roles.includes('ADMIN') ? 'ADMIN' : roleLabel}</span>
             <span className={`hidden min-w-0 flex-1 text-left ${docenteInicio ? 'min-[960px]:block' : 'sm:block'}`}>

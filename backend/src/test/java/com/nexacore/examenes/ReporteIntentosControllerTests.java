@@ -60,9 +60,10 @@ class ReporteIntentosControllerTests {
         verifyNoInteractions(service);
     }
 
-    // V53: el DOCENTE y el CONTROL ven el reporte, pero solo de sus exámenes (sin usuario conocido, de ninguno).
+    // V53: el DOCENTE ve el reporte, pero solo de sus exámenes (sin usuario conocido, de ninguno). El CONTROL no
+    // tiene Reportes: lo suyo lo ve en su inicio y en el control del examen.
     @ParameterizedTest
-    @ValueSource(strings = {"CONTROL", "DOCENTE"})
+    @ValueSource(strings = {"DOCENTE"})
     void elDocenteYElControlVenSoloSusExamenes(String rol) throws Exception {
         when(service.reporte(null, 0, 20, -1)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0));
         mockMvc.perform(get("/intentos-ingreso/reporte").with(user("x@sigex.test").roles(rol)))

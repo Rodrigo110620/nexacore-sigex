@@ -41,6 +41,10 @@ import java.util.List;
 @RequestMapping("/examenes/{idExamen}/{idParalelo}/habilitacion")
 public class HabilitacionController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final HabilitacionService habilitacionService;
 
     public HabilitacionController(HabilitacionService habilitacionService) {
@@ -71,8 +75,10 @@ public class HabilitacionController {
     public ResponseEntity<List<EstudianteHabilitacionResponse>> asociar(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
             @Valid @RequestBody AsociarEstudianteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(habilitacionService.asociar(idExamen, idParalelo, request.identificador()));
+        var lista = habilitacionService.asociar(idExamen, idParalelo, request.identificador());
+        auditoria.registrar("ESTUDIANTES_ASOCIADOS", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idParalelo", idParalelo,
+                "asociados", 1, "identificador", request.identificador()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(lista);
     }
 
     @Operation(summary = "Asociar varios estudiantes al examen",
@@ -82,7 +88,10 @@ public class HabilitacionController {
     public ResponseEntity<AsociacionLoteResponse> asociarLote(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo,
             @Valid @RequestBody AsociarEstudiantesLoteRequest request) {
-        return ResponseEntity.ok(habilitacionService.asociarLote(idExamen, idParalelo, request.identificadores()));
+        AsociacionLoteResponse r = habilitacionService.asociarLote(idExamen, idParalelo, request.identificadores());
+        auditoria.registrar("ESTUDIANTES_ASOCIADOS", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idParalelo", idParalelo,
+                "asociados", r.asociados(), "yaAsociados", r.yaAsociados().size(), "noEncontrados", r.noEncontrados().size()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Asociar a todos los inscritos del paralelo",
@@ -91,7 +100,10 @@ public class HabilitacionController {
     @PostMapping("/inscritos")
     public ResponseEntity<AsociacionLoteResponse> asociarInscritos(
             @PathVariable Integer idExamen, @PathVariable Integer idParalelo) {
-        return ResponseEntity.ok(habilitacionService.asociarInscritos(idExamen, idParalelo));
+        AsociacionLoteResponse r = habilitacionService.asociarInscritos(idExamen, idParalelo);
+        auditoria.registrar("ESTUDIANTES_ASOCIADOS", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idParalelo", idParalelo,
+                "asociados", r.asociados(), "yaAsociados", r.yaAsociados().size(), "inscritos", true));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Cambiar habilitación",

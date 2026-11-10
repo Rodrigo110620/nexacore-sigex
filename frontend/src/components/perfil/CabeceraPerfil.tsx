@@ -4,6 +4,7 @@ import { Camera, LoaderCircle, Mail, ShieldCheck, Trash2 } from 'lucide-react'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import { quitarMiFoto, subirMiFoto } from '../../services/profileService'
 import { prepararFoto, validarArchivoFoto } from '../../utils/fotoEstudiante'
+import { avisarCambioMiFoto } from '../../utils/miFoto'
 
 const ROL: Record<string, string> = { ADMIN: 'Administrador', DOCENTE: 'Docente', CONTROL: 'Personal de control' }
 
@@ -34,6 +35,7 @@ export default function CabeceraPerfil({ nombre, iniciales, email, roles, fotoUr
       await subirMiFoto(await prepararFoto(archivo))
       setVersion((v) => v + 1)
       setMensaje({ tipo: 'ok', texto: 'Tu foto de perfil se actualizó.' })
+      avisarCambioMiFoto()
       onFotoCambiada()
     } catch (err) {
       setMensaje({ tipo: 'error', texto: (axios.isAxiosError(err) && err.response?.data?.mensaje) || 'No se pudo subir la foto. Intenta con otra imagen.' })
@@ -49,6 +51,7 @@ export default function CabeceraPerfil({ nombre, iniciales, email, roles, fotoUr
     try {
       await quitarMiFoto()
       setMensaje({ tipo: 'ok', texto: 'Quitaste tu foto de perfil.' })
+      avisarCambioMiFoto()
       onFotoCambiada()
     } catch {
       setMensaje({ tipo: 'error', texto: 'No se pudo quitar la foto.' })

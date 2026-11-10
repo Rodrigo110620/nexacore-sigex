@@ -29,7 +29,7 @@ public class ReporteFotosController {
     @Operation(summary = "Fotos reportadas",
             description = "Pendientes y resueltas. El ADMIN, de todos los exámenes; el DOCENTE y el CONTROL, de los suyos "
                     + "o asignados. 403 con un examen ajeno.")
-    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS')"
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')"
             + " and (#idExamen == null or @examenAccesoService.veTodosLosReportes(authentication) or @examenAccesoService.esMio(#idExamen, authentication))")
     @GetMapping("/reportes/fotos")
     public List<ReporteFotoFilaResponse> listar(@RequestParam(required = false) Integer idExamen, Authentication authentication) {

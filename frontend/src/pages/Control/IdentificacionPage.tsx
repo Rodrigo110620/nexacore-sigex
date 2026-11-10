@@ -147,7 +147,7 @@ export default function IdentificacionPage() {
 
   return (
     <PanelLayout topBarVariant="controlMinimal" locationLabel={examen && [examen.ambienteUbicacion, examen.ambienteNombre].filter(Boolean).join(' · ')} title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
-      <div className="mx-auto w-full max-w-[76rem] px-5 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-7 lg:pb-7">
+      <div className="w-full px-4 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-7 lg:pb-7">
         {examen && (
           <span className="mb-3 inline-flex max-w-full items-center gap-1 rounded-full border border-[#E2E6EC] bg-white px-2 py-1 text-[10px] text-[#344158] lg:hidden">
             <Building2 size={11} className="shrink-0" aria-hidden="true" />

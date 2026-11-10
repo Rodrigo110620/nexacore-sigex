@@ -19,6 +19,10 @@ import java.util.List;
 @RestController
 public class ExamenControlController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final ExamenControlService service;
 
     public ExamenControlController(ExamenControlService service) {
@@ -36,7 +40,10 @@ public class ExamenControlController {
     @PreAuthorize("@examenAccesoService.puedeReprogramar(#idExamen, authentication)")
     @PutMapping("/examenes/{idExamen}/personal-control")
     public List<PersonalControlResponse> asignar(@PathVariable Integer idExamen, @Valid @RequestBody AsignarPersonalControlRequest request) {
-        return service.asignar(idExamen, request.idUsuarios());
+        List<PersonalControlResponse> personal = service.asignar(idExamen, request.idUsuarios());
+        auditoria.registrar("PERSONAL_CONTROL_ASIGNADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen,
+                "personal", personal.stream().map(p -> p.nombre() + " " + p.apellidos()).toList()));
+        return personal;
     }
 
     @Operation(summary = "Personal de control disponible", description = "Usuarios activos con el rol CONTROL, para asignarlos.")

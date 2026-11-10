@@ -1,3 +1,4 @@
+import ControlHoyPage from '../pages/Control/ControlHoyPage'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -142,11 +143,11 @@ export default function AppRouter() {
         />
 
         {/* Reportes: intentos incorrectos, expulsiones y excepciones (Épica 5). El ADMIN, de todos los
-            exámenes; el DOCENTE y el CONTROL, solo de los suyos o asignados (V53). */}
+            exámenes; el DOCENTE, de los suyos. El CONTROL no: lo suyo está en su inicio y en el control del examen. */}
         <Route
           path="/dashboard/reportes"
           element={
-            <AdminRoute permisos={['REPORTES_VER', 'CONTROL_INGRESO_TODOS', 'CONTROL_INGRESO_PROPIOS']}>
+            <AdminRoute permisos={['REPORTES_VER', 'CONTROL_INGRESO_PROPIOS']}>
               <ReportesPage />
             </AdminRoute>
           }
@@ -210,7 +211,7 @@ export default function AppRouter() {
           path="/dashboard/control"
           element={
             <ControlRoute>
-              <ExamenesPage />
+              <ControlHoyPage />
             </ControlRoute>
           }
         />

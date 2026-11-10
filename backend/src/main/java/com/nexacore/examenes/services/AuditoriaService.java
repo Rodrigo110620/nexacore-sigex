@@ -25,6 +25,19 @@ public class AuditoriaService {
     @PersistenceContext
     private EntityManager entityManager;
 
+    /** Avisa en vivo al historial de operaciones abierto (perezoso: NotificacionService usa muchos servicios). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.beans.factory.ObjectProvider<NotificacionService> notificaciones;
+
+    /** Clave/valor para registrar(), sin los valores nulos (Map.of no los admite). */
+    public static Map<String, Object> datos(Object... claveValor) {
+        Map<String, Object> mapa = new java.util.LinkedHashMap<>();
+        for (int i = 0; i + 1 < claveValor.length; i += 2) {
+            if (claveValor[i + 1] != null) mapa.put(String.valueOf(claveValor[i]), claveValor[i + 1]);
+        }
+        return mapa;
+    }
+
     public AuditoriaService(UsuarioRepository usuarioRepository, ObjectMapper objectMapper) {
         this.usuarioRepository = usuarioRepository;
         this.objectMapper = objectMapper;
@@ -56,5 +69,8 @@ public class AuditoriaService {
                 .setParameter("a", accion)
                 .setParameter("d", json)
                 .executeUpdate();
+        // El historial de operaciones abierto se actualiza solo, al confirmarse la operación.
+        NotificacionService avisos = notificaciones == null ? null : notificaciones.getIfAvailable();
+        if (avisos != null) avisos.emitirCambio("AUDITORIA", null, null);
     }
 }

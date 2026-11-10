@@ -30,4 +30,6 @@ export interface UserListItem {
   titulo?: string | null
   /** Fin del bloqueo por intentos fallidos (ISO), o null si no está bloqueado. */
   bloqueadoHasta?: string | null
+  /** Ruta de su foto de perfil, o null si no tiene (se muestran las iniciales). */
+  fotoUrl?: string | null
 }

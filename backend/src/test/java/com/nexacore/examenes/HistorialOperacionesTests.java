@@ -142,9 +142,21 @@ class HistorialOperacionesTests {
                 .andExpect(jsonPath("$.contenido[0].fechaHora").isNotEmpty());
 
         mockMvc.perform(get("/admin/historial-operaciones").with(admin)
-                        .param("search", ADMIN_EMAIL).param("operacion", "Desbloquear"))
+                        .param("search", ADMIN_EMAIL).param("operacion", "Activar"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(1))
-                .andExpect(jsonPath("$.contenido[0].accion").value("USUARIO_DESBLOQUEADO"));
+                .andExpect(jsonPath("$.contenido[0].accion").value("USUARIO_DESBLOQUEADO"))
+                .andExpect(jsonPath("$.contenido[0].objetivo").value("Pedro Rojas Flores"))
+                .andExpect(jsonPath("$.contenido[0].detalle").value("Reactivó la cuenta"));
+        // Editar el rol: legible, con el permiso agregado (no el JSON).
+        mockMvc.perform(get("/admin/historial-operaciones").with(admin)
+                        .param("search", ADMIN_EMAIL).param("modulo", "Roles").param("operacion", "Editar"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(1))
+                .andExpect(jsonPath("$.contenido[0].modulo").value("Roles"))
+                .andExpect(jsonPath("$.contenido[0].operacion").value("Editar"))
+                .andExpect(jsonPath("$.contenido[0].objetivo").value("Rol QA_AUXILIAR"))
+                .andExpect(jsonPath("$.contenido[0].diferencias.length()").value(1))
+                .andExpect(jsonPath("$.contenido[0].diferencias[0].campo").value("Agregado"))
+                .andExpect(jsonPath("$.contenido[0].diferencias[0].antes").doesNotExist());
         mockMvc.perform(get("/admin/historial-operaciones").with(admin)
                         .param("search", ADMIN_EMAIL).param("modulo", "Roles").param("operacion", "Eliminar")
                         .param("desde", LocalDate.now().minusDays(1).toString())

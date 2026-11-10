@@ -68,7 +68,7 @@ describe('MobileBottomNav', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(5)
   })
 
-  it('CONTROL: Inicio, Control, Reportes y Estudiantes están disponibles en el mismo panel', () => {
+  it('CONTROL: Inicio, Control y Estudiantes; sin Reportes (lo suyo lo ve en su inicio)', () => {
     renderNav('/dashboard/examenes', ['CONTROL'])
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/dashboard/inicio')
@@ -79,8 +79,8 @@ describe('MobileBottomNav', () => {
     )
     expect(screen.queryByRole('link', { name: 'Exámenes' })).not.toBeInTheDocument()
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Reportes' })).toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(4)
+    expect(screen.queryByRole('link', { name: 'Reportes' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
   })
 
   it('ADMIN + CONTROL conserva Usuarios y muestra Exámenes', () => {

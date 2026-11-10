@@ -127,9 +127,9 @@ export default function PerfilPage() {
     .join('') || 'U'
 
   return (
-    <PanelLayout>
+    <PanelLayout title="MI PERFIL" description="Tus datos, tu foto de perfil y el cambio de contraseña.">
       <div className="min-h-full bg-[#F8FBFF] pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-8">
-        <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+        <section className="w-full px-4 py-6 sm:px-5 sm:py-8">
           <div className="mb-6">
             <Link
               to="/dashboard/inicio"

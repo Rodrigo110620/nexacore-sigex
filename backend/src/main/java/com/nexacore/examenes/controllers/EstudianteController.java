@@ -36,6 +36,10 @@ import java.util.List;
 @RequestMapping("/estudiantes")
 public class EstudianteController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final EstudianteService estudianteService;
     private final ImportacionEstudiantesService importacionEstudiantesService;
     private final PlanillaEstudiantesService planillaEstudiantesService;
@@ -83,6 +87,7 @@ public class EstudianteController {
     @PutMapping(value = "/{id}/foto", consumes = "multipart/form-data")
     public ResponseEntity<Void> subirFoto(@PathVariable Integer id, @RequestParam("file") MultipartFile file) {
         estudianteFotoService.guardar(id, file);
+        auditoria.registrar("ESTUDIANTE_FOTO_CAMBIADA", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -92,6 +97,7 @@ public class EstudianteController {
     @DeleteMapping("/{id}/foto")
     public ResponseEntity<Void> quitarFoto(@PathVariable Integer id) {
         estudianteFotoService.eliminar(id);
+        auditoria.registrar("ESTUDIANTE_FOTO_QUITADA", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -117,6 +123,7 @@ public class EstudianteController {
     public ResponseEntity<Void> reportarFoto(@PathVariable Integer id, @Valid @RequestBody ReportarFotoRequest request,
                                              Authentication authentication) {
         estudianteFotoService.reportar(id, request, authentication.getName());
+        auditoria.registrar("FOTO_REPORTADA", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id, "idExamen", request.idExamen(), "causa", String.valueOf(request.motivo()), "motivo", request.detalle()));
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -150,6 +157,7 @@ public class EstudianteController {
     @PostMapping("/{id}/foto/reportes/descartar")
     public ResponseEntity<Void> descartarReporte(@PathVariable Integer id) {
         estudianteFotoService.descartarReporte(id);
+        auditoria.registrar("FOTO_REPORTE_DESCARTADO", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -172,6 +180,7 @@ public class EstudianteController {
     @PostMapping("/{id}/foto-solicitud/aprobar")
     public ResponseEntity<Void> aprobarFoto(@PathVariable Integer id) {
         estudianteFotoService.aprobarSolicitud(id);
+        auditoria.registrar("FOTO_APROBADA", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -181,6 +190,7 @@ public class EstudianteController {
     @PostMapping("/{id}/foto-solicitud/rechazar")
     public ResponseEntity<Void> rechazarFoto(@PathVariable Integer id, @Valid @RequestBody RechazarFotoRequest request) {
         estudianteFotoService.rechazarSolicitud(id, request.motivo());
+        auditoria.registrar("FOTO_RECHAZADA", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id, "motivo", request.motivo()));
         return ResponseEntity.noContent().build();
     }
 
@@ -240,7 +250,9 @@ public class EstudianteController {
             @PathVariable Integer id,
             @Valid @RequestBody ActualizarEstudianteRequest request
     ) {
-        return ResponseEntity.ok(estudianteService.actualizar(id, request));
+        EstudianteListResponse r = estudianteService.actualizar(id, request);
+        auditoria.registrar("ESTUDIANTE_EDITADO", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", r.id(), "nombre", r.nombre() + " " + r.apellidos(), "codigoSis", r.codigoSis()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Registrar estudiante",
@@ -250,7 +262,9 @@ public class EstudianteController {
     public ResponseEntity<EstudianteListResponse> registrar(
             @Valid @RequestBody RegistrarEstudianteRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(estudianteService.registrar(request));
+        EstudianteListResponse r = estudianteService.registrar(request);
+        auditoria.registrar("ESTUDIANTE_CREADO", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", r.id(), "nombre", r.nombre() + " " + r.apellidos(), "codigoSis", r.codigoSis()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(r);
     }
 
     @Operation(summary = "Regenerar y reenviar QR",
@@ -259,6 +273,7 @@ public class EstudianteController {
     @PostMapping("/{id}/qr/regenerar")
     public ResponseEntity<Void> regenerarQr(@PathVariable Integer id) {
         estudianteService.regenerarYEnviarQr(id);
+        auditoria.registrar("QR_REGENERADO", com.nexacore.examenes.services.AuditoriaService.datos("idEstudiante", id));
         return ResponseEntity.noContent().build();
     }
 
@@ -270,7 +285,9 @@ public class EstudianteController {
     public ResponseEntity<ImportarEstudiantesResponse> importarEstudiantes(
             @RequestParam("file") MultipartFile file
     ) {
-        return ResponseEntity.ok(importacionEstudiantesService.importar(file));
+        ImportarEstudiantesResponse r = importacionEstudiantesService.importar(file);
+        auditoria.registrar("ESTUDIANTES_IMPORTADOS", com.nexacore.examenes.services.AuditoriaService.datos("archivo", file.getOriginalFilename(), "insertados", r.insertados(), "ignorados", r.ignorados()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Revisar una importación (sin guardar)",
@@ -286,7 +303,9 @@ public class EstudianteController {
     @PreAuthorize("@permisos.tiene(authentication, 'ESTUDIANTES_GESTIONAR')")
     @PostMapping(value = "/importar/iniciar", consumes = "multipart/form-data")
     public com.nexacore.examenes.dto.ProgresoImportacionResponse iniciarImportacion(@RequestParam("file") MultipartFile file) {
-        return importacionEstudiantesService.iniciar(file);
+        var r = importacionEstudiantesService.iniciar(file);
+        auditoria.registrar("ESTUDIANTES_IMPORTADOS", com.nexacore.examenes.services.AuditoriaService.datos("archivo", file.getOriginalFilename(), "total", r.total()));
+        return r;
     }
 
     @Operation(summary = "Avance de una importación", description = "Filas procesadas y, al terminar, el resultado. Solo quien la inició.")
