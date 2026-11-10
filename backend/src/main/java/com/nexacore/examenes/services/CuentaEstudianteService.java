@@ -115,8 +115,10 @@ public class CuentaEstudianteService {
         activacion.setIntentos(0);
         activacion.setCreadoEn(ahora);
         activacionRepository.save(activacion);
-        emailService.enviarCodigoActivacion(estudiante.getEmail(),
-                estudiante.getNombre() + " " + estudiante.getApellidos(), codigo, MINUTOS_CODIGO);
+        // En segundo plano y tras guardar el código: la pantalla responde al instante (y la demora no delata
+        // si el estudiante existe).
+        EnvioDiferido.alConfirmar(() -> emailService.enviarCodigoActivacion(estudiante.getEmail(),
+                estudiante.getNombre() + " " + estudiante.getApellidos(), codigo, MINUTOS_CODIGO));
     }
 
     /**

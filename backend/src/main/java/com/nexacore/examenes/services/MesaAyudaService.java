@@ -20,9 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -91,18 +88,8 @@ public class MesaAyudaService {
         List<Usuario> admins = usuarioRepository.adminsActivos();
         if (admins.isEmpty()) return;
         String tema = TIPOS.getOrDefault(s.getTipo(), s.getTipo());
-        Runnable enviar = () -> CompletableFuture.runAsync(() -> admins.forEach(a -> emailService.enviarAvisoAyudaAdmin(
+        EnvioDiferido.alConfirmar(() -> admins.forEach(a -> emailService.enviarAvisoAyudaAdmin(
                 a.getEmail(), a.getNombre(), s.getNombre(), s.getCorreo(), tema, s.getMensaje())));
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    enviar.run();
-                }
-            });
-        } else {
-            enviar.run();
-        }
     }
 
     @Transactional(readOnly = true)

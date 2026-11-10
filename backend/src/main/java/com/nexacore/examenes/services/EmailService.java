@@ -64,7 +64,7 @@ public class EmailService {
             helper.setTo(destinatario);
             helper.setSubject("SIGEX — Tus credenciales de acceso");
             helper.setText(construirHtmlBienvenida(nombreCompleto, destinatario, passwordTemporal), true);
-            mailSender.send(mimeMessage);
+            enviarConReintento(mimeMessage);
             log.info("Correo de bienvenida enviado a {}", destinatario);
             return true;
         } catch (MessagingException | MailException ex) {
@@ -86,7 +86,7 @@ public class EmailService {
             helper.setSubject("SIGEX — Tu código QR de ingreso a exámenes");
             helper.setText(construirHtmlQr(nombreCompleto, codigoSis), true);
             helper.addAttachment("sigex-qr-" + codigoSis + ".png", new org.springframework.core.io.ByteArrayResource(qrPng), "image/png");
-            mailSender.send(mensaje);
+            enviarConReintento(mensaje);
             log.info("QR enviado a {}", destinatario);
             return true;
         } catch (MessagingException | MailException ex) {
@@ -128,7 +128,7 @@ public class EmailService {
             helper.setTo(destinatario);
             helper.setSubject("SIGEX — Restablecer contraseña");
             helper.setText(construirHtmlReset(nombreCompleto, resetUrl, expirationMinutes), true);
-            mailSender.send(mimeMessage);
+            enviarConReintento(mimeMessage);
             log.info("Correo de restablecimiento enviado a {}", destinatario);
         } catch (MessagingException | MailException ex) {
             log.error("No se pudo enviar correo de reset a {}: {}", destinatario, ex.getMessage());
@@ -160,7 +160,7 @@ public class EmailService {
                     + "border-radius:8px;text-decoration:none;font-weight:bold\">Abrir la mesa de ayuda</a></p>"
                     + "<p style=\"color:#627A9B;font-size:13px\">Respóndela desde SIGEX para que quede registrada como atendida.</p>"
                     + "</body></html>", true);
-            mailSender.send(mimeMessage);
+            enviarConReintento(mimeMessage);
             log.info("Aviso de la mesa de ayuda enviado a {}", destinatario);
         } catch (MessagingException | MailException ex) {
             log.error("No se pudo enviar el aviso de la mesa de ayuda a {}: {}", destinatario, ex.getMessage());
@@ -184,7 +184,7 @@ public class EmailService {
                     + "<p style=\"margin-top:20px;color:#627A9B;font-size:13px\">Tu consulta:<br><i>"
                     + escapar(consulta).replace("\n", "<br>") + "</i></p>"
                     + "<p style=\"color:#627A9B;font-size:13px\">Mesa de ayuda de SIGEX</p></body></html>", true);
-            mailSender.send(mimeMessage);
+            enviarConReintento(mimeMessage);
             log.info("Respuesta de la mesa de ayuda enviada a {}", destinatario);
         } catch (MessagingException | MailException ex) {
             log.error("No se pudo enviar la respuesta de la mesa de ayuda a {}: {}", destinatario, ex.getMessage());
@@ -211,7 +211,7 @@ public class EmailService {
                     + "<p style=\"font-size:28px;font-weight:bold;letter-spacing:6px;color:#0439D9\">" + escapar(codigo)
                     + "</p><p>Vence en " + minutos + " minutos. Si no fuiste tú, ignora este correo: nadie podrá"
                     + " activar tu cuenta sin este código.</p></body></html>", true);
-            mailSender.send(mimeMessage);
+            enviarConReintento(mimeMessage);
             log.info("Código de activación enviado a {}", destinatario);
         } catch (MessagingException | MailException ex) {
             log.error("No se pudo enviar el código de activación a {}: {}", destinatario, ex.getMessage());
@@ -338,5 +338,41 @@ public class EmailService {
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    /**
+     * Envía y, si falla por un corte o porque el servidor tardó en responder (Gmail analiza el mensaje antes de
+     * aceptarlo), lo reintenta una vez tras una breve pausa. Un error de autenticación o de dirección no se reintenta.
+     */
+    private void enviarConReintento(MimeMessage mensaje) {
+        try {
+            mailSender.send(mensaje);
+        } catch (MailException primero) {
+            if (!esTransitorio(primero)) throw primero;
+            log.warn("El servidor de correo no respondió a tiempo ({}); se reintenta una vez.", causaRaiz(primero).getMessage());
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw primero;
+            }
+            mailSender.send(mensaje);
+        }
+    }
+
+    private static boolean esTransitorio(Throwable error) {
+        Throwable c = causaRaiz(error);
+        return c instanceof java.net.SocketTimeoutException || c instanceof java.net.SocketException
+                || c instanceof java.net.UnknownHostException || c instanceof java.io.EOFException;
+    }
+
+    private static Throwable causaRaiz(Throwable error) {
+        Throwable c = error;
+        for (int i = 0; i < 10; i++) {
+            Throwable siguiente = c instanceof MessagingException me && me.getNextException() != null ? me.getNextException() : c.getCause();
+            if (siguiente == null || siguiente == c) break;
+            c = siguiente;
+        }
+        return c;
     }
 }
