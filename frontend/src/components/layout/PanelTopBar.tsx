@@ -63,7 +63,7 @@ export default function PanelTopBar({
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
         : isConfiguracion
-          ? 'Roles y permisos, y respaldo de la base de datos.'
+          ? 'Roles, permisos, respaldo e historial de operaciones.'
           : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle
@@ -229,7 +229,7 @@ export default function PanelTopBar({
           )}
         </div>
       </header>
-      {!docenteInicio && !minimalControlHeader && !isExamenes && !isEstudiantes && (
+      {!docenteInicio && !minimalControlHeader && !isExamenes && !isEstudiantes && !isConfiguracion && (
         <div className={`border-b border-[#EDF1F7] bg-white px-4 py-3 ${compactDesktop ? 'min-[960px]:hidden' : 'lg:hidden'}`}>
           <p className="text-base font-bold text-[#011140]">{effectiveTitle}</p>
           <p className="mt-0.5 text-[11px] leading-snug text-[#627A9B]">{effectiveDescription}</p>

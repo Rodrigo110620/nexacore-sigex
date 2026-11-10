@@ -32,6 +32,7 @@ const ROLES = [
 
 describe('Configuración → Roles y permisos', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', window.location.pathname)
     vi.mocked(servicio.listarRolesConPermisos).mockResolvedValue(ROLES)
     vi.mocked(servicio.listarPermisos).mockResolvedValue(CATALOGO)
     vi.mocked(servicio.crearRolConPermisos).mockReset()
@@ -41,6 +42,7 @@ describe('Configuración → Roles y permisos', () => {
     render(<ConfiguracionPage />)
     expect(await screen.findByRole('tab', { name: /Roles y permisos/, selected: true })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: /Respaldo/ }))
+    expect(window.location.hash).toBe('#respaldo')
     expect(screen.getByRole('heading', { name: 'Respaldo de la base de datos' })).toBeInTheDocument()
     expect(await screen.findByText('PostgreSQL 18.6')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Roles y permisos' })).not.toBeInTheDocument()
