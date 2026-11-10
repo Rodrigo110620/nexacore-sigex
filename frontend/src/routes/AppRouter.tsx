@@ -1,3 +1,4 @@
+import ControlHoyPage from '../pages/Control/ControlHoyPage'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -210,7 +211,7 @@ export default function AppRouter() {
           path="/dashboard/control"
           element={
             <ControlRoute>
-              <ExamenesPage />
+              <ControlHoyPage />
             </ControlRoute>
           }
         />
