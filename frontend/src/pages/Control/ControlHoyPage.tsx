@@ -28,7 +28,8 @@ export default function ControlHoyPage() {
   const registra = registraControl(auth)
   const verAgenda = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')
   const { examenes, error, ahora, recargar } = usePanelControl()
-  const [verTerminados, setVerTerminados] = useState(false)
+  // null = automático: plegados si hay algo pendiente hoy; abiertos si ya terminaron todos (no queda la pantalla vacía).
+  const [verTerminados, setVerTerminados] = useState<boolean | null>(null)
 
   const hoy = fechaLocal(ahora)
   const unicos = useMemo(() => {
@@ -41,6 +42,7 @@ export default function ControlHoyPage() {
   const enCurso = deHoy.filter((e) => fase(e) === 'en-curso')
   const proximos = deHoy.filter((e) => fase(e) === 'proximo')
   const terminados = deHoy.filter((e) => fase(e) === 'finalizado')
+  const terminadosAbiertos = verTerminados ?? (enCurso.length + proximos.length === 0)
   const siguiente = unicos.find((e) => e.fecha > hoy)
   const { resumenes } = useResumenesExamenes(deHoy.map((e) => e.idExamen), ahora)
   const accion = registra ? 'Iniciar control' : 'Ver control'
@@ -78,14 +80,26 @@ export default function ControlHoyPage() {
               </section>
             )}
 
+            {deHoy.length > 0 && enCurso.length + proximos.length === 0 && (
+              <section className={`${TARJETA} flex items-start gap-3 p-4`}>
+                <CalendarClock size={22} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#011140]">Ya terminaron los exámenes de hoy</p>
+                  <p className="text-sm text-[#627A9B]">
+                    {siguiente ? <>El próximo es <b className="text-[#011140]">{materiaYGrupo(siguiente)}</b>, el {formatFecha(siguiente.fecha)} a las {horaCorta(siguiente.horaInicio)} ({etiquetaAulas(siguiente)}).</> : 'No hay más exámenes programados.'}
+                  </p>
+                </div>
+              </section>
+            )}
+
             {terminados.length > 0 && (
               <section aria-label="Terminados hoy" className={`${TARJETA} overflow-hidden`}>
-                <button type="button" aria-expanded={verTerminados} onClick={() => setVerTerminados((v) => !v)}
+                <button type="button" aria-expanded={terminadosAbiertos} onClick={() => setVerTerminados(!terminadosAbiertos)}
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-[#011140] hover:bg-[#F8FAFF]">
-                  <ChevronDown size={16} aria-hidden="true" className={`text-[#0439D9] transition-transform duration-200 ${verTerminados ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={16} aria-hidden="true" className={`text-[#0439D9] transition-transform duration-200 ${terminadosAbiertos ? 'rotate-180' : ''}`} />
                   Terminados hoy ({terminados.length})
                 </button>
-                {verTerminados && (
+                {terminadosAbiertos && (
                   <ul className="divide-y divide-[#EEF2F7] border-t border-[#EEF2F7]">
                     {terminados.map((e) => <FilaExamen key={e.idExamen} examen={e} fase="finalizado" resumen={resumenes[e.idExamen]} accion="Ver control" />)}
                   </ul>

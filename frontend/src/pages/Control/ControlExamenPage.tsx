@@ -180,35 +180,35 @@ export default function ControlExamenPage() {
         {idValido ? (
           <>
             <section
-              className="flex flex-col gap-2 rounded-xl p-3 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5"
+              className="flex flex-col gap-3 rounded-xl p-3 text-white shadow-sm sm:p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
               style={{ background: 'linear-gradient(90deg, #011140 0%, #0439D9 100%)' }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 sm:h-11 sm:w-11">
                   <DoorOpen size={20} aria-hidden="true" />
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[9px] font-semibold uppercase tracking-wide text-white/70 sm:text-[10px]">Protocolo de autenticación rápida</p>
                   <p className="text-xs font-bold sm:text-base">Apertura de Acceso al {ambienteAcceso}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 [&>*]:min-w-0 [&>*]:flex-1 sm:justify-end sm:[&>*]:flex-none">
+              <div className="flex shrink-0 items-center gap-2 [&>*]:min-w-0 [&>*]:flex-1 lg:justify-end lg:[&>*]:flex-none">
                 <Link
                   to={`/dashboard/control/${idExamen}/informacion`}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/50 px-2 py-2 text-center text-xs font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/50 min-h-11 px-2 py-2 text-center text-[13px] font-semibold text-white hover:bg-white/10 sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
                 >
-                  <TriangleAlert size={16} aria-hidden="true" />
-                  Información de ingreso
+                  <TriangleAlert size={16} aria-hidden="true" className="shrink-0" />
+                  <span className="truncate">Información<span className="hidden sm:inline"> de ingreso</span></span>
                 </Link>
                 {/* Iniciar el control es del CONTROL (y del docente); el ADMIN lo supervisa. */}
                 {registra && (
                 <Link
                   to={`/dashboard/control/${idExamen}/identificar`}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-2 py-2 text-center text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white min-h-11 px-2 py-2 text-center text-[13px] font-semibold text-[#0439D9] hover:bg-[#E9F1FF] sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm"
                 >
-                  <ScanLine size={16} aria-hidden="true" />
-                  Iniciar Control de Ingreso
-                  <ArrowRight size={16} aria-hidden="true" />
+                  <ScanLine size={16} aria-hidden="true" className="hidden shrink-0 min-[400px]:block" />
+                  <span className="truncate">Iniciar control<span className="hidden sm:inline"> de ingreso</span></span>
+                  <ArrowRight size={16} aria-hidden="true" className="hidden shrink-0 min-[400px]:block" />
                 </Link>
                 )}
               </div>

@@ -224,7 +224,7 @@ export default function InformacionIngresoPage() {
           </header>
 
           <div
-            className="-mx-3 mt-3 flex gap-1 overflow-x-auto border-b border-[#E6EAF0] px-3 sm:mx-0 sm:gap-2 sm:px-0"
+            className="mt-3 grid grid-cols-3 gap-1 border-b border-[#E6EAF0] lg:flex lg:gap-2 lg:overflow-x-auto [&>button]:flex [&>button]:min-w-0 [&>button]:flex-col [&>button]:items-center [&>button]:justify-center [&>button]:gap-0.5 lg:[&>button]:inline-flex lg:[&>button]:flex-row lg:[&>button]:gap-2 [&>button]:px-1.5 [&>button]:text-[13px] [&>button]:leading-tight lg:[&>button]:px-3 lg:[&>button]:text-sm"
             role="tablist"
             aria-label="Información de ingreso"
           >
@@ -235,20 +235,21 @@ export default function InformacionIngresoPage() {
               onClick={() => setPestaña("autorizados")}
               className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "autorizados" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}
             >
-              Ingresos Autorizados en Tiempo Real{" "}
-              <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-xs text-[#0439D9]">
+              {/* En celular las tres pestañas caben en una fila con el nombre corto. */}
+              <span><span className="hidden lg:inline">Ingresos </span>Autorizados<span className="hidden lg:inline"> en Tiempo Real</span></span>
+              <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-xs text-[#0439D9]">
                 {totalAutorizados ?? "…"}
               </span>
             </button>
             <button type="button" role="tab" aria-selected={pestaña === "excepciones"} onClick={() => setPestaña("excepciones")}
               className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0439D9]/40 ${pestaña === "excepciones" ? "border-[#0439D9] bg-[#F1F6FF] text-[#0439D9]" : "border-transparent text-[#627A9B] hover:bg-slate-50"}`}>
-              <FileText size={16} aria-hidden="true" /> Excepciones
-              <span className="rounded-full bg-[#E6ECFF] px-2 py-0.5 text-xs text-[#0439D9]">{ingresosManuales.length} manual{ingresosManuales.length === 1 ? '' : 'es'}</span>
+              <FileText size={16} aria-hidden="true" className="hidden shrink-0 lg:block" /> Excepciones
+              <span className="rounded-full bg-[#E6ECFF] px-1.5 py-0.5 text-xs text-[#0439D9] lg:px-2">{ingresosManuales.length}<span className="hidden lg:inline"> manual{ingresosManuales.length === 1 ? '' : 'es'}</span></span>
             </button>
             <button type="button" role="tab" aria-selected={pestaña === "intentos"} onClick={() => setPestaña("intentos")}
               className={`min-h-11 shrink-0 rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${pestaña === "intentos" ? "border-[#0439D9] text-[#0439D9]" : "border-transparent text-[#627A9B]"}`}>
-              <TriangleAlert className="mr-1 inline" size={16} aria-hidden="true" />
-              Ingresos no autorizados <span className="ml-1 rounded-full bg-red-50 px-1.5 py-0.5 text-xs text-red-700">{totalIntentos ?? "…"}</span>
+              <TriangleAlert className="hidden shrink-0 lg:block" size={16} aria-hidden="true" />
+              <span className="lg:hidden">No autorizados</span><span className="hidden lg:inline">Ingresos no autorizados</span><span className="rounded-full bg-red-50 px-1.5 py-0.5 text-xs text-red-700">{totalIntentos ?? "…"}</span>
             </button>
           </div>
 
