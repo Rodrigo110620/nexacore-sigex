@@ -21,61 +21,37 @@ const examen: ExamenDto = {
   estado: 'programado', normasGenerales: [], normasParticulares: [],
 }
 
-describe('acceso CONTROL desde el listado integrado', () => {
+// Exámenes es la agenda: sin botón de control en las filas (el control se opera desde Control, el tablero del día).
+describe('Exámenes es la agenda: solo «Ver detalle»; registrar, según el rol', () => {
   beforeEach(() => {
     auth.isAdmin = false
-    auth.roles = ['CONTROL']
+    auth.roles = ['DOCENTE']
     vi.mocked(listarExamenes).mockResolvedValue([
       examen, { ...examen, idExamen: 8, asignatura: 'Cancelado', estado: 'cancelado' },
     ])
   })
 
-  it('conserva filtros y detalle y permite iniciar control solo en exámenes vigentes', async () => {
+  it.each([['DOCENTE'], ['ADMIN'], ['DOCENTE', 'CONTROL'], ['ADMIN', 'CONTROL']])('%s: sin botón de control en las filas, con filtros y detalle', async (...roles) => {
+    auth.roles = roles
+    auth.isAdmin = roles.includes('ADMIN')
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
-    const accesos = await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })
-    expect(accesos).toHaveLength(2)
-    accesos.forEach(link => expect(link).toHaveAttribute('href', '/dashboard/control/7'))
-    expect(screen.queryByRole('link', { name: /Iniciar control.*Cancelado/ })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Ver detalle' })).toHaveLength(4)
+    expect(await screen.findAllByRole('button', { name: 'Ver detalle' })).toHaveLength(4)
+    expect(screen.queryByRole('link', { name: /control de ingreso/ })).not.toBeInTheDocument()
     expect(screen.getAllByLabelText('Filtrar por ambiente').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Filtrar por fecha').length).toBeGreaterThan(0)
   })
 
-  it('DOCENTE puede registrar y controlar sus exámenes', async () => {
-    const role = 'DOCENTE'
-    auth.roles = [role]
-    auth.isAdmin = false
+  it('solo quien es DOCENTE registra exámenes (el ADMIN no)', async () => {
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
     await screen.findAllByRole('button', { name: 'Ver detalle' })
-    expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
     expect(screen.queryAllByRole('button', { name: 'Registrar Examen' }).length).toBeGreaterThan(0)
   })
 
-  // El ADMIN administra: no registra exámenes (los programa cada DOCENTE) ni el control (lo hace el CONTROL);
-  // el control lo supervisa con «Ver control».
-  it('ADMIN no registra exámenes ni el control: lo supervisa', async () => {
+  it('el ADMIN no registra exámenes', async () => {
     auth.roles = ['ADMIN']
     auth.isAdmin = true
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
-    expect(await screen.findAllByRole('link', { name: 'Ver el control de ingreso para Cálculo' })).toHaveLength(2)
+    await screen.findAllByRole('button', { name: 'Ver detalle' })
     expect(screen.queryByRole('button', { name: 'Registrar Examen' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Iniciar control de ingreso/ })).not.toBeInTheDocument()
-  })
-
-  it('ADMIN + CONTROL inicia el control por su rol de CONTROL, pero no registra exámenes', async () => {
-    auth.roles = ['ADMIN', 'CONTROL']
-    auth.isAdmin = true
-    render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
-    expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
-    expect(screen.queryByRole('button', { name: 'Registrar Examen' })).not.toBeInTheDocument()
-  })
-
-  it('DOCENTE + CONTROL conserva registro y acciones de control', async () => {
-    auth.roles = ['DOCENTE', 'CONTROL']
-    auth.isAdmin = false
-    render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
-
-    expect(await screen.findAllByRole('link', { name: 'Iniciar control de ingreso para Cálculo' })).toHaveLength(2)
-    expect(screen.queryAllByRole('button', { name: 'Registrar Examen' }).length).toBeGreaterThan(0)
   })
 })

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
+  ArrowRight,
+  ClipboardCheck,
   CalendarClock,
   CalendarDays,
   Check,
@@ -30,6 +32,7 @@ import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import {
   addMinutes,
   codigoExamen,
+  fechaLocal,
   formatFecha,
   horaCorta,
   initialsOfName,
@@ -42,7 +45,8 @@ import CronometroExamen from '../../components/examenes/CronometroExamen'
 import useTiempoExamen from '../../hooks/useTiempoExamen'
 import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
-import { tienePermiso } from '../../utils/permisos'
+import { registraControl, tienePermiso, veControl } from '../../utils/permisos'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import PersonalControlSeccion from '../../components/examenes/PersonalControlSeccion'
@@ -319,6 +323,15 @@ export default function ExamenDetallePage() {
                   </div>
                 )}
                 <CronometroExamen examen={examen} className="mt-3" />
+                {/* El control se opera desde Control; desde la agenda, un acceso directo solo el día del examen. */}
+                {!cancelado && veControl(auth) && examen.fecha === fechaLocal(new Date(ahoraServidorMs())) && (
+                  <Link to={`/dashboard/control/${examen.idExamen}`}
+                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-[#0439D9] bg-white px-4 text-sm font-bold text-[#0439D9] hover:bg-[#F1F6FF] sm:w-auto">
+                    <ClipboardCheck size={15} aria-hidden="true" />
+                    {registraControl(auth) ? 'Iniciar control' : 'Ver control'} de este examen
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </Link>
+                )}
               </section>
               <HistorialSesiones idExamen={examen.idExamen} idParalelo={examen.idParalelo} recarga={recargaSesiones} />
 
