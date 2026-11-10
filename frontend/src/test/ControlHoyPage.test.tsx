@@ -33,11 +33,11 @@ const montar = () => render(<MemoryRouter><ControlHoyPage /></MemoryRouter>)
 
 it('Control es el tablero del día: en curso con sus contadores, próximos y terminados plegados', () => {
   montar()
-  const enCurso = screen.getByRole('article', { name: 'En curso: Base de Datos I · G1' })
-  expect(within(enCurso).getByText('27')).toBeInTheDocument()
-  expect(within(enCurso).getByText('3')).toBeInTheDocument() // ausentes
+  const enCurso = screen.getByRole('listitem', { name: 'En curso: Base de Datos I · G1' })
+  expect(enCurso).toHaveTextContent('27/30')
+  expect(enCurso).toHaveTextContent('3 ausentes')
   expect(within(enCurso).getByRole('link', { name: 'Iniciar control de Base de Datos I · G1' })).toHaveAttribute('href', '/dashboard/control/1')
-  expect(screen.getByRole('article', { name: 'Próximo: Redes · G1' })).toHaveTextContent('Abre a las')
+  expect(screen.getByRole('listitem', { name: 'Próximo: Redes · G1' })).toHaveTextContent('Abre a las')
   expect(screen.queryByText('Física · G1')).not.toBeInTheDocument()
   const terminados = screen.getByRole('button', { name: 'Terminados hoy (1)' })
   expect(screen.queryByText('Cálculo · G1')).not.toBeInTheDocument()

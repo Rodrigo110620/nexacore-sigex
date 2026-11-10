@@ -5,7 +5,6 @@ import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
 import { BarraDegradado } from '../../components/inicio/Graficas'
-import { EnVivo } from '../../components/inicio/Comun'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import { useAuth } from '../../context/AuthContext'
 import usePanelControl from '../../hooks/usePanelControl'
@@ -51,23 +50,21 @@ export default function ControlHoyPage() {
       {/* Ancho completo, como el resto de las pantallas del personal (sin columnas vacías a los lados). */}
       <div className="flex w-full flex-col gap-3 px-4 py-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:gap-4 sm:px-5 sm:pt-4 min-[960px]:pb-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-bold text-[#011140]">Hoy · {DIAS_LARGOS[ahora.getDay()]} {formatFecha(hoy)}</h1>
+          <h1 className="text-base font-bold text-[#011140] sm:text-lg">Hoy · {DIAS_LARGOS[ahora.getDay()]} {formatFecha(hoy)}</h1>
           {verAgenda && <Link to="/dashboard/examenes" className="text-sm font-semibold text-[#0439D9] hover:underline">Ver todos los exámenes →</Link>}
         </div>
 
         {error ? <ErrorCarga mensaje={error} onReintentar={recargar} />
           : !examenes ? <p role="status" className="py-10 text-center text-sm text-[#627A9B]">Cargando los exámenes de hoy…</p>
           : <>
-            {enCurso.length > 0 && (
-              <section aria-label="En curso" className="grid gap-3 xl:grid-cols-2">
-                {enCurso.map((e) => <TarjetaEnCurso key={e.idExamen} examen={e} resumen={resumenes[e.idExamen]} accion={accion} />)}
-              </section>
-            )}
-
-            {proximos.length > 0 && (
-              <section aria-label="Próximos de hoy" className="flex flex-col gap-2.5">
-                <h2 className="text-xs font-bold uppercase tracking-wide text-[#45628D]">Próximos de hoy</h2>
-                {proximos.map((e) => <FilaProxima key={e.idExamen} examen={e} accion={accion} />)}
+            {enCurso.length + proximos.length > 0 && (
+              <section aria-label="Exámenes de hoy" className={`${TARJETA} overflow-hidden`}>
+                <div aria-hidden="true" className={`${COLUMNAS} hidden border-b border-[#EEF2F7] bg-[#F8FAFF] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#627A9B] xl:grid`}>
+                  <span>Estado</span><span>Examen</span><span>Horario · Aula</span><span>Ingreso</span><span>Termina en</span><span />
+                </div>
+                <ul className="divide-y divide-[#EEF2F7]">
+                  {[...enCurso, ...proximos].map((e) => <FilaExamen key={e.idExamen} examen={e} fase={fase(e)} resumen={resumenes[e.idExamen]} accion={accion} />)}
+                </ul>
               </section>
             )}
 
@@ -90,18 +87,7 @@ export default function ControlHoyPage() {
                 </button>
                 {verTerminados && (
                   <ul className="divide-y divide-[#EEF2F7] border-t border-[#EEF2F7]">
-                    {terminados.map((e) => {
-                      const r = resumenes[e.idExamen]
-                      const d = r && r !== 'error' ? r : null
-                      return (
-                        <li key={e.idExamen} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
-                          <span className="min-w-0 flex-1 font-semibold text-[#011140]">{materiaYGrupo(e)}</span>
-                          <span className="text-xs text-[#627A9B]">{horaCorta(e.horaInicio)} – {addMinutes(e.horaInicio, e.duracionMinutos)} · {etiquetaAulas(e)}</span>
-                          {d && <span className="text-xs font-semibold text-[#011140]">{d.ingresados} de {d.habilitados} ingresaron</span>}
-                          <Link to={`/dashboard/control/${e.idExamen}`} className="text-xs font-semibold text-[#0439D9] hover:underline">Ver control →</Link>
-                        </li>
-                      )
-                    })}
+                    {terminados.map((e) => <FilaExamen key={e.idExamen} examen={e} fase="finalizado" resumen={resumenes[e.idExamen]} accion="Ver control" />)}
                   </ul>
                 )}
               </section>
@@ -113,61 +99,48 @@ export default function ControlHoyPage() {
   )
 }
 
-function TarjetaEnCurso({ examen, resumen, accion }: { examen: ExamenDto; resumen: Resumen; accion: string }) {
+// Lista: columnas en escritorio; en celular cada fila en dos o tres líneas (examen y botón arriba).
+const COLUMNAS = 'xl:grid xl:grid-cols-[104px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_112px_150px] xl:items-center xl:gap-x-4'
+const ESTADO = {
+  'en-curso': { texto: 'En curso', clase: 'bg-[#DCFCE7] text-[#15803D]' },
+  proximo: { texto: 'Próximo', clase: 'bg-[#E0E9FF] text-[#0439D9]' },
+  finalizado: { texto: 'Terminado', clase: 'bg-[#F1F5F9] text-[#475569]' },
+} as const
+
+function FilaExamen({ examen, fase, resumen, accion }: { examen: ExamenDto; fase: string; resumen: Resumen; accion: string }) {
   const d = resumen && resumen !== 'error' ? resumen : null
   const habilitados = d?.habilitados ?? 0
   const ingresados = d?.ingresados ?? 0
-  const contadores: [string, number, string][] = [
-    ['Habilitados', habilitados, 'text-[#0439D9]'], ['Ingresados', ingresados, 'text-[#15803D]'], ['Ausentes', Math.max(0, habilitados - ingresados), 'text-[#B45309]'],
-  ]
-  // Compacta: título y cronómetro arriba; contadores, avance y el botón en una sola franja.
+  const estado = ESTADO[fase as keyof typeof ESTADO] ?? ESTADO.proximo
+  const enCurso = fase === 'en-curso'
+  const chip = <span className={`inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-bold ${estado.clase}`}>{enCurso && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#16A34A]" aria-hidden="true" />}{estado.texto}</span>
+  const ingreso = fase === 'proximo'
+    ? <span className="text-xs font-semibold text-[#0439D9]">Abre a las {aperturaControl(examen.fecha, examen.horaInicio).hora}</span>
+    : d
+      ? <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#45628D]">
+          <b className="tabular-nums text-[#011140]">{ingresados}/{habilitados}</b>
+          {habilitados > 0 && <span className="w-16 shrink-0"><BarraDegradado valor={ingresados} max={habilitados} desde="#22C55E" hasta="#0EA5E9" etiqueta={`Avance de ingreso de ${examen.asignatura}`} /></span>}
+          <span className="xl:truncate">{habilitados > 0 ? `${formatoPct(porcentaje(ingresados, habilitados))} · ${habilitados - ingresados} ${habilitados - ingresados === 1 ? 'ausente' : 'ausentes'}` : 'sin habilitados'}</span>
+        </span>
+      : <span className="text-xs text-[#627A9B]">—</span>
   return (
-    <article aria-label={`En curso: ${materiaYGrupo(examen)}`} className={`${TARJETA} flex flex-col gap-3 p-4`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-bold text-[#15803D]">EN CURSO</span>
-            <EnVivo texto="En vivo" />
-          </div>
-          <h2 className="mt-1 truncate text-base font-bold text-[#011140]">{materiaYGrupo(examen)}</h2>
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[#45628D]">
-            <span className="inline-flex items-center gap-1"><Clock3 size={13} aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</span>
-            <span className="inline-flex items-center gap-1"><MapPin size={13} aria-hidden="true" />{etiquetaAulas(examen)}</span>
-          </p>
-        </div>
-        <CronometroExamen examen={examen} variante="compacto" />
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#EEF2F7] pt-3">
-        <dl className="flex flex-1 flex-wrap items-baseline gap-x-4 gap-y-1">
-          {contadores.map(([t, v, c]) => (
-            <div key={t} className="flex items-baseline gap-1.5">
-              <dd className={`text-lg font-bold tabular-nums ${c}`}>{d ? v : '—'}</dd>
-              <dt className="text-xs text-[#627A9B]">{t.toLowerCase()}</dt>
-            </div>
-          ))}
-          {d && habilitados > 0 && <span className="text-xs font-semibold tabular-nums text-[#011140]">{formatoPct(porcentaje(ingresados, habilitados))}</span>}
-        </dl>
-        <Link to={`/dashboard/control/${examen.idExamen}`} aria-label={`${accion} de ${materiaYGrupo(examen)}`}
-          className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[10px] bg-[#0439D9] px-4 text-sm font-bold text-white hover:bg-[#0C41E1] sm:w-auto">
-          {accion} <ArrowRight size={15} aria-hidden="true" />
-        </Link>
-      </div>
-      {d && habilitados > 0 && <BarraDegradado valor={ingresados} max={habilitados} desde="#22C55E" hasta="#0EA5E9" etiqueta={`Avance de ingreso de ${examen.asignatura}`} />}
-    </article>
-  )
-}
-
-function FilaProxima({ examen, accion }: { examen: ExamenDto; accion: string }) {
-  const apertura = aperturaControl(examen.fecha, examen.horaInicio)
-  return (
-    <article aria-label={`Próximo: ${materiaYGrupo(examen)}`} className={`${TARJETA} flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3`}>
-      <span className="rounded-md bg-[#E0E9FF] px-2 py-0.5 text-[10px] font-bold text-[#0439D9]">PRÓXIMO</span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-[#011140]">{materiaYGrupo(examen)}</p>
-        <p className="text-xs text-[#45628D]">{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)} · {etiquetaAulas(examen)}</p>
-      </div>
-      <span className="text-xs font-semibold text-[#0439D9]">Abre a las {apertura.hora}</span>
-      <Link to={`/dashboard/control/${examen.idExamen}`} className="text-xs font-semibold text-[#0439D9] hover:underline">{accion} →</Link>
-    </article>
+    <li aria-label={`${estado.texto}: ${materiaYGrupo(examen)}`}
+      className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 px-4 py-3 ${COLUMNAS} ${enCurso ? '' : 'bg-white'}`}>
+      <span className="hidden xl:block">{chip}</span>
+      {/* Celular: el nombre completo (hasta dos líneas) junto al botón; el chip baja con el horario. */}
+      <b className="col-start-1 row-start-1 line-clamp-2 self-center text-sm text-[#011140] xl:col-start-auto xl:row-start-auto xl:line-clamp-1">{materiaYGrupo(examen)}</b>
+      <span className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#45628D] xl:col-span-1">
+        <span className="xl:hidden">{chip}</span>
+        <span className="inline-flex items-center gap-1"><Clock3 size={13} aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</span>
+        <span className="inline-flex items-center gap-1"><MapPin size={13} aria-hidden="true" />{etiquetaAulas(examen)}</span>
+      </span>
+      <span className="min-w-0">{ingreso}</span>
+      <span className="justify-self-end xl:justify-self-start">{enCurso ? <CronometroExamen examen={examen} variante="compacto" /> : <span className="text-xs text-[#627A9B]">—</span>}</span>
+      <Link to={`/dashboard/control/${examen.idExamen}`} aria-label={`${accion} de ${materiaYGrupo(examen)}`}
+        className={`col-start-2 row-start-1 inline-flex min-h-9 items-center justify-center gap-1 justify-self-end whitespace-nowrap rounded-lg px-3 text-xs font-bold xl:col-start-auto xl:row-start-auto xl:min-h-10 xl:text-sm ${
+          enCurso ? 'bg-[#0439D9] text-white hover:bg-[#0C41E1]' : 'border border-[#D8E3F5] bg-white text-[#0439D9] hover:bg-[#F1F6FF]'}`}>
+        {enCurso ? accion : fase === 'proximo' ? 'Ver' : 'Ver control'} <ArrowRight size={14} aria-hidden="true" />
+      </Link>
+    </li>
   )
 }
