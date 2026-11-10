@@ -99,8 +99,8 @@ public class ExamenController {
         return ResponseEntity.ok(sesionExamenService.listar(idExamen));
     }
 
-    @Operation(summary = "Cancelar examen", description = "Marca el examen como cancelado. Solo ADMIN.")
-    @PreAuthorize("@permisos.tiene(authentication, 'EXAMENES_CANCELAR')")
+    @Operation(summary = "Cancelar examen", description = "Marca el examen como cancelado. El ADMIN cualquiera; el DOCENTE, los suyos.")
+    @PreAuthorize("@examenAccesoService.puedeCancelar(#idExamen, authentication)")
     @DeleteMapping("/{idExamen}/{idParalelo}")
     public ResponseEntity<Void> cancelar(
             @PathVariable Integer idExamen,

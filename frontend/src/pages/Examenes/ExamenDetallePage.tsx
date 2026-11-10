@@ -90,7 +90,8 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 export default function ExamenDetallePage() {
   const auth = useAuth()
   // Cancelar el examen: permiso del ADMIN (o de un rol extra que lo tenga).
-  const isAdmin = tienePermiso(auth, 'EXAMENES_CANCELAR')
+  // Cancela el ADMIN (cualquiera) y el DOCENTE (los suyos: solo ve los suyos; el backend lo verifica).
+  const puedeCancelar = tienePermiso(auth, 'EXAMENES_CANCELAR', 'EXAMENES_GESTIONAR_PROPIOS')
   // Asociar y cambiar la habilitación: el ADMIN en cualquier examen; el DOCENTE en los suyos, que son los
   // únicos que puede abrir (el servidor también lo verifica).
   const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR', 'HABILITACION_GESTIONAR_PROPIOS')
@@ -246,7 +247,7 @@ export default function ExamenDetallePage() {
                           Editar Examen
                         </button>
                       )}
-                      {isAdmin && !cancelado && (
+                      {puedeCancelar && !cancelado && (
                         <button
                           type="button"
                           onClick={() => setCancelOpen(true)}
@@ -285,7 +286,7 @@ export default function ExamenDetallePage() {
                       <button
                         type="button"
                         onClick={() => setReprogramarOpen(true)}
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] text-sm font-semibold text-white hover:bg-[#0027a2] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] text-sm font-semibold text-white hover:bg-[#0027a2]`}
                       >
                         <CalendarClock size={15} aria-hidden="true" />
                         Reprogramar
@@ -294,7 +295,7 @@ export default function ExamenDetallePage() {
                       <button
                         type="button"
                         onClick={() => setEditOpen(true)}
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB]`}
                       >
                         <Pencil size={15} aria-hidden="true" />
                         Editar
@@ -313,7 +314,7 @@ export default function ExamenDetallePage() {
                       </button>
                     )}
                   </div>
-                  {isAdmin && !cancelado && (
+                  {puedeCancelar && !cancelado && (
                     <div className="mt-2 flex justify-end">
                       <button type="button" onClick={() => setCancelOpen(true)}
                         className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50">
