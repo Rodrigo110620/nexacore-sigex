@@ -46,6 +46,10 @@ import java.util.List;
 @RequestMapping("/usuarios")
 public class UsuarioController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final UsuarioService usuarioService;
     private final ImportacionUsuariosService importacionUsuariosService;
     private final DocenteMateriaService docenteMateriaService;
@@ -130,7 +134,9 @@ public class UsuarioController {
     @PreAuthorize("@permisos.tiene(authentication, 'ROLES_GESTIONAR')")
     @PostMapping("/roles")
     public ResponseEntity<Rol> crearRol(@Valid @RequestBody CrearRolRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearRol(request));
+        Rol rol = usuarioService.crearRol(request);
+        auditoria.registrar("ROL_CREADO", com.nexacore.examenes.services.AuditoriaService.datos("nombre", rol.getNombre(), "permisos", java.util.List.of()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(rol);
     }
     @Operation(summary = "Estadísticas de usuarios",
             description = "Devuelve el total de usuarios, cuántos hay por rol y por estado. Solo ADMIN.")
@@ -176,7 +182,9 @@ public class UsuarioController {
     @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
     @PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<ImportarUsuariosResponse> importar(@RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(importacionUsuariosService.importar(file));
+        ImportarUsuariosResponse r = importacionUsuariosService.importar(file);
+        auditoria.registrar("USUARIOS_IMPORTADOS", com.nexacore.examenes.services.AuditoriaService.datos("archivo", file.getOriginalFilename(), "insertados", r.insertados(), "ignorados", r.ignorados()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Bloquear o desbloquear usuario",
@@ -220,6 +228,7 @@ public class UsuarioController {
     @PutMapping("/{id}/materias")
     public List<com.nexacore.examenes.dto.MateriaConGruposResponse> asignarMaterias(@PathVariable Integer id, @Valid @RequestBody AsignarMateriasRequest request) {
         docenteMateriaService.asignar(id, request.idMaterias(), request.grupos());
+        auditoria.registrar("MATERIAS_ASIGNADAS", com.nexacore.examenes.services.AuditoriaService.datos("idUsuario", id, "idMaterias", request.idMaterias()));
         return docenteMateriaService.materiasConGrupos(id);
     }
 }

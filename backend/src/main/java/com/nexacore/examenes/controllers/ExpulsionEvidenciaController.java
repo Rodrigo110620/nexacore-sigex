@@ -22,6 +22,10 @@ import java.util.List;
 @RequestMapping("/control-ingresos/examen/{idExamen}/expulsiones/{idExpulsion}/evidencias")
 public class ExpulsionEvidenciaController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final ExpulsionEvidenciaService service;
 
     public ExpulsionEvidenciaController(ExpulsionEvidenciaService service) {
@@ -34,7 +38,9 @@ public class ExpulsionEvidenciaController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public List<EvidenciaExpulsionResponse> agregar(@PathVariable Integer idExamen, @PathVariable Integer idExpulsion,
                                                    @RequestParam("files") List<MultipartFile> files) {
-        return service.agregar(idExamen, idExpulsion, files);
+        var r = service.agregar(idExamen, idExpulsion, files);
+        auditoria.registrar("EVIDENCIA_AGREGADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idExpulsion", idExpulsion, "archivos", files.size()));
+        return r;
     }
 
     @Operation(summary = "Evidencias de una expulsión",

@@ -91,10 +91,12 @@ public class RolService {
         Rol rol = extra(id);
         rol.setDescripcion(descripcion(request.descripcion()));
         rolRepository.save(rol);
+        // El historial muestra qué permisos se agregaron y cuáles se quitaron.
+        List<String> permisosAntes = rolPermisoRepository.findByIdRol(id).stream().map(RolPermiso::getCodigoPermiso).sorted().toList();
         rolPermisoRepository.borrarDelRol(id);
         rolPermisoRepository.flush();
         guardarPermisos(id, request.permisos());
-        auditoriaService.registrar("ROL_EDITADO", Map.of("nombre", rol.getNombre(), "permisos", request.permisos()));
+        auditoriaService.registrar("ROL_EDITADO", Map.of("nombre", rol.getNombre(), "permisosAntes", permisosAntes, "permisos", request.permisos()));
         return respuesta(rol, contarUsuarios(id));
     }
 

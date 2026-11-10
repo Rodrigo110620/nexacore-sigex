@@ -1,4 +1,5 @@
 import api from './api'
+import { obtenerArchivo } from './descargas'
 
 export interface OperacionAuditada {
   id: number
@@ -10,7 +11,16 @@ export interface OperacionAuditada {
   modulo: string
   operacion: string
   accion: string
+  /** Resumen legible de lo que se hizo. */
   detalle: string
+  /** A qué afectó: «Base de Datos I · G2», «Rol AUXILIAR», el nombre del usuario… */
+  objetivo: string | null
+  motivo: string | null
+  /** Cambios campo por campo, ya con nombres: antes null = agregado; despues null = quitado. */
+  diferencias: { campo: string; antes: string | null; despues: string | null }[]
+  /** Del examen al que se refiere: Fecha, Horario (inicio – fin), Aula, Docente, Estado. Vacío si no es de un examen. */
+  examen: { campo: string; valor: string }[]
+  /** JSON original de la auditoría. */
   cambios: unknown
 }
 
@@ -39,14 +49,7 @@ export async function listarHistorial(filtros: FiltrosHistorial, page: number, s
   return data
 }
 
-export async function exportarHistorial(filtros: FiltrosHistorial) {
-  const response = await api.get<Blob>('/admin/historial-operaciones/exportar.csv', {
-    params: params(filtros), responseType: 'blob',
-  })
-  const url = URL.createObjectURL(response.data)
-  const enlace = document.createElement('a')
-  enlace.href = url
-  enlace.download = 'historial-operaciones.csv'
-  enlace.click()
-  URL.revokeObjectURL(url)
+/** El historial filtrado en el formato pedido (para la vista previa de descarga, como el resto de exportaciones). */
+export function obtenerHistorial(filtros: FiltrosHistorial, formato: 'pdf' | 'csv') {
+  return obtenerArchivo(`/admin/historial-operaciones/exportar.${formato}`, params(filtros), `historial-operaciones.${formato}`)
 }

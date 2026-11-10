@@ -12,6 +12,10 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/reportes-qr-duplicado")
 public class ReporteQrDuplicadoController {
+
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
     private final ReporteQrDuplicadoService service;
     public ReporteQrDuplicadoController(ReporteQrDuplicadoService service) { this.service = service; }
     @PreAuthorize("@examenAccesoService.puedeControlar(#idExamen, authentication)")
@@ -21,8 +25,11 @@ public class ReporteQrDuplicadoController {
             @RequestParam(defaultValue = "true") boolean presentoCarnet,
             @RequestParam(required = false) String codigoSisPresentado, @RequestParam String detalle,
             @RequestParam String fechaHoraDispositivo, @RequestParam("foto") MultipartFile foto, Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idExamen, idEstudianteQr, nombresPresentado,
-                ciPresentado, presentoCarnet, codigoSisPresentado, detalle, fechaHoraDispositivo, foto, authentication.getName()));
+        Integer id = service.registrar(idExamen, idEstudianteQr, nombresPresentado,
+                ciPresentado, presentoCarnet, codigoSisPresentado, detalle, fechaHoraDispositivo, foto, authentication.getName());
+        auditoria.registrar("QR_DUPLICADO_REPORTADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idEstudiante", idEstudianteQr,
+                "presentado", nombresPresentado, "motivo", detalle));
+        return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
     @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
     @GetMapping("/examen/{idExamen}")

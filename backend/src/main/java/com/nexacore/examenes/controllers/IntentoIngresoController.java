@@ -16,6 +16,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/intentos-ingreso")
 public class IntentoIngresoController {
+
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
     private final IntentoIngresoService service;
     private final com.nexacore.examenes.services.ExamenAccesoService acceso;
 
@@ -29,6 +33,7 @@ public class IntentoIngresoController {
     public ResponseEntity<Void> registrar(@Valid @RequestBody RegistrarIntentoIngresoRequest request,
                                           Authentication authentication) {
         service.registrar(request, authentication.getName());
+        auditoria.registrar("INTENTO_INGRESO_REGISTRADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(), "motivo", request.motivo()));
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -37,8 +42,9 @@ public class IntentoIngresoController {
     @PostMapping("/ambiente-incorrecto")
     public ResponseEntity<IntentoIngresoResponse> registrarAmbienteIncorrecto(
             @Valid @RequestBody RegistrarAmbienteIncorrectoRequest request, Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(service.registrarAmbienteIncorrecto(request, authentication.getName()));
+        var r = service.registrarAmbienteIncorrecto(request, authentication.getName());
+        auditoria.registrar("AULA_INCORRECTA_REGISTRADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(), "aula", request.aulaActual()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(r);
     }
 
     @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")

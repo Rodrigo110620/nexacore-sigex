@@ -32,6 +32,10 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class AuthController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final AuthService authService;
     private final com.nexacore.examenes.services.PerfilRolService perfilRolService;
     private final com.nexacore.examenes.services.UsuarioFotoService usuarioFotoService;
@@ -67,12 +71,14 @@ public class AuthController {
     @PutMapping(value = "/me/foto", consumes = "multipart/form-data")
     public ResponseEntity<Void> subirMiFoto(Authentication authentication, @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         usuarioFotoService.guardar(yo(authentication), file);
+        auditoria.registrar("MI_FOTO_CAMBIADA", com.nexacore.examenes.services.AuditoriaService.datos());
         return ResponseEntity.noContent().build();
     }
 
     @org.springframework.web.bind.annotation.DeleteMapping("/me/foto")
     public ResponseEntity<Void> quitarMiFoto(Authentication authentication) {
         usuarioFotoService.quitar(yo(authentication));
+        auditoria.registrar("MI_FOTO_QUITADA", com.nexacore.examenes.services.AuditoriaService.datos());
         return ResponseEntity.noContent().build();
     }
 
@@ -112,6 +118,7 @@ public class AuthController {
             Authentication authentication,
             @Valid @RequestBody CambiarPasswordRequest request) {
         authService.cambiarPassword(authentication.getName(), request);
+        auditoria.registrar("CONTRASENA_CAMBIADA", com.nexacore.examenes.services.AuditoriaService.datos());
         return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada correctamente"));
     }
 }
