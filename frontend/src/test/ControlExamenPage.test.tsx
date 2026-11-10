@@ -74,7 +74,7 @@ describe('ControlExamenPage', () => {
     vi.mocked(listarEstudiantesExamen).mockRejectedValue({ isAxiosError: true, response: { status: 403 } })
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para acceder a este examen')
-    expect(screen.queryByRole('link', { name: /Iniciar Control de Ingreso/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Iniciar control de ingreso/i })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Volver a Control' })).toHaveAttribute('href', '/dashboard/control')
   })
 
@@ -110,7 +110,7 @@ describe('ControlExamenPage', () => {
     expect(within(filas[2]).getByText('NO INGRESÓ')).toBeInTheDocument()
     expect(within(filas[2]).getByText('7489212')).toBeInTheDocument()
     expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 5)
-    expect(screen.getByRole('link', { name: /Iniciar Control de Ingreso/ })).toHaveAttribute('href', '/dashboard/control/7/identificar')
+    expect(screen.getByRole('link', { name: /Iniciar control de ingreso/i })).toHaveAttribute('href', '/dashboard/control/7/identificar')
   })
 
   it('permite volver al listado de Control', async () => {

@@ -32,6 +32,7 @@ const ROLES = [
 
 describe('Configuración → Roles y permisos', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', window.location.pathname)
     vi.mocked(servicio.listarRolesConPermisos).mockResolvedValue(ROLES)
     vi.mocked(servicio.listarPermisos).mockResolvedValue(CATALOGO)
     vi.mocked(servicio.crearRolConPermisos).mockReset()
@@ -41,6 +42,7 @@ describe('Configuración → Roles y permisos', () => {
     render(<ConfiguracionPage />)
     expect(await screen.findByRole('tab', { name: /Roles y permisos/, selected: true })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: /Respaldo/ }))
+    expect(window.location.hash).toBe('#respaldo')
     expect(screen.getByRole('heading', { name: 'Respaldo de la base de datos' })).toBeInTheDocument()
     expect(await screen.findByText('PostgreSQL 18.6')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Roles y permisos' })).not.toBeInTheDocument()
@@ -78,7 +80,8 @@ describe('Configuración → Roles y permisos', () => {
 describe('permisos en el frontend', () => {
   it('un rol extra ve en el menú solo lo que permiten sus permisos', () => {
     const items = navItemsFor(['AUXILIAR'], ['CONTROL_INGRESO_TODOS', 'ESTUDIANTES_VER'])
-    expect(items.map((i) => i.label)).toEqual(['Inicio', 'Control', 'Reportes', 'Estudiantes'])
+    // Controlar todos los exámenes no da Reportes: eso es de quien supervisa (REPORTES_VER) o del docente.
+    expect(items.map((i) => i.label)).toEqual(['Inicio', 'Control', 'Estudiantes'])
   })
   it('sin permisos del servidor se calculan con los roles del sistema, como siempre', () => {
     expect(tienePermiso({ roles: ['DOCENTE'] }, 'EXAMENES_GESTIONAR_PROPIOS')).toBe(true)

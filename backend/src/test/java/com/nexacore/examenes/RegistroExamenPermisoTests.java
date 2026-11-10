@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,5 +52,19 @@ class RegistroExamenPermisoTests {
         mockMvc.perform(post("/examenes").contentType("application/json").content(EXAMEN))
             .andExpect(status().isCreated());
         verify(examenService).crear(any());
+    }
+
+    // Cancelar: el ADMIN cualquiera; el DOCENTE solo los suyos (un examen ajeno o de un usuario desconocido, no);
+    // el CONTROL ninguno.
+    @MockitoBean com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
+
+    @Test
+    @WithMockUser(roles = "DOCENTE")
+    void elDocenteCancelaSusExamenesYNoLosAjenos() throws Exception {
+        org.mockito.Mockito.when(examenAccesoService.puedeCancelar(org.mockito.ArgumentMatchers.eq(7), any())).thenReturn(true);
+        mockMvc.perform(delete("/examenes/7/1")).andExpect(status().isNoContent());
+        verify(examenService).cancelar(7, 1);
+        mockMvc.perform(delete("/examenes/8/1")).andExpect(status().isForbidden());
+        verify(examenService, never()).cancelar(8, 1);
     }
 }

@@ -110,6 +110,11 @@ public class ExamenAccesoService {
         return segunPermiso(idExamen, authentication, Permiso.HABILITACION_GESTIONAR, Permiso.HABILITACION_GESTIONAR_PROPIOS);
     }
 
+    /** Cancelar: con EXAMENES_CANCELAR (ADMIN) cualquier examen; el DOCENTE, los suyos (los programa él). */
+    public boolean puedeCancelar(Integer idExamen, Authentication authentication) {
+        return segunPermiso(idExamen, authentication, Permiso.EXAMENES_CANCELAR, Permiso.EXAMENES_GESTIONAR_PROPIOS);
+    }
+
     /** Reprogramar: con EXAMENES_GESTIONAR_TODOS cualquier examen; con _PROPIOS, los suyos. */
     public boolean puedeReprogramar(Integer idExamen, Authentication authentication) {
         return segunPermiso(idExamen, authentication, Permiso.EXAMENES_GESTIONAR_TODOS, Permiso.EXAMENES_GESTIONAR_PROPIOS);

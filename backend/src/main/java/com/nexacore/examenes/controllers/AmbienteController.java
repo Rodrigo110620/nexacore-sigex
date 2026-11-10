@@ -30,6 +30,10 @@ import java.util.List;
 @RequestMapping("/ambientes")
 public class AmbienteController {
 
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     private final AmbienteService ambienteService;
 
     public AmbienteController(AmbienteService ambienteService) {
@@ -47,7 +51,9 @@ public class AmbienteController {
     @PreAuthorize("@permisos.tiene(authentication, 'AMBIENTES_GESTIONAR')")
     @PostMapping
     public ResponseEntity<AmbienteResponse> crear(@Valid @RequestBody CrearAmbienteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ambienteService.crear(request));
+        AmbienteResponse creado = ambienteService.crear(request);
+        auditoria.registrar("AMBIENTE_CREADO", com.nexacore.examenes.services.AuditoriaService.datos("nombre", creado.nombre(), "capacidad", creado.capacidad(), "ubicacion", creado.ubicacion()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(creado);
     }
 
     @Operation(summary = "Registrar el aforo de un ambiente",
@@ -57,7 +63,9 @@ public class AmbienteController {
     @PatchMapping("/{id}/aforo")
     public ResponseEntity<AmbienteResponse> actualizarAforo(
             @PathVariable Integer id, @Valid @RequestBody ActualizarAforoRequest request) {
-        return ResponseEntity.ok(ambienteService.actualizarAforo(id, request.capacidad()));
+        AmbienteResponse ambiente = ambienteService.actualizarAforo(id, request.capacidad());
+        auditoria.registrar("AMBIENTE_AFORO_CAMBIADO", com.nexacore.examenes.services.AuditoriaService.datos("nombre", ambiente.nombre(), "capacidad", ambiente.capacidad()));
+        return ResponseEntity.ok(ambiente);
     }
 
     @Operation(summary = "Disponibilidad de ambientes",

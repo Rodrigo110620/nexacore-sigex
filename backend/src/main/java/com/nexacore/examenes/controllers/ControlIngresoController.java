@@ -27,6 +27,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/control-ingresos")
 public class ControlIngresoController {
+
+    /** Cada operación queda en el historial de operaciones (Configuración). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
     
     private final ControlIngresoService service;
     private final ExcepcionService excepcionService; 
@@ -39,7 +43,9 @@ public class ControlIngresoController {
     @PostMapping("/expulsar")
     public ResponseEntity<ExpulsionResponse> expulsar(
             @Valid @RequestBody ExpulsarEstudianteRequest request, Authentication authentication) {
-        return ResponseEntity.ok(service.expulsar(request, authentication));
+        ExpulsionResponse r = service.expulsar(request, authentication);
+        auditoria.registrar("EXPULSION_REGISTRADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(), "motivo", request.motivo()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Anular una expulsión registrada por error",
@@ -49,7 +55,9 @@ public class ControlIngresoController {
     public ResponseEntity<ExpulsionResponse> anularExpulsion(
             @PathVariable Integer idExamen, @PathVariable Integer idExpulsion,
             @Valid @RequestBody com.nexacore.examenes.dto.AnularExpulsionRequest request, Authentication authentication) {
-        return ResponseEntity.ok(service.anularExpulsion(idExamen, idExpulsion, request.motivo(), authentication));
+        ExpulsionResponse r = service.anularExpulsion(idExamen, idExpulsion, request.motivo(), authentication);
+        auditoria.registrar("EXPULSION_ANULADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idEstudiante", r.idEstudiante(), "motivo", request.motivo()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Registrar salida", description = "Cuando el estudiante entrega y se retira: guarda la hora del servidor. "
@@ -58,7 +66,9 @@ public class ControlIngresoController {
     @PostMapping("/salida")
     public com.nexacore.examenes.dto.SalidaResponse registrarSalida(
             @Valid @RequestBody com.nexacore.examenes.dto.SalidaRequest request, Authentication authentication) {
-        return salidaExamenService.registrar(request.idExamen(), request.idEstudiante(), authentication.getName());
+        var r = salidaExamenService.registrar(request.idExamen(), request.idEstudiante(), authentication.getName());
+        auditoria.registrar("SALIDA_REGISTRADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante()));
+        return r;
     }
 
     /** Salida del examen (V56); por campo para no cambiar el constructor. */
@@ -72,7 +82,11 @@ public class ControlIngresoController {
             @Valid @RequestBody AutorizarIngresoRequest request,
             Authentication authentication) {
         AutorizarIngresoResponse response = service.autorizar(request, authentication.getName());
-        if (response.autorizado()) return ResponseEntity.ok(response);
+        if (response.autorizado()) {
+            auditoria.registrar("INGRESO_AUTORIZADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(),
+                    "manual", request.ingresoManual() ? true : null, "motivo", request.ingresoManual() ? request.justificacionManual() : null));
+            return ResponseEntity.ok(response);
+        }
         if ("DENEGADO_DUPLICADO".equals(response.resultado())) {
             return ResponseEntity.status(409).body(response);
         }
@@ -83,7 +97,9 @@ public class ControlIngresoController {
     @PostMapping("/denegar")
     public ResponseEntity<AutorizarIngresoResponse> denegar(
             @Valid @RequestBody AutorizarIngresoRequest request, Authentication authentication) {
-        return ResponseEntity.ok(service.denegar(request, authentication.getName()));
+        AutorizarIngresoResponse r = service.denegar(request, authentication.getName());
+        auditoria.registrar("INGRESO_DENEGADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(), "motivo", request.detalleDenegacion()));
+        return ResponseEntity.ok(r);
     }
 
     @Operation(summary = "Consultar historial", description = "Devuelve autorizaciones y denegaciones registradas para el estudiante y examen.")
@@ -129,6 +145,8 @@ public class ControlIngresoController {
             Authentication authentication) {
         
         ReasignarAmbienteResponse response = service.reasignarAmbiente(idExamen, idEstudiante, request, authentication.getName());
+        auditoria.registrar("ESTUDIANTE_TRASLADADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idEstudiante", idEstudiante,
+                "aulaOrigen", response.aulaOrigenNombre(), "aulaDestino", response.aulaDestinoNombre(), "motivo", request.motivo()));
         return ResponseEntity.ok(response);
     }
 
@@ -151,6 +169,8 @@ public class ControlIngresoController {
             @Valid @RequestBody RegistrarExceptionRequest request,
             Authentication authentication) {
         excepcionService.registrarExcepcion(request, authentication.getName());
+        auditoria.registrar("EXCEPCION_REGISTRADA", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(), "idEstudiante", request.idEstudiante(),
+                "motivo", request.motivoInhabilitacion(), "accion", request.accionTomada()));
         return ResponseEntity.ok().build();
     }
 }

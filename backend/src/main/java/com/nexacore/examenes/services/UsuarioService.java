@@ -42,6 +42,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 /**
  * Lógica de negocio para la gestión de usuarios.
@@ -65,6 +66,7 @@ public class UsuarioService {
     private final EmailService emailService;
     private final EstudianteRepository estudianteRepository;
     private final DocenteMateriaService docenteMateriaService;
+    private final AuditoriaService auditoriaService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -75,7 +77,8 @@ public class UsuarioService {
                           PasswordEncoder passwordEncoder,
                           EmailService emailService,
                           EstudianteRepository estudianteRepository,
-                          DocenteMateriaService docenteMateriaService) {
+                          DocenteMateriaService docenteMateriaService,
+                          AuditoriaService auditoriaService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.usuarioRolRepository = usuarioRolRepository;
@@ -84,6 +87,7 @@ public class UsuarioService {
         this.emailService = emailService;
         this.estudianteRepository = estudianteRepository;
         this.docenteMateriaService = docenteMateriaService;
+        this.auditoriaService = auditoriaService;
     }
     /**
      * Registra un nuevo usuario y le asigna el rol indicado.
@@ -135,6 +139,8 @@ public class UsuarioService {
         // La clave provisional solo se envía por correo; nunca se devuelve en la respuesta HTTP.
         // Si el envío falla, la excepción revierte el registro.
         boolean enviado = emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
+        auditoriaService.registrar("USUARIO_CREADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
+                "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -188,6 +194,8 @@ public class UsuarioService {
         sincronizarDocente(usuario, rolNombre);
         guardarDatosDocente(usuario.getId(), rolNombre, request.docente());
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
+        auditoriaService.registrar("USUARIO_EDITADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
+                "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -217,6 +225,9 @@ public class UsuarioService {
             usuario.setBloqueadoHasta(null);
         }
         usuarioRepository.save(usuario);
+        auditoriaService.registrar(activo ? "USUARIO_DESBLOQUEADO" : "USUARIO_BLOQUEADO",
+                Map.of("idUsuario", usuario.getId(), "nombre", usuario.getNombre() + " " + usuario.getApellidos(),
+                        "email", usuario.getEmail(), "estado", usuario.getEstado()));
         return aListResponse(usuario);
     }
 
@@ -355,9 +366,14 @@ public class UsuarioService {
                 obtenerPrimerRol(usuario),
                 usuario.getEstado(),
                 titulo,
-                bloqueoVigente(usuario)
+                bloqueoVigente(usuario),
+                usuarioFotoService != null && usuarioFotoService.tiene(usuario.getId()) ? "/usuarios/" + usuario.getId() + "/foto" : null
         );
     }
+
+    /** Foto de perfil del personal (V54); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private UsuarioFotoService usuarioFotoService;
 
     /** Fin del bloqueo por intentos fallidos si sigue vigente; null si ya venció o no hay bloqueo. */
     private static LocalDateTime bloqueoVigente(Usuario usuario) {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
+  ArrowRight,
+  ClipboardCheck,
   CalendarClock,
   CalendarDays,
   Check,
@@ -30,6 +32,7 @@ import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import {
   addMinutes,
   codigoExamen,
+  fechaLocal,
   formatFecha,
   horaCorta,
   initialsOfName,
@@ -42,7 +45,8 @@ import CronometroExamen from '../../components/examenes/CronometroExamen'
 import useTiempoExamen from '../../hooks/useTiempoExamen'
 import ReprogramarExamenModal from '../../components/examenes/ReprogramarExamenModal'
 import HistorialSesiones from '../../components/examenes/HistorialSesiones'
-import { tienePermiso } from '../../utils/permisos'
+import { registraControl, tienePermiso, veControl } from '../../utils/permisos'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import PersonalControlSeccion from '../../components/examenes/PersonalControlSeccion'
@@ -86,7 +90,8 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 export default function ExamenDetallePage() {
   const auth = useAuth()
   // Cancelar el examen: permiso del ADMIN (o de un rol extra que lo tenga).
-  const isAdmin = tienePermiso(auth, 'EXAMENES_CANCELAR')
+  // Cancela el ADMIN (cualquiera) y el DOCENTE (los suyos: solo ve los suyos; el backend lo verifica).
+  const puedeCancelar = tienePermiso(auth, 'EXAMENES_CANCELAR', 'EXAMENES_GESTIONAR_PROPIOS')
   // Asociar y cambiar la habilitación: el ADMIN en cualquier examen; el DOCENTE en los suyos, que son los
   // únicos que puede abrir (el servidor también lo verifica).
   const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR', 'HABILITACION_GESTIONAR_PROPIOS')
@@ -187,7 +192,7 @@ export default function ExamenDetallePage() {
             'linear-gradient(to bottom, #FFFFFF 0%, #F8FBFF 28%, #E9F1FF 65%, #DCE9FF 100%)',
         }}
       >
-        <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+        <div className="w-full px-3 py-4 sm:px-5 sm:py-6">
           <Link
             to="/dashboard/examenes"
             className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#0439D9] hover:text-[#032db0]"
@@ -242,7 +247,7 @@ export default function ExamenDetallePage() {
                           Editar Examen
                         </button>
                       )}
-                      {isAdmin && !cancelado && (
+                      {puedeCancelar && !cancelado && (
                         <button
                           type="button"
                           onClick={() => setCancelOpen(true)}
@@ -274,12 +279,14 @@ export default function ExamenDetallePage() {
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
                 {(puedeEditar || puedeReprogramar) && (
-                  <div className="mt-3 flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 min-[960px]:hidden">
+                  <div className="mt-3 min-[960px]:hidden">
+                  {/* Celular: Editar (o Reprogramar) y Descargar PDF lado a lado; Eliminar aparte y discreto, para no tocarlo por error. */}
+                  <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1">
                     {puedeReprogramar ? (
                       <button
                         type="button"
                         onClick={() => setReprogramarOpen(true)}
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] text-sm font-semibold text-white hover:bg-[#0027a2] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#0439D9] text-sm font-semibold text-white hover:bg-[#0027a2]`}
                       >
                         <CalendarClock size={15} aria-hidden="true" />
                         Reprogramar
@@ -288,20 +295,10 @@ export default function ExamenDetallePage() {
                       <button
                         type="button"
                         onClick={() => setEditOpen(true)}
-                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB] ${cancelado || !isAdmin ? 'col-span-2' : ''}`}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#C9D7EC] bg-white text-sm font-semibold text-[#011140] hover:bg-[#EEF3FB]`}
                       >
                         <Pencil size={15} aria-hidden="true" />
-                        Editar Examen
-                      </button>
-                    )}
-                    {isAdmin && !cancelado && (
-                      <button
-                        type="button"
-                        onClick={() => setCancelOpen(true)}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-sm font-semibold text-red-600 hover:bg-red-100"
-                      >
-                        <Trash2 size={15} aria-hidden="true" />
-                        Eliminar
+                        Editar
                       </button>
                     )}
                     {puedeExportarActa && (
@@ -317,8 +314,27 @@ export default function ExamenDetallePage() {
                       </button>
                     )}
                   </div>
+                  {puedeCancelar && !cancelado && (
+                    <div className="mt-2 flex justify-end">
+                      <button type="button" onClick={() => setCancelOpen(true)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50">
+                        <Trash2 size={14} aria-hidden="true" />
+                        Eliminar examen
+                      </button>
+                    </div>
+                  )}
+                  </div>
                 )}
                 <CronometroExamen examen={examen} className="mt-3" />
+                {/* El control se opera desde Control; desde la agenda, un acceso directo solo el día del examen. */}
+                {!cancelado && veControl(auth) && examen.fecha === fechaLocal(new Date(ahoraServidorMs())) && (
+                  <Link to={`/dashboard/control/${examen.idExamen}`}
+                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-[#0439D9] bg-white px-4 text-sm font-bold text-[#0439D9] hover:bg-[#F1F6FF] sm:w-auto">
+                    <ClipboardCheck size={15} aria-hidden="true" />
+                    {registraControl(auth) ? 'Iniciar control' : 'Ver control'} de este examen
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </Link>
+                )}
               </section>
               <HistorialSesiones idExamen={examen.idExamen} idParalelo={examen.idParalelo} recarga={recargaSesiones} />
 

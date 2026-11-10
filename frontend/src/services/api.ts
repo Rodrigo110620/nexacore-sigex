@@ -21,6 +21,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // Un archivo (FormData) no va como JSON: sin esto el servidor responde 415 (pasó con la foto de perfil).
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    config.headers['Content-Type'] = 'multipart/form-data'
+  }
   return config
 })
 

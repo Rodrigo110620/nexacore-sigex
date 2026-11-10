@@ -73,7 +73,7 @@ export default function ControlInicioPage() {
 
   return (
     <PanelLayout compactDesktop topBarVariant="controlMinimal" title="PANEL DE CONTROL" description="Monitoreo de tu aula y tus registros">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3.5 px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:gap-5 sm:px-6 sm:py-6 min-[960px]:pb-8">
+      <div className="flex w-full flex-col gap-3.5 px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:gap-5 sm:px-5 sm:py-6 min-[960px]:pb-8">
         {error ? (
           <ErrorCarga mensaje={error} onReintentar={recargar} />
         ) : !examenes ? (

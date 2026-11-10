@@ -35,7 +35,7 @@ export interface PerfilDelRol {
 export async function subirMiFoto(foto: Blob): Promise<void> {
   const datos = new FormData()
   datos.append('file', foto, 'perfil.jpg')
-  await api.put('/auth/me/foto', datos)
+  await api.put('/auth/me/foto', datos, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
 export async function quitarMiFoto(): Promise<void> {

@@ -123,6 +123,8 @@ class UsuarioListadoTests {
 
     private void limpiarTablas() {
         transaction.executeWithoutResult(estado -> {
+            // Bloquear/desbloquear y editar quedan auditados: su registro apunta al usuario.
+            entityManager.createQuery("DELETE FROM AuditoriaOperacion").executeUpdate();
             entityManager.createQuery("DELETE FROM UsuarioRol").executeUpdate();
             entityManager.createQuery("DELETE FROM Usuario").executeUpdate();
             entityManager.createQuery("DELETE FROM Rol").executeUpdate();

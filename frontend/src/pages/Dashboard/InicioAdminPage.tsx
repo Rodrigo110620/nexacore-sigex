@@ -120,8 +120,8 @@ export default function InicioAdminPage() {
 
   return (
     <PanelLayout compactDesktop title="PANEL DE SUPERVISIÓN" description="Monitoreo en tiempo real de exámenes y control de ingreso">
-      <div className="min-h-full bg-[#F5F7FB] px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6 min-[960px]:pb-8 xl:px-8">
-        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 sm:gap-5">
+      <div className="min-h-full bg-[#F5F7FB] px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 min-[960px]:pb-8">
+        <div className="flex w-full flex-col gap-4 sm:gap-5">
           {error && <ErrorCarga mensaje={error} onReintentar={() => setRecarga((n) => n + 1)} />}
           <Banner nombre={primerNombre} fecha={fechaTexto} datos={datos} hora={ahora} />
           {!datos ? (
