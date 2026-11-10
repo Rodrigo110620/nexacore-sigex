@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import GrupoMenu from '../components/navigation/GrupoMenu'
@@ -41,40 +41,22 @@ describe('Configuración con subopciones en el menú lateral', () => {
     expect(screen.getByRole('link', { name: 'Respaldo' })).toHaveAttribute('href', '/dashboard/configuracion#respaldo')
   })
 
-  it('contraído: el menú flotante se recorre con el teclado y Escape devuelve el foco al ícono', () => {
-    montar('/dashboard/configuracion#respaldo', true)
-    const boton = screen.getByRole('button', { name: 'Configuración: Respaldo' })
-    fireEvent.click(boton)
-    const menu = screen.getByRole('menu', { name: 'Configuración' })
-    const opciones = within(menu).getAllByRole('menuitem')
-    expect(opciones).toHaveLength(3)
-    expect(opciones[0]).toHaveFocus()
-    expect(within(menu).getByRole('menuitem', { name: 'Respaldo' })).toHaveAttribute('aria-current', 'page')
-    fireEvent.keyDown(menu, { key: 'ArrowDown' })
-    expect(opciones[1]).toHaveFocus()
-    fireEvent.keyDown(menu, { key: 'End' })
-    expect(opciones[2]).toHaveFocus()
-    fireEvent.keyDown(menu, { key: 'ArrowDown' })
-    expect(opciones[0]).toHaveFocus()
-    fireEvent.keyDown(menu, { key: 'Escape' })
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    expect(boton).toHaveFocus()
-  })
-
-  it('contraído: también se abre al pasar el mouse (sin robar el foco) y se cierra al salir', async () => {
-    vi.useFakeTimers()
-    try {
-      montar('/dashboard/inicio', true)
-      const grupo = screen.getByRole('button', { name: 'Configuración' }).parentElement!
-      fireEvent.mouseEnter(grupo)
-      act(() => { vi.advanceTimersByTime(200) })
-      expect(screen.getByRole('menu', { name: 'Configuración' })).toBeInTheDocument()
-      expect(within(screen.getByRole('menu')).getAllByRole('menuitem')[0]).not.toHaveFocus()
-      fireEvent.mouseLeave(grupo)
-      act(() => { vi.advanceTimersByTime(400) })
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+  it('contraído: el ícono pide desplegar el menú; desplegado, el grupo se ve abierto y al elegir se vuelve a contraer', () => {
+    const onAsomar = vi.fn()
+    const alElegir = vi.fn()
+    const item = configuracion(['ADMIN'])
+    const { rerender } = render(<MemoryRouter initialEntries={['/dashboard/configuracion#respaldo']}>
+      <GrupoMenu item={{ ...item, hijos: item.hijos! }} contraido clase="" onAsomar={onAsomar} alElegir={alElegir} />
+    </MemoryRouter>)
+    // Solo el ícono, que anuncia la sección actual.
+    fireEvent.click(screen.getByRole('button', { name: 'Configuración: Respaldo' }))
+    expect(onAsomar).toHaveBeenCalled()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    rerender(<MemoryRouter initialEntries={['/dashboard/inicio']}>
+      <GrupoMenu item={{ ...item, hijos: item.hijos! }} contraido={false} clase="" abiertoForzado onAsomar={onAsomar} alElegir={alElegir} />
+    </MemoryRouter>)
+    expect(screen.getByRole('button', { name: 'Configuración' })).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('link', { name: 'Historial' }))
+    expect(alElegir).toHaveBeenCalled()
   })
 })
