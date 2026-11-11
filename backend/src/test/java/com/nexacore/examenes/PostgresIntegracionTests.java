@@ -1014,22 +1014,22 @@ class PostgresIntegracionTests {
                 java.sql.Timestamp.valueOf("2026-10-20 08:40:00"), examen, ciro);
         sincronizar();
 
-        // Una fila por estudiante que ingresó (Dora no), por su actividad más reciente: Ciro salió 08:40, Beto fue
-        // expulsado 08:20 y Ana solo ingresó 08:01.
+        // Una fila por estudiante que ingresó (Dora no), ordenada estrictamente por hora de ingreso:
+        // Beto 08:05:30, Ciro 08:03:10 y Ana 08:01:00. Salidas y expulsiones no alteran ese orden.
         var r = ingresosRecientesService.recientes(examen, 2);
         assertThat(r.total()).isEqualTo(3);
-        assertThat(r.ingresos()).extracting(f -> f.idEstudiante()).containsExactly(ciro, beto);
+        assertThat(r.ingresos()).extracting(f -> f.idEstudiante()).containsExactly(beto, ciro);
         assertThat(r.ingresos().get(0)).satisfies(f -> {
-            assertThat(f.fechaHoraIngreso().toLocalTime()).hasToString("08:03:10");
-            assertThat(f.fechaHoraSalida().toLocalTime()).hasToString("08:40");
-            assertThat(f.salidaAlCierre()).isFalse();
-            assertThat(f.aula()).isNotBlank();
-        });
-        assertThat(r.ingresos().get(1)).satisfies(f -> {
             assertThat(f.fechaHoraExpulsion().toLocalTime()).hasToString("08:20");
             assertThat(f.motivoExpulsion()).isEqualTo("Uso de celular");
             assertThat(f.expulsionAnulada()).isFalse();
             assertThat(f.fechaHoraSalida()).isNull(); // el examen (mañana) no terminó
+        });
+        assertThat(r.ingresos().get(1)).satisfies(f -> {
+            assertThat(f.fechaHoraIngreso().toLocalTime()).hasToString("08:03:10");
+            assertThat(f.fechaHoraSalida().toLocalTime()).hasToString("08:40");
+            assertThat(f.salidaAlCierre()).isFalse();
+            assertThat(f.aula()).isNotBlank();
         });
         assertThat(ingresosRecientesService.recientes(examen, 2, 1).ingresos()).extracting(f -> f.idEstudiante()).containsExactly(ana);
 
