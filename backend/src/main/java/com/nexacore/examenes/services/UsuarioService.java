@@ -483,10 +483,17 @@ public class UsuarioService {
         entityManager.createNativeQuery("UPDATE docente SET titulo = :titulo, especialidad = :especialidad, "
                         + "categoria = COALESCE(:categoria, categoria) WHERE id_usuario = :id")
                 .setParameter("titulo", vacioANull(datos.titulo()))
-                .setParameter("especialidad", vacioANull(datos.especialidad()))
+                .setParameter("especialidad", enFormatoOracion(vacioANull(datos.especialidad())))
                 .setParameter("categoria", vacioANull(datos.categoria()))
                 .setParameter("id", idUsuario)
                 .executeUpdate();
+    }
+
+    /** «  bases   DE datos » → «Bases de datos»: un espacio entre palabras, mayúscula inicial y el resto en minúscula. */
+    static String enFormatoOracion(String valor) {
+        if (valor == null) return null;
+        String t = valor.strip().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.forLanguageTag("es"));
+        return t.isEmpty() ? null : Character.toUpperCase(t.charAt(0)) + t.substring(1);
     }
 
     private static String vacioANull(String valor) {
