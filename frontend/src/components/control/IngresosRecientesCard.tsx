@@ -7,8 +7,8 @@ import { ingresosRecientes, type IngresoReciente } from '../../services/ingresos
 import { listarEstudiantesExamen, type EstudianteAsignado } from '../../services/controlExamenService'
 import silueta from '../../assets/silueta-estudiante.svg'
 
-// Como el diseño: 6 filas en escritorio y 4 en celular.
-const cantidad = () => (typeof window !== 'undefined' && window.innerWidth < 640 ? 4 : 6)
+// Los mockups muestran seis ingresos tanto en escritorio como en celular.
+const CANTIDAD = 6
 type Vista = 'todos' | 'ausentes'
 
 interface Fila {
@@ -53,9 +53,6 @@ const desdeAusente = (e: EstudianteAsignado): Fila => ({
   ingreso: null, salida: null, alCierre: false, estado: ESTADOS.ausente, detalle: null,
 })
 
-// Columnas fijas (escritorio): así la hora de ingreso, la de salida y el estado quedan alineados fila a fila.
-const COLUMNAS = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 sm:grid-cols-[minmax(0,1fr)_84px_132px_150px] sm:gap-x-4'
-
 /**
  * Sección 11 del diseño: «Ingresos recientes» del examen. Todos (DASH-02): los últimos ingresos, del más reciente
  * al más antiguo, con foto, nombre, código y hora. Solo ausentes (DASH-03): los habilitados que aún no ingresaron,
@@ -73,7 +70,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
   const [pagina, setPagina] = useState(0)
   const [datos, setDatos] = useState<{ vista: Vista; pagina: number; filas: Fila[]; total: number } | null>(null)
   const setVista = (v: Vista) => { setVistaActual(v); setPagina(0) }
-  const tamano = cantidad()
+  const tamano = CANTIDAD
   const [error, setError] = useState(false)
   const [recarga, setRecarga] = useState(0)
 
@@ -105,7 +102,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
           <h2 id="ingresos-recientes-titulo" className="text-base font-bold text-[#011140]">{vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}</h2>
           <p className="text-xs text-[#627A9B]">
-            {vista === 'todos' ? 'Ingreso, salida y estado de cada estudiante, el más reciente primero · en vivo' : 'Habilitados que aún no ingresaron · se actualiza en vivo'}
+            {vista === 'todos' ? 'Del más reciente al más antiguo · se actualiza en vivo' : 'Aún no registraron su ingreso'}
           </p>
         </div>
         <div role="group" aria-label="Filtrar ingresos" className="flex gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px]">
@@ -139,33 +136,23 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         </div>
       ) : (
         <div>
-          <div aria-hidden="true" className={`${COLUMNAS} hidden border-b border-[#EDF1F7] px-4 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[#627A9B] sm:grid`}>
-            <span>Estudiante</span><span>Ingreso</span><span>Salida</span><span>Estado</span>
-          </div>
           <ul aria-label={vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}>
             {filas.map((f) => (
-              <li key={f.clave} className={`${COLUMNAS} border-b border-[#EDF1F7] py-2.5 sm:px-4`}>
-                <span className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
+              <li key={f.clave} className="flex items-center gap-2.5 border-b border-[#EDF1F7] py-2.5 sm:gap-3.5 sm:px-4">
+                <span className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3.5">
                   {f.fotoUrl
-                    ? <FotoEstudiante fotoUrl={f.fotoUrl} nombre={f.nombre} iniciales={f.nombre.slice(0, 2).toUpperCase()} className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4ECFA] object-cover" />
+                    ? <FotoEstudiante fotoUrl={f.fotoUrl} nombre={f.nombre} iniciales={f.nombre.slice(0, 2).toUpperCase()}
+                        ampliable detalle={`SIS ${f.codigo}`}
+                        className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4ECFA] object-cover" />
                     : <img src={silueta} alt="" className="h-10 w-10 shrink-0 rounded-full bg-[#E4ECFA]" />}
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[#011140]">{f.nombre}</span>
-                    <span className="block truncate text-xs text-[#627A9B]">SIS {f.codigo}{f.detalle ? ` · ${f.detalle}` : ''}</span>
-                    {/* En celular, ingreso y salida van bajo el nombre (no hay columnas). */}
-                    {vista === 'todos' && (
-                      <span className="block text-[11px] tabular-nums text-[#45628D] sm:hidden">
-                        Ingreso {f.ingreso ?? '—'} · Salida {f.salida ? `${f.salida}${f.alCierre ? ' (al cierre)' : ''}` : '—'}
-                      </span>
-                    )}
+                    <span className="block truncate text-xs text-[#627A9B]">SIS {f.codigo}</span>
                   </span>
                 </span>
-                <span className="hidden text-sm font-semibold tabular-nums text-[#011140] sm:block">{f.ingreso ?? '—'}</span>
-                <span className="hidden text-sm tabular-nums text-[#011140] sm:block">
-                  {f.salida ?? '—'}{f.alCierre && <span className="block text-[11px] text-[#627A9B]">al cierre</span>}
-                </span>
-                <span className={`w-fit justify-self-end whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold sm:justify-self-start ${f.estado.clase}`}>
-                  {f.estado.texto}
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-[#011140]">{f.ingreso ?? '—'}</span>
+                <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${vista === 'todos' ? 'hidden bg-[#ECFDF3] text-[#15803D] sm:inline-flex' : 'bg-[#FFFBEB] text-[#B45309]'}`}>
+                  {vista === 'todos' ? 'Ingresó' : 'Pendiente'}
                 </span>
               </li>
             ))}
