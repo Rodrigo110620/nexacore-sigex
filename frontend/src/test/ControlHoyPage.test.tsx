@@ -59,3 +59,29 @@ it('sin exámenes hoy muestra el próximo', () => {
   expect(screen.getByText('Hoy no hay exámenes')).toBeInTheDocument()
   expect(screen.getByText('Física · G1')).toBeInTheDocument()
 })
+
+it('el historial guarda los exámenes de días anteriores, con buscador y fecha', () => {
+  panel.examenes = [
+    ex(1, 'Base de Datos I', '2026-11-10', '09:30:00'),
+    ex(5, 'Álgebra', '2026-11-07', '08:00:00'),
+    { ...ex(6, 'Redes', '2026-11-05', '08:00:00'), docente: 'Ana Rojas' },
+  ]
+  montar()
+  expect(screen.queryByText('Álgebra · G1')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('tab', { name: /Historial/ }))
+  expect(screen.getByText('Álgebra · G1')).toBeInTheDocument()
+  expect(screen.getByText('Redes · G1')).toBeInTheDocument()
+  expect(screen.queryByText('Base de Datos I · G1')).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Buscar en el historial'), { target: { value: 'rojas' } })
+  expect(screen.queryByText('Álgebra · G1')).not.toBeInTheDocument()
+  expect(screen.getByText('Redes · G1')).toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Buscar en el historial'), { target: { value: '' } })
+  fireEvent.change(screen.getByLabelText('Filtrar por fecha'), { target: { value: '2026-11-07' } })
+  expect(screen.getByText('Álgebra · G1')).toBeInTheDocument()
+  expect(screen.queryByText('Redes · G1')).not.toBeInTheDocument()
+
+  fireEvent.change(screen.getByLabelText('Buscar en el historial'), { target: { value: 'nada' } })
+  expect(screen.getByText('Sin resultados para los filtros aplicados.')).toBeInTheDocument()
+})

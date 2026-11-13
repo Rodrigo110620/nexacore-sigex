@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, CalendarClock, CalendarDays, ChevronDown, Clock3, GraduationCap, History, MapPin, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarDays, ChevronDown, Clock3, GraduationCap, History, MapPin, Search, ShieldCheck, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
@@ -13,6 +13,7 @@ import type { ResumenEstudiantes } from '../../services/controlExamenService'
 import type { ExamenDto } from '../../services/examenService'
 import { personalDelExamen } from '../../services/personalControlService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
+import { coincide } from '../../utils/buscar'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje } from '../../utils/inicio'
 import { registraControl, tienePermiso } from '../../utils/permisos'
 import { aperturaControl } from '../../utils/tiempoExamen'
@@ -51,7 +52,14 @@ export default function ControlHoyPage() {
   const cambiarVista = (historial: boolean) => setParametros(historial ? { vista: 'historial' } : {}, { replace: true })
   const pasados = useMemo(() => unicos.filter((e) => e.fecha < hoy).reverse(), [unicos, hoy])
   const [verPasados, setVerPasados] = useState(POR_PAGINA_HISTORIAL)
-  const pasadosVisibles = pasados.slice(0, verPasados)
+  // Buscador (materia, docente, aula o grupo) y fecha: el historial crece semana tras semana.
+  const [buscar, setBuscar] = useState('')
+  const [fechaHistorial, setFechaHistorial] = useState('')
+  const fechasPasadas = useMemo(() => [...new Set(pasados.map((e) => e.fecha))], [pasados])
+  const pasadosFiltrados = pasados.filter((e) => (!fechaHistorial || e.fecha === fechaHistorial)
+    && coincide(buscar, e.asignatura, e.docente, e.ambienteNombre, etiquetaAulas(e), e.grupo, e.sigla))
+  const pasadosVisibles = pasadosFiltrados.slice(0, verPasados)
+  const filtrando = buscar.trim() !== '' || fechaHistorial !== ''
   const { resumenes } = useResumenesExamenes((enHistorial ? pasadosVisibles : deHoy).map((e) => e.idExamen), ahora)
   const accion = registra ? 'Iniciar control' : 'Ver control'
   // Quién está en cada examen: el control ve al docente; el docente ve a su personal de control; el admin, ambos.
@@ -95,6 +103,37 @@ export default function ControlHoyPage() {
                 <p className="text-sm text-[#627A9B]">Cuando termina el día, sus exámenes pasan aquí con su resultado de ingreso.</p>
               </section>
             ) : (
+              <>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative min-w-0 flex-1">
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  <input type="search" value={buscar} onChange={(ev) => { setBuscar(ev.target.value); setVerPasados(POR_PAGINA_HISTORIAL) }}
+                    placeholder="Buscar por materia, docente o aula…" aria-label="Buscar en el historial"
+                    className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white pl-9 pr-9 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30" />
+                  {buscar && (
+                    <button type="button" onClick={() => setBuscar('')} aria-label="Limpiar búsqueda"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
+                  )}
+                </div>
+                <div className="relative sm:w-56">
+                  <select value={fechaHistorial} onChange={(ev) => { setFechaHistorial(ev.target.value); setVerPasados(POR_PAGINA_HISTORIAL) }} aria-label="Filtrar por fecha"
+                    className="h-11 w-full appearance-none rounded-lg border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
+                    <option value="">Todas las fechas</option>
+                    {fechasPasadas.map((f) => <option key={f} value={f}>{DIAS_LARGOS[new Date(`${f}T00:00:00`).getDay()]} {formatFecha(f)}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                </div>
+              </div>
+              {pasadosFiltrados.length === 0 ? (
+                <section className={`${TARJETA} flex flex-col items-center gap-2 p-8 text-center`}>
+                  <Search size={26} className="text-[#0439D9]" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-[#011140]">Sin resultados para los filtros aplicados.</p>
+                  {filtrando && (
+                    <button type="button" onClick={() => { setBuscar(''); setFechaHistorial('') }}
+                      className="text-sm font-semibold text-[#0439D9] hover:underline">Quitar filtros</button>
+                  )}
+                </section>
+              ) : (
               <section aria-label="Historial de exámenes" className={`${TARJETA} overflow-hidden`}>
                 <div aria-hidden="true" className={`${COLUMNAS} hidden border-b border-[#EEF2F7] bg-[#F8FAFF] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#627A9B] xl:grid`}>
                   <span>Estado</span><span>Examen</span><span>Horario · Aula</span><span>Ingreso</span><span /><span />
@@ -111,13 +150,15 @@ export default function ControlHoyPage() {
                     </Fragment>
                   ))}
                 </ul>
-                {pasados.length > verPasados && (
+                {pasadosFiltrados.length > verPasados && (
                   <button type="button" onClick={() => setVerPasados((n) => n + POR_PAGINA_HISTORIAL)}
                     className="w-full border-t border-[#EEF2F7] px-4 py-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F8FAFF]">
-                    Ver más ({pasados.length - verPasados} restantes)
+                    Ver más ({pasadosFiltrados.length - verPasados} restantes)
                   </button>
                 )}
               </section>
+              )}
+              </>
             )
           )
           : <>
