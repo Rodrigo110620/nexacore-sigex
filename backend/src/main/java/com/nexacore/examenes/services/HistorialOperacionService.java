@@ -191,46 +191,69 @@ public class HistorialOperacionService {
                 document.add(parrafo);
             }
 
-            var tabla = new com.lowagie.text.pdf.PdfPTable(new float[]{1.0f, 0.8f, 1.8f, 1.4f, 1.7f, 2.2f, 2.6f, 1.6f, 2.8f});
+            // Seis columnas: la fecha va en un título por día y el examen en una línea bajo «Afecta a».
+            var tabla = new com.lowagie.text.pdf.PdfPTable(new float[]{0.8f, 2.0f, 1.5f, 2.6f, 3.4f, 3.0f});
             tabla.setWidthPercentage(100);
             tabla.setHeaderRows(1);
             var fEnc = new com.lowagie.text.Font(negrita, 8, com.lowagie.text.Font.NORMAL, java.awt.Color.WHITE);
-            for (String c : COLUMNAS) {
+            for (String c : COLUMNAS_PDF) {
                 var celda = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(c, fEnc));
                 celda.setBackgroundColor(primario);
+                celda.setBorderColor(primario);
                 celda.setPadding(5);
                 tabla.addCell(celda);
             }
             var fCel = new com.lowagie.text.Font(base, 7.5f, com.lowagie.text.Font.NORMAL, tinta);
-            boolean par = false;
-            Integer grupo = null;
+            var fNombre = new com.lowagie.text.Font(negrita, 7.5f, com.lowagie.text.Font.NORMAL, tinta);
+            var fGris = new com.lowagie.text.Font(base, 6.8f, com.lowagie.text.Font.NORMAL, suave);
             var fGrupo = new com.lowagie.text.Font(negrita, 8.5f, com.lowagie.text.Font.NORMAL, primario);
+            var fDia = new com.lowagie.text.Font(negrita, 7.5f, com.lowagie.text.Font.NORMAL, suave);
+            var borde = new java.awt.Color(0xE1, 0xE7, 0xF0);
+            Integer grupo = null;
+            LocalDate dia = null;
             for (var f : filas) {
                 Integer id = idExamen(f);
                 if (porExamen && (grupo == null || !grupo.equals(id))) {
                     grupo = id;
-                    var titulo2 = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(
-                            id < 0 ? "Sin examen" : tituloExamen(f), fGrupo));
-                    titulo2.setColspan(COLUMNAS.length);
-                    titulo2.setPadding(5);
-                    titulo2.setBackgroundColor(new java.awt.Color(0xED, 0xF2, 0xFE));
-                    titulo2.setBorderColor(new java.awt.Color(0xD8, 0xE3, 0xF5));
-                    tabla.addCell(titulo2);
-                    par = false;
+                    dia = null;
+                    tabla.addCell(filaTitulo(id < 0 ? "Sin examen" : tituloExamen(f), fGrupo, new java.awt.Color(0xED, 0xF2, 0xFE), borde));
                 }
-                for (String v : celdas(f)) {
-                    // Helvetica (CP1252) no tiene «→»: en el PDF va «»».
-                    var celda = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(v.replace("→", "»"), fCel));
-                    celda.setPadding(4);
-                    celda.setBorderColor(new java.awt.Color(0xD8, 0xE3, 0xF5));
-                    if (par) celda.setBackgroundColor(new java.awt.Color(0xF5, 0xF8, 0xFD));
-                    tabla.addCell(celda);
+                LocalDate delDia = f.fechaHora().toLocalDate();
+                if (!delDia.equals(dia)) {
+                    dia = delDia;
+                    String nombreDia = delDia.format(java.time.format.DateTimeFormatter.ofPattern("EEEE dd/MM/yyyy", new Locale("es")));
+                    tabla.addCell(filaTitulo(nombreDia.toUpperCase(new Locale("es")), fDia, new java.awt.Color(0xF5, 0xF7, 0xFB), borde));
                 }
-                par = !par;
+                // Hora
+                tabla.addCell(celdaPdf(new com.lowagie.text.Phrase(f.fechaHora().format(HORA), fCel), borde));
+                // Usuario: nombre y, debajo, su rol en palabras.
+                var celdaUsuario = new com.lowagie.text.Phrase(f.usuario(), fNombre);
+                if (f.rolUsuario() != null) celdaUsuario.add(new com.lowagie.text.Chunk("\n" + rolesEnPalabras(f.rolUsuario()), fGris));
+                tabla.addCell(celdaPdf(celdaUsuario, borde));
+                // Operación: etiqueta de color y el módulo debajo.
+                java.awt.Color[] colores = coloresOperacion(f.accion());
+                var etiqueta = new com.lowagie.text.Chunk(" " + f.operacion() + " ", new com.lowagie.text.Font(negrita, 7, com.lowagie.text.Font.NORMAL, colores[1]));
+                etiqueta.setBackground(colores[0], 1, 1.5f, 1, 1.5f);
+                var celdaOperacion = new com.lowagie.text.Phrase(etiqueta);
+                celdaOperacion.add(new com.lowagie.text.Chunk("\n" + f.modulo(), fGris));
+                var celdaOp = celdaPdf(celdaOperacion, borde);
+                celdaOp.setLeading(0, 1.5f);
+                tabla.addCell(celdaOp);
+                // Afecta a: y, si es de un examen (y no se agrupó por examen), su fecha, horario y aula en una línea.
+                var afecta = new com.lowagie.text.Phrase(f.objetivo() == null ? "" : pdfTexto(f.objetivo()), fCel);
+                String examen = porExamen ? "" : examenCorto(f);
+                if (!examen.isEmpty()) afecta.add(new com.lowagie.text.Chunk("\n" + examen, fGris));
+                tabla.addCell(celdaPdf(afecta, borde));
+                // Detalle y, solo si hay, el motivo debajo.
+                var detalle = new com.lowagie.text.Phrase(pdfTexto(f.detalle()), fCel);
+                if (f.motivo() != null && !f.motivo().isBlank()) detalle.add(new com.lowagie.text.Chunk("\nMotivo: " + pdfTexto(f.motivo()), fGris));
+                tabla.addCell(celdaPdf(detalle, borde));
+                // Cambios: uno por línea, a lo más 3.
+                tabla.addCell(celdaPdf(new com.lowagie.text.Phrase(cambiosEnLineas(f.diferencias()), fCel), borde));
             }
             if (filas.isEmpty()) {
                 var vacia = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("No hay operaciones con estos filtros.", fCel));
-                vacia.setColspan(COLUMNAS.length);
+                vacia.setColspan(COLUMNAS_PDF.length);
                 vacia.setPadding(8);
                 tabla.addCell(vacia);
             }
@@ -421,6 +444,82 @@ public class HistorialOperacionService {
     }
 
     /** «Fecha: 07/11/2026 → 11/11/2026; Aula: 607» para la columna del CSV. */
+    private static final String[] COLUMNAS_PDF = {"Hora", "Usuario", "Operación", "Afecta a", "Detalle", "Cambios"};
+    private static final int MAX_CAMBIOS_PDF = 3;
+
+    /** Helvetica (CP1252) no tiene «→»: en el PDF va «»». */
+    private static String pdfTexto(String texto) { return texto == null ? "" : texto.replace("→", "»"); }
+
+    private static com.lowagie.text.pdf.PdfPCell celdaPdf(com.lowagie.text.Phrase contenido, java.awt.Color borde) {
+        var celda = new com.lowagie.text.pdf.PdfPCell(contenido);
+        celda.setPadding(4);
+        celda.setPaddingBottom(5);
+        celda.setBorder(com.lowagie.text.Rectangle.BOTTOM);
+        celda.setBorderColor(borde);
+        return celda;
+    }
+
+    private static com.lowagie.text.pdf.PdfPCell filaTitulo(String texto, com.lowagie.text.Font fuente, java.awt.Color fondo, java.awt.Color borde) {
+        var celda = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(texto, fuente));
+        celda.setColspan(COLUMNAS_PDF.length);
+        celda.setPadding(4);
+        celda.setPaddingLeft(5);
+        celda.setBackgroundColor(fondo);
+        celda.setBorder(com.lowagie.text.Rectangle.BOTTOM);
+        celda.setBorderColor(borde);
+        return celda;
+    }
+
+    /** «ADMIN, DOCENTE» → «Administrador, Docente». */
+    private static String rolesEnPalabras(String roles) {
+        return String.join(", ", java.util.Arrays.stream(roles.split(",\\s*")).map(r -> switch (r.strip()) {
+            case "ADMIN" -> "Administrador";
+            case "DOCENTE" -> "Docente";
+            case "CONTROL" -> "Personal de control";
+            case "ESTUDIANTE" -> "Estudiante";
+            default -> r.strip();
+        }).toList());
+    }
+
+    /** Fondo y texto de la etiqueta: rojo lo grave (expulsiones, incidencias, denegar, cancelar, quitar), verde lo que habilita, azul el resto. */
+    private static java.awt.Color[] coloresOperacion(String accion) {
+        var rojo = new java.awt.Color[]{new java.awt.Color(0xFE, 0xE2, 0xE2), new java.awt.Color(0xB9, 0x1C, 0x1C)};
+        var verde = new java.awt.Color[]{new java.awt.Color(0xDC, 0xFC, 0xE7), new java.awt.Color(0x15, 0x80, 0x3D)};
+        var azul = new java.awt.Color[]{new java.awt.Color(0xE5, 0xEC, 0xFF), new java.awt.Color(0x04, 0x39, 0xD9)};
+        return switch (accion) {
+            case "EXPULSION_REGISTRADA", "INTENTO_INGRESO_REGISTRADO", "AULA_INCORRECTA_REGISTRADA", "QR_DUPLICADO_REPORTADO",
+                 "FOTO_REPORTADA", "INGRESO_DENEGADO", "EXAMEN_CANCELADO", "USUARIO_BLOQUEADO", "ROL_ELIMINADO",
+                 "ESTUDIANTE_QUITADO_DEL_EXAMEN", "ESTUDIANTE_FOTO_QUITADA", "FOTO_RECHAZADA", "EXCEPCION_REGISTRADA" -> rojo;
+            case "INGRESO_AUTORIZADO", "CUENTA_ESTUDIANTE_ACTIVADA", "USUARIO_DESBLOQUEADO", "FOTO_APROBADA", "HABILITACION_ACTUALIZADA",
+                 "EXPULSION_ANULADA", "USUARIO_CREADO", "ESTUDIANTE_CREADO", "EXAMEN_CREADO", "AYUDA_ATENDIDA" -> verde;
+            default -> azul;
+        };
+    }
+
+    /** «12/11 · 20:30 – 20:50 · Aula 607» (sin el docente: va en el encabezado cuando se filtra por él). */
+    private static String examenCorto(HistorialOperacionResponse f) {
+        if (f.examen() == null || f.examen().isEmpty()) return "";
+        List<String> partes = new ArrayList<>();
+        for (var d : f.examen()) {
+            switch (d.campo()) {
+                case "Fecha" -> partes.add(d.valor().length() >= 5 ? d.valor().substring(0, 5) : d.valor());
+                case "Horario" -> partes.add(d.valor().replaceAll("\\s*\\(.*\\)$", ""));
+                case "Aula" -> partes.add("Aula " + d.valor());
+                default -> { }
+            }
+        }
+        return pdfTexto(String.join(" · ", partes));
+    }
+
+    /** Un cambio por línea; si son muchos, los 3 primeros y «y N más». */
+    private static String cambiosEnLineas(List<HistorialOperacionResponse.Diferencia> diferencias) {
+        List<String> lineas = diferencias.stream().limit(MAX_CAMBIOS_PDF).map(d -> d.campo() + ": "
+                + (d.antes() == null ? "" : d.antes() + " » ") + (d.despues() == null ? "(quitado)" : d.despues())).toList();
+        String texto = String.join("\n", lineas);
+        int resto = diferencias.size() - MAX_CAMBIOS_PDF;
+        return pdfTexto(resto > 0 ? texto + "\ny " + resto + " más" : texto);
+    }
+
     private static String cambiosLegibles(List<HistorialOperacionResponse.Diferencia> diferencias) {
         return String.join("; ", diferencias.stream().map(d -> d.campo() + ": "
                 + (d.antes() == null ? "" : d.antes() + " → ") + (d.despues() == null ? "(quitado)" : d.despues())).toList());
