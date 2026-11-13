@@ -12,12 +12,14 @@ import { fechaHoraNumerica } from '../../utils/examenFormat'
  */
 const TAMANO_PAGINA = 10
 
-export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen, buscar = '' }: {
+export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen, buscar = '', resaltar = null }: {
   /** null: las de todos los exámenes que puede ver (BUG-G03). */
   idExamen: number | null
   nombresExamen?: Map<number, string>
   /** Por nombre o código SIS (BUG-G04). */
   buscar?: string
+  /** Estudiante al que lleva una notificación o «Incidencias → Revisar»: su fila se resalta (y se abre su página). */
+  resaltar?: number | null
 }) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
@@ -28,10 +30,15 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
   useEffect(() => {
     let vigente = true
     ;(idExamen == null ? listarExcepcionesTodas() : listarExcepcionesNoHabilitado(idExamen))
-      .then((registros) => { if (vigente) setResultado({ clave, registros }) })
+      .then((registros) => {
+        if (!vigente) return
+        setResultado({ clave, registros })
+        const i = resaltar == null ? -1 : registros.findIndex((x) => x.idEstudiante === resaltar)
+        if (i >= 0) setPagina(Math.floor(i / TAMANO_PAGINA))
+      })
       .catch(() => { if (vigente) setResultado({ clave, error: 'No se pudieron cargar las excepciones de no habilitados.' }) })
     return () => { vigente = false }
-  }, [idExamen, clave])
+  }, [idExamen, clave, resaltar])
 
   const actual = resultado?.clave === clave ? resultado : undefined
   const filtrados = actual?.registros?.filter((x) => coincide(buscar, x.estudiante, x.codigoSis))
@@ -62,7 +69,9 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
         <>
         <ul className="mt-3 space-y-3">
           {visibles.map((x) => (
-            <li key={x.idExcepcion} className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-3">
+            <li key={x.idExcepcion} data-foco={resaltar != null && x.idEstudiante === resaltar ? 'true' : undefined}
+              className={`rounded-lg border p-3 ${resaltar != null && x.idEstudiante === resaltar
+                ? 'border-[#F59E0B] bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : 'border-[#FDE68A] bg-[#FFFBEB]'}`}>
               <h4 className="text-sm font-semibold text-[#011140]">
                 {x.estudiante ?? `Estudiante #${x.idEstudiante}`}{x.codigoSis ? ` · SIS ${x.codigoSis}` : ''}
               </h4>

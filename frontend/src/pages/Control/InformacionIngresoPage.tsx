@@ -71,10 +71,15 @@ export default function InformacionIngresoPage() {
   const horaFoco = parametros.get("hora")?.slice(0, 16) ?? null;
   const esFoco = (idEstudiante: number | null | undefined, fecha?: string | null) =>
     (estudianteFoco != null && idEstudiante === estudianteFoco) || (horaFoco != null && idEstudiante == null && fecha?.slice(0, 16) === horaFoco);
-  const [pestaña, setPestaña] = useState<PestañaIngreso>(() => {
-    const p = parametros.get("pestana") as PestañaIngreso | null;
-    return p && PESTAÑAS.includes(p) ? p : "autorizados";
-  });
+  const deParametro = (p: string | null): PestañaIngreso => (p && PESTAÑAS.includes(p as PestañaIngreso) ? (p as PestañaIngreso) : "autorizados");
+  const [pestaña, setPestaña] = useState<PestañaIngreso>(() => deParametro(parametros.get("pestana")));
+  // Una notificación con la página ya abierta cambia ?pestana=: se abre esa pestaña.
+  const pestanaPedida = parametros.get("pestana");
+  const [pestanaVista, setPestanaVista] = useState(pestanaPedida);
+  if (pestanaPedida !== pestanaVista) {
+    setPestanaVista(pestanaPedida);
+    if (pestanaPedida) setPestaña(deParametro(pestanaPedida));
+  }
   const [registroExpandido, setRegistroExpandido] = useState<number | null>(null);
 
   // Estado para saber qué fila está expandida
@@ -262,7 +267,7 @@ export default function InformacionIngresoPage() {
             {pestaña === "excepciones" && <>
               {idValido && <ExpulsionesReporte idExamen={idExamen} controles={registros ?? []}
                 examen={examen?.idExamen === idExamen ? examen.asignatura : undefined} />}
-              {idValido && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} />}
+              {idValido && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} resaltar={estudianteFoco} />}
               <h3 className="mt-4 font-semibold text-[#011140]">Ingresos manuales autorizados</h3>
               <p className="mt-2 text-sm text-[#627A9B]">Ingresos realizados sin QR, con justificación del personal de control. También se incluyen en la lista de ingresos autorizados.</p>
             </>}

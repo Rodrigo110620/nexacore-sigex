@@ -12,6 +12,7 @@ import {
   quitarNotificacion,
   type Notificacion,
 } from '../../services/notificacionService'
+import { enlaceNotificacion } from '../../utils/incidencias'
 
 const ETIQUETA: Record<string, string> = {
   FOTO_REPORTADA: 'Foto reportada',
@@ -91,9 +92,8 @@ export default function CampanaNotificaciones({ compacta = false }: Props) {
 
   const noLeidas = lista.filter((n) => !n.leida).length
 
-  /** La foto reportada abre Revisión de fotos con ese estudiante elegido (todos los roles); el resto, su enlace. */
-  const destino = (n: Notificacion) => (n.tipo === 'FOTO_REPORTADA' && n.idEstudiante != null
-    ? `/dashboard/estudiantes/fotos?estudiante=${n.idEstudiante}` : n.enlace)
+  /** Directo al caso: la pestaña que corresponde con el estudiante o la fila resaltados (enlaceNotificacion). */
+  const destino = enlaceNotificacion
 
   const abrir = (n: Notificacion) => {
     setEmergente(null)
