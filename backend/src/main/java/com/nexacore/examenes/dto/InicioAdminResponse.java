@@ -29,7 +29,15 @@ public record InicioAdminResponse(
 
     public record Dia(LocalDate fecha, int asociados, int ingresados, int ausentes, int incidencias) {}
 
-    public record Motivo(String motivo, int cantidad) {}
+    /**
+     * Una categoría de intentos incorrectos (BUG-A05): tipo NO_CORRESPONDE (no inscrito en la materia), AULA_INCORRECTA,
+     * NO_HABILITADO o QR_DUPLICADO; el frontend le da su color e ícono.
+     */
+    public record Motivo(String motivo, int cantidad, String tipo) {
+        public Motivo(String motivo, int cantidad) {
+            this(motivo, cantidad, null);
+        }
+    }
 
     public record Pendientes(int fotos, int qrDuplicados, int intentosHoy) {}
 }

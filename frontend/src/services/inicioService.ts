@@ -18,7 +18,8 @@ export interface InicioAdmin {
   ingresosPorHora: number[]
   esperadosPorHora: number[]
   dias: { fecha: string; asociados: number; ingresados: number; ausentes: number; incidencias: number }[]
-  motivos: { motivo: string; cantidad: number }[]
+  /** BUG-A05: tipo NO_CORRESPONDE (no inscrito), AULA_INCORRECTA, NO_HABILITADO o QR_DUPLICADO; da el color y el ícono. */
+  motivos: { motivo: string; cantidad: number; tipo?: string | null }[]
   pendientes: { fotos: number; qrDuplicados: number; intentosHoy: number }
 }
 

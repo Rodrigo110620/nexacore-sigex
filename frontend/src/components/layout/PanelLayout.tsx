@@ -37,6 +37,14 @@ export default function PanelLayout({
   }
 
   const navItems = navItemsFor(roles, permisos)
+  // BUG-A03: en el panel solo se desplaza el contenido (main); la página entera no, aunque algo (un aviso, un menú o
+  // una gráfica) la estire: así nunca aparece una zona en blanco debajo del marco de SIGEX.
+  useEffect(() => {
+    const html = document.documentElement
+    const antes = html.style.overflow
+    html.style.overflow = 'hidden'
+    return () => { html.style.overflow = antes }
+  }, [])
   // Consultas pendientes de la mesa de ayuda (solo si el menú la muestra): se actualiza en vivo.
   const conAyuda = navItems.some((i) => i.contador === 'ayuda')
   const [pendientesAyuda, setPendientesAyuda] = useState(0)
