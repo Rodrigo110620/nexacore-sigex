@@ -40,9 +40,16 @@ public class ExamenControlController {
     @PreAuthorize("@examenAccesoService.puedeReprogramar(#idExamen, authentication)")
     @PutMapping("/examenes/{idExamen}/personal-control")
     public List<PersonalControlResponse> asignar(@PathVariable Integer idExamen, @Valid @RequestBody AsignarPersonalControlRequest request) {
+        // Se compara con el personal que tenía: el historial dice a quién agregó y a quién quitó.
+        List<String> antes = nombres(service.delExamen(idExamen));
         List<PersonalControlResponse> personal = service.asignar(idExamen, request.idUsuarios());
-        auditoria.registrar("PERSONAL_CONTROL_ASIGNADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen,
-                "personal", personal.stream().map(p -> p.nombre() + " " + p.apellidos()).toList()));
+        List<String> ahora = nombres(personal);
+        List<String> agregados = ahora.stream().filter(n -> !antes.contains(n)).toList();
+        List<String> quitados = antes.stream().filter(n -> !ahora.contains(n)).toList();
+        if (!agregados.isEmpty() || !quitados.isEmpty()) {
+            auditoria.registrar("PERSONAL_CONTROL_ASIGNADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen,
+                    "personal", ahora, "anterior", antes, "agregados", agregados, "quitados", quitados));
+        }
         return personal;
     }
 
@@ -51,5 +58,9 @@ public class ExamenControlController {
     @GetMapping("/personal-control")
     public List<PersonalControlResponse> disponibles() {
         return service.disponibles();
+    }
+
+    private static List<String> nombres(List<PersonalControlResponse> personal) {
+        return personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList();
     }
 }

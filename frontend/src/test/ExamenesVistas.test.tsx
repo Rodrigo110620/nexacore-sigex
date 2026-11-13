@@ -63,3 +63,19 @@ describe('Exámenes: hoy y próximos, historial y cancelados', () => {
     expect(within(tabla).queryByText('Cálculo Pasado')).not.toBeInTheDocument()
   })
 })
+
+describe('El ADMIN filtra por docente', () => {
+  it('deja solo los exámenes de ese docente', async () => {
+    vi.mocked(listarExamenes).mockResolvedValue([
+      { ...examen(2, 'Física Hoy', dia(0)), docente: 'Ana Rojas' } as ExamenDto,
+      examen(3, 'Química Mañana', dia(1)),
+    ])
+    montar()
+    const tabla = await screen.findByRole('table')
+    const filtro = screen.getAllByLabelText('Filtrar por docente')[1]
+    expect(within(filtro).getAllByRole('option').map((o) => o.textContent)).toEqual(['Todos los docentes', 'Ana Rojas', 'Docente'])
+    fireEvent.change(filtro, { target: { value: 'Ana Rojas' } })
+    expect(within(tabla).getByText('Física Hoy')).toBeInTheDocument()
+    expect(within(tabla).queryByText('Química Mañana')).not.toBeInTheDocument()
+  })
+})
