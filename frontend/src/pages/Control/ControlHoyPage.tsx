@@ -6,6 +6,7 @@ import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
 import { BarraDegradado } from '../../components/inicio/Graficas'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import FiltroSelect from '../../components/ui/FiltroSelect'
 import { useAuth } from '../../context/AuthContext'
 import usePanelControl from '../../hooks/usePanelControl'
 import useResumenesExamenes from '../../hooks/useResumenesExamenes'
@@ -115,14 +116,10 @@ export default function ControlHoyPage() {
                       className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
                   )}
                 </div>
-                <div className="relative sm:w-56">
-                  <select value={fechaHistorial} onChange={(ev) => { setFechaHistorial(ev.target.value); setVerPasados(POR_PAGINA_HISTORIAL) }} aria-label="Filtrar por fecha"
-                    className="h-11 w-full appearance-none rounded-lg border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
-                    <option value="">Todas las fechas</option>
-                    {fechasPasadas.map((f) => <option key={f} value={f}>{DIAS_LARGOS[new Date(`${f}T00:00:00`).getDay()]} {formatFecha(f)}</option>)}
-                  </select>
-                  <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                </div>
+                <FiltroSelect etiqueta="Fecha" className="sm:w-60" value={fechaHistorial} onChange={(v) => { setFechaHistorial(v); setVerPasados(POR_PAGINA_HISTORIAL) }}>
+                  <option value="">Todas las fechas</option>
+                  {fechasPasadas.map((f) => <option key={f} value={f}>{DIAS_LARGOS[new Date(`${f}T00:00:00`).getDay()]} {formatFecha(f)}</option>)}
+                </FiltroSelect>
               </div>
               {pasadosFiltrados.length === 0 ? (
                 <section className={`${TARJETA} flex flex-col items-center gap-2 p-8 text-center`}>

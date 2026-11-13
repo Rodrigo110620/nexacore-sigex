@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X, CameraOff } from 'lucide-react'
+import { Check, CheckCheck, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X, CameraOff } from 'lucide-react'
+import FiltroSelect from '../ui/FiltroSelect'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -342,35 +343,17 @@ export default function EstudiantesHabilitadosTab({
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm font-medium text-[#627A9B] lg:inline">Filtros:</span>
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:w-[20rem] lg:flex-none">
-              <div className="relative">
-                <select
-                  value={facultad}
-                  onChange={(e) => { setFacultad(e.target.value); setPage(0) }}
-                  aria-label="Filtrar por facultad"
-                  className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140]"
-                >
-                  <option value="">Facultad</option>
-                  {facultades.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-              </div>
-              <div className="relative">
-                <select
-                  value={estado}
-                  onChange={(e) => { setEstado(e.target.value); setPage(0) }}
-                  aria-label="Filtrar por estado"
-                  className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140]"
-                >
-                  <option value="">Estado</option>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="HABILITADO">Habilitado</option>
-                  <option value="NO_HABILITADO">No habilitado</option>
-                </select>
-                <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-              </div>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:w-[24rem] lg:flex-none">
+              <FiltroSelect etiqueta="Facultad" value={facultad} onChange={(v) => { setFacultad(v); setPage(0) }}>
+                <option value="">Todas las facultades</option>
+                {facultades.map((f) => <option key={f} value={f}>{f}</option>)}
+              </FiltroSelect>
+              <FiltroSelect etiqueta="Estado" value={estado} onChange={(v) => { setEstado(v); setPage(0) }}>
+                <option value="">Todos los estados</option>
+                <option value="PENDIENTE">Pendiente</option>
+                <option value="HABILITADO">Habilitado</option>
+                <option value="NO_HABILITADO">No habilitado</option>
+              </FiltroSelect>
             </div>
             {puedeEditar && (
               <button

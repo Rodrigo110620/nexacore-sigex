@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Ban, BookCheck, CalendarDays, ChevronDown, Clock, Eye, History, LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
+import { Ban, BookCheck, CalendarDays, Clock, Eye, History, LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterExamenModal from '../../components/examenes/RegisterExamenModal'
@@ -17,6 +17,7 @@ import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import FiltroSelect from '../../components/ui/FiltroSelect'
 import { contiene } from '../../utils/textoBusqueda'
 
 const PAGE_SIZE = 5
@@ -81,8 +82,11 @@ export default function ExamenesPage() {
       if (v === 'activos') siguiente.delete('vista'); else siguiente.set('vista', v)
       return siguiente
     }, { replace: true })
+    // Cada pestaña arma sus opciones: al cambiar, los filtros vuelven a «Todos».
     setFechaFiltro('')
     setDocenteFiltro('')
+    setAmbienteFiltro('')
+    setGrupoFiltro('')
     setPage(0)
   }
   // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
@@ -131,8 +135,8 @@ export default function ExamenesPage() {
   }, [examenes, ahora, hoy])
 
   const ambientes = useMemo(
-    () => [...new Set(examenes.map((e) => e.ambienteNombre).filter(Boolean))].sort(),
-    [examenes],
+    () => [...new Set(porVista[vista].map((e) => e.ambienteNombre).filter(Boolean))].sort(),
+    [porVista, vista],
   )
   const fechas = useMemo(
     () => [...new Set(porVista[vista].map((e) => e.fecha).filter(Boolean))].sort((a, b) => (vista === 'activos' ? a.localeCompare(b) : b.localeCompare(a))),
@@ -144,9 +148,9 @@ export default function ExamenesPage() {
   )
   // G1, G2… ordenados por número.
   const grupos = useMemo(
-    () => [...new Set(examenes.map((e) => e.grupo).filter((g): g is string => Boolean(g)))]
+    () => [...new Set(porVista[vista].map((e) => e.grupo).filter((g): g is string => Boolean(g)))]
       .sort((a, b) => a.localeCompare(b, 'es', { numeric: true })),
-    [examenes],
+    [porVista, vista],
   )
 
   const filtrados = useMemo(() => {
@@ -185,6 +189,34 @@ export default function ExamenesPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
   const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+
+  const hayFiltros = Boolean(query.trim() || ambienteFiltro || fechaFiltro || grupoFiltro || docenteFiltro)
+  const quitarFiltros = () => {
+    setQuery(''); setAmbienteFiltro(''); setFechaFiltro(''); setGrupoFiltro(''); setDocenteFiltro(''); setPage(0)
+  }
+  // Los mismos filtros en celular (2 por fila) y en escritorio (en la barra): nombre arriba, lo elegido abajo.
+  const filtrosExamen = (
+    <>
+      <FiltroSelect etiqueta="Ambiente" value={ambienteFiltro} onChange={(v) => { setAmbienteFiltro(v); setPage(0) }}>
+        <option value="">Todos los ambientes</option>
+        {ambientes.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)}
+      </FiltroSelect>
+      <FiltroSelect etiqueta="Fecha" value={fechaFiltro} onChange={(v) => { setFechaFiltro(v); setPage(0) }}>
+        <option value="">Todas las fechas</option>
+        {fechas.map((fecha) => <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>)}
+      </FiltroSelect>
+      <FiltroSelect etiqueta="Grupo" value={grupoFiltro} onChange={(v) => { setGrupoFiltro(v); setPage(0) }}>
+        <option value="">Todos los grupos</option>
+        {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
+      </FiltroSelect>
+      {filtraDocente && (
+        <FiltroSelect etiqueta="Docente" value={docenteFiltro} onChange={(v) => { setDocenteFiltro(v); setPage(0) }}>
+          <option value="">Todos los docentes</option>
+          {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
+        </FiltroSelect>
+      )}
+    </>
+  )
 
   return (
     <PanelLayout
@@ -236,62 +268,13 @@ export default function ExamenesPage() {
                     onChange={(e) => { setQuery(e.target.value); setPage(0) }}
                     placeholder="Buscar por asignatura, fecha o ambiente..."
                     aria-label="Buscar exámenes"
-                    className="h-11 w-full rounded-full border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
+                    className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                   />
                 </div>
-                <div className={`grid w-full gap-2 min-[960px]:hidden ${filtraDocente ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                  <div className="relative min-w-0">
-                    <select
-                      value={ambienteFiltro}
-                      onChange={(e) => { setAmbienteFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por ambiente"
-                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Ambiente</option>
-                      {ambientes.map((nombre) => (
-                        <option key={nombre} value={nombre}>{nombre}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  <div className="relative min-w-0">
-                    <select
-                      value={fechaFiltro}
-                      onChange={(e) => { setFechaFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por fecha"
-                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-8 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Fecha</option>
-                      {fechas.map((fecha) => (
-                        <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  <div className="relative min-w-0">
-                    <select
-                      value={grupoFiltro}
-                      onChange={(e) => { setGrupoFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por grupo"
-                      className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Grupo</option>
-                      {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  {filtraDocente && (
-                    <div className="relative min-w-0">
-                      <select value={docenteFiltro} onChange={(e) => { setDocenteFiltro(e.target.value); setPage(0) }} aria-label="Filtrar por docente"
-                        className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
-                        <option value="">Docente</option>
-                        {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <ChevronDown size={16} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                    </div>
-                  )}
+                <div className="grid w-full grid-cols-2 gap-2 min-[960px]:hidden">
+                  {filtrosExamen}
                 </div>
-                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9rem_13rem]' : 'grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem]'}`}>
+                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9rem_13rem] items-center' : 'grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem] items-center'}`}>
                   <div className="relative">
                     <Search
                       size={17}
@@ -307,56 +290,7 @@ export default function ExamenesPage() {
                       className="h-11 w-full rounded-md border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                     />
                   </div>
-                  <div className="relative">
-                    <select
-                      value={ambienteFiltro}
-                      onChange={(e) => { setAmbienteFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por ambiente"
-                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Todos los ambientes</option>
-                      {ambientes.map((nombre) => (
-                        <option key={nombre} value={nombre}>{nombre}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={fechaFiltro}
-                      onChange={(e) => { setFechaFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por fecha"
-                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Todas las fechas</option>
-                      {fechas.map((fecha) => (
-                        <option key={fecha} value={fecha}>{formatFecha(fecha)}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={grupoFiltro}
-                      onChange={(e) => { setGrupoFiltro(e.target.value); setPage(0) }}
-                      aria-label="Filtrar por grupo"
-                      className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
-                    >
-                      <option value="">Todos los grupos</option>
-                      {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                    <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                  </div>
-                  {filtraDocente && (
-                    <div className="relative">
-                      <select value={docenteFiltro} onChange={(e) => { setDocenteFiltro(e.target.value); setPage(0) }} aria-label="Filtrar por docente"
-                        className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
-                        <option value="">Todos los docentes</option>
-                        {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-                    </div>
-                  )}
+                  {filtrosExamen}
                 </div>
                 <div className="hidden min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0 min-[960px]:gap-2">
                   {canRegister && (
@@ -373,7 +307,8 @@ export default function ExamenesPage() {
               </div>
             </div>
 
-            <div role="tablist" aria-label="Exámenes por estado" className="mb-3 grid grid-cols-3 border-b border-[#D8E3F5] sm:flex sm:gap-2">
+            <div className="mb-3 flex items-end justify-between gap-3 border-b border-[#D8E3F5]">
+            <div role="tablist" aria-label="Exámenes por estado" className="grid min-w-0 flex-1 grid-cols-3 sm:flex sm:flex-none sm:gap-2">
               {VISTAS.map(({ id, texto, icono: Icono }) => {
                 const activa = vista === id
                 return (
@@ -391,6 +326,17 @@ export default function ExamenesPage() {
                 )
               })}
             </div>
+            {hayFiltros && (
+              <button type="button" onClick={quitarFiltros} className="hidden shrink-0 pb-3 text-sm font-semibold text-[#0439D9] hover:underline sm:block">
+                Quitar filtros
+              </button>
+            )}
+            </div>
+            {hayFiltros && (
+              <button type="button" onClick={quitarFiltros} className="-mt-1 mb-2 text-sm font-semibold text-[#0439D9] hover:underline sm:hidden">
+                Quitar filtros
+              </button>
+            )}
 
             {error && (
               <ErrorCarga className="mb-4" mensaje={error} onReintentar={() => void load()} />
