@@ -17,7 +17,7 @@ import {
   validateRol,
   sanitizeNombreInput,
 } from '../../utils/validators';
-import { DATOS_DOCENTE_INICIALES, type DatosDocente } from '../../utils/datosDocente';
+import { DATOS_DOCENTE_INICIALES, errorEspecialidad, normalizarEspecialidad, type DatosDocente } from '../../utils/datosDocente';
 
 export type PasoRegistro = 1 | 2 | 3 | 4;
 export const TOTAL_PASOS = 4;
@@ -135,6 +135,8 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
 
   /** Paso 3: lo propio del rol. */
   const validarDelRol = (): FormErrors => {
+    const especialidad = form.rol === 'DOCENTE' ? errorEspecialidad(datosDocente.especialidad) : null;
+    if (especialidad) return { especialidad };
     if (form.rol === 'DOCENTE' && materias.length === 0) return { materias: 'Elige al menos una materia para el docente.' };
     if (form.rol === 'ADMIN' && !confirmaAdmin) return { confirmaAdmin: 'Confirma que esta persona debe tener acceso total al sistema.' };
     return {};
@@ -223,7 +225,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
           activo: cleanForm.activo,
           notificarEmail: true,
           // IMP-12: el docente se registra con sus materias.
-          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id), grupos: gruposPorMateria(materias), docente: datosDocente } : {}),
+          ...(cleanForm.rol === 'DOCENTE' ? { idMaterias: materias.map((m) => m.id), grupos: gruposPorMateria(materias), docente: { ...datosDocente, especialidad: normalizarEspecialidad(datosDocente.especialidad) } } : {}),
         },
         { _skipAutoLogout: true } as object,
       );

@@ -82,6 +82,15 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
             """)
     long countByRolNombre(@Param("rolNombre") String rolNombre);
 
+    /** Administradores activos: a ellos les llega por correo cada consulta nueva de la mesa de ayuda. */
+    @Query("""
+            SELECT DISTINCT u FROM Usuario u
+            JOIN u.usuarioRoles ur
+            JOIN ur.idRol r
+            WHERE r.nombre = 'ADMIN' AND LOWER(CAST(u.estado AS String)) = 'activo'
+            """)
+    List<Usuario> adminsActivos();
+
     /** Usuarios del personal: sin contar las cuentas de estudiantes. */
     @Query("SELECT COUNT(u) FROM Usuario u WHERE NOT EXISTS (SELECT e FROM Estudiante e WHERE e.idUsuario = u.id)")
     long contarPersonal();

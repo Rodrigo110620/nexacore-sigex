@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import type { RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import TablePagination from '../users/TablePagination'
-import { anularExpulsion, listarExpulsionesExamen, type ExpulsionResponse } from '../../services/expulsionService'
+import { anularExpulsion, listarExpulsionesExamen, listarExpulsionesTodas, type ExpulsionResponse } from '../../services/expulsionService'
+import { coincide } from '../../utils/buscar'
 import useEnVivo from '../../hooks/useEnVivo'
 import { useAuth } from '../../context/AuthContext'
 import { MOTIVO_ANULACION, normalizarMotivoAnulacion, validarMotivoAnulacion } from '../../utils/anulacionExpulsionTexto'
@@ -75,26 +76,31 @@ function AnularExpulsion({ idExamen, registro, nombre, onAnulada }: {
 }
 
 interface Props {
-  idExamen: number
+  /** null: las de todos los exámenes que puede ver (BUG-G02). */
+  idExamen: number | null
   examen?: string
   controles: RegistroControlIngresoExamen[]
+  /** Nombre de cada examen, para «Todos los exámenes». */
+  nombresExamen?: Map<number, string>
+  /** Por nombre o código SIS (BUG-G04). */
+  buscar?: string
 }
 
 const TAMANO_PAGINA = 10
 
-export default function ExpulsionesReporte({ idExamen, examen, controles }: Props) {
+export default function ExpulsionesReporte({ idExamen, examen, controles, nombresExamen, buscar = '' }: Props) {
   // Anulan los mismos que pueden expulsar: ADMIN o el docente del examen (el servidor lo verifica).
   const auth = useAuth()
   const puedeAnular = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExpulsionResponse[]; error?: string }>()
-  const clave = `${idExamen}|${recarga}`
-  useEnVivo((cambio) => cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
+  const clave = `${idExamen ?? 'todos'}|${recarga}`
+  useEnVivo((cambio) => idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
-    listarExpulsionesExamen(idExamen).then((registros) => {
+    ;(idExamen == null ? listarExpulsionesTodas() : listarExpulsionesExamen(idExamen)).then((registros) => {
       if (vigente) setResultado({ clave, registros: [...new Map(registros.map((r) => [r.idExpulsion, r])).values()] })
     }).catch(() => {
       if (vigente) setResultado({ clave, error: 'No se pudieron cargar las expulsiones de la sesión actual.' })
@@ -103,10 +109,6 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : undefined
-  const total = actual?.registros?.length ?? 0
-  const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
-  const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
-  const visibles = actual?.registros?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
   // El endpoint de controles ya está acotado al examen y puede omitir idExamen.
   const nombres = new Map(controles.filter((r) => r.idExamen == null || r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
   const titulo = (e: ExpulsionResponse) => {
@@ -115,9 +117,14 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
     const sis = e.codigoSis?.trim() || r?.codigoSis?.trim()
     return `${nombre || `Estudiante #${e.idEstudiante}`}${sis ? ` · SIS ${sis}` : ''}`
   }
+  const filtrados = actual?.registros?.filter((e) => coincide(buscar, titulo(e)))
+  const total = filtrados?.length ?? 0
+  const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
+  const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
+  const visibles = filtrados?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
   return (
-    <section aria-label="Expulsiones de la sesión actual" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
-      <h3 className="font-semibold text-[#B91C1C]">Expulsiones de la sesión actual ({actual?.registros?.length ?? '…'})</h3>
+    <section aria-label={idExamen == null ? 'Expulsiones de todos los exámenes' : 'Expulsiones de la sesión actual'} className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
+      <h3 className="font-semibold text-[#B91C1C]">{idExamen == null ? 'Expulsiones de todos los exámenes' : 'Expulsiones de la sesión actual'} ({filtrados?.length ?? '…'})</h3>
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando expulsiones…</p>}
       {actual?.error && (
         <div role="alert" className="mt-2 text-sm text-[#B91C1C]">
@@ -127,8 +134,12 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
           </button>
         </div>
       )}
-      {actual?.registros?.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">No hay expulsiones en la sesión actual.</p>}
-      {actual?.registros && actual.registros.length > 0 && (
+      {filtrados?.length === 0 && (
+        <p className="mt-2 text-sm text-[#627A9B]">
+          {buscar.trim() ? 'Ninguna expulsión coincide con la búsqueda.' : idExamen == null ? 'No hay expulsiones registradas.' : 'No hay expulsiones en la sesión actual.'}
+        </p>
+      )}
+      {filtrados && filtrados.length > 0 && (
         <>
         <ul className="mt-3 space-y-3">
           {visibles.map((registro) => (
@@ -141,10 +152,10 @@ export default function ExpulsionesReporte({ idExamen, examen, controles }: Prop
                   <span className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">Anulada · sigue con su examen</span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-[#627A9B]">{examen ?? `Examen #${registro.idExamen}`}</p>
+              <p className="mt-1 text-xs text-[#627A9B]">{examen ?? nombresExamen?.get(registro.idExamen) ?? `Examen #${registro.idExamen}`}</p>
               <RegistroExpulsion registro={registro} />
               {puedeAnular && !registro.anuladaEn && (
-                <AnularExpulsion idExamen={idExamen} registro={registro} nombre={titulo(registro)} onAnulada={() => setRecarga((n) => n + 1)} />
+                <AnularExpulsion idExamen={registro.idExamen} registro={registro} nombre={titulo(registro)} onAnulada={() => setRecarga((n) => n + 1)} />
               )}
             </li>
           ))}

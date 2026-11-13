@@ -6,6 +6,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ExcepcionNoHabilitadoRepository extends JpaRepository<ExcepcionNoHabilitado, Integer> {
+    /** Exámenes con alguna excepción de no habilitado (para el reporte de «Todos los exámenes»). */
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT x.idExamen FROM ExcepcionNoHabilitado x")
+    List<Integer> examenesConExcepciones();
+
 
     /** Reporte de excepciones de un examen, de la más reciente a la más antigua. */
     List<ExcepcionNoHabilitado> findByIdExamenOrderByFechaHoraDesc(Integer idExamen);

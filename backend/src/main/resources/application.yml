@@ -37,9 +37,11 @@ spring:
           auth: true
           starttls:
             enable: true
-          connectiontimeout: 4000
-          timeout: 4000
-          writetimeout: 4000
+          # Gmail analiza el mensaje antes de responder «aceptado»: con 4 s a veces se cortaba (Read timed out).
+          # Los envíos lentos van en segundo plano y con un reintento (EmailService), así que no hacen esperar a nadie.
+          connectiontimeout: ${MAIL_CONNECT_TIMEOUT_MS:10000}
+          timeout: ${MAIL_TIMEOUT_MS:20000}
+          writetimeout: ${MAIL_TIMEOUT_MS:20000}
 
 server:
   port: ${SERVER_PORT:8080}

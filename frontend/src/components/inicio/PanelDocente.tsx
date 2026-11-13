@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UsersRound, type LucideIcon } from 'lucide-react'
 import { Anillo, Sparkline } from './Graficas'
@@ -156,30 +157,51 @@ const TIPO: Record<InicioDocente['recientes'][number]['tipo'], { texto: string; 
   INTENTO: { texto: 'Intento incorrecto', icono: TriangleAlert, clase: 'bg-[#FEF3C7] text-[#B45309]' },
 }
 
-/** Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones e intentos). */
+/** Cuántos registros manda el servidor (InicioDocenteService.RECIENTES). */
+const MAX_REGISTROS_DOCENTE = 6
+/** Desde este largo el detalle se recorta con «…» y se ofrece «Ver todo». */
+const LARGO_RECORTE = 48
+
+/** Un registro: el detalle largo se recorta y se despliega con «Ver todo» / «Ver menos» (BUG-A01). */
+function FilaRegistro({ r }: { r: InicioDocente['recientes'][number] }) {
+  const [abierto, setAbierto] = useState(false)
+  const t = TIPO[r.tipo] ?? TIPO.INGRESO
+  const Icono = t.icono
+  const titulo = `${t.texto}${r.estudiante ? ` · ${r.estudiante}` : ''}`
+  const detalle = [r.materia, r.tipo === 'INGRESO' && r.detalle ? `Aula ${r.detalle}` : r.detalle].filter(Boolean).join(' · ')
+  const largo = detalle.length > LARGO_RECORTE || titulo.length > LARGO_RECORTE
+  return (
+    <li className="flex items-start gap-3 py-2.5">
+      <span className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.clase}`}><Icono size={16} aria-hidden="true" /></span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm font-semibold text-[#011140] ${abierto ? 'break-words' : 'truncate'}`}>{titulo}</span>
+        <span className={`block text-[11px] text-[#627A9B] ${abierto ? 'whitespace-pre-line break-words' : 'truncate'}`}>{detalle}</span>
+        {largo && (
+          <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}
+            className="mt-0.5 text-[11px] font-semibold text-[#0439D9] hover:underline">
+            {abierto ? 'Ver menos' : 'Ver todo'}
+          </button>
+        )}
+      </span>
+      <span className="mt-0.5 shrink-0 text-xs tabular-nums text-[#45628D]">{r.fecha.slice(11, 16)}</span>
+    </li>
+  )
+}
+
+/**
+ * Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones e intentos). Solo los
+ * MAX_REGISTROS_DOCENTE más recientes, y lo dice (BUG-A02).
+ */
 export function RegistrosDocente({ registros }: { registros: InicioDocente['recientes'] }) {
   return (
     <section aria-labelledby="registros-docente" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
       <h2 id="registros-docente" className="text-[15px] font-bold text-[#011140]">Registros de mis exámenes</h2>
-      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias</p>
+      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias · las {MAX_REGISTROS_DOCENTE} actividades de ingreso más recientes de hoy</p>
       {registros.length === 0 ? (
         <p className="mt-4 rounded-lg bg-[#F8FAFF] p-3 text-sm text-[#627A9B]">Aún no hay registros hoy en tus exámenes.</p>
       ) : (
         <ul className="mt-3 divide-y divide-[#EEF2F7]" aria-label="Registros de mis exámenes">
-          {registros.map((r, i) => {
-            const t = TIPO[r.tipo] ?? TIPO.INGRESO
-            const Icono = t.icono
-            return (
-              <li key={`${r.fecha}-${r.tipo}-${i}`} className="flex items-center gap-3 py-2.5">
-                <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.clase}`}><Icono size={16} aria-hidden="true" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-[#011140]">{t.texto}{r.estudiante ? ` · ${r.estudiante}` : ''}</span>
-                  <span className="block truncate text-[11px] text-[#627A9B]">{[r.materia, r.tipo === 'INGRESO' && r.detalle ? `Aula ${r.detalle}` : r.detalle].filter(Boolean).join(' · ')}</span>
-                </span>
-                <span className="shrink-0 text-xs tabular-nums text-[#45628D]">{r.fecha.slice(11, 16)}</span>
-              </li>
-            )
-          })}
+          {registros.map((r, i) => <FilaRegistro key={`${r.fecha}-${r.tipo}-${i}`} r={r} />)}
         </ul>
       )}
     </section>

@@ -41,7 +41,7 @@ const MAXIMO_CAMBIOS = 8
 const soloFecha = (fecha: string) => new Intl.DateTimeFormat('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(fecha))
 const soloHora = (fecha: string) => new Intl.DateTimeFormat('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(fecha))
 
-const ROLES: Record<string, string> = { ADMIN: 'Administrador', DOCENTE: 'Docente', CONTROL: 'Personal de control' }
+const ROLES: Record<string, string> = { ADMIN: 'Administrador', DOCENTE: 'Docente', CONTROL: 'Personal de control', ESTUDIANTE: 'Estudiante' }
 /** «ADMIN, DOCENTE» → «Administrador, Docente». */
 const rolLegible = (roles: string | null) => (roles ?? '').split(',').map((r) => ROLES[r.trim()] ?? r.trim()).filter(Boolean).join(', ')
 /** «10/11/2026 · 12:15 – 12:45» del examen de la operación (sin la duración), o vacío. */

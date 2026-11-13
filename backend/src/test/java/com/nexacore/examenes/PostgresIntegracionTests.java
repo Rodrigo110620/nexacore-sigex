@@ -1350,12 +1350,13 @@ class PostgresIntegracionTests {
 
         // Al editar: se cambia la especialidad; un texto vacío deja el dato sin registrar.
         usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
-                "rosa7000010@umss.edu", "DOCENTE", true, false, null, new com.nexacore.examenes.dto.DatosDocenteRequest(" ", "Redes", "INVITADO")));
-        assertThat(usuarioService.datosDocente(id)).isEqualTo(new com.nexacore.examenes.dto.DatosDocenteRequest(null, "Redes", "INVITADO"));
+                "rosa7000010@umss.edu", "DOCENTE", true, false, null, new com.nexacore.examenes.dto.DatosDocenteRequest(" ", "  redes   DE computadoras ", "INVITADO")));
+        // La especialidad se guarda sin espacios sobrantes y en formato oración.
+        assertThat(usuarioService.datosDocente(id)).isEqualTo(new com.nexacore.examenes.dto.DatosDocenteRequest(null, "Redes de computadoras", "INVITADO"));
         // Sin el bloque (por ejemplo, la importación), no se tocan.
         usuarioService.actualizar(id, new com.nexacore.examenes.dto.RegisterUserRequest("Rosa", "Vargas", "7000010",
                 "rosa7000010@umss.edu", "DOCENTE", true, false, null));
-        assertThat(usuarioService.datosDocente(id).especialidad()).isEqualTo("Redes");
+        assertThat(usuarioService.datosDocente(id).especialidad()).isEqualTo("Redes de computadoras");
     }
 
     // IMP-10: el estado del respaldo lee la versión real, el tamaño y las descargas de la auditoría.

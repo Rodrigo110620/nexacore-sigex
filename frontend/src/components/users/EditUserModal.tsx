@@ -22,7 +22,7 @@ import {
   validateRol,
 } from '../../utils/validators';
 import DatosDocenteCampos from '../admin/DatosDocenteCampos';
-import { DATOS_DOCENTE_INICIALES, type DatosDocente } from '../../utils/datosDocente';
+import { DATOS_DOCENTE_INICIALES, errorEspecialidad, normalizarEspecialidad, type DatosDocente } from '../../utils/datosDocente';
 
 interface User {
   id?: string | number;
@@ -67,6 +67,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
   const [materiasIniciales, setMateriasIniciales] = useState<MateriaDto[]>([]);
   // Título, especialidad y categoría del docente (solo el ADMIN los cambia).
   const [datosDocente, setDatosDocente] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
+  const [errorEspecialidadDocente, setErrorEspecialidadDocente] = useState('');
   const [datosDocenteIniciales, setDatosDocenteIniciales] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
 
   useEffect(() => {
@@ -170,12 +171,19 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
       setGeneralError('Por favor, completa todos los campos obligatorios');
       return;
     }
+    const errorEsp = esDocente ? errorEspecialidad(datosDocente.especialidad) : null;
+    setErrorEspecialidadDocente(errorEsp ?? '');
+    if (errorEsp) {
+      setGeneralError(`Especialidad: ${errorEsp}`);
+      return;
+    }
     if (esDocente && listaMaterias.length === 0) {
       setErrors({ ...formErrors, materias: 'Elige al menos una materia para el docente.' });
       setGeneralError('Elige al menos una materia para el docente.');
       return;
     }
 
+    const docenteNormalizado = { ...datosDocente, especialidad: normalizarEspecialidad(datosDocente.especialidad) };
     setLoading(true);
     try {
       await api.put(`/usuarios/${user?.id}`, {
@@ -186,9 +194,9 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
         rol: cleanForm.rol,
         activo: cleanForm.activo,
         notificarEmail: false,
-        ...(esDocente ? { docente: datosDocente } : {}),
+        ...(esDocente ? { docente: docenteNormalizado } : {}),
       }, { _skipAutoLogout: true } as object);
-      if (esDocente) setDatosDocenteIniciales(datosDocente);
+      if (esDocente) { setDatosDocente(docenteNormalizado); setDatosDocenteIniciales(docenteNormalizado); }
       if (esDocente && (cambianMaterias || user?.rol !== 'DOCENTE')) {
         await asignarMateriasAlDocente(Number(user?.id), listaMaterias.map((m) => m.id), gruposPorMateria(listaMaterias));
         setMateriasIniciales(listaMaterias);
@@ -297,7 +305,8 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
             {esDocente && (
               <>
               <section aria-label="Datos del docente" className="mt-5 border-t border-gray-100 pt-5">
-                <DatosDocenteCampos value={datosDocente} onChange={(d) => { setDatosDocente(d); if (generalError) setGeneralError(''); }} />
+                <DatosDocenteCampos value={datosDocente} error={errorEspecialidadDocente || undefined}
+                  onChange={(d) => { setDatosDocente(d); setErrorEspecialidadDocente(''); if (generalError) setGeneralError(''); }} />
               </section>
               <section aria-labelledby="materias-docente" className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5">
                 <div>

@@ -69,7 +69,8 @@ class CuentaEstudianteTests {
     }
 
     /**
-     * Recorre todos los endpoints registrados: fuera de su sesión (/auth), su panel (/mi), /health y /tiempo (hora del servidor),
+     * Recorre todos los endpoints registrados: fuera de su sesión (/auth), su panel (/mi), /health, /tiempo (hora del servidor)
+     * y la mesa de ayuda (/ayuda/solicitar, pública: el estudiante también pide ayuda),
      * el estudiante recibe 403 en cada uno. Un endpoint nuevo del personal queda cubierto solo.
      */
     @Test
@@ -80,7 +81,7 @@ class CuentaEstudianteTests {
         for (RequestMappingInfo info : handlerMapping.getHandlerMethods().keySet()) {
             for (String patron : info.getPatternValues()) {
                 if (patron.startsWith("/auth/") || patron.startsWith("/mi/") || patron.equals("/health")
-                        || patron.equals("/tiempo")
+                        || patron.equals("/tiempo") || patron.equals("/ayuda/solicitar")
                         || patron.equals("/error") || patron.contains("api-docs") || patron.contains("swagger")) {
                     continue;
                 }
