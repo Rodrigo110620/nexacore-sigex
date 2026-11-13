@@ -45,6 +45,7 @@ class HistorialPresentacion {
         tipo("ESTUDIANTE_QUITADO_DEL_EXAMEN", "Exámenes", "Quitar");
         tipo("PERSONAL_CONTROL_ASIGNADO", "Exámenes", "Asignar");
         tipo("ESTUDIANTES_ASOCIADOS", "Exámenes", "Asociar");
+        tipo("CUENTA_ESTUDIANTE_ACTIVADA", "Estudiantes", "Activar");
         tipo("ESTUDIANTE_CREADO", "Estudiantes", "Crear");
         tipo("ESTUDIANTE_EDITADO", "Estudiantes", "Editar");
         tipo("ESTUDIANTES_IMPORTADOS", "Estudiantes", "Importar");
@@ -73,6 +74,7 @@ class HistorialPresentacion {
         tipo("MI_FOTO_QUITADA", "Usuarios", "Eliminar");
         tipo("AMBIENTE_CREADO", "Ambientes", "Crear");
         tipo("AMBIENTE_AFORO_CAMBIADO", "Ambientes", "Editar");
+        tipo("AYUDA_ATENDIDA", "Mesa de ayuda", "Atender");
         tipo("RESPALDO_DESCARGADO", "Configuración", "Respaldo");
     }
 
@@ -178,6 +180,9 @@ class HistorialPresentacion {
                     d.path("personal").isEmpty() ? "Quitó al personal de control del examen"
                             : "Asignó el personal de control: " + lista(d.path("personal")), null, List.of());
             case "ESTUDIANTES_ASOCIADOS" -> asociados(d);
+            case "CUENTA_ESTUDIANTE_ACTIVADA" -> new Vista(texto(d, "nombre"),
+                    "Activó su cuenta de estudiante" + (d.path("qrEnviado").asBoolean() ? " y recibió su QR por correo" : ""), null,
+                    datos(d, "codigoSis", "Código SIS", "correo", "Correo"));
             case "ESTUDIANTE_CREADO" -> new Vista(texto(d, "nombre"), "Registró al estudiante", null,
                     datos(d, "codigoSis", "Código SIS"));
             case "ESTUDIANTE_EDITADO" -> new Vista(texto(d, "nombre"), "Editó los datos del estudiante", null,
@@ -227,6 +232,9 @@ class HistorialPresentacion {
             case "CONTRASENA_CAMBIADA" -> new Vista("Su cuenta", "Cambió su contraseña", null, List.of());
             case "MI_FOTO_CAMBIADA" -> new Vista("Su cuenta", "Cambió su foto de perfil", null, List.of());
             case "MI_FOTO_QUITADA" -> new Vista("Su cuenta", "Quitó su foto de perfil", null, List.of());
+            case "AYUDA_ATENDIDA" -> new Vista(texto(d, "nombre"),
+                    "Atendió la consulta (" + texto(d, "tipo") + ")" + (d.has("respuesta") ? " y respondió por correo" : ""),
+                    null, datos(d, "correo", "Correo", "respuesta", "Respuesta"));
             case "AMBIENTE_CREADO" -> new Vista("Aula " + texto(d, "nombre"), "Registró el aula", null,
                     datos(d, "capacidad", "Aforo", "ubicacion", "Ubicación"));
             case "AMBIENTE_AFORO_CAMBIADO" -> new Vista("Aula " + texto(d, "nombre"), "Registró el aforo del aula", null,

@@ -43,6 +43,23 @@ public class ExpulsionConsultaService {
         }).toList();
     }
 
+    /**
+     * BUG-G02: las expulsiones de todos los exámenes indicados (cada uno, de su sesión actual), de la más reciente a la
+     * más antigua. El controlador pasa solo los exámenes que el usuario puede ver.
+     */
+    @Transactional(readOnly = true)
+    public List<ExpulsionResponse> listarDe(java.util.Collection<Integer> idsExamen) {
+        return idsExamen.stream().flatMap(id -> listar(id).stream())
+                .sorted(java.util.Comparator.comparing(ExpulsionResponse::fechaHora,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Integer> examenesConExpulsiones() {
+        return expulsiones.examenesConExpulsiones();
+    }
+
     private static String nombreDe(Usuario u) {
         return u == null ? null : u.getNombre() + " " + u.getApellidos();
     }

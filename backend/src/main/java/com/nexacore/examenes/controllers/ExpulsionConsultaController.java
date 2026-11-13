@@ -16,6 +16,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExpulsionConsultaController {
     private final ExpulsionConsultaService service;
+    private final com.nexacore.examenes.services.ExamenAccesoService acceso;
+
+    /**
+     * BUG-G02: expulsiones de todos los exámenes. El ADMIN (REPORTES_VER) ve todas; el DOCENTE y el CONTROL, solo las
+     * de sus exámenes (los suyos o donde está asignado).
+     */
+    @GetMapping("/expulsiones")
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')")
+    public List<ExpulsionResponse> listarTodas(org.springframework.security.core.Authentication authentication) {
+        return service.listarDe(acceso.visibles(service.examenesConExpulsiones(), authentication));
+    }
 
     @GetMapping("/examen/{idExamen}/expulsiones")
     @PreAuthorize("@examenAccesoService.puedeVerReportes(#idExamen, authentication)")

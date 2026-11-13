@@ -14,5 +14,14 @@ public record ExcepcionNoHabilitadoResponse(
         String ambiente,
         String registradoPor,
         /** Hora del servidor en que se registró. */
-        LocalDateTime fechaHora
-) {}
+        LocalDateTime fechaHora,
+        /** El examen (en el reporte de «Todos los exámenes» cada fila dice de cuál es). */
+        Integer idExamen
+) {
+    public ExcepcionNoHabilitadoResponse(Integer idExcepcion, Integer idEstudiante, String estudiante, String codigoSis,
+                                         String motivoInhabilitacion, String accionTomada, String observaciones, String ambiente,
+                                         String registradoPor, LocalDateTime fechaHora) {
+        this(idExcepcion, idEstudiante, estudiante, codigoSis, motivoInhabilitacion, accionTomada, observaciones, ambiente,
+                registradoPor, fechaHora, null);
+    }
+}

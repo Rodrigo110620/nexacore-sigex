@@ -1,3 +1,4 @@
+import { coincide } from '../../utils/buscar'
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
 import TablePagination from '../users/TablePagination'
@@ -17,7 +18,7 @@ const ESTADO: Record<string, [string, string]> = {
  * Fotos reportadas en el control de ingreso, pendientes y resueltas, para que quede constancia en el examen. El ADMIN
  * ve todas; el DOCENTE y el CONTROL, las de sus exámenes, y pueden revisar las pendientes. Se actualiza en vivo.
  */
-export default function FotosReportadasReporte({ idExamen, examen }: { idExamen: number | null; examen?: string }) {
+export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }: { idExamen: number | null; examen?: string; buscar?: string }) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; filas?: FilaFotoReportada[]; error?: boolean }>()
@@ -33,7 +34,8 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : resultado?.filas ? resultado : undefined
-  const filas = actual?.filas ?? []
+  // BUG-G04: por nombre o código SIS del estudiante.
+  const filas = (actual?.filas ?? []).filter((f) => coincide(buscar, f.estudiante, f.codigoSis))
   const totalPaginas = Math.ceil(filas.length / TAMANO_PAGINA)
   const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
   const visibles = filas.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA)
@@ -48,6 +50,7 @@ export default function FotosReportadasReporte({ idExamen, examen }: { idExamen:
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando fotos reportadas…</p>}
       {actual?.error && !actual.filas && <ErrorCarga className="mt-2" mensaje="No se pudieron cargar las fotos reportadas." onReintentar={() => setRecarga((n) => n + 1)} />}
       {actual?.filas?.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">No hay fotos reportadas{idExamen ? ' en este examen' : ''}.</p>}
+      {(actual?.filas?.length ?? 0) > 0 && filas.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">Ninguna foto reportada coincide con la búsqueda.</p>}
       {filas.length > 0 && (
         <>
           <div className="mt-3 overflow-x-auto max-md:hidden">

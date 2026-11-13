@@ -86,16 +86,16 @@ public class InicioDocenteService {
                 SELECT r.fecha, r.tipo, TRIM(COALESCE(e.nombre, '') || ' ' || COALESCE(e.apellidos, '')), mx.nombre, r.detalle
                 FROM (
                     SELECT c.fecha_hora AS fecha, 'INGRESO' AS tipo, c.id_estudiante, c.id_examen,
-                           CAST(am.nombre AS VARCHAR(200)) AS detalle
+                           CAST(am.nombre AS VARCHAR) AS detalle
                     FROM registro_control_ingreso c
                     JOIN asistencia_examen a ON a.id_estudiante = c.id_estudiante AND a.id_examen = c.id_examen
                     LEFT JOIN ambiente am ON am.id_ambiente = a.id_ambiente_ingreso
                     WHERE c.resultado_autorizacion = 'AUTORIZADO' AND c.fecha_hora >= :desde AND c.fecha_hora < :hasta
                     UNION ALL
-                    SELECT fecha_hora, 'EXPULSION', id_estudiante, id_examen, CAST(motivo AS VARCHAR(200)) FROM expulsion
+                    SELECT fecha_hora, 'EXPULSION', id_estudiante, id_examen, CAST(motivo AS VARCHAR) FROM expulsion
                     WHERE fecha_hora >= :desde AND fecha_hora < :hasta AND anulada_en IS NULL
                     UNION ALL
-                    SELECT fecha_hora, 'INTENTO', id_estudiante, id_examen, CAST(observacion AS VARCHAR(200)) FROM intento_ingreso
+                    SELECT fecha_hora, 'INTENTO', id_estudiante, id_examen, CAST(observacion AS VARCHAR) FROM intento_ingreso
                     WHERE fecha_hora >= :desde AND fecha_hora < :hasta
                 ) r
                 JOIN (SELECT DISTINCT x.id_examen, mt.nombre FROM examen x JOIN materia mt ON mt.id_materia = x.id_materia
@@ -105,8 +105,14 @@ public class InicioDocenteService {
                 LIMIT :limite
                 """, new MapSqlParameterSource(p.getValues()).addValue("limite", RECIENTES), (rs, i) -> {
             String nombre = rs.getString(3);
+            String detalle = rs.getString(5);
+            // BUG-A01: el detalle completo (sin recortar) y legible: «No habilitado: X · Acción tomada: Y», no el texto crudo.
+            if ("INTENTO".equals(rs.getString(2))) {
+                MotivoIntento.Clasificacion c = MotivoIntento.de(detalle);
+                detalle = c.detalle() == null ? c.etiqueta() : c.etiqueta() + " · " + c.detalle();
+            }
             return new InicioDocenteResponse.Registro(rs.getTimestamp(1).toLocalDateTime(), rs.getString(2),
-                    nombre == null || nombre.isBlank() ? null : nombre, rs.getString(4), rs.getString(5));
+                    nombre == null || nombre.isBlank() ? null : nombre, rs.getString(4), detalle);
         });
 
         int totalGrupos = grupos.values().stream().mapToInt(List::size).sum();

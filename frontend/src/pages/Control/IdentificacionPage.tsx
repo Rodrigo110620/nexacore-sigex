@@ -13,6 +13,8 @@ import VerificacionHabilitacionModal from '../../components/control/Verificacion
 import QrInvalidoModal from '../../components/control/QrInvalidoModal'
 import useIdentificacion from '../../hooks/useIdentificacion'
 import useExamen from '../../hooks/useExamen'
+import useResumenesExamenes from '../../hooks/useResumenesExamenes'
+import useEnVivo from '../../hooks/useEnVivo'
 import { useAuth } from '../../context/AuthContext'
 import { identificarEstudiante, type EstudianteIdentificado } from '../../services/identificacionService'
 import { obtenerContextoControl } from '../../services/controlIngresoService'
@@ -34,6 +36,11 @@ export default function IdentificacionPage() {
   const [tipo, setTipo] = useState<Mecanismo>('codigo')
   const [reinicios, setReinicios] = useState(0)
   const examen = useExamen(idExamen)
+  // Cómo va el ingreso (ingresados de los habilitados), en vivo: se ve en la cabecera.
+  const { resumenes, recargar: recargarAvance } = useResumenesExamenes(idValido ? [idExamen] : [])
+  useEnVivo((c) => c.idExamen === idExamen, recargarAvance)
+  const resumen = resumenes[idExamen]
+  const avance = resumen && resumen !== 'error' ? { ingresados: resumen.ingresados, habilitados: resumen.habilitados } : null
   const { busqueda, buscar, buscarQr, reset } = useIdentificacion(idExamen)
   const [modalVerificacionOpen, setModalVerificacionOpen] = useState(false)
   // Estado de habilitación consultado de nuevo al presionar Continuar (ACCS-03): nunca se asume.
@@ -162,6 +169,8 @@ export default function IdentificacionPage() {
             hora={examen?.horaInicio}
             docente={examen?.docente}
             duracionMinutos={examen?.duracionMinutos}
+            grupo={examen?.grupo}
+            avance={avance}
             compact
           />
           {idValido ? (
