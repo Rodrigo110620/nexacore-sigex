@@ -68,6 +68,9 @@ export default function ExamenesPage() {
   const [ambienteFiltro, setAmbienteFiltro] = useState('')
   const [fechaFiltro, setFechaFiltro] = useState('')
   const [grupoFiltro, setGrupoFiltro] = useState('')
+  // Solo el ADMIN ve los exámenes de todos: puede filtrar por docente (el docente ve solo los suyos).
+  const filtraDocente = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS')
+  const [docenteFiltro, setDocenteFiltro] = useState('')
   const [page, setPage] = useState(0)
   // ?vista=historial|cancelados (queda en la URL: al volver del detalle se sigue en la misma pestaña).
   const vistaParam = searchParams.get('vista')
@@ -79,6 +82,7 @@ export default function ExamenesPage() {
       return siguiente
     }, { replace: true })
     setFechaFiltro('')
+    setDocenteFiltro('')
     setPage(0)
   }
   // ?nuevo=1 (desde «Programar examen» del inicio del docente) abre el formulario.
@@ -134,6 +138,10 @@ export default function ExamenesPage() {
     () => [...new Set(porVista[vista].map((e) => e.fecha).filter(Boolean))].sort((a, b) => (vista === 'activos' ? a.localeCompare(b) : b.localeCompare(a))),
     [porVista, vista],
   )
+  const docentes = useMemo(
+    () => [...new Set(porVista[vista].map((e) => e.docente).filter((d): d is string => Boolean(d)))].sort((a, b) => a.localeCompare(b, 'es')),
+    [porVista, vista],
+  )
   // G1, G2… ordenados por número.
   const grupos = useMemo(
     () => [...new Set(examenes.map((e) => e.grupo).filter((g): g is string => Boolean(g)))]
@@ -148,6 +156,7 @@ export default function ExamenesPage() {
       if (ambienteFiltro && e.ambienteNombre !== ambienteFiltro) return false
       if (fechaFiltro && e.fecha !== fechaFiltro) return false
       if (grupoFiltro && e.grupo !== grupoFiltro) return false
+      if (docenteFiltro && e.docente !== docenteFiltro) return false
       if (!q) return true
       return (
         // Sin distinguir tildes: «fisica» encuentra «Física».
@@ -160,7 +169,7 @@ export default function ExamenesPage() {
         (e.grupo ?? '').toLowerCase() === q
       )
     })
-  }, [porVista, vista, query, ambienteFiltro, fechaFiltro, grupoFiltro, paraleloSeleccionado])
+  }, [porVista, vista, query, ambienteFiltro, fechaFiltro, grupoFiltro, docenteFiltro, paraleloSeleccionado])
 
   // Hoy y próximos: día por día desde hoy; dentro del día, en curso, próximos y al final los que ya terminaron.
   // Historial y cancelados: del más reciente al más antiguo.
@@ -230,7 +239,7 @@ export default function ExamenesPage() {
                     className="h-11 w-full rounded-full border border-[#B8CBEF] bg-white pl-10 pr-3 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]"
                   />
                 </div>
-                <div className="grid w-full grid-cols-3 gap-2 min-[960px]:hidden">
+                <div className={`grid w-full gap-2 min-[960px]:hidden ${filtraDocente ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   <div className="relative min-w-0">
                     <select
                       value={ambienteFiltro}
@@ -271,8 +280,18 @@ export default function ExamenesPage() {
                     </select>
                     <ChevronDown size={16} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
                   </div>
+                  {filtraDocente && (
+                    <div className="relative min-w-0">
+                      <select value={docenteFiltro} onChange={(e) => { setDocenteFiltro(e.target.value); setPage(0) }} aria-label="Filtrar por docente"
+                        className="h-11 w-full appearance-none rounded-full border border-[#B8CBEF] bg-white pl-3 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
+                        <option value="">Docente</option>
+                        {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                    </div>
+                  )}
                 </div>
-                <div className="hidden min-w-0 flex-1 grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem] gap-2 min-[960px]:grid">
+                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9rem_13rem]' : 'grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem]'}`}>
                   <div className="relative">
                     <Search
                       size={17}
@@ -328,6 +347,16 @@ export default function ExamenesPage() {
                     </select>
                     <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
                   </div>
+                  {filtraDocente && (
+                    <div className="relative">
+                      <select value={docenteFiltro} onChange={(e) => { setDocenteFiltro(e.target.value); setPage(0) }} aria-label="Filtrar por docente"
+                        className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30">
+                        <option value="">Todos los docentes</option>
+                        {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                    </div>
+                  )}
                 </div>
                 <div className="hidden min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0 min-[960px]:gap-2">
                   {canRegister && (
@@ -380,7 +409,7 @@ export default function ExamenesPage() {
                   {vista === 'historial' ? 'Aún no hay exámenes en el historial' : vista === 'cancelados' ? 'No hay exámenes cancelados' : 'No hay exámenes para hoy ni próximos'}
                 </p>
                 <p className="mt-1 max-w-sm text-xs text-gray-500">
-                  {query.trim() || ambienteFiltro || fechaFiltro || grupoFiltro
+                  {query.trim() || ambienteFiltro || fechaFiltro || grupoFiltro || docenteFiltro
                     ? 'Sin resultados para los filtros aplicados.'
                     : vista === 'historial' ? 'Cuando termina el día, sus exámenes pasan aquí.'
                     : vista === 'cancelados' ? 'Aquí aparecen los exámenes que se cancelen.'
