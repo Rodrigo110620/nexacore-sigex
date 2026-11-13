@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-/** DASH-02: una fila por estudiante que ingresó (ingreso, salida, expulsión y traslado), por actividad más reciente. */
+/** DASH-02: una fila por estudiante que ingresó, del ingreso más reciente al más antiguo. */
 @Service
 public class IngresosRecientesService {
 
@@ -51,7 +51,7 @@ public class IngresosRecientesService {
                 .addValue("cantidad", Math.max(1, Math.min(cantidad, MAXIMO)));
         p.addValue("desplazamiento", (long) Math.max(pagina, 0) * (Integer) p.getValue("cantidad"));
         Long total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM asistencia_examen WHERE id_examen = :examen AND fecha_hora_ingreso IS NOT NULL", p, Long.class);
+                "SELECT COUNT(*) FROM asistencia_examen WHERE id_examen = :examen AND fecha_hora_ingreso > :desde", p, Long.class);
         LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         var ingresos = jdbc.query("""
                 SELECT a.id_estudiante, e.nombre, e.apellidos, e.codigo_sis, a.fecha_hora_ingreso, am.nombre, a.fecha_hora_salida,
@@ -69,10 +69,8 @@ public class IngresosRecientesService {
                                    ORDER BY fecha_hora_traslado DESC LIMIT 1) t ON TRUE
                 LEFT JOIN ambiente ao ON ao.id_ambiente = t.id_ambiente_origen
                 LEFT JOIN ambiente ad ON ad.id_ambiente = t.id_ambiente_destino
-                WHERE a.id_examen = :examen AND a.fecha_hora_ingreso IS NOT NULL
-                ORDER BY GREATEST(a.fecha_hora_ingreso, COALESCE(a.fecha_hora_salida, a.fecha_hora_ingreso),
-                                  COALESCE(x.fecha_hora, a.fecha_hora_ingreso), COALESCE(t.fecha_hora_traslado, a.fecha_hora_ingreso)) DESC,
-                         a.id_estudiante
+                WHERE a.id_examen = :examen AND a.fecha_hora_ingreso > :desde
+                ORDER BY a.fecha_hora_ingreso DESC, a.id_estudiante
                 LIMIT :cantidad OFFSET :desplazamiento
                 """, p, (rs, n) -> {
             LocalDateTime salida = rs.getTimestamp(7) == null ? null : rs.getTimestamp(7).toLocalDateTime();

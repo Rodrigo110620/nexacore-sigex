@@ -41,22 +41,16 @@ beforeEach(() => {
 
 const montar = () => render(<MemoryRouter><IngresosRecientesCard idExamen={20} /></MemoryRouter>)
 
-it('sección 11, Todos (DASH-02): los ingresos del más reciente al más antiguo, con hora y estado', async () => {
+it('sección 11, Todos (DASH-02): los ingresos del más reciente al más antiguo, con los cuatro datos de la HU', async () => {
   montar()
   const lista = await screen.findByRole('list', { name: 'Ingresos recientes' })
-  // Una fila por estudiante con columnas Ingreso · Salida · Estado.
+  // Una fila por estudiante con nombre, código, hora exacta y estado de ingreso.
   const filas = within(lista).getAllByRole('listitem')
   expect(filas[0]).toHaveTextContent('Prueba, Estudiante 7')
   expect(filas[0]).toHaveTextContent('SIS 202600007')
   expect(filas[0]).toHaveTextContent('09:14:45')
-  expect(filas[0]).toHaveTextContent('10:30:00')
-  expect(filas[0]).toHaveTextContent('Salió')
-  expect(filas[1]).toHaveTextContent('Expulsado 09:40')
-  expect(filas[1]).toHaveTextContent('Uso de celular')
-  expect(filas[2]).toHaveTextContent('Trasladado 608 → 690A · 09:20')
-  expect(filas[2]).toHaveTextContent('11:00:00')
-  expect(filas[2]).toHaveTextContent('al cierre')
-  expect(filas[2]).toHaveTextContent('Terminó al cierre')
+  expect(filas[0]).toHaveTextContent('Ingresó')
+  expect(filas[0]).not.toHaveTextContent('10:30:00')
   expect(screen.getByRole('navigation', { name: 'Paginación de estudiantes' })).toHaveTextContent('Mostrando 1–6 de 8')
   // Paginación: 6 por página; la 2.ª se pide al servidor.
   fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 2' }))
@@ -71,7 +65,7 @@ it('sección 11, Solo ausentes (DASH-03): del servidor, en vivo y con el estado 
   await waitFor(() => expect(api.get).toHaveBeenCalledWith(ruta, { params: { estado: 'AUSENTES', page: 0, size: 6 } }))
   const lista = await screen.findByRole('list', { name: 'Estudiantes ausentes' })
   expect(within(lista).getAllByRole('listitem')).toHaveLength(6)
-  expect(within(lista).getAllByText('No ingresó')).toHaveLength(6)
+  expect(within(lista).getAllByText('Pendiente')).toHaveLength(6)
   expect(screen.queryByText('Prueba, Estudiante 7')).not.toBeInTheDocument() // ya ingresó
   expect(screen.queryByText('Prueba, Estudiante 8')).not.toBeInTheDocument() // no habilitado
   expect(screen.getByText(/Faltan 6 estudiantes habilitados por ingresar/)).toBeInTheDocument()
