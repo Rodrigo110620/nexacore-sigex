@@ -53,6 +53,12 @@ public class ExamenAccesoService {
                 && (examenRepository.perteneceADocente(idExamen, yo) || examenControlRepository.estaAsignado(idExamen, yo));
     }
 
+    /** De los exámenes dados, los que el usuario puede ver en Reportes: todos con REPORTES_VER, si no los suyos. */
+    public java.util.List<Integer> visibles(java.util.Collection<Integer> idsExamen, Authentication authentication) {
+        if (veTodosLosReportes(authentication)) return java.util.List.copyOf(idsExamen);
+        return idsExamen.stream().filter(id -> esMio(id, authentication)).toList();
+    }
+
     public Integer idUsuario(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return null;
         return usuarioRepository.findByEmail(authentication.getName()).map(Usuario::getId).orElse(null);

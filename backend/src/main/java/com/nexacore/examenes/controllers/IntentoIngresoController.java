@@ -65,10 +65,11 @@ public class IntentoIngresoController {
             @RequestParam(required = false) Integer idExamen,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String buscar,
             org.springframework.security.core.Authentication authentication) {
         // Sin REPORTES_VER, solo sus exámenes; si no se encuentra el usuario, ninguno (nunca todos).
         Integer soloDe = acceso.veTodosLosReportes(authentication) ? null
                 : java.util.Objects.requireNonNullElse(acceso.idUsuario(authentication), -1);
-        return ResponseEntity.ok(service.reporte(idExamen, page, size, soloDe));
+        return ResponseEntity.ok(service.reporte(idExamen, page, size, soloDe, buscar));
     }
 }

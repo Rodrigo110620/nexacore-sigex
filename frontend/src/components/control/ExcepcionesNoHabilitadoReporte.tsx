@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
 import TablePagination from '../users/TablePagination'
-import { listarExcepcionesNoHabilitado, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
+import { listarExcepcionesNoHabilitado, listarExcepcionesTodas, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
+import { coincide } from '../../utils/buscar'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
 
 /**
@@ -11,29 +12,38 @@ import { fechaHoraNumerica } from '../../utils/examenFormat'
  */
 const TAMANO_PAGINA = 10
 
-export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen: number }) {
+export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen, buscar = '' }: {
+  /** null: las de todos los exámenes que puede ver (BUG-G03). */
+  idExamen: number | null
+  nombresExamen?: Map<number, string>
+  /** Por nombre o código SIS (BUG-G04). */
+  buscar?: string
+}) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExcepcionNoHabilitado[]; error?: string }>()
-  const clave = `${idExamen}|${recarga}`
-  useEnVivo((cambio) => cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
+  const clave = `${idExamen ?? 'todos'}|${recarga}`
+  useEnVivo((cambio) => idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
-    listarExcepcionesNoHabilitado(idExamen)
+    ;(idExamen == null ? listarExcepcionesTodas() : listarExcepcionesNoHabilitado(idExamen))
       .then((registros) => { if (vigente) setResultado({ clave, registros }) })
       .catch(() => { if (vigente) setResultado({ clave, error: 'No se pudieron cargar las excepciones de no habilitados.' }) })
     return () => { vigente = false }
   }, [idExamen, clave])
 
   const actual = resultado?.clave === clave ? resultado : undefined
-  const total = actual?.registros?.length ?? 0
+  const filtrados = actual?.registros?.filter((x) => coincide(buscar, x.estudiante, x.codigoSis))
+  const total = filtrados?.length ?? 0
   const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
   const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
-  const visibles = actual?.registros?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
+  const visibles = filtrados?.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA) ?? []
   return (
     <section aria-label="Excepciones de no habilitados" className="my-4 rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-4">
-      <h3 className="font-semibold text-[#92400E]">No habilitados que intentaron ingresar ({actual?.registros?.length ?? '…'})</h3>
+      <h3 className="font-semibold text-[#92400E]">
+        No habilitados que intentaron ingresar{idExamen == null ? ' · todos los exámenes' : ''} ({filtrados?.length ?? '…'})
+      </h3>
       {!actual && <p role="status" className="mt-2 text-sm text-[#627A9B]">Consultando excepciones…</p>}
       {actual?.error && (
         <div role="alert" className="mt-2 text-sm text-[#B91C1C]">
@@ -43,8 +53,12 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
           </button>
         </div>
       )}
-      {actual?.registros?.length === 0 && <p className="mt-2 text-sm text-[#627A9B]">No hay excepciones de no habilitados en la sesión actual.</p>}
-      {actual?.registros && actual.registros.length > 0 && (
+      {filtrados?.length === 0 && (
+        <p className="mt-2 text-sm text-[#627A9B]">
+          {buscar.trim() ? 'Ninguna excepción coincide con la búsqueda.' : idExamen == null ? 'No hay excepciones de no habilitados registradas.' : 'No hay excepciones de no habilitados en la sesión actual.'}
+        </p>
+      )}
+      {filtrados && filtrados.length > 0 && (
         <>
         <ul className="mt-3 space-y-3">
           {visibles.map((x) => (
@@ -52,6 +66,9 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen }: { idExamen:
               <h4 className="text-sm font-semibold text-[#011140]">
                 {x.estudiante ?? `Estudiante #${x.idEstudiante}`}{x.codigoSis ? ` · SIS ${x.codigoSis}` : ''}
               </h4>
+              {idExamen == null && x.idExamen != null && (
+                <p className="mt-0.5 text-xs text-[#627A9B]">{nombresExamen?.get(x.idExamen) ?? `Examen #${x.idExamen}`}</p>
+              )}
               <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-xs text-[#45628D] sm:grid-cols-[auto_1fr]">
                 <dt className="font-semibold">Motivo</dt><dd>{x.motivoInhabilitacion}</dd>
                 <dt className="font-semibold">Acción tomada</dt><dd>{x.accionTomada}</dd>

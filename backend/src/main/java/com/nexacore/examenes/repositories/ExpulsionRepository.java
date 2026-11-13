@@ -26,6 +26,10 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
     /** Las expulsiones anuladas no cuentan: el estudiante sigue con su examen. */
     boolean existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(Integer idEstudiante, Integer idExamen, LocalDateTime desde);
 
+    /** Exámenes con alguna expulsión (para el reporte de «Todos los exámenes»). */
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT e.idExamen FROM Expulsion e")
+    List<Integer> examenesConExpulsiones();
+
     /** Expulsiones de la sesión actual del examen, de la más reciente a la más antigua. */
     default List<Expulsion> deSesionActual(Integer idExamen, LocalDateTime ultimoCierre) {
         return findByIdExamenAndFechaHoraAfterOrderByFechaHoraDesc(idExamen,

@@ -46,6 +46,15 @@ export async function listarExpulsionesExamen(idExamen: number): Promise<Expulsi
   return data
 }
 
+/** BUG-G02: las expulsiones de todos los exámenes que el usuario puede ver. */
+export async function listarExpulsionesTodas(): Promise<ExpulsionResponse[]> {
+  const { data } = await api.get<unknown>('/control-ingresos/expulsiones')
+  if (!Array.isArray(data) || !data.every((registro) => esExpulsionConfirmada(registro))) {
+    throw new Error('No se pudo verificar el registro de expulsiones.')
+  }
+  return data
+}
+
 /** Anula una expulsión registrada por error (ADMIN o docente del examen). No se borra: queda como anulada. */
 export async function anularExpulsion(idExamen: number, idExpulsion: number, motivo: string): Promise<ExpulsionResponse> {
   const { data } = await api.post<ExpulsionResponse>(`/control-ingresos/examen/${idExamen}/expulsiones/${idExpulsion}/anular`, { motivo })

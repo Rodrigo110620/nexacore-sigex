@@ -13,7 +13,7 @@ import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from 
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 
-import { Download, Lock } from 'lucide-react'
+import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 
@@ -28,31 +28,46 @@ const TAMANO = 20
 
 const nombreExamen = (e: ExamenDto) => `${materiaYGrupo(e)} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
 
-function EtiquetaTipo({ tipo }: { tipo: IntentoReporte['tipo'] }) {
-  return tipo === 'AULA_INCORRECTA'
-    ? <span className="inline-flex shrink-0 rounded-full bg-[#FFF7E6] px-2 py-0.5 text-[11px] font-semibold text-[#B45309]">Aula incorrecta</span>
-    : <span className="inline-flex shrink-0 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">No le corresponde</span>
+/** BUG-G01: no inscrito (rojo), aula incorrecta (naranja) y no habilitado (gris) se distinguen, como en el mockup. */
+const COLOR_TIPO: Record<IntentoReporte['tipo'], string> = {
+  NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#B91C1C]',
+  AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#C2410C]',
+  NO_HABILITADO: 'bg-[#EEF2F6] text-[#45628D]',
 }
+const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
+  NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
+}
+
+function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {
+  return (
+    <span className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_TIPO[intento.tipo] ?? COLOR_TIPO.NO_CORRESPONDE}`}>
+      <span className="truncate">{intento.etiqueta || TEXTO_TIPO[intento.tipo] || 'Intento incorrecto'}</span>
+    </span>
+  )
+}
+
+/** Lo que va debajo de la insignia: el detalle legible (sin el texto crudo «### Motivo: …»). */
+const detalleDe = (i: IntentoReporte) => (i.etiqueta !== undefined ? i.detalle : i.motivo) ?? null
 
 const quien = (i: IntentoReporte) => i.estudiante ?? `No identificado (${i.identificador})`
 const examenDe = (i: IntentoReporte) =>
   `${i.examen ?? `Examen #${i.idExamen}`} · ${formatFecha(i.fechaExamen)} ${i.horaExamen?.slice(0, 5) ?? ''}`.trim()
 
 /** DASH-06 / HU#7: intentos de ingreso incorrectos de todos los exámenes o de uno, paginados. */
-function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen?: string }) {
+function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null; examen?: string; buscar: string }) {
   const [pagina, setPagina] = useState(0)
   const [recarga, setRecarga] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; datos?: PaginaIntentos; error?: string }>()
-  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}`
+  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}|${buscar}`
   useEnVivo((cambio) => idExamen == null || cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
-    reporteIntentos(idExamen, pagina, TAMANO)
+    reporteIntentos(idExamen, pagina, TAMANO, buscar)
       .then((datos) => { if (vigente) setResultado({ clave, datos }) })
       .catch(() => { if (vigente) setResultado({ clave, error: 'No se pudo cargar el reporte de intentos.' }) })
     return () => { vigente = false }
-  }, [idExamen, pagina, clave])
+  }, [idExamen, pagina, clave, buscar])
 
   const actual = resultado?.clave === clave ? resultado : undefined
   const datos = actual?.datos
@@ -78,7 +93,7 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
       )}
       {datos && datos.contenido.length === 0 && (
         <p className="mt-6 rounded-lg bg-[#F8FAFC] p-6 text-center text-sm text-[#627A9B]">
-          {idExamen == null ? 'No hay intentos de ingreso incorrectos registrados.' : 'No hubo intentos incorrectos en este examen.'}
+          {buscar.trim() ? 'Ningún intento coincide con la búsqueda.' : idExamen == null ? 'No hay intentos de ingreso incorrectos registrados.' : 'No hubo intentos incorrectos en este examen.'}
         </p>
       )}
       {datos && datos.contenido.length > 0 && (
@@ -104,8 +119,8 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
                     <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col items-start gap-1">
-                        <EtiquetaTipo tipo={i.tipo} />
-                        <span className="break-words text-xs text-[#45628D] [overflow-wrap:anywhere]">{i.motivo}</span>
+                        <EtiquetaTipo intento={i} />
+                        {detalleDe(i) && <span className="break-words text-xs text-[#45628D] [overflow-wrap:anywhere]">{detalleDe(i)}</span>}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-[#334155]">{i.personalControl}</td>
@@ -122,9 +137,9 @@ function ReporteIntentos({ idExamen, examen }: { idExamen: number | null; examen
                     <p className="break-words text-sm font-semibold text-[#011140]">{i.estudiante ?? 'No identificado'}</p>
                     <p className="text-xs text-[#627A9B]">{i.codigoSis ? `SIS ${i.codigoSis}` : `Identificador ${i.identificador}`}</p>
                   </div>
-                  <EtiquetaTipo tipo={i.tipo} />
                 </div>
-                <p className="mt-2 break-words rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-xs text-[#334E7A] [overflow-wrap:anywhere]">{i.motivo}</p>
+                <div className="mt-2"><EtiquetaTipo intento={i} /></div>
+                {detalleDe(i) && <p className="mt-2 break-words rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-xs text-[#334E7A] [overflow-wrap:anywhere]">{detalleDe(i)}</p>}
                 <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                   <dt className="text-[#627A9B]">Examen</dt>
                   <dd className="min-w-0 text-right">
@@ -165,6 +180,13 @@ export default function ReportesPage() {
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
+  // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
+  const [buscar, setBuscar] = useState('')
+  const [buscarIntentos, setBuscarIntentos] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setBuscarIntentos(buscar), 300)
+    return () => clearTimeout(t)
+  }, [buscar])
 
   useEffect(() => {
     let vigente = true
@@ -187,6 +209,7 @@ export default function ReportesPage() {
     return () => { vigente = false }
   }, [idExamen, pestana])
 
+  const nombresExamen = new Map(examenes.map((e) => [e.idExamen, nombreExamen(e)]))
   const examen = examenes.find((e) => e.idExamen === idExamen)
   const etiqueta = examen ? nombreExamen(examen) : undefined
 
@@ -214,20 +237,36 @@ export default function ReportesPage() {
           <div className="w-full">
             <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <label htmlFor="reportes-examen" className="text-xs font-semibold text-[#011140]">Examen</label>
-              
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
-                <select
-                  id="reportes-examen"
-                  value={idExamen ?? ''}
-                  onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
-                  className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] sm:h-10 sm:max-w-md"
-                >
-                  <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
-                  {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
-                </select>
-
+            {/* BUG-G05: el filtro Examen va resaltado (es el principal); BUG-G04: buscador por estudiante o código SIS. */}
+            <div className="flex flex-col gap-2 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm lg:flex-row lg:items-center lg:gap-3">
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:contents">
+                <label htmlFor="reportes-examen"
+                  className="relative inline-flex h-11 w-full shrink-0 cursor-pointer items-center rounded-lg border-2 border-[#0439D9]/25 bg-[#F4F8FF] pl-3 pr-9 text-sm text-[#45628D] focus-within:border-[#0439D9] sm:h-10 sm:w-auto sm:max-w-[26rem]">
+                  <span className="shrink-0">Examen:</span>
+                  <select
+                    id="reportes-examen"
+                    aria-label="Examen"
+                    value={idExamen ?? ''}
+                    onChange={(e) => setIdExamen(e.target.value ? Number(e.target.value) : null)}
+                    className="min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent pl-1.5 text-sm font-bold text-[#011140] outline-none"
+                  >
+                    <option value="">{soloMios ? 'Todos mis exámenes' : 'Todos los exámenes'}</option>
+                    {examenes.map((e) => <option key={`${e.idExamen}-${e.idParalelo}`} value={e.idExamen}>{nombreExamen(e)}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="pointer-events-none absolute right-3 text-[#0439D9]" aria-hidden="true" />
+                </label>
+                <label className="relative block min-w-0 flex-1">
+                  <span className="sr-only">Buscar estudiante o código SIS</span>
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8BA0BF]" aria-hidden="true" />
+                  <input type="search" value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar estudiante o código SIS"
+                    className="h-11 w-full rounded-lg border border-[#D8E3F5] bg-white pl-9 pr-9 text-sm text-[#011140] outline-none placeholder:text-[#8BA0BF] focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/15 sm:h-10 [&::-webkit-search-cancel-button]:hidden" />
+                  {buscar && (
+                    <button type="button" onClick={() => setBuscar('')} aria-label="Borrar la búsqueda"
+                      className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
+                  )}
+                </label>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
                 {idExamen != null && puedeExportar && (
                   <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                     {puedeExportar && (
@@ -261,7 +300,7 @@ export default function ReportesPage() {
                 )}
               </div>
             </div>
-            
+
             {soloMios && (
               <p className="mt-2 text-xs text-[#627A9B]">
                 {examenes.length === 0
@@ -283,16 +322,12 @@ export default function ReportesPage() {
             </div>
 
             <div className="mt-4">
-              {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} />}
-              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} />}
-              {pestana !== 'intentos' && pestana !== 'fotos' && idExamen == null && (
-                <p className="rounded-xl border border-dashed border-[#B8CBEF] bg-white/70 p-8 text-center text-sm text-[#627A9B]">
-                  Elige un examen para ver sus {pestana === 'expulsiones' ? 'expulsiones' : 'excepciones de no habilitados'}.
-                </p>
-              )}
-              {pestana === 'expulsiones' && idExamen != null && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta}
-                controles={controles?.idExamen === idExamen ? controles.registros : []} />}
-              {pestana === 'excepciones' && idExamen != null && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} />}
+              {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} />}
+              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} />}
+              {/* BUG-G02/G03: con «Todos los exámenes» también se ven las expulsiones y las excepciones de todos. */}
+              {pestana === 'expulsiones' && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta} nombresExamen={nombresExamen} buscar={buscar}
+                controles={idExamen != null && controles?.idExamen === idExamen ? controles.registros : []} />}
+              {pestana === 'excepciones' && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} nombresExamen={nombresExamen} buscar={buscar} />}
             </div>
           </div>
         </section>

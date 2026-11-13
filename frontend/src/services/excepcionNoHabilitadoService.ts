@@ -13,6 +13,14 @@ export interface ExcepcionNoHabilitado {
   registradoPor: string | null
   /** Hora del servidor (Bolivia), "2026-10-27T08:05:00". */
   fechaHora: string
+  /** El examen (en «Todos los exámenes» cada fila dice de cuál es). */
+  idExamen?: number | null
+}
+
+/** BUG-G03: las excepciones de todos los exámenes que el usuario puede ver. */
+export async function listarExcepcionesTodas(): Promise<ExcepcionNoHabilitado[]> {
+  const { data } = await api.get<ExcepcionNoHabilitado[]>('/control-ingresos/excepciones-no-habilitado')
+  return data
 }
 
 export async function listarExcepcionesNoHabilitado(idExamen: number): Promise<ExcepcionNoHabilitado[]> {

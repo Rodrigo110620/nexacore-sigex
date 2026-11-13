@@ -51,7 +51,8 @@ public interface IntentoIngresoRepository extends JpaRepository<IntentoIngreso, 
     /**
      * DASH-06 / HU#7: todos los intentos incorrectos, del más reciente al más antiguo, con el examen al
      * que intentaron ingresar. Con idExamen, solo los de ese examen desde su último cierre de sesión
-     * (desde = null cuenta todos).
+     * (desde = null cuenta todos). Con buscar («%texto%» en minúsculas), solo los del estudiante por nombre, apellidos,
+     * código SIS o el identificador presentado (BUG-G04).
      */
     @Query(value = """
             SELECT i.id_intento, i.id_examen, CAST(m.nombre AS VARCHAR), x.fecha, x.hora_inicio, i.id_estudiante,
@@ -68,17 +69,27 @@ public interface IntentoIngresoRepository extends JpaRepository<IntentoIngreso, 
               AND (CAST(:idUsuario AS INTEGER) IS NULL OR i.id_examen IN (
                    SELECT d.id_examen FROM examen d WHERE d.id_docente = CAST(:idUsuario AS INTEGER)
                    UNION SELECT c.id_examen FROM examen_control c WHERE c.id_usuario = CAST(:idUsuario AS INTEGER)))
+              AND (CAST(:buscar AS VARCHAR) IS NULL OR LOWER(CONCAT(e.nombre, ' ', e.apellidos, ' ', e.codigo_sis, ' ', i.ci_o_codigo))
+                   LIKE CAST(:buscar AS VARCHAR))
             ORDER BY i.fecha_hora DESC, i.id_intento DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM intento_ingreso i
+            LEFT JOIN estudiante e ON e.id_estudiante = i.id_estudiante
             WHERE (CAST(:idExamen AS INTEGER) IS NULL OR i.id_examen = CAST(:idExamen AS INTEGER))
               AND (CAST(:desde AS TIMESTAMP) IS NULL OR i.fecha_hora > CAST(:desde AS TIMESTAMP))
               AND (CAST(:idUsuario AS INTEGER) IS NULL OR i.id_examen IN (
                    SELECT d.id_examen FROM examen d WHERE d.id_docente = CAST(:idUsuario AS INTEGER)
                    UNION SELECT c.id_examen FROM examen_control c WHERE c.id_usuario = CAST(:idUsuario AS INTEGER)))
+              AND (CAST(:buscar AS VARCHAR) IS NULL OR LOWER(CONCAT(e.nombre, ' ', e.apellidos, ' ', e.codigo_sis, ' ', i.ci_o_codigo))
+                   LIKE CAST(:buscar AS VARCHAR))
             """,
             nativeQuery = true)
     Page<Object[]> reporte(@Param("idExamen") Integer idExamen, @Param("desde") java.time.LocalDateTime desde,
-                           @Param("idUsuario") Integer idUsuario, Pageable pageable);
+                           @Param("idUsuario") Integer idUsuario, @Param("buscar") String buscar, Pageable pageable);
+
+    /** Sin búsqueda por estudiante. */
+    default Page<Object[]> reporte(Integer idExamen, java.time.LocalDateTime desde, Integer idUsuario, Pageable pageable) {
+        return reporte(idExamen, desde, idUsuario, null, pageable);
+    }
 }
