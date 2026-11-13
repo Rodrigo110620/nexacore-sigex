@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Download, Minus, Plus, Search, X } from 'lucide-react'
 import { listarAutores, listarHistorial, obtenerHistorial, type AutorHistorial, type FiltrosHistorial, type OperacionAuditada, type PaginaHistorial } from '../../services/historialOperacionService'
 import VistaPreviaDescarga, { type FormatoDescarga } from '../ui/VistaPreviaDescarga'
+import DescargaHistorialDialog from './DescargaHistorialDialog'
 import useEnVivo from '../../hooks/useEnVivo'
 
 const fechaIso = (fecha: Date) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
@@ -148,6 +149,9 @@ export default function HistorialOperaciones() {
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(true)
   const [previa, setPrevia] = useState(false)
+  // Primero «¿Qué quieres descargar?»; con lo elegido, la vista previa del PDF.
+  const [eligiendo, setEligiendo] = useState(false)
+  const [filtrosDescarga, setFiltrosDescarga] = useState<FiltrosHistorial>(INICIALES)
   const [recarga, setRecarga] = useState(0)
   const cerrarHoja = useRef<HTMLButtonElement>(null)
 
@@ -163,7 +167,8 @@ export default function HistorialOperaciones() {
 
   // En vivo: cada operación nueva que se registra recarga la página actual del historial.
   useEnVivo((c) => c.tipo === 'AUDITORIA', () => setRecarga((n) => n + 1))
-  const obtener = useCallback(() => obtenerHistorial(filtros, 'pdf'), [filtros])
+  const obtener = useCallback(() => obtenerHistorial(filtrosDescarga, 'pdf'), [filtrosDescarga])
+  const cerrarEleccion = useCallback(() => setEligiendo(false), [])
 
   useEffect(() => {
     if (!hojaAbierta) return
@@ -184,7 +189,7 @@ export default function HistorialOperaciones() {
         <div className="min-w-0"><h2 id="historial-titulo" className="text-base font-bold text-[#011140]">Historial de operaciones</h2><p className="mt-0.5 text-xs text-[#627A9B]">Quién hizo qué y cuándo en todo el sistema: usuarios, estudiantes, exámenes, control de ingreso y configuración.</p></div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D] sm:inline-flex"><span className="size-1.5 animate-pulse rounded-full bg-[#16A34A]" aria-hidden="true" />En vivo</span>
-          <button type="button" onClick={() => setPrevia(true)} aria-label="Exportar el historial en PDF" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-3 text-xs font-bold text-white hover:bg-[#0027a2] sm:px-4"><Download size={15} aria-hidden="true" /><span className="hidden sm:inline">Descargar PDF</span></button>
+          <button type="button" onClick={() => setEligiendo(true)} aria-label="Exportar el historial en PDF" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-3 text-xs font-bold text-white hover:bg-[#0027a2] sm:px-4"><Download size={15} aria-hidden="true" /><span className="hidden sm:inline">Descargar PDF</span></button>
         </div>
       </div>
 
@@ -260,6 +265,8 @@ export default function HistorialOperaciones() {
         <Detalle operacion={seleccion} />
       </div>
     </div>}
+    <DescargaHistorialDialog open={eligiendo} inicial={filtros} autores={autores} onClose={cerrarEleccion}
+      onDescargar={(f) => { setFiltrosDescarga(f); setEligiendo(false); setPrevia(true) }} />
     <VistaPreviaDescarga open={previa} titulo="Historial de operaciones" formatos={FORMATOS}
       obtener={obtener} onClose={() => setPrevia(false)} />
   </section>

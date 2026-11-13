@@ -4,6 +4,12 @@ import HistorialOperaciones from '../components/configuracion/HistorialOperacion
 import { listarHistorial, obtenerHistorial } from '../services/historialOperacionService'
 import { emitirCambioLocal } from '../services/notificacionService'
 
+vi.mock('../services/examenService', () => ({
+  listarExamenes: vi.fn().mockResolvedValue([
+    { idExamen: 4, idParalelo: 1, asignatura: 'Base de Datos I', grupo: 'G1', docente: 'Juan Pérez', idDocente: 7, fecha: '2026-11-10', horaInicio: '12:15:00' },
+  ]),
+}))
+
 vi.mock('../services/historialOperacionService', () => ({
   listarHistorial: vi.fn(),
   obtenerHistorial: vi.fn(),
@@ -107,7 +113,13 @@ describe('Historial de operaciones del ADMIN', () => {
     await screen.findByText('Mostrando 1–8 de 10 operaciones')
     fireEvent.change(screen.getByLabelText('Módulo'), { target: { value: 'Roles' } })
     fireEvent.click(screen.getByRole('button', { name: 'Exportar el historial en PDF' }))
-    await waitFor(() => expect(obtenerHistorial).toHaveBeenCalledWith(expect.objectContaining({ modulo: 'Roles' }), 'pdf'))
+    // Primero «¿Qué quieres descargar?», que parte de lo filtrado en pantalla y dice cuántas entran.
+    const dialogo = await screen.findByRole('dialog', { name: '¿Qué quieres descargar?' })
+    expect(await within(dialogo).findByText(/Se descargarán/)).toBeInTheDocument()
+    expect(within(dialogo).getByText(/módulo Roles/)).toBeInTheDocument()
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Expulsiones' }))
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Descargar PDF' }))
+    await waitFor(() => expect(obtenerHistorial).toHaveBeenCalledWith(expect.objectContaining({ modulo: 'Roles', tipo: 'EXPULSIONES' }), 'pdf'))
     expect(obtenerHistorial).not.toHaveBeenCalledWith(expect.anything(), 'xlsx')
   })
 
@@ -135,5 +147,24 @@ describe('Filtrar y descargar el historial por quién lo hizo y por rango', () =
 
     fireEvent.click(screen.getByRole('button', { name: 'Quitar filtros' }))
     await waitFor(() => expect(vi.mocked(listarHistorial)).toHaveBeenLastCalledWith(expect.objectContaining({ usuario: '' }), 0))
+  })
+})
+
+describe('Descargar lo ocurrido en los exámenes de un docente', () => {
+  it('elegir docente limita los exámenes y se manda a la descarga', async () => {
+    vi.mocked(listarHistorial).mockResolvedValue(pagina)
+    vi.mocked(obtenerHistorial).mockResolvedValue({ blob: new Blob(['%PDF'], { type: 'application/pdf' }), nombre: 'h.pdf' })
+    render(<HistorialOperaciones />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar el historial en PDF' }))
+    const dialogo = await screen.findByRole('dialog')
+    const docente = within(dialogo).getByLabelText('Filtrar por docente')
+    await waitFor(() => expect(within(docente).getByRole('option', { name: 'Juan Pérez' })).toBeInTheDocument())
+    fireEvent.change(docente, { target: { value: '7' } })
+    const examen = within(dialogo).getByLabelText('Filtrar por examen')
+    expect(within(examen).getByRole('option', { name: 'Base de Datos I · G1 · 10/11/2026' })).toBeInTheDocument()
+    fireEvent.change(examen, { target: { value: '4' } })
+    await waitFor(() => expect(vi.mocked(listarHistorial)).toHaveBeenLastCalledWith(expect.objectContaining({ docente: '7', examen: '4' }), 0, 1))
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Descargar PDF' }))
+    await waitFor(() => expect(obtenerHistorial).toHaveBeenCalledWith(expect.objectContaining({ docente: '7', examen: '4' }), 'pdf'))
   })
 })

@@ -19,7 +19,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 /** Consulta de solo lectura del historial completo. Solo se expone al ADMIN. */
@@ -44,9 +46,15 @@ public class HistorialOperacionService {
     @Transactional(readOnly = true)
     public PageResponse<HistorialOperacionResponse> listar(int page, int size, String search,
             String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
+        return listar(page, size, search, modulo, operacion, desde, hasta, usuario, Extra.NINGUNO);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<HistorialOperacionResponse> listar(int page, int size, String search,
+            String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario, Extra extra) {
         int pagina = Math.max(0, page);
         int tamano = Math.min(MAXIMO_PAGINA, Math.max(1, size));
-        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario);
+        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario, extra);
         Long total = jdbc.queryForObject("SELECT COUNT(*) " + filtro.fromWhere, Long.class, filtro.args.toArray());
         HistorialPresentacion presentacion = new HistorialPresentacion(jdbc);
         List<Object> args = new ArrayList<>(filtro.args);
@@ -65,8 +73,8 @@ public class HistorialOperacionService {
     }
 
     private List<HistorialOperacionResponse> todas(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta,
-            Integer usuario) {
-        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario);
+            Integer usuario, Extra extra) {
+        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario, extra);
         HistorialPresentacion presentacion = new HistorialPresentacion(jdbc);
         return jdbc.query("""
                 SELECT a.id_auditoria, a.fecha_hora, u.id_usuario,
@@ -97,7 +105,12 @@ public class HistorialOperacionService {
 
     @Transactional(readOnly = true)
     public byte[] exportar(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
-        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta, usuario);
+        return exportar(search, modulo, operacion, desde, hasta, usuario, Extra.NINGUNO);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportar(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario, Extra extra) {
+        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta, usuario, extra);
         var out = new ByteArrayOutputStream();
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
             writer.write('\uFEFF');
@@ -119,7 +132,23 @@ public class HistorialOperacionService {
 
     @Transactional(readOnly = true)
     public byte[] exportarPdf(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
-        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta, usuario);
+        return exportarPdf(search, modulo, operacion, desde, hasta, usuario, Extra.NINGUNO);
+    }
+
+    /**
+     * Con docente o examen el PDF se lee como reporte: agrupado por examen (del más reciente al más antiguo).
+     * Siempre lleva en el encabezado los filtros usados y un resumen por tipo.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportarPdf(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario, Extra extra) {
+        List<HistorialOperacionResponse> filas = new ArrayList<>(todas(search, modulo, operacion, desde, hasta, usuario, extra));
+        boolean porExamen = extra.docente() != null || extra.examen() != null;
+        if (porExamen) {
+            // Estable: dentro de cada examen se conserva el orden por fecha (más reciente primero).
+            java.util.Map<Integer, Integer> primeraVez = new java.util.HashMap<>();
+            for (int i = 0; i < filas.size(); i++) primeraVez.putIfAbsent(idExamen(filas.get(i)), i);
+            filas.sort(java.util.Comparator.comparingInt(f -> primeraVez.get(idExamen(f))));
+        }
         var out = new ByteArrayOutputStream();
         var document = new com.lowagie.text.Document(com.lowagie.text.PageSize.A4.rotate(), 30, 30, 28, 28);
         try {
@@ -146,15 +175,21 @@ public class HistorialOperacionService {
             String rango = (desde == null ? "desde el inicio" : "del " + desde.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))
                     + (hasta == null ? " a hoy" : " al " + hasta.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             titulo.add(new com.lowagie.text.Phrase(filas.size() + (filas.size() == 1 ? " operación" : " operaciones") + " · " + rango
-                    + filtrosTexto(search, modulo, operacion, nombreUsuario(usuario)) + "\n",
+                    + filtrosTexto(search, modulo, operacion, nombreUsuario(usuario)) + extraTexto(extra) + "\n",
                     new com.lowagie.text.Font(base, 9, com.lowagie.text.Font.NORMAL, suave)));
             var celdaTitulo = new com.lowagie.text.pdf.PdfPCell(titulo);
             celdaTitulo.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
             celdaTitulo.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_RIGHT);
             celdaTitulo.setVerticalAlignment(com.lowagie.text.Element.ALIGN_MIDDLE);
             encabezado.addCell(celdaTitulo);
-            encabezado.setSpacingAfter(10);
+            encabezado.setSpacingAfter(6);
             document.add(encabezado);
+            String resumen = resumen(filas);
+            if (!resumen.isEmpty()) {
+                var parrafo = new com.lowagie.text.Paragraph("Resumen: " + resumen, new com.lowagie.text.Font(negrita, 9, com.lowagie.text.Font.NORMAL, primario));
+                parrafo.setSpacingAfter(8);
+                document.add(parrafo);
+            }
 
             var tabla = new com.lowagie.text.pdf.PdfPTable(new float[]{1.0f, 0.8f, 1.8f, 1.4f, 1.7f, 2.2f, 2.6f, 1.6f, 2.8f});
             tabla.setWidthPercentage(100);
@@ -168,7 +203,21 @@ public class HistorialOperacionService {
             }
             var fCel = new com.lowagie.text.Font(base, 7.5f, com.lowagie.text.Font.NORMAL, tinta);
             boolean par = false;
+            Integer grupo = null;
+            var fGrupo = new com.lowagie.text.Font(negrita, 8.5f, com.lowagie.text.Font.NORMAL, primario);
             for (var f : filas) {
+                Integer id = idExamen(f);
+                if (porExamen && (grupo == null || !grupo.equals(id))) {
+                    grupo = id;
+                    var titulo2 = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(
+                            id < 0 ? "Sin examen" : tituloExamen(f), fGrupo));
+                    titulo2.setColspan(COLUMNAS.length);
+                    titulo2.setPadding(5);
+                    titulo2.setBackgroundColor(new java.awt.Color(0xED, 0xF2, 0xFE));
+                    titulo2.setBorderColor(new java.awt.Color(0xD8, 0xE3, 0xF5));
+                    tabla.addCell(titulo2);
+                    par = false;
+                }
                 for (String v : celdas(f)) {
                     // Helvetica (CP1252) no tiene «→»: en el PDF va «»».
                     var celda = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(v.replace("→", "»"), fCel));
@@ -193,6 +242,61 @@ public class HistorialOperacionService {
         return out.toByteArray();
     }
 
+    private static int idExamen(HistorialOperacionResponse f) {
+        return f.cambios() != null && f.cambios().has("idExamen") ? f.cambios().path("idExamen").asInt(-1) : -1;
+    }
+
+    /** «Base de Datos I · G2 — 12/11/2026 · 20:30 – 20:50 · Aula 607». */
+    private static String tituloExamen(HistorialOperacionResponse f) {
+        String datos = f.examen() == null ? "" : String.join(" · ", f.examen().stream()
+                .filter(x -> List.of("Fecha", "Horario", "Aula").contains(x.campo())).map(x -> "Aula".equals(x.campo()) ? "Aula " + x.valor() : x.valor()).toList());
+        return (f.objetivo() == null ? "Examen" : f.objetivo()) + (datos.isEmpty() ? "" : " — " + datos);
+    }
+
+    /** «3 expulsiones · 5 incidencias · 12 ingresos · 4 otras operaciones». */
+    private static String resumen(List<HistorialOperacionResponse> filas) {
+        java.util.Map<String, Integer> cuenta = new LinkedHashMap<>();
+        for (var f : filas) {
+            String clave = switch (f.accion()) {
+                case "INGRESO_AUTORIZADO" -> "ingresos autorizados";
+                case "INGRESO_DENEGADO" -> "ingresos denegados";
+                case "EXPULSION_REGISTRADA" -> "expulsiones";
+                case "EXPULSION_ANULADA" -> "expulsiones anuladas";
+                case "INTENTO_INGRESO_REGISTRADO", "AULA_INCORRECTA_REGISTRADA", "QR_DUPLICADO_REPORTADO", "FOTO_REPORTADA" -> "incidencias";
+                case "EXCEPCION_REGISTRADA" -> "excepciones";
+                case "SALIDA_REGISTRADA" -> "salidas";
+                case "ESTUDIANTE_TRASLADADO" -> "traslados";
+                default -> "otras operaciones";
+            };
+            cuenta.merge(clave, 1, Integer::sum);
+        }
+        // Lo de «otras» al final.
+        Integer otras = cuenta.remove("otras operaciones");
+        if (otras != null) cuenta.put("otras operaciones", otras);
+        return String.join(" · ", cuenta.entrySet().stream().map(e -> e.getValue() + " " + (e.getValue() == 1 ? SINGULAR.get(e.getKey()) : e.getKey())).toList());
+    }
+
+    private static final Map<String, String> SINGULAR = Map.of(
+            "ingresos autorizados", "ingreso autorizado", "ingresos denegados", "ingreso denegado", "expulsiones", "expulsión",
+            "expulsiones anuladas", "expulsión anulada", "incidencias", "incidencia", "excepciones", "excepción",
+            "salidas", "salida", "traslados", "traslado", "otras operaciones", "otra operación");
+
+    /** Tipo, docente y examen elegidos, para el encabezado del PDF. */
+    private String extraTexto(Extra extra) {
+        List<String> partes = new ArrayList<>();
+        if (extra.tipo() != null && TIPOS.containsKey(extra.tipo())) partes.add("tipo " + TIPOS.get(extra.tipo())[0]);
+        if (extra.docente() != null) {
+            jdbc.query("SELECT trim(nombre || ' ' || apellidos) FROM usuario WHERE id_usuario = ?", (rs, i) -> rs.getString(1), extra.docente())
+                    .stream().findFirst().ifPresent(n -> partes.add("exámenes del docente " + n));
+        }
+        if (extra.examen() != null) {
+            jdbc.query("SELECT m.nombre, e.fecha FROM examen e JOIN materia m ON m.id_materia = e.id_materia WHERE e.id_examen = ?",
+                    (rs, i) -> rs.getString(1) + " del " + rs.getDate(2).toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    extra.examen()).stream().findFirst().ifPresent(n -> partes.add("examen " + n));
+        }
+        return partes.isEmpty() ? "" : " · " + String.join(", ", partes);
+    }
+
     private static String filtrosTexto(String search, String modulo, String operacion, String realizadoPor) {
         List<String> partes = new ArrayList<>();
         if (realizadoPor != null) partes.add("realizado por " + realizadoPor);
@@ -200,6 +304,35 @@ public class HistorialOperacionService {
         if (operacion != null && !operacion.isBlank()) partes.add("operación " + operacion);
         if (search != null && !search.isBlank()) partes.add("búsqueda «" + search.strip() + "»");
         return partes.isEmpty() ? "" : " · " + String.join(", ", partes);
+    }
+
+    /**
+     * Filtros de la descarga: tipo (grupo de operaciones), docente (lo ocurrido en sus exámenes, lo haya hecho quien
+     * sea) y un examen puntual. Vacío = sin filtro.
+     */
+    public record Extra(String tipo, Integer docente, Integer examen) {
+        public static final Extra NINGUNO = new Extra(null, null, null);
+    }
+
+    /** Grupos del filtro Tipo: código → (nombre, condición SQL). */
+    static final Map<String, String[]> TIPOS = new LinkedHashMap<>();
+    static {
+        TIPOS.put("INCIDENCIAS", new String[]{"Incidencias de control",
+                "a.accion IN ('INTENTO_INGRESO_REGISTRADO','AULA_INCORRECTA_REGISTRADA','QR_DUPLICADO_REPORTADO','FOTO_REPORTADA')"});
+        TIPOS.put("EXPULSIONES", new String[]{"Expulsiones",
+                "a.accion IN ('EXPULSION_REGISTRADA','EXPULSION_ANULADA','EVIDENCIA_AGREGADA')"});
+        TIPOS.put("EXCEPCIONES", new String[]{"Excepciones e ingresos manuales",
+                "(a.accion = 'EXCEPCION_REGISTRADA' OR (a.accion = 'INGRESO_AUTORIZADO' AND a.detalles LIKE '%\"manual\":true%'))"});
+        TIPOS.put("INGRESOS", new String[]{"Ingresos y salidas",
+                "a.accion IN ('INGRESO_AUTORIZADO','INGRESO_DENEGADO','SALIDA_REGISTRADA','ESTUDIANTE_TRASLADADO')"});
+        TIPOS.put("EXAMENES", new String[]{"Cambios en exámenes", "a.accion IN (" + acciones("Exámenes") + ")"});
+        TIPOS.put("USUARIOS", new String[]{"Usuarios y roles", "a.accion IN (" + acciones("Usuarios") + "," + acciones("Roles") + ")"});
+        TIPOS.put("ESTUDIANTES", new String[]{"Estudiantes", "a.accion IN (" + acciones("Estudiantes") + ")"});
+    }
+
+    private static String acciones(String modulo) {
+        return HistorialPresentacion.ACCIONES.entrySet().stream().filter(e -> e.getValue().modulo().equals(modulo))
+                .map(e -> "'" + e.getKey() + "'").collect(java.util.stream.Collectors.joining(","));
     }
 
     /** Nombre del usuario elegido en «Realizado por», para el encabezado del PDF. */
@@ -223,6 +356,10 @@ public class HistorialOperacionService {
     }
 
     private Filtro filtro(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
+        return filtro(search, modulo, operacion, desde, hasta, usuario, Extra.NINGUNO);
+    }
+
+    private Filtro filtro(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario, Extra extra) {
         StringBuilder sql = new StringBuilder(" FROM auditoria_operacion a JOIN usuario u ON u.id_usuario = a.id_usuario WHERE 1=1");
         List<Object> args = new ArrayList<>();
         if (search != null && !search.isBlank()) {
@@ -240,6 +377,28 @@ public class HistorialOperacionService {
         if (desde != null) { sql.append(" AND a.fecha_hora >= ?"); args.add(Timestamp.valueOf(desde.atStartOfDay())); }
         if (hasta != null) { sql.append(" AND a.fecha_hora < ?"); args.add(Timestamp.valueOf(hasta.plusDays(1).atStartOfDay())); }
         if (usuario != null) { sql.append(" AND a.id_usuario = ?"); args.add(usuario); }
+        if (extra.tipo() != null && TIPOS.containsKey(extra.tipo())) sql.append(" AND ").append(TIPOS.get(extra.tipo())[1]);
+        // Docente o examen: las operaciones que guardan ese examen en sus detalles ("idExamen":N, o "idExamen":N}).
+        List<Integer> examenes = null;
+        if (extra.examen() != null) examenes = List.of(extra.examen());
+        if (extra.docente() != null) {
+            List<Integer> delDocente = jdbc.queryForList("SELECT DISTINCT id_examen FROM examen WHERE id_docente = ?", Integer.class, extra.docente());
+            examenes = examenes == null ? delDocente : examenes.stream().filter(delDocente::contains).toList();
+        }
+        if (examenes != null) {
+            if (examenes.isEmpty()) {
+                sql.append(" AND 1 = 0");
+            } else {
+                sql.append(" AND (");
+                for (int i = 0; i < examenes.size(); i++) {
+                    if (i > 0) sql.append(" OR ");
+                    sql.append("a.detalles LIKE ? OR a.detalles LIKE ?");
+                    args.add("%\"idExamen\":" + examenes.get(i) + ",%");
+                    args.add("%\"idExamen\":" + examenes.get(i) + "}%");
+                }
+                sql.append(")");
+            }
+        }
         return new Filtro(sql.toString(), args);
     }
 

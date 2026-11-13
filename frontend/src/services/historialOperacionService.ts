@@ -40,6 +40,10 @@ export interface FiltrosHistorial {
   hasta: string
   /** «Realizado por»: id del usuario ('' = todos). */
   usuario?: string
+  /** Solo en la descarga: grupo de operaciones, docente (sus exámenes) y examen. */
+  tipo?: string
+  docente?: string
+  examen?: string
 }
 
 export interface AutorHistorial { idUsuario: number; nombre: string; roles: string | null }

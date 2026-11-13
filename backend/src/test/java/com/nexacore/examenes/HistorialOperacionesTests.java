@@ -198,4 +198,29 @@ class HistorialOperacionesTests {
         mockMvc.perform(get("/admin/historial-operaciones/exportar.pdf").with(admin).param("usuario", String.valueOf(idAdmin)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void laDescargaFiltraPorTipoExamenYDocente() throws Exception {
+        var admin = user(ADMIN_EMAIL).roles("ADMIN");
+        Integer idAdmin = usuarioRepository.findByEmail(ADMIN_EMAIL).orElseThrow().getId();
+        jdbc.update("INSERT INTO auditoria_operacion (id_usuario, accion, detalles) VALUES (?, 'EXPULSION_REGISTRADA', ?)", idAdmin,
+                "{\"idExamen\":999,\"idEstudiante\":1,\"motivo\":\"Copia\"}");
+        jdbc.update("INSERT INTO auditoria_operacion (id_usuario, accion, detalles) VALUES (?, 'INTENTO_INGRESO_REGISTRADO', ?)", idAdmin,
+                "{\"idExamen\":9990,\"ciOCodigo\":\"1\"}");
+
+        mockMvc.perform(get("/admin/historial-operaciones").with(admin).param("usuario", String.valueOf(idAdmin)).param("tipo", "EXPULSIONES"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(1))
+                .andExpect(jsonPath("$.contenido[0].accion").value("EXPULSION_REGISTRADA"));
+        mockMvc.perform(get("/admin/historial-operaciones").with(admin).param("usuario", String.valueOf(idAdmin)).param("tipo", "INCIDENCIAS"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(1))
+                .andExpect(jsonPath("$.contenido[0].accion").value("INTENTO_INGRESO_REGISTRADO"));
+        // El examen 999 no confunde al 9990.
+        mockMvc.perform(get("/admin/historial-operaciones").with(admin).param("examen", "999"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(1));
+        // Un docente sin exámenes: nada.
+        mockMvc.perform(get("/admin/historial-operaciones").with(admin).param("docente", "987654"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(0));
+        mockMvc.perform(get("/admin/historial-operaciones/exportar.pdf").with(admin).param("examen", "999").param("tipo", "EXPULSIONES"))
+                .andExpect(status().isOk());
+    }
 }
