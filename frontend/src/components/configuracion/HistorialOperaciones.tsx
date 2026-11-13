@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Download, Minus, Plus, Search, X } from 'lucide-react'
-import { listarHistorial, obtenerHistorial, type FiltrosHistorial, type OperacionAuditada, type PaginaHistorial } from '../../services/historialOperacionService'
+import { listarAutores, listarHistorial, obtenerHistorial, type AutorHistorial, type FiltrosHistorial, type OperacionAuditada, type PaginaHistorial } from '../../services/historialOperacionService'
 import VistaPreviaDescarga, { type FormatoDescarga } from '../ui/VistaPreviaDescarga'
 import useEnVivo from '../../hooks/useEnVivo'
 
@@ -11,7 +11,15 @@ const haceSieteDias = () => {
   fecha.setDate(fecha.getDate() - 7)
   return fechaIso(fecha)
 }
-const INICIALES: FiltrosHistorial = { search: '', modulo: '', operacion: '', desde: haceSieteDias(), hasta: hoy() }
+const INICIALES: FiltrosHistorial = { search: '', modulo: '', operacion: '', desde: haceSieteDias(), hasta: hoy(), usuario: '' }
+const inicioDeMes = () => { const f = new Date(); f.setDate(1); return fechaIso(f) }
+/** Rangos rápidos junto a las fechas (para no elegir desde y hasta a mano). */
+const RANGOS: { texto: string; desde: () => string; hasta: () => string }[] = [
+  { texto: 'Hoy', desde: hoy, hasta: hoy },
+  { texto: 'Últimos 7 días', desde: haceSieteDias, hasta: hoy },
+  { texto: 'Este mes', desde: inicioDeMes, hasta: hoy },
+  { texto: 'Todo', desde: () => '', hasta: () => '' },
+]
 
 // El backend compara sin tildes: se mandan las etiquetas tal cual.
 const MODULOS = ['Usuarios', 'Roles', 'Estudiantes', 'Exámenes', 'Control', 'Ambientes', 'Configuración']
@@ -130,6 +138,8 @@ const CAMPO = 'h-11 w-full rounded-lg border border-[#D8E3F5] bg-white text-xs t
 
 export default function HistorialOperaciones() {
   const [filtros, setFiltros] = useState(INICIALES)
+  const [autores, setAutores] = useState<AutorHistorial[]>([])
+  useEffect(() => { listarAutores().then(setAutores).catch(() => setAutores([])) }, [])
   const [pagina, setPagina] = useState(0)
   const [datos, setDatos] = useState<PaginaHistorial>()
   const [seleccion, setSeleccion] = useState<OperacionAuditada>()
@@ -178,11 +188,24 @@ export default function HistorialOperaciones() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
+      <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1.2fr)_repeat(2,minmax(0,0.8fr))_minmax(0,1.1fr)_repeat(2,9.5rem)]">
         <label className="relative col-span-2 lg:col-span-1"><span className="mb-1 block text-[11px] font-bold text-[#011140]">Buscar</span><Search className="pointer-events-none absolute bottom-3.5 left-3 text-[#8BA0BF]" size={15} aria-hidden="true" /><input aria-label="Buscar usuario o detalle" value={filtros.search} onChange={(e) => cambiar('search', e.target.value)} placeholder="Usuario, correo, motivo…" className={`${CAMPO} pl-9 pr-3`} /></label>
         <label><span className="mb-1 block text-[11px] font-bold text-[#011140]">Módulo</span><select value={filtros.modulo} onChange={(e) => cambiar('modulo', e.target.value)} className={`${CAMPO} px-3`}><option value="">Todos</option>{MODULOS.map((m) => <option key={m}>{m}</option>)}</select></label>
         <label><span className="mb-1 block text-[11px] font-bold text-[#011140]">Operación</span><select value={filtros.operacion} onChange={(e) => cambiar('operacion', e.target.value)} className={`${CAMPO} px-3`}><option value="">Todas</option>{OPERACIONES.map(([grupo, ops]) => <optgroup key={grupo} label={grupo}>{ops.map((o) => <option key={o}>{o}</option>)}</optgroup>)}</select></label>
+        <label className="col-span-2 lg:col-span-1"><span className="mb-1 block text-[11px] font-bold text-[#011140]">Realizado por</span><select aria-label="Realizado por" value={filtros.usuario ?? ''} onChange={(e) => cambiar('usuario', e.target.value)} className={`${CAMPO} px-3 ${filtros.usuario ? 'border-[#0439D9] bg-[#F1F6FF] font-semibold' : ''}`}><option value="">Todos</option>{autores.map((a) => <option key={a.idUsuario} value={a.idUsuario}>{a.nombre}{a.roles ? ` · ${a.roles}` : ''}</option>)}</select></label>
         {([['desde', 'Desde'], ['hasta', 'Hasta']] as const).map(([campo, etiqueta]) => <label key={campo}><span className="mb-1 block text-[11px] font-bold text-[#011140]">{etiqueta}</span><span className="relative block"><CalendarDays className="pointer-events-none absolute left-3 top-3.5 text-[#8BA0BF]" size={14} aria-hidden="true" /><input type="date" value={filtros[campo]} onChange={(e) => cambiar(campo, e.target.value)} className={`${CAMPO} pl-9 pr-2`} /></span></label>)}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-[11px] font-semibold text-[#627A9B]">Rango:</span>
+        {RANGOS.map((r) => {
+          const activo = filtros.desde === r.desde() && filtros.hasta === r.hasta()
+          return <button key={r.texto} type="button" aria-pressed={activo} onClick={() => { setFiltros((f) => ({ ...f, desde: r.desde(), hasta: r.hasta() })); setPagina(0) }}
+            className={`min-h-8 rounded-full border px-3 text-xs font-semibold transition-colors ${activo ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#D8E3F5] bg-white text-[#45628D] hover:border-[#0439D9] hover:text-[#0439D9]'}`}>{r.texto}</button>
+        })}
+        {(filtros.search || filtros.modulo || filtros.operacion || filtros.usuario) && (
+          <button type="button" onClick={() => { setFiltros((f) => ({ ...f, search: '', modulo: '', operacion: '', usuario: '' })); setPagina(0) }}
+            className="ml-auto text-xs font-semibold text-[#0439D9] hover:underline">Quitar filtros</button>
+        )}
       </div>
 
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}

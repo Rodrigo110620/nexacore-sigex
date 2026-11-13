@@ -37,9 +37,16 @@ public class HistorialOperacionService {
     @Transactional(readOnly = true)
     public PageResponse<HistorialOperacionResponse> listar(int page, int size, String search,
             String modulo, String operacion, LocalDate desde, LocalDate hasta) {
+        return listar(page, size, search, modulo, operacion, desde, hasta, null);
+    }
+
+    /** Con «Realizado por»: solo las operaciones de ese usuario. */
+    @Transactional(readOnly = true)
+    public PageResponse<HistorialOperacionResponse> listar(int page, int size, String search,
+            String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
         int pagina = Math.max(0, page);
         int tamano = Math.min(MAXIMO_PAGINA, Math.max(1, size));
-        Filtro filtro = filtro(search, modulo, operacion, desde, hasta);
+        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario);
         Long total = jdbc.queryForObject("SELECT COUNT(*) " + filtro.fromWhere, Long.class, filtro.args.toArray());
         HistorialPresentacion presentacion = new HistorialPresentacion(jdbc);
         List<Object> args = new ArrayList<>(filtro.args);
@@ -57,8 +64,9 @@ public class HistorialOperacionService {
         return new PageResponse<>(contenido, pagina, tamano, n, (int) Math.ceil((double) n / tamano));
     }
 
-    private List<HistorialOperacionResponse> todas(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta) {
-        Filtro filtro = filtro(search, modulo, operacion, desde, hasta);
+    private List<HistorialOperacionResponse> todas(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta,
+            Integer usuario) {
+        Filtro filtro = filtro(search, modulo, operacion, desde, hasta, usuario);
         HistorialPresentacion presentacion = new HistorialPresentacion(jdbc);
         return jdbc.query("""
                 SELECT a.id_auditoria, a.fecha_hora, u.id_usuario,
@@ -84,7 +92,12 @@ public class HistorialOperacionService {
     /** CSV legible (con BOM, separado por ';' como el resto de exportaciones). */
     @Transactional(readOnly = true)
     public byte[] exportar(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta) {
-        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta);
+        return exportar(search, modulo, operacion, desde, hasta, null);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportar(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
+        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta, usuario);
         var out = new ByteArrayOutputStream();
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
             writer.write('\uFEFF');
@@ -101,7 +114,12 @@ public class HistorialOperacionService {
     /** PDF horizontal con el encabezado de SIGEX, el rango y una fila por operación. */
     @Transactional(readOnly = true)
     public byte[] exportarPdf(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta) {
-        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta);
+        return exportarPdf(search, modulo, operacion, desde, hasta, null);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportarPdf(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
+        List<HistorialOperacionResponse> filas = todas(search, modulo, operacion, desde, hasta, usuario);
         var out = new ByteArrayOutputStream();
         var document = new com.lowagie.text.Document(com.lowagie.text.PageSize.A4.rotate(), 30, 30, 28, 28);
         try {
@@ -128,7 +146,7 @@ public class HistorialOperacionService {
             String rango = (desde == null ? "desde el inicio" : "del " + desde.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))
                     + (hasta == null ? " a hoy" : " al " + hasta.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             titulo.add(new com.lowagie.text.Phrase(filas.size() + (filas.size() == 1 ? " operación" : " operaciones") + " · " + rango
-                    + filtrosTexto(search, modulo, operacion) + "\n",
+                    + filtrosTexto(search, modulo, operacion, nombreUsuario(usuario)) + "\n",
                     new com.lowagie.text.Font(base, 9, com.lowagie.text.Font.NORMAL, suave)));
             var celdaTitulo = new com.lowagie.text.pdf.PdfPCell(titulo);
             celdaTitulo.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
@@ -175,15 +193,36 @@ public class HistorialOperacionService {
         return out.toByteArray();
     }
 
-    private static String filtrosTexto(String search, String modulo, String operacion) {
+    private static String filtrosTexto(String search, String modulo, String operacion, String realizadoPor) {
         List<String> partes = new ArrayList<>();
+        if (realizadoPor != null) partes.add("realizado por " + realizadoPor);
         if (modulo != null && !modulo.isBlank()) partes.add("módulo " + modulo);
         if (operacion != null && !operacion.isBlank()) partes.add("operación " + operacion);
         if (search != null && !search.isBlank()) partes.add("búsqueda «" + search.strip() + "»");
         return partes.isEmpty() ? "" : " · " + String.join(", ", partes);
     }
 
-    private Filtro filtro(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta) {
+    /** Nombre del usuario elegido en «Realizado por», para el encabezado del PDF. */
+    private String nombreUsuario(Integer usuario) {
+        if (usuario == null) return null;
+        return jdbc.query("SELECT trim(nombre || ' ' || apellidos) FROM usuario WHERE id_usuario = ?",
+                (rs, i) -> rs.getString(1), usuario).stream().findFirst().orElse(null);
+    }
+
+    /** Quién realizó operaciones (para el filtro «Realizado por»), con sus roles; por nombre. */
+    public record Autor(Integer idUsuario, String nombre, String roles) {}
+
+    @Transactional(readOnly = true)
+    public List<Autor> autores() {
+        return jdbc.query("""
+                SELECT u.id_usuario, trim(u.nombre || ' ' || u.apellidos),
+                       (SELECT string_agg(r.nombre, ', ' ORDER BY r.nombre) FROM usuario_rol ur JOIN rol r ON r.id_rol = ur.id_rol WHERE ur.id_usuario = u.id_usuario)
+                FROM usuario u WHERE EXISTS (SELECT 1 FROM auditoria_operacion a WHERE a.id_usuario = u.id_usuario)
+                ORDER BY 2
+                """, (rs, i) -> new Autor(rs.getInt(1), rs.getString(2), rs.getString(3)));
+    }
+
+    private Filtro filtro(String search, String modulo, String operacion, LocalDate desde, LocalDate hasta, Integer usuario) {
         StringBuilder sql = new StringBuilder(" FROM auditoria_operacion a JOIN usuario u ON u.id_usuario = a.id_usuario WHERE 1=1");
         List<Object> args = new ArrayList<>();
         if (search != null && !search.isBlank()) {
@@ -200,6 +239,7 @@ public class HistorialOperacionService {
         }
         if (desde != null) { sql.append(" AND a.fecha_hora >= ?"); args.add(Timestamp.valueOf(desde.atStartOfDay())); }
         if (hasta != null) { sql.append(" AND a.fecha_hora < ?"); args.add(Timestamp.valueOf(hasta.plusDays(1).atStartOfDay())); }
+        if (usuario != null) { sql.append(" AND a.id_usuario = ?"); args.add(usuario); }
         return new Filtro(sql.toString(), args);
     }
 

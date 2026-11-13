@@ -7,6 +7,10 @@ import { emitirCambioLocal } from '../services/notificacionService'
 vi.mock('../services/historialOperacionService', () => ({
   listarHistorial: vi.fn(),
   obtenerHistorial: vi.fn(),
+  listarAutores: vi.fn().mockResolvedValue([
+    { idUsuario: 1, nombre: 'Carla Méndez', roles: 'ADMIN' },
+    { idUsuario: 7, nombre: 'Juan Pérez', roles: 'DOCENTE' },
+  ]),
 }))
 
 const pagina = {
@@ -113,5 +117,23 @@ describe('Historial de operaciones del ADMIN', () => {
     const antes = vi.mocked(listarHistorial).mock.calls.length
     emitirCambioLocal({ tipo: 'AUDITORIA', idExamen: null, idEstudiante: null })
     await waitFor(() => expect(vi.mocked(listarHistorial).mock.calls.length).toBeGreaterThan(antes))
+  })
+})
+
+describe('Filtrar y descargar el historial por quién lo hizo y por rango', () => {
+  it('«Realizado por» y los rangos rápidos cambian lo que se consulta', async () => {
+    vi.mocked(listarHistorial).mockResolvedValue(pagina)
+    render(<HistorialOperaciones />)
+    const quien = await screen.findByLabelText('Realizado por')
+    await waitFor(() => expect(within(quien).getByRole('option', { name: 'Juan Pérez · DOCENTE' })).toBeInTheDocument())
+    fireEvent.change(quien, { target: { value: '7' } })
+    await waitFor(() => expect(vi.mocked(listarHistorial)).toHaveBeenLastCalledWith(expect.objectContaining({ usuario: '7' }), 0))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Todo' }))
+    await waitFor(() => expect(vi.mocked(listarHistorial)).toHaveBeenLastCalledWith(expect.objectContaining({ usuario: '7', desde: '', hasta: '' }), 0))
+    expect(screen.getByRole('button', { name: 'Todo' })).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar filtros' }))
+    await waitFor(() => expect(vi.mocked(listarHistorial)).toHaveBeenLastCalledWith(expect.objectContaining({ usuario: '' }), 0))
   })
 })

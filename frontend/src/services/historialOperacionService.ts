@@ -38,6 +38,16 @@ export interface FiltrosHistorial {
   operacion: string
   desde: string
   hasta: string
+  /** «Realizado por»: id del usuario ('' = todos). */
+  usuario?: string
+}
+
+export interface AutorHistorial { idUsuario: number; nombre: string; roles: string | null }
+
+/** Quienes realizaron operaciones, para el filtro «Realizado por». */
+export async function listarAutores() {
+  const { data } = await api.get<AutorHistorial[]>('/admin/historial-operaciones/usuarios')
+  return data
 }
 
 const params = (f: FiltrosHistorial) => Object.fromEntries(Object.entries(f).filter(([, valor]) => valor))
