@@ -11,6 +11,10 @@ export interface ControlIngresoHeaderProps {
   duracionMinutos?: number
   /** Variante densa para la identificación, sin alterar el encabezado del detalle del examen. */
   compact?: boolean
+  /** Grupo del examen (G1…), junto a la materia. */
+  grupo?: string | null
+  /** Cómo va el ingreso: ingresados de los habilitados (se actualiza en vivo). */
+  avance?: { ingresados: number; habilitados: number } | null
 }
 
 const SIN_DATO = '—'
@@ -32,7 +36,7 @@ function formatearHorario(hora?: string, duracionMinutos?: number): string {
  * Encabezado de las pantallas de control de ingreso.
  * Recibe los datos del examen por props; sin datos muestra "—".
  */
-export default function ControlIngresoHeader({ materia, aula, fecha, hora, docente, duracionMinutos, compact = false }: ControlIngresoHeaderProps) {
+export default function ControlIngresoHeader({ materia, aula, fecha, hora, docente, duracionMinutos, compact = false, grupo, avance }: ControlIngresoHeaderProps) {
   const detalles = [
     { icono: CalendarDays, valor: formatearFecha(fecha) },
     { icono: Clock3, valor: formatearHorario(hora, duracionMinutos) },
@@ -40,20 +44,52 @@ export default function ControlIngresoHeader({ materia, aula, fecha, hora, docen
   ]
 
   if (compact) {
+    const porcentaje = avance && avance.habilitados > 0 ? Math.round((avance.ingresados / avance.habilitados) * 100) : 0
     return (
-      <header className="flex flex-col gap-2 border-b border-[#E6EAF0] bg-[#FAFAFB] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-3">
-        <h1 className="flex min-w-0 items-center gap-2 truncate text-[13px] font-bold uppercase text-[#1D2430] sm:text-base">
-          <UserRoundCheck size={18} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
-          <span className="truncate">Control de ingreso · {materia ?? SIN_DATO} · {aula ?? SIN_DATO}</span>
-        </h1>
-        <dl className="flex shrink-0 flex-wrap items-center gap-x-4 text-[10px] text-[#597197] sm:text-xs">
-          {detalles.slice(0, 2).map(({ icono: Icono, valor }, index) => (
-            <div key={`${index}-${valor}`} className="flex items-center gap-1">
-              <Icono size={14} aria-hidden="true" />
-              <dd>{valor}</dd>
+      <header className="border-b border-[#E6EAF0] bg-[#FAFAFB] px-4 py-3 sm:px-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <h1 className="flex min-w-0 items-center gap-2 truncate text-[13px] font-bold uppercase text-[#1D2430] sm:text-base">
+            <UserRoundCheck size={18} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+            <span className="truncate">Control de ingreso · {materia ?? SIN_DATO}{grupo ? ` · ${grupo}` : ''}</span>
+          </h1>
+          <dl className="flex shrink-0 flex-wrap items-center gap-x-4 text-[10px] text-[#597197] sm:text-xs">
+            {detalles.slice(0, 2).map(({ icono: Icono, valor }, index) => (
+              <div key={`${index}-${valor}`} className="flex items-center gap-1">
+                <Icono size={14} aria-hidden="true" />
+                <dd>{valor}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        {/* Quién es el docente, en qué aula y cómo va el ingreso: la pantalla no queda vacía y orienta al control. */}
+        <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs sm:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1.3fr)]">
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[#E6EAF0] bg-white px-3 py-2">
+            <GraduationCap size={16} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8BA0BF]">Docente</p>
+              <p className="line-clamp-2 break-words font-semibold leading-tight text-[#011140] sm:truncate" title={docente ?? undefined}>{docente ?? SIN_DATO}</p>
             </div>
-          ))}
-        </dl>
+          </div>
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[#E6EAF0] bg-white px-3 py-2">
+            <Building2 size={16} className="shrink-0 text-[#0439D9]" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8BA0BF]">Aula</p>
+              <p className="truncate font-semibold text-[#011140]">{aula ?? SIN_DATO}</p>
+            </div>
+          </div>
+          <div className="col-span-2 min-w-0 rounded-lg border border-[#E6EAF0] bg-white px-3 py-2 sm:col-span-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8BA0BF]">Ingresaron</p>
+              <p className="tabular-nums text-[#45628D]">
+                {avance ? <><b className="text-sm text-[#011140]">{avance.ingresados}</b> de {avance.habilitados} habilitados</> : '…'}
+              </p>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#E6ECF5]" role="progressbar" aria-label="Avance del ingreso"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={porcentaje}>
+              <div className="h-full rounded-full bg-gradient-to-r from-[#22C55E] to-[#16A34A] transition-[width] duration-500" style={{ width: `${porcentaje}%` }} />
+            </div>
+          </div>
+        </div>
       </header>
     )
   }
