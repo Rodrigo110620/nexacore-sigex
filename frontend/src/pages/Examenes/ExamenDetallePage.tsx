@@ -9,6 +9,7 @@ import {
   Check,
   Clock,
   Download,
+  FileSpreadsheet, 
   FileText,
   Hourglass,
   LoaderCircle,
@@ -89,11 +90,7 @@ function DatoTile({ label, value, hint, hintClass = 'text-gray-500', className =
 
 export default function ExamenDetallePage() {
   const auth = useAuth()
-  // Cancelar el examen: permiso del ADMIN (o de un rol extra que lo tenga).
-  // Cancela el ADMIN (cualquiera) y el DOCENTE (los suyos: solo ve los suyos; el backend lo verifica).
   const puedeCancelar = tienePermiso(auth, 'EXAMENES_CANCELAR', 'EXAMENES_GESTIONAR_PROPIOS')
-  // Asociar y cambiar la habilitación: el ADMIN en cualquier examen; el DOCENTE en los suyos, que son los
-  // únicos que puede abrir (el servidor también lo verifica).
   const gestionaHabilitacion = tienePermiso(auth, 'HABILITACION_GESTIONAR', 'HABILITACION_GESTIONAR_PROPIOS')
   const gestionaExamenes = tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')
   const navigate = useNavigate()
@@ -109,7 +106,6 @@ export default function ExamenDetallePage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [habilitadosCount, setHabilitadosCount] = useState<number | null>(null)
-  /** Código y CI de los estudiantes con norma particular, por idEstudiante. */
   const [datosNormas, setDatosNormas] = useState<Map<number, { codigoSis: string; ci: string }>>(new Map())
 
   const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
@@ -134,7 +130,6 @@ export default function ExamenDetallePage() {
     return () => window.clearTimeout(handle)
   }, [load])
 
-  // En vivo: otro usuario editó o canceló este examen.
   useEnVivo((c) => c.tipo === 'EXAMEN' && c.idExamen === idExamen, () => void load({ silencioso: true }))
 
   useEffect(() => {
@@ -145,7 +140,6 @@ export default function ExamenDetallePage() {
     )]
     if (ids.length === 0) return
     const controller = new AbortController()
-    // Si alguno falla se muestra solo el nombre de ese estudiante.
     void Promise.allSettled(ids.map((id) => getEstudianteById(id, controller.signal))).then((respuestas) => {
       if (controller.signal.aborted) return
       const datos = new Map<number, { codigoSis: string; ci: string }>()
@@ -160,23 +154,20 @@ export default function ExamenDetallePage() {
   const horaFin = examen ? addMinutes(examen.horaInicio, examen.duracionMinutos) : '—'
   const semana = examen ? semanaDelAnio(examen.fecha) : null
   const cancelado = examen?.estado === 'cancelado'
-  // En vivo: al terminar el examen, la lista de estudiantes pasa a solo lectura.
   const faseExamen = useTiempoExamen(examen, 15_000)?.fase
-  // Un examen finalizado no se edita: se reprograma (ADMIN, o el DOCENTE de sus exámenes).
   const finalizado = faseExamen === 'finalizado'
   const puedeReprogramar = finalizado && gestionaExamenes
-  // El DOCENTE crea y edita sus exámenes igual que el ADMIN (el backend verifica que sea suyo).
   const puedeEditar = gestionaExamenes
-  // DASH-04: el acta la descarga quien tiene permiso de exportar (el ADMIN, y el DOCENTE en sus exámenes).
   const puedeExportarActa = tienePermiso(auth, 'REPORTES_EXPORTAR')
   const [resultadoActa, setResultadoActa] = useState<Resultado | null>(null)
   const iniciado = examen ? ['en_curso', 'finalizado'].includes(examen.estado?.toLowerCase() ?? '') : false
-  // Antes de descargar se ve la vista previa del acta (y de la asistencia en Excel).
   const [previaActa, setPreviaActa] = useState<'pdf' | 'xlsx' | null>(null)
-  const descargarActa = () => {
+  
+  const descargarActa = (formato: 'pdf' | 'xlsx') => {
     if (!idExamen || !iniciado) return
-    setPreviaActa('pdf')
+    setPreviaActa(formato)
   }
+  
   const soloLecturaHabilitacion = faseExamen === 'finalizado'
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
@@ -226,6 +217,7 @@ export default function ExamenDetallePage() {
                       <EstadoExamenBadge examen={examen} variante="pastilla" />
                     </div>
                   </div>
+                  
                   {(puedeEditar || puedeReprogramar) && (
                     <div className="hidden shrink-0 items-center gap-2 min-[960px]:flex">
                       {puedeReprogramar ? (
@@ -257,31 +249,46 @@ export default function ExamenDetallePage() {
                           Eliminar
                         </button>
                       )}
+                      
                       {puedeExportarActa && (
-                        <button
-                          type="button"
-                          onClick={() => void descargarActa()}
-                          disabled={!iniciado}
-                          title={iniciado ? undefined : 'El examen aún no ha iniciado'}
-                          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          {iniciado ? <Download size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
-                          Descargar PDF
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void descargarActa('pdf')}
+                            disabled={!iniciado}
+                            title={iniciado ? undefined : 'El examen aún no ha iniciado'}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            {iniciado ? <Download size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                            Descargar PDF
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => void descargarActa('xlsx')}
+                            disabled={!iniciado}
+                            title={iniciado ? undefined : 'El examen aún no ha iniciado'}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#B8CBEF] bg-white px-4 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-none disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            {iniciado ? <FileSpreadsheet size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                            Descargar Excel
+                          </button>
+                        </>
                       )}
                     </div>
                   )}
                 </div>
+                
                 <ul className="mt-3 grid grid-cols-2 gap-2 border-t border-[#EDF1F7] pt-3 min-[960px]:flex min-[960px]:flex-wrap min-[960px]:border-t-0 min-[960px]:pt-0">
                   <InfoChip icon={<CalendarDays size={15} aria-hidden="true" />}>{formatFecha(examen.fecha)}</InfoChip>
                   <InfoChip icon={<Clock size={15} aria-hidden="true" />}>{horaCorta(examen.horaInicio)} hrs</InfoChip>
                   <InfoChip icon={<MapPin size={15} className="text-red-500" aria-hidden="true" />}>{examen.ambienteNombre}</InfoChip>
                   <InfoChip icon={<Hourglass size={15} aria-hidden="true" />}>{examen.duracionMinutos} min</InfoChip>
                 </ul>
+                
                 {(puedeEditar || puedeReprogramar) && (
                   <div className="mt-3 min-[960px]:hidden">
-                  {/* Celular: Editar (o Reprogramar) y Descargar PDF lado a lado; Eliminar aparte y discreto, para no tocarlo por error. */}
-                  <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1">
+                  <div className="flex flex-wrap gap-2 [&>*]:flex-1 [&>*]:min-w-[120px]">
                     {puedeReprogramar ? (
                       <button
                         type="button"
@@ -301,17 +308,29 @@ export default function ExamenDetallePage() {
                         Editar
                       </button>
                     )}
+                    
                     {puedeExportarActa && (
-                      <button
-                        type="button"
-                        onClick={() => void descargarActa()}
-                        disabled={!iniciado}
-                        title={iniciado ? undefined : 'El examen aún no ha iniciado'}
-                        className="inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        {iniciado ? <Download size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
-                        Descargar PDF
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void descargarActa('pdf')}
+                          disabled={!iniciado}
+                          className="inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          {iniciado ? <Download size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
+                          PDF
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void descargarActa('xlsx')}
+                          disabled={!iniciado}
+                          className="inline-flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-[#B8CBEF] bg-white px-4 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-none disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          {iniciado ? <FileSpreadsheet size={15} aria-hidden="true" /> : <Lock size={15} aria-hidden="true" />}
+                          Excel
+                        </button>
+                      </>
                     )}
                   </div>
                   {puedeCancelar && !cancelado && (
@@ -326,7 +345,6 @@ export default function ExamenDetallePage() {
                   </div>
                 )}
                 <CronometroExamen examen={examen} className="mt-3" />
-                {/* El control se opera desde Control; desde la agenda, un acceso directo solo el día del examen. */}
                 {!cancelado && veControl(auth) && examen.fecha === fechaLocal(new Date(ahoraServidorMs())) && (
                   <Link to={`/dashboard/control/${examen.idExamen}`}
                     className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-[#0439D9] bg-white px-4 text-sm font-bold text-[#0439D9] hover:bg-[#F1F6FF] sm:w-auto">
@@ -336,6 +354,7 @@ export default function ExamenDetallePage() {
                   </Link>
                 )}
               </section>
+              
               <HistorialSesiones idExamen={examen.idExamen} idParalelo={examen.idParalelo} recarga={recargaSesiones} />
 
               <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
@@ -346,9 +365,7 @@ export default function ExamenDetallePage() {
                     aria-selected={tab === 'normas'}
                     onClick={() => setTab('normas')}
                     className={`inline-flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold ${
-                      tab === 'normas'
-                        ? 'border-[#0439D9] text-[#0439D9]'
-                        : 'border-transparent text-[#627A9B] hover:text-[#011140]'
+                      tab === 'normas' ? 'border-[#0439D9] text-[#0439D9]' : 'border-transparent text-[#627A9B] hover:text-[#011140]'
                     }`}
                   >
                     <FileText size={16} aria-hidden="true" />
@@ -360,9 +377,7 @@ export default function ExamenDetallePage() {
                     aria-selected={tab === 'habilitados'}
                     onClick={() => setTab('habilitados')}
                     className={`inline-flex items-center gap-2 border-b-2 pb-3 text-sm font-semibold ${
-                      tab === 'habilitados'
-                        ? 'border-[#0439D9] text-[#0439D9]'
-                        : 'border-transparent text-[#627A9B] hover:text-[#011140]'
+                      tab === 'habilitados' ? 'border-[#0439D9] text-[#0439D9]' : 'border-transparent text-[#627A9B] hover:text-[#011140]'
                     }`}
                   >
                     <Users size={16} aria-hidden="true" />
@@ -424,7 +439,6 @@ export default function ExamenDetallePage() {
                     </dl>
                   </section>
 
-                  {/* V53: quién controla el ingreso; el docente lo ve y, como el ADMIN, lo asigna. */}
                   <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado} />
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
@@ -442,10 +456,7 @@ export default function ExamenDetallePage() {
                     {examen.normasGenerales?.length ? (
                       <ul className="flex flex-col gap-2">
                         {examen.normasGenerales.map((norma, index) => (
-                          <li
-                            key={`${index}-${norma}`}
-                            className="flex items-start gap-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 text-sm text-[#011140] min-[960px]:bg-white min-[960px]:py-2.5"
-                          >
+                          <li key={`${index}-${norma}`} className="flex items-start gap-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 text-sm text-[#011140] min-[960px]:bg-white min-[960px]:py-2.5">
                             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#FDE68A] bg-[#FEF3C7] text-[11px] font-bold text-[#B45309]">
                               {index + 1}
                             </span>
@@ -475,10 +486,7 @@ export default function ExamenDetallePage() {
                         {examen.normasParticulares.map((norma, index) => {
                           const datos = norma.idEstudiante != null ? datosNormas.get(norma.idEstudiante) : undefined
                           return (
-                            <li
-                              key={`${norma.estudiante}-${index}`}
-                              className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 min-[960px]:bg-white"
-                            >
+                            <li key={`${norma.estudiante}-${index}`} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 rounded-lg border border-[#EDF1F7] bg-[#F8FAFC] px-3 py-3 min-[960px]:bg-white">
                               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold min-[960px]:row-span-2 ${PARTICULAR_PALETTES[index % PARTICULAR_PALETTES.length]}`}>
                                 {initialsOfName(norma.estudiante)}
                               </span>
@@ -520,9 +528,11 @@ export default function ExamenDetallePage() {
             </div>
           )}
         </div>
+        
         <ResultadoModal resultado={resultadoActa} onClose={() => setResultadoActa(null)} />
         <VistaPreviaExamen idExamen={idExamen ?? null} formato={previaActa} onClose={() => setPreviaActa(null)} />
-      <MobileBottomNav />
+        <MobileBottomNav />
+        
         {reprogramarOpen && examen && (
           <ReprogramarExamenModal
             examen={examen}
@@ -534,6 +544,7 @@ export default function ExamenDetallePage() {
             }}
           />
         )}
+        
         <EditExamenModal
           isOpen={editOpen}
           examen={examen}
@@ -547,6 +558,7 @@ export default function ExamenDetallePage() {
             }
           }}
         />
+        
         {cancelOpen && examen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-[#D8E3F5] bg-white p-6 shadow-xl">
