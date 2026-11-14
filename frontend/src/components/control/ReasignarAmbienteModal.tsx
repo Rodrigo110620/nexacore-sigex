@@ -4,6 +4,8 @@ import { reasignarAmbiente } from '../../services/controlExamenService'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { getUserInitials } from '../users/userAvatar.utils'
 import { MOTIVO_ESCRITO, espaciosAlEscribir, normalizarMotivo, validarMotivoEscrito } from '../../utils/motivoEscrito'
 
 interface Props {
@@ -244,9 +246,12 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
         <div className="p-4 sm:p-6 space-y-5">
           {/* Estudiante info */}
           <div className="flex items-start gap-3 px-1">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#F2F2F2] flex items-center justify-center text-[#011140] font-bold text-xs border border-[#E2E6EC]">
-              {estudiante.nombre.charAt(0)}{estudiante.apellidos.charAt(0)}
-            </div>
+            <FotoEstudiante
+              fotoUrl={estudiante.fotoUrl}
+              nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+              iniciales={getUserInitials(estudiante)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E6EC] bg-[#F2F2F2] text-xs font-bold text-[#011140]"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
               <p className="text-[10px] text-[#758EBF]">{estudiante.codigoSis}</p>

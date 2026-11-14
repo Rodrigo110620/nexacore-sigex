@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Ban, CameraOff, Eye, LogOut } from 'lucide-react'
 import { registrarSalida } from '../../services/controlIngresoService'
@@ -227,24 +227,32 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
           {estudiantesLocales.map((estudiante) => {
             const habilitado = estudiante.estado === 'HABILITADO'
             return (
-              <tr key={estudiante.idEstudiante} data-foco={resaltar === estudiante.idEstudiante ? 'true' : undefined}
-                className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'} ${resaltar === estudiante.idEstudiante ? 'bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : ''}`}>
-                <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado}>
-                  {/* En laptop la carrera va bajo el nombre (su columna aparece desde xl) para no apretar la tabla. */}
-                  {estudiante.carrera && <p className="truncate text-[11px] text-[#627A9B] xl:hidden">{estudiante.carrera}</p>}
-                  {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
-                </Identidad></td>
-                <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
-                <td className="hidden px-4 py-3 text-sm text-[#011140] xl:table-cell">{estudiante.carrera ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
-                  {estudiante.ingresado && estudiante.trasladadoDesde && (
-                    <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-sm text-[#011140] font-medium">{nombreAulaEstudiante(estudiante, aulasExamen)}</td>
-                <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} /></td>
-              </tr>
+              <Fragment key={estudiante.idEstudiante}>
+                <tr data-foco={resaltar === estudiante.idEstudiante ? 'true' : undefined}
+                  className={`border-t border-[#EDF1F7] ${habilitado ? '' : 'bg-[#FEF2F2]'} ${resaltar === estudiante.idEstudiante ? 'bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : ''}`}>
+                  <td className="px-4 py-3"><Identidad estudiante={estudiante} habilitado={habilitado}>
+                    {/* En laptop la carrera va bajo el nombre (su columna aparece desde xl) para no apretar la tabla. */}
+                    {estudiante.carrera && <p className="truncate text-[11px] text-[#627A9B] xl:hidden">{estudiante.carrera}</p>}
+                  </Identidad></td>
+                  <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
+                  <td className="hidden px-4 py-3 text-sm text-[#011140] xl:table-cell">{estudiante.carrera ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
+                    {estudiante.ingresado && estudiante.trasladadoDesde && (
+                      <p className="mt-1 text-[10px] text-[#627A9B]">{textoTraslado(estudiante)}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-[#011140] font-medium">{nombreAulaEstudiante(estudiante, aulasExamen)}</td>
+                  <td className="px-4 py-3 text-right"><Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} /></td>
+                </tr>
+                {estudiante.expulsion && (
+                  <tr aria-label={`Registro de expulsión de ${estudiante.nombre} ${estudiante.apellidos}`}>
+                    <td colSpan={6} className="px-4 pb-3">
+                      <RegistroExpulsion registro={estudiante.expulsion} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
         </tbody>
@@ -283,9 +291,9 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     </div>
                     <Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} />
                   </div>
-                  {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
                 </div>
               </div>
+              {estudiante.expulsion && <RegistroExpulsion registro={estudiante.expulsion} />}
             </li>
           )
         })}
