@@ -232,10 +232,12 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // Sección 12: el acta lista solo a los habilitados; el no habilitado no figura ni cuenta como ausente.
-        assertFalse(texto.contains("NoHabilitada"), texto);
+        // El no habilitado figura en el acta con su estado y no cuenta como ausente.
+        assertTrue(texto.contains("NoHabilitada"), texto);
+        assertTrue(texto.contains("No habilitado"), texto);
         assertTrue(texto.contains("Habilitados: 0"), texto);
         assertTrue(texto.contains("Ausentes: 0"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
     }
 
     @Test
@@ -360,8 +362,9 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // Resumen antes de la tabla (el no habilitado no cuenta), columnas, firmas y pie de la sección 12.
+        // Resumen antes de la tabla (el no habilitado cuenta como no habilitado), columnas, firmas y pie de la sección 12.
         assertTrue(texto.contains("Habilitados: 3"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
         assertTrue(texto.contains("Asistieron: 1"), texto);
         assertTrue(texto.contains("Ausentes: 1"), texto);
         assertTrue(texto.contains("Expulsados: 1"), texto);
