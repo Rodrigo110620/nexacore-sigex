@@ -192,8 +192,8 @@ export default function BandejaAyuda({ onCambio }: { onCambio?: () => void }) {
           <div className="mt-auto flex items-center justify-between border-t border-[#EDF1F7] px-4 py-3 text-xs text-[#627A9B]">
             <span>Página {datos.pagina + 1} de {datos.totalPaginas}</span>
             <div className="flex gap-2">
-              <button type="button" disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)} className="min-h-9 rounded-lg border border-[#C9D8F2] px-3 font-semibold text-[#0439D9] disabled:opacity-40">Anterior</button>
-              <button type="button" disabled={pagina + 1 >= datos.totalPaginas} onClick={() => setPagina((p) => p + 1)} className="min-h-9 rounded-lg border border-[#C9D8F2] px-3 font-semibold text-[#0439D9] disabled:opacity-40">Siguiente</button>
+              <button type="button" disabled={pagina === 0} aria-hidden={pagina === 0 || undefined} tabIndex={pagina === 0 ? -1 : undefined} onClick={() => setPagina((p) => p - 1)} className={`${pagina === 0 ? 'invisible ' : ''}min-h-9 rounded-lg border border-[#C9D8F2] px-3 font-semibold text-[#0439D9] disabled:opacity-40`}>Anterior</button>
+              <button type="button" disabled={pagina + 1 >= datos.totalPaginas} aria-hidden={pagina + 1 >= datos.totalPaginas || undefined} tabIndex={pagina + 1 >= datos.totalPaginas ? -1 : undefined} onClick={() => setPagina((p) => p + 1)} className={`${pagina + 1 >= datos.totalPaginas ? 'invisible ' : ''}min-h-9 rounded-lg border border-[#C9D8F2] px-3 font-semibold text-[#0439D9] disabled:opacity-40`}>Siguiente</button>
             </div>
           </div>
         )}
