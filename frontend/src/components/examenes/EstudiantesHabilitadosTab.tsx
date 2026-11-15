@@ -13,6 +13,7 @@ import {
   validateRazonInhabilitacion,
 } from '../../utils/habilitacionValidators'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import AsociarEstudiantesModal from './AsociarEstudiantesModal'
 import { ConfirmDiscardDialog } from './ExamFormDialogs'
 import {
@@ -36,6 +37,22 @@ const AVATARS = [
   'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]',
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
 ] as const
+
+function AvatarHabilitacion({ estudiante, index, dimension }: {
+  estudiante: EstudianteHabilitacionDto
+  index: number
+  dimension: string
+}) {
+  const nombre = `${estudiante.nombre} ${estudiante.apellidos}`
+  return (
+    <FotoEstudiante
+      fotoUrl={estudiante.tieneFoto ? `/estudiantes/${estudiante.idEstudiante}/foto` : null}
+      nombre={nombre}
+      iniciales={initialsOfName(nombre)}
+      className={`flex ${dimension} shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}
+    />
+  )
+}
 
 function estadoVisual(estado: EstadoHabilitacion, estadoMatricula?: string) {
   if (estadoMatricula === 'NO_MATRICULADO') {
@@ -412,9 +429,7 @@ export default function EstudiantesHabilitadosTab({
                       aria-label={`Seleccionar a ${e.nombre} ${e.apellidos}`}
                       className="mt-1 h-4 w-4 shrink-0 disabled:opacity-30"
                     />
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
-                      {initialsOfName(`${e.nombre} ${e.apellidos}`)}
-                    </span>
+                    <AvatarHabilitacion estudiante={e} index={index} dimension="h-10 w-10" />
                     <div className="min-w-0 flex-1">
             
                       <p className={`truncate text-sm font-bold ${esInactivo ? 'text-gray-400' : 'text-[#011140]'}`}>{e.nombre} {e.apellidos}</p>
@@ -528,9 +543,7 @@ export default function EstudiantesHabilitadosTab({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
-                            {initialsOfName(`${e.nombre} ${e.apellidos}`)}
-                          </span>
+                          <AvatarHabilitacion estudiante={e} index={index} dimension="h-9 w-9" />
                           <span>
                             <span className="block font-semibold text-[#011140]">{e.nombre} {e.apellidos}</span>
                             <span className="text-xs text-gray-500">Cód: {e.codigoSis}</span>
