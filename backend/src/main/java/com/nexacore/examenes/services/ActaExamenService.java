@@ -200,7 +200,7 @@ public class ActaExamenService {
         LocalDateTime desdeSiempre = ExpulsionRepository.DESDE_SIEMPRE;
 
         List<FilaActa> filas = new ArrayList<>();
-        int asistidos = 0, ausentes = 0, expulsados = 0, noHabilitados = 0;
+        int asistidos = 0, ausentes = 0, expulsados = 0, noHabilitados = 0, pendientes = 0;
         java.util.Map<Integer, String> registro = registradores(idExamen);
 
         // Sin salida marcada y con el examen terminado, salió al cierre (V56).
@@ -209,10 +209,12 @@ public class ActaExamenService {
             Estudiante e = a.getEstudiante();
 
             // Sección 12 del diseño: el no habilitado no rinde ni es "Ausente", pero se lista en el acta con su estado.
+            // habilitado = false es «No habilitado» (con motivo); null es «Pendiente»: nadie decidió su habilitación.
             if (!Boolean.TRUE.equals(a.getHabilitado())) {
-                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), "No habilitado", SIN_HORA, null)
+                boolean pendiente = a.getHabilitado() == null;
+                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), pendiente ? "Pendiente" : "No habilitado", SIN_HORA, null)
                         .conRegistro(registro.get(e.getId())));
-                noHabilitados++;
+                if (pendiente) pendientes++; else noHabilitados++;
                 continue;
             }
 
@@ -290,7 +292,7 @@ public class ActaExamenService {
 
             document.add(encabezado(base, negrita, datos));
             document.add(datosDelExamen(base, negrita, datos, generada, personal));
-            document.add(resumen(asistidos + ausentes + expulsados, asistidos, ausentes, expulsados, noHabilitados, base, negrita));
+            document.add(resumen(asistidos + ausentes + expulsados, asistidos, ausentes, expulsados, noHabilitados, pendientes, base, negrita));
             document.add(tabla(filas, base, negrita));
             // Las firmas van al pie de la última hoja; si la tabla ya ocupa ese espacio, pasan a una hoja nueva.
             if (writer.getVerticalPosition(true) - document.bottom() < ALTO_FIRMAS) {
@@ -413,13 +415,15 @@ public class ActaExamenService {
     }
 
     /** Sección 12: etiquetas con Habilitados, Asistieron, Ausentes, No habilitados (y Expulsados si los hay), antes de la tabla. */
-    private PdfPTable resumen(int habilitados, int asistidos, int ausentes, int expulsados, int noHabilitados, BaseFont base, BaseFont negrita) {
+    private PdfPTable resumen(int habilitados, int asistidos, int ausentes, int expulsados, int noHabilitados, int pendientes, BaseFont base, BaseFont negrita) {
         List<String> etiquetas = new ArrayList<>(List.of(
                 "Habilitados: " + habilitados, "Asistieron: " + asistidos, "Ausentes: " + ausentes, "No habilitados: " + noHabilitados));
         if (expulsados > 0) etiquetas.add("Expulsados: " + expulsados);
+        if (pendientes > 0) etiquetas.add("Pendientes: " + pendientes);
         float[] anchos = new float[etiquetas.size() + 1];
         for (int i = 0; i < etiquetas.size(); i++) anchos[i] = 1;
-        anchos[etiquetas.size()] = 5 - etiquetas.size();
+        // Hasta 6 etiquetas (con expulsados y pendientes): el espacio que sobra nunca queda en cero ni negativo.
+        anchos[etiquetas.size()] = Math.max(0.5f, 7 - etiquetas.size());
         var tabla = new PdfPTable(anchos);
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);

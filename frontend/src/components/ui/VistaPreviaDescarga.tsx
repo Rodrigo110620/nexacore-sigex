@@ -141,6 +141,7 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
                           if (c === 'Asistió') clasesColor = 'text-[#15803D] font-bold';
                           else if (c === 'Ausente') clasesColor = 'text-[#B45309] font-bold';
                           else if (c === 'Expulsado') clasesColor = 'text-[#B91C1C] font-bold';
+                          else if (c === 'No habilitado' || c === 'Pendiente') clasesColor = 'text-[#64748B] font-bold';
 
                           return (
                             <td key={i} className={`border border-[#EEF2F7] px-2 py-1.5 ${clasesColor}`}>
