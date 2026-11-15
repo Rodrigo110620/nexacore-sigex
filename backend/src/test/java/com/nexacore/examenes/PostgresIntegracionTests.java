@@ -812,13 +812,14 @@ class PostgresIntegracionTests {
         int enCurso = examen(pa, "08:00", 120);
         int porIniciar = examen(pb, "08:00", 60);
         int deAyer = examen(pc, "08:00", 60);
-        var inicioA = ahora.minusMinutes(30);
+        // Cerca de medianoche «hace 30 min» sería ayer: hoyAntes() no deja salir del día (CI corrió a las 00:12).
+        var inicioA = hoyAntes(ahora, 30);
         var inicioB = ahora.plusMinutes(2);
         jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioA.toLocalDate(), inicioA.toLocalTime(), enCurso);
         jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioB.toLocalDate(), inicioB.toLocalTime(), porIniciar);
         jdbc.update("UPDATE examen SET fecha = ? WHERE id_examen = ?", ahora.toLocalDate().minusDays(1), deAyer);
         String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?)";
-        var ingreso = java.sql.Timestamp.valueOf(ahora.minusMinutes(1));
+        var ingreso = java.sql.Timestamp.valueOf(hoyAntes(ahora, 1));
         // En curso: 2 habilitados (uno ingresó) y 1 no habilitado.
         jdbc.update(asociar, estudiante("209800001", "Ana"), enCurso, pa, true, ingreso);
         jdbc.update(asociar, estudiante("209800002", "Beto"), enCurso, pa, true, null);
@@ -1309,12 +1310,12 @@ class PostgresIntegracionTests {
         jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", examen);
         var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
         String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
-        jdbc.update(asociar, ana, examen, g1, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+        jdbc.update(asociar, ana, examen, g1, java.sql.Timestamp.valueOf(hoyAntes(ahora, 20)));
         jdbc.update(asociar, beto, examen, g1, null);
         jdbc.update("INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, resultado_autorizacion, fecha_hora, tipo_ingreso) "
-                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, 'NORMAL')", examen, g1, ana, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, 'NORMAL')", examen, g1, ana, idDocente, java.sql.Timestamp.valueOf(hoyAntes(ahora, 20)));
         jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
-                ana, examen, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(5)));
+                ana, examen, idDocente, java.sql.Timestamp.valueOf(hoyAntes(ahora, 5)));
         int manana = examen(g1, "09:00", 60);
         sincronizar();
 
@@ -1415,8 +1416,8 @@ class PostgresIntegracionTests {
         Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
                 + "VALUES ('Otro', 'Control', '6666666', 'otro.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
         var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
-        var hace = java.sql.Timestamp.valueOf(ahora.minusMinutes(3));
-        var antes = java.sql.Timestamp.valueOf(ahora.minusMinutes(10));
+        var hace = java.sql.Timestamp.valueOf(hoyAntes(ahora, 3));
+        var antes = java.sql.Timestamp.valueOf(hoyAntes(ahora, 10));
         int ana = estudiante("209600001", "Ana");
         int beto = estudiante("209600002", "Beto");
         int ciro = estudiante("209600003", "Ciro");
@@ -1430,7 +1431,7 @@ class PostgresIntegracionTests {
         jdbc.update(ingreso, examen, paralelo, beto, idDocente, hace, "MANUAL", "Su QR no se lee; presentó su carnet");
         jdbc.update(ingreso, examen, paralelo, ciro, otro, hace, "NORMAL", null);
         String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?)";
-        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(ahora.minusMinutes(1)));
+        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(hoyAntes(ahora, 1)));
         jdbc.update(intento, examen, paralelo, idDocente, "209600003", "Intento ingresar no habilitado ### Ciro", hace);
         jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
                 ana, examen, otro, hace);
@@ -1728,5 +1729,16 @@ class PostgresIntegracionTests {
                 VALUES (?, ?, ?, ?, 'No pagó la matrícula', '   ')
                 """, ana, idExamen, idAmbiente, idDocente))
                 .hasMessageContaining("ck_excepcion_accion");
+    }
+
+    /**
+     * «Hace N minutos», pero sin salir del día de hoy: las pruebas que cuentan lo «de hoy» fallaban si corrían
+     * en la primera media hora del día (CI a las 00:12). Cerca de medianoche queda en los primeros segundos del
+     * día, en el mismo orden (más minutos atrás = más temprano).
+     */
+    private static java.time.LocalDateTime hoyAntes(java.time.LocalDateTime ahora, int minutos) {
+        var limite = ahora.toLocalDate().atStartOfDay().plusSeconds(60 - Math.min(minutos, 59));
+        var hace = ahora.minusMinutes(minutos);
+        return hace.isBefore(limite) ? limite : hace;
     }
 }
