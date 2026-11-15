@@ -1,6 +1,6 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LifeBuoy, LockKeyhole } from 'lucide-react';
 import MesaAyudaModal from '../../components/ayuda/MesaAyudaModal';
-import { validateEmailFormat, buildLoginEmail } from '../../utils/validators';
+import { validateLoginEmail, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
@@ -43,7 +43,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
 
     const handleEmailBlur = () => {
         if (email.trim()) {
-            setEmailError(validateEmailFormat(buildLoginEmail(email)));
+            setEmailError(validateLoginEmail(email));
         }
     };
 
@@ -64,7 +64,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
             return;
         }
 
-        const emailErr = validateEmailFormat(buildLoginEmail(email));
+        const emailErr = validateLoginEmail(email);
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
         setPasswordError(passwordErr);

@@ -113,6 +113,7 @@ public class UsuarioService {
         if (usuarioRepository.existsByCi(ci)) {
             throw new CiDuplicadoException(ci);
         }
+        noEsDeUnEstudiante(email, ci);
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
         usuario.setNombre(normalizarNombre(request.nombre()));
@@ -153,6 +154,21 @@ public class UsuarioService {
         );
     }
     /**
+     * El CI y el correo de un estudiante son suyos: si una cuenta del personal los usara, el estudiante ya no podría
+     * activar la suya («Ya existe una cuenta con tu correo o tu CI»). null = no se revisa ese dato.
+     */
+    private void noEsDeUnEstudiante(String email, String ci) {
+        if (email != null && estudianteRepository.existsByEmailIgnoreCase(email)) {
+            throw EmailDuplicadoException.conMensaje("El correo " + email
+                    + " es de un estudiante: no puede usarse para una cuenta del personal.");
+        }
+        if (ci != null && estudianteRepository.existsByCiIgnoreCase(ci)) {
+            throw CiDuplicadoException.conMensaje("El CI " + ci
+                    + " es de un estudiante: no puede usarse para una cuenta del personal.");
+        }
+    }
+
+    /**
      * Actualiza los datos de un usuario existente.
      */
     @Transactional
@@ -169,6 +185,8 @@ public class UsuarioService {
         if (usuarioRepository.existsByCiAndIdNot(ci, id)) {
             throw new CiDuplicadoException(ci);
         }
+        // Solo si cambian: las cuentas de prueba del laboratorio ya usan correos de estudiante y se deben poder editar.
+        noEsDeUnEstudiante(usuario.getEmail().equalsIgnoreCase(email) ? null : email, ci.equals(usuario.getCi()) ? null : ci);
         // 3. Validar el rol
         String rolNombre = request.rol().toUpperCase();
         Rol rol = buscarRolDePersonal(rolNombre);

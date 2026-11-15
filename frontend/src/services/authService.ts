@@ -98,6 +98,16 @@ export async function requestPasswordReset(email: string): Promise<string> {
   }
 }
 
+/** Si el enlace de restablecimiento sigue vigente; null si no se pudo consultar (no se bloquea el formulario). */
+export async function estadoEnlaceReset(token: string): Promise<boolean | null> {
+  try {
+    const { data } = await api.get<{ valido: boolean }>('/auth/reset-password/estado', { params: { token } })
+    return data.valido
+  } catch {
+    return null
+  }
+}
+
 export async function resetPassword(payload: {
   token: string
   passwordNueva: string

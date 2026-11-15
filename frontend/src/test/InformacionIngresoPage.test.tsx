@@ -109,6 +109,33 @@ describe('InformacionIngresoPage (ACCS-02 / ACCS-05)', () => {
     expect(await screen.findByText('No hay ingresos autorizados registrados para este examen.')).toBeInTheDocument()
     expect(intentos.listarIntentosIngreso).toHaveBeenCalledTimes(2)
   })
+  it('los autorizados van de 10 en 10 y desde una notificación se abre la página del estudiante', async () => {
+    vi.mocked(intentos.listarIntentosIngreso).mockResolvedValue([])
+    vi.mocked(controles.listarRegistrosControlExamen).mockResolvedValue(Array.from({ length: 25 }, (_, n) => ({
+      idRegistro: 100 + n, idEstudiante: 500 + n, idExamen: 7, estudiante: `Estudiante ${n + 1}`, codigoSis: String(202600100 + n),
+      resultado: 'AUTORIZADO', causa: null, observaciones: null, verificacionesAdicionales: [],
+      usuarioControl: 'Diego Control', fechaHora: '2026-10-08T13:30:00',
+    })))
+    const { unmount } = renderPage()
+    await screen.findByText('Estudiante 1')
+    expect(screen.queryByText('Estudiante 11')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Página anterior' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }))
+    expect(screen.getByText('Estudiante 11')).toBeInTheDocument()
+    unmount()
+
+    // Desde una notificación del estudiante 23: abre la tercera página con su fila.
+    render(
+      <MemoryRouter initialEntries={['/dashboard/control/7/informacion?pestana=autorizados&estudiante=522']}>
+        <Routes>
+          <Route path="/dashboard/control/:idExamen/informacion" element={<InformacionIngresoPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('Estudiante 23')).toBeInTheDocument()
+    expect(screen.queryByText('Estudiante 1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Página siguiente' })).not.toBeInTheDocument()
+  })
 })
 
 it.each([
@@ -129,4 +156,5 @@ it.each([
   fireEvent.click(screen.getByRole('button', { name: 'Ver detalles' }))
   const dialogo = await screen.findByRole('dialog', { name: 'Detalles de incidencia' })
   expect(within(dialogo).getAllByText(esperado).length).toBeGreaterThan(0)
+
 })

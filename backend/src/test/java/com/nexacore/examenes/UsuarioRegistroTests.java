@@ -73,6 +73,33 @@ class UsuarioRegistroTests {
                 .isInstanceOf(EmailDuplicadoException.class);
     }
 
+    @Autowired com.nexacore.examenes.repositories.EstudianteRepository estudianteRepository;
+
+    @Test
+    void elPersonalNoPuedeUsarElCiNiElCorreoDeUnEstudiante() {
+        var est = new com.nexacore.examenes.models.Estudiante();
+        est.setCodigoSis("209990001");
+        est.setNombre("Eva");
+        est.setApellidos("Prueba");
+        est.setCi("8887776");
+        est.setEmail("209990001@est.umss.edu");
+        estudianteRepository.saveAndFlush(est);
+        try {
+            // Si no, el estudiante ya no podría activar su cuenta («Ya existe una cuenta con tu correo o tu CI»).
+            assertThatThrownBy(() -> usuarioService.registrar(request("209990001@est.umss.edu", "1112223")))
+                    .isInstanceOf(EmailDuplicadoException.class).hasMessageContaining("es de un estudiante");
+            assertThatThrownBy(() -> usuarioService.registrar(request("eva.docente@umss.edu", "8887776")))
+                    .isInstanceOf(CiDuplicadoException.class).hasMessageContaining("es de un estudiante");
+            // Editar sin cambiar el correo ni el CI sigue funcionando.
+            var r = usuarioService.registrar(request("eva.docente@umss.edu", "1112223"));
+            usuarioService.actualizar(r.id(), new RegisterUserRequest("Eva", "Docente", "1112223", "eva.docente@umss.edu", "ADMIN", true, true, null));
+            assertThatThrownBy(() -> usuarioService.actualizar(r.id(), new RegisterUserRequest("Eva", "Docente", "8887776", "eva.docente@umss.edu", "ADMIN", true, true, null)))
+                    .isInstanceOf(CiDuplicadoException.class);
+        } finally {
+            estudianteRepository.delete(est);
+        }
+    }
+
     @Test
     void ciDuplicadoTieneSuPropioError() {
         usuarioService.registrar(request("ana@umss.edu.bo", "1234567"));

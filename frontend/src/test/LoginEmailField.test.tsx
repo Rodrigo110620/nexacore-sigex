@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import LoginEmailField from '../components/auth/LoginEmailField'
-import { buildLoginEmail } from '../utils/validators'
+import { buildLoginEmail, validateLoginEmail } from '../utils/validators'
 
 function LoginEmailFieldWrapper() {
   const [value, setValue] = useState('')
@@ -10,38 +10,53 @@ function LoginEmailFieldWrapper() {
 }
 
 describe('buildLoginEmail', () => {
-  it('completa el dominio institucional si no hay @', () => {
+  it('el código SIS solo (9 dígitos) se completa con el dominio de estudiantes', () => {
     expect(buildLoginEmail('201904725')).toBe('201904725@est.umss.edu')
+    expect(buildLoginEmail('  201904725  ')).toBe('201904725@est.umss.edu')
   })
 
   it('respeta el correo completo si el usuario escribe @', () => {
     expect(buildLoginEmail('admin.tis@umss.edu.bo')).toBe('admin.tis@umss.edu.bo')
   })
 
-  it('recorta espacios y no completa un valor vacío', () => {
-    expect(buildLoginEmail('  juan.perez  ')).toBe('juan.perez@est.umss.edu')
+  it('un usuario sin dominio no se completa: debe elegirlo', () => {
+    expect(buildLoginEmail('  juan.perez  ')).toBe('juan.perez')
     expect(buildLoginEmail('   ')).toBe('')
   })
 })
 
+describe('validateLoginEmail', () => {
+  it('pide elegir el dominio si no es un código SIS', () => {
+    expect(validateLoginEmail('juan.perez')).toBe('Elige tu dominio: @umss.edu (personal) o @est.umss.edu (estudiantes)')
+  })
+
+  it('acepta el código SIS solo y los correos completos', () => {
+    expect(validateLoginEmail('201904725')).toBe('')
+    expect(validateLoginEmail('juan.perez@umss.edu')).toBe('')
+    expect(validateLoginEmail('201904725@est.umss.edu')).toBe('')
+  })
+})
+
 describe('LoginEmailField', () => {
-  it('muestra el dominio mientras no se escriba @', () => {
+  it('ofrece los dos dominios mientras no se escriba @ y completa el elegido', () => {
     render(<LoginEmailFieldWrapper />)
 
     const input = screen.getByLabelText('CORREO ELECTRÓNICO')
-    fireEvent.change(input, { target: { value: '201904725' } })
-
-    expect(screen.getByText('@est.umss.edu')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'juan.perez' } })
     expect(input).toHaveAttribute('aria-describedby', 'login-email-domain')
+    expect(screen.getByRole('button', { name: 'Completar con @est.umss.edu (estudiante)' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Completar con @umss.edu (personal)' }))
+    expect(input).toHaveValue('juan.perez@umss.edu')
   })
 
-  it('oculta el dominio cuando se escribe un correo completo', () => {
+  it('oculta los dominios cuando se escribe un correo completo', () => {
     render(<LoginEmailFieldWrapper />)
 
     const input = screen.getByLabelText('CORREO ELECTRÓNICO')
     fireEvent.change(input, { target: { value: 'admin.tis@umss.edu.bo' } })
 
-    expect(screen.queryByText('@est.umss.edu')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Completar con/ })).not.toBeInTheDocument()
     expect(input).not.toHaveAttribute('aria-describedby')
   })
 })

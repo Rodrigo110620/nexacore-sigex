@@ -126,12 +126,13 @@ function Paginacion({ pagina, onCambiar }: { pagina: PaginaHistorial; onCambiar:
   const actual = pagina.pagina + 1
   const candidatos = Array.from(new Set([1, actual - 1, actual, actual + 1, pagina.totalPaginas])).filter((n) => n > 0 && n <= pagina.totalPaginas)
   return <div className="flex items-center gap-2">
-    <button type="button" aria-label="Página anterior" disabled={actual === 1} onClick={() => onCambiar(pagina.pagina - 1)} className="grid size-9 place-items-center rounded-lg border border-[#C9D8F2] bg-white text-[#0439D9] disabled:opacity-40"><ChevronLeft size={14} /></button>
+    {/* Sin página anterior (o siguiente) el botón queda invisible y conserva su lugar. */}
+    <button type="button" aria-label="Página anterior" disabled={actual === 1} aria-hidden={actual === 1 || undefined} tabIndex={actual === 1 ? -1 : undefined} onClick={() => onCambiar(pagina.pagina - 1)} className={`${actual === 1 ? 'invisible ' : ''}grid size-9 place-items-center rounded-lg border border-[#C9D8F2] bg-white text-[#0439D9] disabled:opacity-40`}><ChevronLeft size={14} /></button>
     {candidatos.map((n, i) => <span key={n} className="contents">
       {i > 0 && n - candidatos[i - 1] > 1 && <span className="text-[#627A9B]">…</span>}
       <button type="button" onClick={() => onCambiar(n - 1)} aria-current={n === actual ? 'page' : undefined} className={`size-9 rounded-lg border text-xs font-semibold ${n === actual ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#C9D8F2] bg-white text-[#45628D]'}`}>{n}</button>
     </span>)}
-    <button type="button" aria-label="Página siguiente" disabled={actual >= pagina.totalPaginas} onClick={() => onCambiar(pagina.pagina + 1)} className="grid size-9 place-items-center rounded-lg border border-[#C9D8F2] bg-white text-[#0439D9] disabled:opacity-40"><ChevronRight size={14} /></button>
+    <button type="button" aria-label="Página siguiente" disabled={actual >= pagina.totalPaginas} aria-hidden={actual >= pagina.totalPaginas || undefined} tabIndex={actual >= pagina.totalPaginas ? -1 : undefined} onClick={() => onCambiar(pagina.pagina + 1)} className={`${actual >= pagina.totalPaginas ? 'invisible ' : ''}grid size-9 place-items-center rounded-lg border border-[#C9D8F2] bg-white text-[#0439D9] disabled:opacity-40`}><ChevronRight size={14} /></button>
   </div>
 }
 
@@ -244,7 +245,7 @@ export default function HistorialOperaciones() {
 
       {!cargando && datos?.contenido.length === 0 && <p className="py-12 text-center text-sm text-[#627A9B]">No hay operaciones con estos filtros.</p>}
       {cargando && !datos && <p role="status" className="py-8 text-center text-sm text-[#627A9B]">Cargando historial…</p>}
-      {datos && datos.totalPaginas > 0 && <div className="mt-4 flex flex-col gap-3 border-t border-[#EDF1F7] pt-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-[#627A9B]">Mostrando {desde}–{hasta} de {datos.totalRegistros} operaciones</p><Paginacion pagina={datos} onCambiar={setPagina} /></div>}
+      {datos && datos.totalPaginas > 0 && <div className="mt-4 flex flex-col gap-3 border-t border-[#EDF1F7] pt-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-[#627A9B]">Mostrando {desde}–{hasta} de {datos.totalRegistros} operaciones</p>{datos.totalPaginas > 1 && <Paginacion pagina={datos} onCambiar={setPagina} />}</div>}
     </div>
 
     <aside aria-label="Detalle de la operación" className="hidden h-fit min-w-0 rounded-2xl border border-[#E4E9F2] bg-white p-4 shadow-sm min-[1100px]:sticky min-[1100px]:top-4 min-[1100px]:block">
