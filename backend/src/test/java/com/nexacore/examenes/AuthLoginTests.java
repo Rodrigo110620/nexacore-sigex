@@ -236,6 +236,12 @@ class AuthLoginTests {
         entityManager.persist(resetToken);
         entityManager.flush();
 
+        // «Enlace no válido»: antes de usarlo, el enlace vale; uno que no existe, no.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/reset-password/estado").param("token", rawToken))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.valido").value(true));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/reset-password/estado").param("token", "no-existe"))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.valido").value(false));
+
         String body = "{\"token\":\"" + rawToken
                 + "\",\"passwordNueva\":\"NuevaClave1!\",\"passwordConfirmacion\":\"NuevaClave1!\"}";
         mockMvc.perform(post("/auth/reset-password")
@@ -250,7 +256,25 @@ class AuthLoginTests {
         mockMvc.perform(post("/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest());        // Ya usado: deja de valer.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/reset-password/estado").param("token", rawToken))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.valido").value(false));
+    }
+
+    @Test
+    @DisplayName("Un enlace vencido no vale (pantalla «Enlace no válido»)")
+    void enlaceVencidoNoVale() throws Exception {
+        String rawToken = "token-de-prueba-vencido";
+        byte[] hash = MessageDigest.getInstance("SHA-256").digest(rawToken.getBytes(StandardCharsets.UTF_8));
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUsuario(entityManager.find(Usuario.class, usuario.getId()));
+        resetToken.setTokenHash(HexFormat.of().formatHex(hash));
+        resetToken.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        entityManager.persist(resetToken);
+        entityManager.flush();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/reset-password/estado").param("token", rawToken))
+                .andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.valido").value(false));
     }
 
     private void loginFallido() throws Exception {

@@ -214,6 +214,20 @@ public class AuthService {
         EnvioDiferido.alConfirmar(() -> emailService.enviarResetPassword(destino, nombreCompleto, rawToken, resetExpirationMinutes));
     }
 
+    /**
+     * Si el enlace de restablecimiento todavía sirve (existe, no se usó, no venció y la cuenta está activa), para
+     * mostrar «Enlace no válido» apenas se abre, antes de escribir la contraseña. No dice de quién es la cuenta.
+     */
+    @Transactional(readOnly = true)
+    public boolean enlaceResetVigente(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return false;
+        return passwordResetTokenRepository.findByTokenHashAndUsedAtIsNull(hashToken(rawToken.trim()))
+                .filter(t -> !t.getExpiresAt().isBefore(LocalDateTime.now()))
+                .map(PasswordResetToken::getUsuario)
+                .filter(u -> u != null && ESTADO_ACTIVO.equalsIgnoreCase(u.getEstado()))
+                .isPresent();
+    }
+
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         PasswordPolicy.validate(request.passwordNueva());
