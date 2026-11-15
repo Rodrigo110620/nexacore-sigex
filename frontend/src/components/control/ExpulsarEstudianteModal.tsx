@@ -91,7 +91,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
           </fieldset>
           <p className="mt-3 flex items-start gap-2 rounded-lg bg-[#FEF3C7] p-3 text-xs leading-snug text-[#92400E]">
             <TriangleAlert size={16} className="shrink-0" aria-hidden="true" />
-            La expulsión queda registrada con la fecha y hora del servidor y el usuario responsable, y no se puede editar.
+            La expulsión queda registrada con la hora del servidor y tu nombre. Se puede anular después, también con un motivo.
           </p>
           {error && <p role="alert" className="mt-3 text-xs text-[#B91C1C]">{error}</p>}
           {sinConfirmar && !registro && <p role="status" className="mt-3 text-xs">Respuesta recibida sin registro verificable. Consulta el registro antes de volver a enviar.</p>}
