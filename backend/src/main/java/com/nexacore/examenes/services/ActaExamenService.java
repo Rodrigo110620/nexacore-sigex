@@ -425,9 +425,14 @@ public class ActaExamenService {
         if (expulsados > 0) etiquetas.add("Expulsados: " + expulsados);
         if (pendientes > 0) etiquetas.add("Pendientes: " + pendientes);
         float[] anchos = new float[etiquetas.size() + 1];
-        for (int i = 0; i < etiquetas.size(); i++) anchos[i] = 1;
+        // Cada etiqueta del ancho de su texto («No habilitados: 0» no se parte en dos líneas); el resto, vacío.
         // Hasta 6 etiquetas (con expulsados y pendientes): el espacio que sobra nunca queda en cero ni negativo.
-        anchos[etiquetas.size()] = Math.max(0.5f, 7 - etiquetas.size());
+        float usado = 0;
+        for (int i = 0; i < etiquetas.size(); i++) {
+            anchos[i] = Math.max(1f, etiquetas.get(i).length() / 13f);
+            usado += anchos[i];
+        }
+        anchos[etiquetas.size()] = Math.max(0.3f, 7.5f - usado);
         var tabla = new PdfPTable(anchos);
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);

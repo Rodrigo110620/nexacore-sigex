@@ -4,7 +4,7 @@ import { obtenerArchivo } from '../../services/descargas'
 import { mensajeDescarga } from '../../services/asistenciaService'
 
 /**
- * Vista previa del acta en PDF (DASH-04) y de la asistencia en Excel (DASH-05) de un examen, antes de descargarlas.
+ * Vista previa del acta en PDF (DASH-04) y de la asistencia en Excel o CSV (DASH-05) de un examen, antes de descargarlas.
  * {@code formato} null: cerrada.
  */
 export default function VistaPreviaExamen({ idExamen, formato, onClose }: {
@@ -22,4 +22,5 @@ export default function VistaPreviaExamen({ idExamen, formato, onClose }: {
   )
 }
 
-const FORMATOS: FormatoDescarga[] = ['pdf', 'xlsx']
+// DASH-05: la asistencia también en CSV (UTF-8 con BOM), además del acta en PDF y el Excel.
+const FORMATOS: FormatoDescarga[] = ['pdf', 'xlsx', 'csv']
