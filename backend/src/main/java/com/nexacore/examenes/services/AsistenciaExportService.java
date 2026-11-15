@@ -102,7 +102,7 @@ public class AsistenciaExportService {
 
                 if (expulsion != null) {
                     estado = "Expulsado";
-                    horaSalida = expulsion.getFechaHora().format(HORA_FORMATO);
+                    horaSalida = expulsion.getFechaHora().format(HORA_FORMATO) + ActaExamenService.EXPULSADO;
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     estado = esAsistio ? "Asistió" : "Ausente";
@@ -177,7 +177,7 @@ public class AsistenciaExportService {
                 if (expulsion != null) {
                     celdaEstado.setCellValue("Expulsado");
                     celdaEstado.setCellStyle(estiloExpulsado);
-                    celdaSalida.setCellValue(expulsion.getFechaHora().format(HORA_FORMATO));
+                    celdaSalida.setCellValue(expulsion.getFechaHora().format(HORA_FORMATO) + ActaExamenService.EXPULSADO);
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     celdaEstado.setCellValue(esAsistio ? "Asistió" : "Ausente");

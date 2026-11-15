@@ -70,6 +70,8 @@ public class ActaExamenService {
     private static final Color ESTADO_AUSENTE = new Color(0x92, 0x40, 0x0E);
 
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
+    /** Marca de la hora de salida de un expulsado (como «(al cierre)» para quien salió al terminar). */
+    static final String EXPULSADO = " (expulsado)";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter HORA_CORTA = DateTimeFormatter.ofPattern("HH:mm");
     private static final String SIN_HORA = "—";
@@ -243,16 +245,18 @@ public class ActaExamenService {
             }
 
             if (expulsado) {
-                // Expulsión vigente (no anulada): cuenta como expulsado. La hora de salida es
-                // la hora en que se registró la expulsión (hora del servidor).
-                LocalDateTime horaSalida = expulsionRepository
+                // Expulsión vigente (no anulada): cuenta como expulsado. La salida es la hora de la expulsión,
+                // marcada «(expulsado)» como la del cierre lleva «(al cierre)»; bajo el nombre, la hora y el motivo.
+                Expulsion expulsion = expulsionRepository
                         .findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                                 e.getId(), idExamen, desdeSiempre)
-                        .map(Expulsion::getFechaHora)
                         .orElse(null);
+                String salidaExpulsion = expulsion == null ? SIN_HORA : expulsion.getFechaHora().format(HORA) + EXPULSADO;
+                String notaExpulsion = expulsion == null ? null : "Expulsado a las " + expulsion.getFechaHora().format(HORA_CORTA)
+                        + (expulsion.getMotivo() == null || expulsion.getMotivo().isBlank() ? "" : " · Motivo: " + expulsion.getMotivo().strip());
+                String nota = notaExpulsion == null ? observacion : observacion == null ? notaExpulsion : observacion + "\n" + notaExpulsion;
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), "Expulsado",
-                        a.getFechaHoraIngreso() == null ? SIN_HORA : a.getFechaHoraIngreso().format(HORA), observacion,
-                        horaSalida != null ? horaSalida.format(HORA) : SIN_HORA)
+                        a.getFechaHoraIngreso() == null ? SIN_HORA : a.getFechaHoraIngreso().format(HORA), nota, salidaExpulsion)
                         .conRegistro(registro.get(e.getId())));
                 expulsados++;
                 continue;
