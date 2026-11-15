@@ -151,6 +151,20 @@ describe('IdentificacionPage', () => {
     expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
   })
 
+  it('muestra Cerrar antes de Registrar Excepción y permite abrir el formulario', async () => {
+    mockedIdentificar.mockResolvedValue(estudiante('DESHABILITADO'))
+    renderPage()
+    await buscarEstudiante()
+    const modal = within(await abrirVerificacion())
+    const [cerrar, registrar] = modal.getAllByRole('button').slice(-2)
+
+    expect(cerrar).toHaveAccessibleName('Cerrar')
+    expect(registrar).toHaveAccessibleName('Registrar Excepción')
+    expect(cerrar).toHaveFocus()
+    fireEvent.click(registrar)
+    expect(screen.getByRole('button', { name: 'Guardar Registro' })).toBeDisabled()
+  })
+
   it('ESTUDIANTE no puede continuar al control de ingreso', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage(['ESTUDIANTE'])

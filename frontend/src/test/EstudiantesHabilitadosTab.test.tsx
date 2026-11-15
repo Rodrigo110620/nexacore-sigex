@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EstudiantesHabilitadosTab from '../components/examenes/EstudiantesHabilitadosTab'
+import { descargarFotoEstudiante } from '../services/estudianteService'
 import * as habilitacionService from '../services/habilitacionService'
 import type { EstudianteHabilitacionDto } from '../services/habilitacionService'
 
 vi.mock('../services/habilitacionService')
+vi.mock('../services/estudianteService', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../services/estudianteService')>(),
+  descargarFotoEstudiante: vi.fn(),
+}))
 
 const estudiante = (
   idEstudiante: number,
@@ -25,9 +30,9 @@ const estudiante = (
 const ana = estudiante(1, 'Ana', 'PENDIENTE')
 const luis = estudiante(2, 'Luis', 'HABILITADO', 'Matrícula regular confirmada')
 
-async function renderTab(lista = [ana, luis]) {
+async function renderTab(lista = [ana, luis], isAdmin = true) {
   vi.mocked(habilitacionService.listarEstudiantesExamen).mockResolvedValue(lista)
-  render(<EstudiantesHabilitadosTab idExamen={2} idParalelo={2} isAdmin examenResumen="Cálculo I · 12/10/2026 · 691A" />)
+  render(<EstudiantesHabilitadosTab idExamen={2} idParalelo={2} isAdmin={isAdmin} examenResumen="Cálculo I · 12/10/2026 · 691A" />)
   await waitFor(() => expect(screen.queryByText('Cargando estudiantes...')).not.toBeInTheDocument())
 }
 
@@ -37,6 +42,7 @@ const primero = (elementos: HTMLElement[]) => elementos[0]
 describe('EstudiantesHabilitadosTab', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(descargarFotoEstudiante).mockRejectedValue(new Error('Foto no disponible en esta prueba'))
   })
 
   it('avisa quién no tiene foto, porque el control no podrá autorizar su ingreso', async () => {
@@ -44,6 +50,31 @@ describe('EstudiantesHabilitadosTab', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('1 estudiante no tiene foto.')
     expect(screen.getAllByText('Sin foto: no podrá ingresar hasta registrarla').length).toBeGreaterThan(0)
+  })
+
+  it('muestra la foto autorizada y mantiene iniciales ante un 403 o cuando no hay foto', async () => {
+    const cesar = { ...estudiante(3, 'César', 'HABILITADO'), tieneFoto: false }
+    vi.mocked(descargarFotoEstudiante).mockImplementation(async (url) => {
+      if (url === '/estudiantes/2/foto') throw Object.assign(new Error('Acceso denegado'), { response: { status: 403 } })
+      return new Blob(['imagen'], { type: 'image/png' })
+    })
+    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => 'blob:foto-ana'),
+      revokeObjectURL: vi.fn(),
+    }))
+
+    try {
+      await renderTab([{ ...ana, tieneFoto: true }, { ...luis, tieneFoto: true }, cesar], false)
+
+      expect(await screen.findAllByRole('img', { name: 'Fotografía de Ana Prueba' })).toHaveLength(2)
+      expect(descargarFotoEstudiante).toHaveBeenCalledWith('/estudiantes/2/foto', expect.any(AbortSignal))
+      expect(screen.getAllByText('LP')).toHaveLength(2)
+      expect(screen.getAllByText('CP')).toHaveLength(2)
+      expect(screen.queryByRole('img', { name: 'Fotografía de Luis Prueba' })).not.toBeInTheDocument()
+      expect(descargarFotoEstudiante).not.toHaveBeenCalledWith('/estudiantes/3/foto', expect.any(AbortSignal))
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('con el examen finalizado la lista es de solo lectura: no se asocia, cambia ni quita', async () => {
