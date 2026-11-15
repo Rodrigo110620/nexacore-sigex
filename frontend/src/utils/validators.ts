@@ -148,6 +148,8 @@ export const validateDocumento = (value: string): string => {
   return ''
 }
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
+/** Dominio del personal (ADMIN, DOCENTE, CONTROL): el que se sugiere al registrar un usuario. */
+export const DOMINIO_PERSONAL = 'umss.edu'
 
 /** Personal: @umss.edu.bo. Estudiantes: @est.umss.edu / @est.umss.edu.bo. */
 const INSTITUTIONAL_EMAIL_REGEX =
@@ -163,6 +165,8 @@ const validateInstitutionalEmailBase = (value: string): string => {
 
 /* Valida las reglas generales de correo institucional usadas por personal. */
 export const validateEmail = (value: string): string => {
+  // Sin '@' no se supone un dominio: se pide completarlo (el de personal es @umss.edu).
+  if (value.trim() && !value.includes('@')) return `Completa el dominio del correo (por ejemplo, @${DOMINIO_PERSONAL})`
   const baseError = validateInstitutionalEmailBase(value)
   if (baseError) return baseError
 
@@ -196,7 +200,7 @@ export const validateStudentEmail = (value: string, codigoSis?: string): string 
 
 /** Dominios que el login ofrece para completar: el del personal y el de los estudiantes. */
 export const DOMINIOS_LOGIN = [
-  { dominio: 'umss.edu', quien: 'Personal' },
+  { dominio: DOMINIO_PERSONAL, quien: 'Personal' },
   { dominio: ALLOWED_EMAIL_DOMAIN, quien: 'Estudiante' },
 ] as const
 
