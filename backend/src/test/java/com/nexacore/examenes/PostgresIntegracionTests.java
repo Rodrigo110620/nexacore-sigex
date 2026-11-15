@@ -977,6 +977,7 @@ class PostgresIntegracionTests {
         jdbc.update(asociar, estudiante("209910001", "Ana"), ayer, paralelo, true, null, java.sql.Timestamp.valueOf(java.time.LocalDate.now().minusDays(1).atTime(10, 5, 9)));
         jdbc.update(asociar, estudiante("209910002", "Beto"), ayer, paralelo, true, null, null);
         jdbc.update(asociar, estudiante("209910003", "Ciro"), ayer, paralelo, false, "Deuda en biblioteca", null);
+        jdbc.update(asociar, estudiante("209910004", "Dora"), ayer, paralelo, null, null, null);
         // Más de 500 habilitados (criterio 2): la exportación termina sin problema.
         for (int i = 0; i < 600; i++) {
             jdbc.update(asociar, estudiante(String.format("2099%05d", 20000 + i), "Masivo"), ayer, paralelo, true, null, null);
@@ -985,11 +986,13 @@ class PostgresIntegracionTests {
 
         String csv = new String(asistenciaExportService.generarCsv(ayer), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csv).startsWith("\uFEFFCódigo SIS;Nombre;Apellidos;Estado;Hora");
-        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-").doesNotContain("Ciro");
-        assertThat(csv.lines().count()).isEqualTo(1 + 2 + 600);
+        // Como el acta: el no habilitado y el pendiente se listan con su estado y sin horas.
+        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-")
+                .contains("209910003;Ciro;Prueba;No habilitado;-;-").contains("209910004;Dora;Prueba;Pendiente;-;-");
+        assertThat(csv.lines().count()).isEqualTo(1 + 4 + 600);
         byte[] xlsx = asistenciaExportService.generarExcel(ayer);
         try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
-            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(602);
+            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(604);
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");

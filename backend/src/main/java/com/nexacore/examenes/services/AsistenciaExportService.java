@@ -87,8 +87,13 @@ public class AsistenciaExportService {
             writer.write('\uFEFF'); 
             var printer = new CSVPrinter(writer, formato);
             for (AsistenciaExamen a : asistencias) {
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
-                
+                // Como el acta: el no habilitado (o pendiente) se lista con su estado, sin horas.
+                if (!Boolean.TRUE.equals(a.getHabilitado())) {
+                    printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(),
+                            estadoSinHabilitar(a), "-", "-");
+                    continue;
+                }
+
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
                 
@@ -132,6 +137,7 @@ public class AsistenciaExportService {
             CellStyle estiloAsistio = crearEstiloColor(workbook, IndexedColors.GREEN);
             CellStyle estiloAusente = crearEstiloColor(workbook, IndexedColors.ORANGE);
             CellStyle estiloExpulsado = crearEstiloColor(workbook, IndexedColors.RED);
+            CellStyle estiloSinHabilitar = crearEstiloColor(workbook, IndexedColors.GREY_50_PERCENT);
 
             Row header = sheet.createRow(0);
             String[] columnas = {"Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida"};
@@ -143,7 +149,19 @@ public class AsistenciaExportService {
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
+                // Como el acta: el no habilitado (o pendiente) se lista con su estado, sin horas.
+                if (!Boolean.TRUE.equals(a.getHabilitado())) {
+                    Row fila = sheet.createRow(rowNum++);
+                    fila.createCell(0).setCellValue(a.getEstudiante().getCodigoSis());
+                    fila.createCell(1).setCellValue(a.getEstudiante().getNombre());
+                    fila.createCell(2).setCellValue(a.getEstudiante().getApellidos());
+                    Cell estado = fila.createCell(3);
+                    estado.setCellValue(estadoSinHabilitar(a));
+                    estado.setCellStyle(estiloSinHabilitar);
+                    fila.createCell(4).setCellValue("-");
+                    fila.createCell(5).setCellValue("-");
+                    continue;
+                }
 
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
@@ -208,6 +226,11 @@ public class AsistenciaExportService {
         font.setBold(true);
         style.setFont(font);
         return style;
+    }
+
+    /** habilitado = false: «No habilitado» (tiene motivo); null: «Pendiente» (nadie decidió su habilitación). */
+    private static String estadoSinHabilitar(AsistenciaExamen a) {
+        return a.getHabilitado() == null ? "Pendiente" : "No habilitado";
     }
 
     private String salida(AsistenciaExamen a, java.time.LocalDateTime fin, java.util.Set<Integer> expulsados) {

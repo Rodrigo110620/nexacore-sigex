@@ -241,6 +241,35 @@ class ActaExamenServiceTests {
     }
 
     @Test
+    void pendienteNoEsNoHabilitadoYElResumenAguantaSeisEtiquetas() throws Exception {
+        mockExamenValido(examenFinalizado());
+
+        var pendiente = estudiante(7, "20240007", "Pia", "Pendiente");
+        var expulsado = estudiante(8, "20240008", "Raul", "Expulsado");
+        var noHabilitado = estudiante(9, "20240009", "Sara", "SinDerecho");
+        when(asistenciaRepository.buscarPorIdExamen(20)).thenReturn(List.of(
+                asistencia(pendiente, null, null),
+                asistencia(expulsado, true, LocalDateTime.of(LocalDate.now().minusDays(1), java.time.LocalTime.of(9, 5))),
+                asistencia(noHabilitado, false, null)
+        ));
+        when(expulsionRepository.existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(
+                anyInt(), anyInt(), any())).thenAnswer(inv -> Integer.valueOf(8).equals(inv.getArgument(0)));
+        when(trasladoRepository.findByIdExamenAndIdEstudianteAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(
+                anyInt(), anyInt(), any())).thenReturn(List.of());
+
+        byte[] pdf = service.generarActa(20);
+        String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
+
+        // habilitado = null es «Pendiente» (nadie decidió), distinto de «No habilitado» (false, con motivo).
+        assertTrue(texto.matches(".*Pendiente, Pia\\s*Pendiente.*"), texto);
+        assertTrue(texto.matches(".*SinDerecho, Sara\\s*No habilitado.*"), texto);
+        assertTrue(texto.contains("Pendientes: 1"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
+        assertTrue(texto.contains("Expulsados: 1"), texto);
+        assertTrue(texto.contains("Habilitados: 1"), texto);
+    }
+
+    @Test
     void expulsadosSeMarcanComoExpulsados() throws Exception {
         mockExamenValido(examenFinalizado());
 
