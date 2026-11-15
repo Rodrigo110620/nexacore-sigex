@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, ChevronDown, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X, CameraOff } from 'lucide-react'
+import { Check, CheckCheck, CircleAlert, DoorOpen, Hourglass, LoaderCircle, MinusCircle, Plus, Search, TriangleAlert, X, CameraOff } from 'lucide-react'
+import FiltroSelect from '../ui/FiltroSelect'
 import TablePagination from '../users/TablePagination'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { initialsOfName } from '../../utils/examenFormat'
@@ -12,6 +13,7 @@ import {
   validateRazonInhabilitacion,
 } from '../../utils/habilitacionValidators'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import AsociarEstudiantesModal from './AsociarEstudiantesModal'
 import { ConfirmDiscardDialog } from './ExamFormDialogs'
 import {
@@ -35,6 +37,22 @@ const AVATARS = [
   'border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C]',
   'border-[#BFDBFE] bg-[#EAF2FF] text-[#2563EB]',
 ] as const
+
+function AvatarHabilitacion({ estudiante, index, dimension }: {
+  estudiante: EstudianteHabilitacionDto
+  index: number
+  dimension: string
+}) {
+  const nombre = `${estudiante.nombre} ${estudiante.apellidos}`
+  return (
+    <FotoEstudiante
+      fotoUrl={estudiante.tieneFoto ? `/estudiantes/${estudiante.idEstudiante}/foto` : null}
+      nombre={nombre}
+      iniciales={initialsOfName(nombre)}
+      className={`flex ${dimension} shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}
+    />
+  )
+}
 
 function estadoVisual(estado: EstadoHabilitacion, estadoMatricula?: string) {
   if (estadoMatricula === 'NO_MATRICULADO') {
@@ -342,35 +360,17 @@ export default function EstudiantesHabilitadosTab({
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm font-medium text-[#627A9B] lg:inline">Filtros:</span>
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:w-[20rem] lg:flex-none">
-              <div className="relative">
-                <select
-                  value={facultad}
-                  onChange={(e) => { setFacultad(e.target.value); setPage(0) }}
-                  aria-label="Filtrar por facultad"
-                  className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140]"
-                >
-                  <option value="">Facultad</option>
-                  {facultades.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-              </div>
-              <div className="relative">
-                <select
-                  value={estado}
-                  onChange={(e) => { setEstado(e.target.value); setPage(0) }}
-                  aria-label="Filtrar por estado"
-                  className="h-11 w-full appearance-none rounded-md border border-[#B8CBEF] bg-white pl-3 pr-8 text-sm text-[#011140]"
-                >
-                  <option value="">Estado</option>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="HABILITADO">Habilitado</option>
-                  <option value="NO_HABILITADO">No habilitado</option>
-                </select>
-                <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
-              </div>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 lg:w-[24rem] lg:flex-none">
+              <FiltroSelect etiqueta="Facultad" value={facultad} onChange={(v) => { setFacultad(v); setPage(0) }}>
+                <option value="">Todas las facultades</option>
+                {facultades.map((f) => <option key={f} value={f}>{f}</option>)}
+              </FiltroSelect>
+              <FiltroSelect etiqueta="Estado" value={estado} onChange={(v) => { setEstado(v); setPage(0) }}>
+                <option value="">Todos los estados</option>
+                <option value="PENDIENTE">Pendiente</option>
+                <option value="HABILITADO">Habilitado</option>
+                <option value="NO_HABILITADO">No habilitado</option>
+              </FiltroSelect>
             </div>
             {puedeEditar && (
               <button
@@ -429,9 +429,7 @@ export default function EstudiantesHabilitadosTab({
                       aria-label={`Seleccionar a ${e.nombre} ${e.apellidos}`}
                       className="mt-1 h-4 w-4 shrink-0 disabled:opacity-30"
                     />
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
-                      {initialsOfName(`${e.nombre} ${e.apellidos}`)}
-                    </span>
+                    <AvatarHabilitacion estudiante={e} index={index} dimension="h-10 w-10" />
                     <div className="min-w-0 flex-1">
             
                       <p className={`truncate text-sm font-bold ${esInactivo ? 'text-gray-400' : 'text-[#011140]'}`}>{e.nombre} {e.apellidos}</p>
@@ -545,9 +543,7 @@ export default function EstudiantesHabilitadosTab({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${AVATARS[index % AVATARS.length]}`}>
-                            {initialsOfName(`${e.nombre} ${e.apellidos}`)}
-                          </span>
+                          <AvatarHabilitacion estudiante={e} index={index} dimension="h-9 w-9" />
                           <span>
                             <span className="block font-semibold text-[#011140]">{e.nombre} {e.apellidos}</span>
                             <span className="text-xs text-gray-500">Cód: {e.codigoSis}</span>

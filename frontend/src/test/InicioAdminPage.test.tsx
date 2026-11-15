@@ -13,6 +13,8 @@ const examen = (idExamen: number, asignatura: string, horaInicio: string, fecha 
     ambienteNombre: 'Aula 690A', estado, normasGenerales: [], normasParticulares: [] }) as ExamenDto
 
 vi.mock('../services/inicioService')
+// La actividad reciente sale del historial (BUG-A04); por defecto no responde y se ven los avisos, como antes.
+vi.mock('../services/historialOperacionService', () => ({ listarHistorial: vi.fn().mockRejectedValue(new Error('sin historial')) }))
 vi.mock('../services/examenService')
 vi.mock('../services/notificacionService', async (original) => ({
   ...(await original<typeof import('../services/notificacionService')>()),
@@ -132,6 +134,22 @@ describe('InicioAdminPage', () => {
     const proximo = screen.getByRole('region', { name: 'Próximo examen' })
     expect(within(proximo).getByText('Cálculo II')).toBeInTheDocument()
     expect(within(proximo).getByText('Doc. Juan Pérez · 20 habilitados')).toBeInTheDocument()
+  })
+
+  it('la actividad reciente muestra lo último del historial de operaciones (BUG-A04)', async () => {
+    const { listarHistorial } = await import('../services/historialOperacionService')
+    vi.mocked(listarHistorial).mockResolvedValueOnce({
+      contenido: [{
+        id: 1, fechaHora: '2026-11-10T15:27:08', idUsuario: 18, usuario: 'Ana Pérez', rolUsuario: 'ESTUDIANTE', email: 'a@est.umss.edu',
+        modulo: 'Estudiantes', operacion: 'Activar', accion: 'CUENTA_ESTUDIANTE_ACTIVADA', detalle: 'Activó su cuenta de estudiante',
+        objetivo: 'Ana Pérez', motivo: null, diferencias: [], examen: [], cambios: {},
+      }],
+      pagina: 0, tamano: 5, totalRegistros: 1, totalPaginas: 1,
+    })
+    montar()
+    const actividad = await screen.findByRole('region', { name: 'Actividad reciente' })
+    expect(await within(actividad).findByText('Activar · Ana Pérez')).toBeInTheDocument()
+    expect(within(actividad).getByRole('link', { name: /Ver historial/ })).toHaveAttribute('href', '/dashboard/configuracion#historial')
   })
 
   it('muestra las gráficas, lo pendiente y la actividad reciente', async () => {

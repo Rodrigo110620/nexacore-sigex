@@ -29,8 +29,6 @@ import java.util.Map;
 public class InicioAdminService {
 
     static final int DIAS = 7;
-    static final int MAX_MOTIVOS = 5;
-    static final String OTROS = "Otros motivos";
     static final String AULA_INCORRECTA = "Aula incorrecta";
     /** La excepción de un no habilitado (INCI-04) también deja un intento: ese no se cuenta dos veces. */
     private static final String MARCA_EXCEPCION = "Intento ingresar no habilitado ###%";
@@ -194,20 +192,28 @@ public class InicioAdminService {
         });
     }
 
-    /** "Ambiente incorrecto: ..." lleva el aula en el texto: se juntan todos en un solo motivo. */
+    /**
+     * BUG-A05: intentos incorrectos de los últimos 7 días por categoría, como en el mockup y con la misma clasificación
+     * que el reporte (MotivoIntento): no inscrito en la materia, aula incorrecta, no habilitado (las excepciones) y QR
+     * vencido o duplicado (los reportes de QR duplicado). Solo las que tienen alguno, de la más frecuente a la menos.
+     * «Fuera del horario» no se registra en el sistema (el ingreso se rechaza sin guardar nada), por eso no aparece.
+     */
     private List<InicioAdminResponse.Motivo> motivos(MapSqlParameterSource p) {
-        String motivo = "CASE WHEN observacion LIKE 'Ambiente incorrecto%' THEN '" + AULA_INCORRECTA
-                + "' ELSE COALESCE(observacion, 'Sin motivo') END";
-        String sql = "SELECT " + motivo + " AS motivo, COUNT(*) AS cantidad FROM intento_ingreso"
-                + " WHERE fecha_hora >= :desdeHora AND (observacion IS NULL OR observacion NOT LIKE :marca)"
-                + " GROUP BY " + motivo + " ORDER BY cantidad DESC, motivo";
-        List<InicioAdminResponse.Motivo> todos = jdbc.query(sql, p,
-                (rs, i) -> new InicioAdminResponse.Motivo(rs.getString(1), rs.getInt(2)));
-        if (todos.size() <= MAX_MOTIVOS) return todos;
-        List<InicioAdminResponse.Motivo> top = new ArrayList<>(todos.subList(0, MAX_MOTIVOS - 1));
-        top.add(new InicioAdminResponse.Motivo(OTROS,
-                todos.subList(MAX_MOTIVOS - 1, todos.size()).stream().mapToInt(InicioAdminResponse.Motivo::cantidad).sum()));
-        return top;
+        int[] c = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(CASE WHEN observacion IS NULL OR (observacion NOT LIKE 'Ambiente incorrecto%' AND observacion NOT LIKE :marca) THEN 1 ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN observacion LIKE 'Ambiente incorrecto%' THEN 1 ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN observacion LIKE :marca THEN 1 ELSE 0 END), 0)
+                FROM intento_ingreso WHERE fecha_hora >= :desdeHora
+                """, p, (rs, i2) -> new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+        Integer qr = jdbc.queryForObject("SELECT COUNT(*) FROM reporte_qr_duplicado WHERE fecha_hora_servidor >= :desdeHora", p, Integer.class);
+        List<InicioAdminResponse.Motivo> lista = new ArrayList<>(List.of(
+                new InicioAdminResponse.Motivo("No inscrito en la materia", c[0], MotivoIntento.NO_INSCRITO),
+                new InicioAdminResponse.Motivo(AULA_INCORRECTA, c[1], MotivoIntento.AULA_INCORRECTA),
+                new InicioAdminResponse.Motivo("No habilitado", c[2], MotivoIntento.NO_HABILITADO),
+                new InicioAdminResponse.Motivo("QR vencido o duplicado", qr == null ? 0 : qr, "QR_DUPLICADO")));
+        lista.removeIf(m -> m.cantidad() == 0);
+        lista.sort(java.util.Comparator.comparingInt(InicioAdminResponse.Motivo::cantidad).reversed());
+        return lista;
     }
 
     /** Fotos por revisar: las que mira Revisión de fotos (cambios pendientes y fotos reportadas). */

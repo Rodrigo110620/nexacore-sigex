@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ReportesPage from '../pages/panel_admin/ReportesPage'
@@ -27,8 +27,8 @@ vi.mock('../services/descargas', async (original) => ({
   guardarArchivo: vi.fn(),
 }))
 vi.mock('../services/controlIngresoService', () => ({ listarRegistrosControlExamen: vi.fn().mockResolvedValue([]) }))
-vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Expulsiones del examen {idExamen}</p> }))
-vi.mock('../components/control/ExcepcionesNoHabilitadoReporte', () => ({ default: ({ idExamen }: { idExamen: number }) => <p>Excepciones del examen {idExamen}</p> }))
+vi.mock('../components/control/ExpulsionesReporte', () => ({ default: ({ idExamen, buscar }: { idExamen: number | null; buscar?: string }) => <p>Expulsiones del examen {idExamen ?? 'todos'}{buscar ? ` · ${buscar}` : ''}</p> }))
+vi.mock('../components/control/ExcepcionesNoHabilitadoReporte', () => ({ default: ({ idExamen }: { idExamen: number | null }) => <p>Excepciones del examen {idExamen ?? 'todos'}</p> }))
 
 const intento = (extra: Partial<IntentoReporte>): IntentoReporte => ({
   idIntento: 1, idExamen: 20, examen: 'Física I', fechaExamen: '2026-10-31', horaExamen: '08:30:00', idEstudiante: 10,
@@ -49,21 +49,28 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [
       intento({}),
       intento({ idIntento: 2, idExamen: 21, examen: 'Cálculo I', estudiante: null, identificador: '9999999', codigoSis: null,
-        motivo: 'Ambiente incorrecto: se presentó en el aula 691B', tipo: 'AULA_INCORRECTA', fechaHora: '2026-10-30T10:02:33' }),
-    ], pagina: 0, tamano: 20, totalRegistros: 2, totalPaginas: 1 })
+        motivo: 'Ambiente incorrecto: se presentó en el aula 691B; aula asignada: 692F', tipo: 'AULA_INCORRECTA', fechaHora: '2026-10-30T10:02:33',
+        etiqueta: 'Aula incorrecta (691B, debía 692F)', detalle: null }),
+      intento({ idIntento: 3, motivo: 'Intento ingresar no habilitado ### Motivo: Deuda en biblioteca | Acción tomada: Se retiró', tipo: 'NO_HABILITADO',
+        etiqueta: 'No habilitado: Deuda en biblioteca', detalle: 'Acción tomada: Se retiró' }),
+    ], pagina: 0, tamano: 20, totalRegistros: 3, totalPaginas: 1 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
 
     const reporte = await screen.findByRole('region', { name: 'Intentos de ingreso incorrectos' })
     const tabla = within(reporte).getByRole('table')
-    expect(await within(tabla).findByText('Zoe Quispe Luna')).toBeInTheDocument()
-    expect(within(tabla).getByText('Física I · 31/10/2026 08:30')).toBeInTheDocument()
-    expect(within(tabla).getByText('31/10/2026 08:47:10')).toBeInTheDocument()
-    expect(within(tabla).getAllByText('Luis Paz')).toHaveLength(2)
+    expect(await within(tabla).findAllByText('Zoe Quispe Luna')).toHaveLength(2)
+    expect(within(tabla).getAllByText('Física I · 31/10/2026 08:30').length).toBeGreaterThan(0)
+    expect(within(tabla).getAllByText('31/10/2026 08:47:10').length).toBeGreaterThan(0)
+    expect(within(tabla).getAllByText('Luis Paz')).toHaveLength(3)
     expect(within(tabla).getByText('No identificado (9999999)')).toBeInTheDocument()
-    expect(within(tabla).getByText('Aula incorrecta')).toBeInTheDocument()
-    expect(within(tabla).getByText('No le corresponde')).toBeInTheDocument()
-    expect(within(reporte).getByText('2 intentos')).toBeInTheDocument()
-    expect(reporteIntentos).toHaveBeenCalledWith(null, 0, 20)
+    // BUG-G01: cada tipo con su insignia; el texto crudo «### Motivo» no se muestra.
+    expect(within(tabla).getByText('Aula incorrecta (691B, debía 692F)')).toBeInTheDocument()
+    expect(within(tabla).getByText('No inscrito en la materia')).toBeInTheDocument()
+    expect(within(tabla).getByText('No habilitado: Deuda en biblioteca')).toBeInTheDocument()
+    expect(within(tabla).getByText('Acción tomada: Se retiró')).toBeInTheDocument()
+    expect(tabla).not.toHaveTextContent('###')
+    expect(within(reporte).getByText('3 intentos')).toBeInTheDocument()
+    expect(reporteIntentos).toHaveBeenCalledWith(null, 0, 20, '')
   })
 
   it('pagina los intentos con la misma paginación que las demás tablas', async () => {
@@ -77,7 +84,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     expect(within(paginacion).getByText(/Mostrando/)).toHaveTextContent('Mostrando 1–20 de 45 intentos')
     fireEvent.click(within(paginacion).getByRole('button', { name: 'Ir a la página 2' }))
     expect(await screen.findAllByText('Ana Rojas')).not.toHaveLength(0)
-    expect(reporteIntentos).toHaveBeenLastCalledWith(null, 1, 20)
+    expect(reporteIntentos).toHaveBeenLastCalledWith(null, 1, 20, '')
     expect(screen.getByRole('navigation', { name: 'Paginación de intentos' })).toHaveTextContent('Mostrando 21–40 de 45 intentos')
   })
 
@@ -87,19 +94,33 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     await screen.findByRole('option', { name: 'Física I · 31/10/2026 · 08:30' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
     expect(await screen.findByText('No hubo intentos incorrectos en este examen.')).toBeInTheDocument()
-    expect(reporteIntentos).toHaveBeenLastCalledWith(20, 0, 20)
+    expect(reporteIntentos).toHaveBeenLastCalledWith(20, 0, 20, '')
   })
 
-  it('las expulsiones y excepciones se ven al elegir un examen', async () => {
+  it('las expulsiones y excepciones se ven de todos los exámenes o de uno (BUG-G02, G03)', async () => {
     vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
-    expect(screen.getByText('Elige un examen para ver sus expulsiones.')).toBeInTheDocument()
+    expect(screen.getByText('Expulsiones del examen todos')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Excepciones' }))
+    expect(screen.getByText('Excepciones del examen todos')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
     await screen.findByRole('option', { name: 'Cálculo I · 30/10/2026 · 10:00' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '21' } })
     expect(screen.getByText('Expulsiones del examen 21')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Excepciones' }))
     expect(screen.getByText('Excepciones del examen 21')).toBeInTheDocument()
+  })
+
+  it('el buscador filtra por estudiante o código SIS en todas las pestañas (BUG-G04)', async () => {
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    render(<MemoryRouter><ReportesPage /></MemoryRouter>)
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar estudiante o código SIS' }), { target: { value: '2019' } })
+    await waitFor(() => expect(reporteIntentos).toHaveBeenLastCalledWith(null, 0, 20, '2019'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
+    expect(screen.getByText('Expulsiones del examen todos · 2019')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar la búsqueda' }))
+    expect(screen.getByText('Expulsiones del examen todos')).toBeInTheDocument()
   })
 
   // V53: el DOCENTE y el CONTROL ven solo sus exámenes (los suyos o donde están asignados).

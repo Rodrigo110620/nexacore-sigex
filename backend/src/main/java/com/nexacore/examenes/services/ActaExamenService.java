@@ -21,6 +21,7 @@ import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.Docente;
 import com.nexacore.examenes.models.Estudiante;
 import com.nexacore.examenes.models.Examen;
+import com.nexacore.examenes.models.Expulsion;
 import com.nexacore.examenes.models.Materia;
 import com.nexacore.examenes.models.TrasladoAmbiente;
 import com.nexacore.examenes.repositories.AmbienteRepository;
@@ -62,6 +63,11 @@ public class ActaExamenService {
     private static final Color SUAVE = new Color(0x62, 0x7A, 0x9B);
     private static final Color BORDE = new Color(0xB8, 0xC4, 0xD4);
     private static final Color FONDO = new Color(0xF8, 0xFA, 0xFC);
+
+    /** Colores para diferenciar visualmente cada estado en el acta (BUG-D01). */
+    private static final Color ESTADO_ASISTIO = new Color(0x16, 0x65, 0x34);
+    private static final Color ESTADO_EXPULSADO = new Color(0xB9, 0x1C, 0x1C);
+    private static final Color ESTADO_AUSENTE = new Color(0x92, 0x40, 0x0E);
 
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -109,11 +115,43 @@ public class ActaExamenService {
             String estado,      // Asistió / Ausente / Expulsado
             String hora,        // HH:MM:SS o "—"
             String observacion, // Trasladado desde [aula] o null
-            String salida       // Hora de salida (V56) HH:MM:SS o "—"
+            String salida,      // Hora de salida (V56) HH:MM:SS o "—"
+            String registro     // Quién del control registró su ingreso, o "—"
     ) {
         FilaActa(String codigoSis, String nombreCompleto, String estado, String hora, String observacion) {
-            this(codigoSis, nombreCompleto, estado, hora, observacion, SIN_HORA);
+            this(codigoSis, nombreCompleto, estado, hora, observacion, SIN_HORA, SIN_HORA);
         }
+
+        FilaActa(String codigoSis, String nombreCompleto, String estado, String hora, String observacion, String salida) {
+            this(codigoSis, nombreCompleto, estado, hora, observacion, salida, SIN_HORA);
+        }
+
+        FilaActa conRegistro(String quien) {
+            return quien == null ? this : new FilaActa(codigoSis, nombreCompleto, estado, hora, observacion, salida, quien);
+        }
+    }
+
+    /** Quién está en el control y quién registró cada ingreso; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    /** Nombres del personal de control asignado al examen, por apellido. */
+    private List<String> personalControl(Integer idExamen) {
+        if (jdbc == null) return List.of();
+        return jdbc.query("SELECT u.nombre, u.apellidos FROM examen_control ec JOIN usuario u ON u.id_usuario = ec.id_usuario"
+                        + " WHERE ec.id_examen = ? ORDER BY u.apellidos, u.nombre",
+                (rs, i) -> (rs.getString(1) + " " + rs.getString(2)).trim(), idExamen);
+    }
+
+    /** Por estudiante, quién del control autorizó su ingreso (el último registro, si hubo varios). */
+    private java.util.Map<Integer, String> registradores(Integer idExamen) {
+        java.util.Map<Integer, String> quien = new java.util.HashMap<>();
+        if (jdbc == null) return quien;
+        jdbc.query("SELECT r.id_estudiante, u.nombre, u.apellidos FROM registro_control_ingreso r"
+                        + " JOIN usuario u ON u.id_usuario = r.id_usuario_control"
+                        + " WHERE r.id_examen = ? AND r.resultado_autorizacion = 'AUTORIZADO' ORDER BY r.id_control",
+                rs -> { quien.put(rs.getInt(1), (rs.getString(2) + " " + rs.getString(3)).trim()); }, idExamen);
+        return quien;
     }
 
     /** Datos del examen para el encabezado. */
@@ -162,15 +200,21 @@ public class ActaExamenService {
         LocalDateTime desdeSiempre = ExpulsionRepository.DESDE_SIEMPRE;
 
         List<FilaActa> filas = new ArrayList<>();
-        int asistidos = 0, ausentes = 0, expulsados = 0;
+        int asistidos = 0, ausentes = 0, expulsados = 0, noHabilitados = 0, pendientes = 0;
+        java.util.Map<Integer, String> registro = registradores(idExamen);
 
         // Sin salida marcada y con el examen terminado, salió al cierre (V56).
         java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         for (AsistenciaExamen a : asistencias) {
             Estudiante e = a.getEstudiante();
 
-            // Sección 12 del diseño: el acta lista solo a los habilitados; el no habilitado no rinde ni es "Ausente".
+            // Sección 12 del diseño: el no habilitado no rinde ni es "Ausente", pero se lista en el acta con su estado.
+            // habilitado = false es «No habilitado» (con motivo); null es «Pendiente»: nadie decidió su habilitación.
             if (!Boolean.TRUE.equals(a.getHabilitado())) {
+                boolean pendiente = a.getHabilitado() == null;
+                filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), pendiente ? "Pendiente" : "No habilitado", SIN_HORA, null)
+                        .conRegistro(registro.get(e.getId())));
+                if (pendiente) pendientes++; else noHabilitados++;
                 continue;
             }
 
@@ -199,9 +243,17 @@ public class ActaExamenService {
             }
 
             if (expulsado) {
-                // Expulsión vigente (no anulada): cuenta como expulsado.
+                // Expulsión vigente (no anulada): cuenta como expulsado. La hora de salida es
+                // la hora en que se registró la expulsión (hora del servidor).
+                LocalDateTime horaSalida = expulsionRepository
+                        .findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
+                                e.getId(), idExamen, desdeSiempre)
+                        .map(Expulsion::getFechaHora)
+                        .orElse(null);
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e), "Expulsado",
-                        a.getFechaHoraIngreso() == null ? SIN_HORA : a.getFechaHoraIngreso().format(HORA), observacion));
+                        a.getFechaHoraIngreso() == null ? SIN_HORA : a.getFechaHoraIngreso().format(HORA), observacion,
+                        horaSalida != null ? horaSalida.format(HORA) : SIN_HORA)
+                        .conRegistro(registro.get(e.getId())));
                 expulsados++;
                 continue;
             }
@@ -210,7 +262,8 @@ public class ActaExamenService {
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
                         "Asistió", a.getFechaHoraIngreso().format(HORA), observacion,
                         a.getFechaHoraSalida() != null ? a.getFechaHoraSalida().format(HORA)
-                                : fin != null ? fin.format(HORA) + SalidaExamenService.AL_CIERRE : SIN_HORA));
+                                : fin != null ? fin.format(HORA) + SalidaExamenService.AL_CIERRE : SIN_HORA)
+                        .conRegistro(registro.get(e.getId())));
                 asistidos++;
             } else {
                 filas.add(new FilaActa(e.getCodigoSis(), nombreCompleto(e),
@@ -223,6 +276,9 @@ public class ActaExamenService {
         filas.sort(Comparator.comparing(FilaActa::nombreCompleto));
 
         DatosExamen datos = datosExamen(examen);
+        List<String> personal = personalControl(idExamen);
+        // Sin personal asignado (lo controló el docente u otro), el acta nombra a quienes registraron ingresos.
+        if (personal.isEmpty()) personal = registro.values().stream().distinct().sorted().toList();
 
         LocalDateTime generada = Objects.requireNonNullElseGet(asistenciaRepository.obtenerFechaHoraServidor(), LocalDateTime::now);
         var out = new ByteArrayOutputStream();
@@ -235,14 +291,14 @@ public class ActaExamenService {
             document.open();
 
             document.add(encabezado(base, negrita, datos));
-            document.add(datosDelExamen(base, negrita, datos, generada));
-            document.add(resumen(filas.size(), asistidos, ausentes, expulsados, base, negrita));
+            document.add(datosDelExamen(base, negrita, datos, generada, personal));
+            document.add(resumen(asistidos + ausentes + expulsados, asistidos, ausentes, expulsados, noHabilitados, pendientes, base, negrita));
             document.add(tabla(filas, base, negrita));
             // Las firmas van al pie de la última hoja; si la tabla ya ocupa ese espacio, pasan a una hoja nueva.
             if (writer.getVerticalPosition(true) - document.bottom() < ALTO_FIRMAS) {
                 document.newPage();
             }
-            firmas(writer.getDirectContent(), document, base);
+            firmas(writer.getDirectContent(), document, base, negrita, datos.docente(), personal);
 
             document.close();
         } catch (IOException ex) {
@@ -334,12 +390,13 @@ public class ActaExamenService {
     }
 
     /** Sección 12: los datos del examen en dos columnas (Materia, Docente, Aula · Fecha, Horario, Generada). */
-    private PdfPTable datosDelExamen(BaseFont base, BaseFont negrita, DatosExamen datos, LocalDateTime generada) {
+    private PdfPTable datosDelExamen(BaseFont base, BaseFont negrita, DatosExamen datos, LocalDateTime generada, List<String> personal) {
         var tabla = new PdfPTable(new float[]{1, 1});
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
         tabla.addCell(columnaDeDatos(base, negrita,
-                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")" + (datos.grupo() == null ? "" : " · Grupo " + datos.grupo()), "Docente:", datos.docente(), "Aula:", datos.aulas())));
+                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")" + (datos.grupo() == null ? "" : " · Grupo " + datos.grupo()), "Docente:", datos.docente(), "Aula:", datos.aulas(),
+                        "Control:", personal.isEmpty() ? "Sin personal de control asignado" : String.join(", ", personal))));
         tabla.addCell(columnaDeDatos(base, negrita,
                 List.of("Fecha:", datos.fecha(), "Horario:", datos.horario(), "Generada:", generada.format(FECHA) + " " + generada.format(HORA))));
         return tabla;
@@ -357,14 +414,16 @@ public class ActaExamenService {
         return celda;
     }
 
-    /** Sección 12: etiquetas con Habilitados, Asistieron y Ausentes (y Expulsados si los hay), antes de la tabla. */
-    private PdfPTable resumen(int habilitados, int asistidos, int ausentes, int expulsados, BaseFont base, BaseFont negrita) {
+    /** Sección 12: etiquetas con Habilitados, Asistieron, Ausentes, No habilitados (y Expulsados si los hay), antes de la tabla. */
+    private PdfPTable resumen(int habilitados, int asistidos, int ausentes, int expulsados, int noHabilitados, int pendientes, BaseFont base, BaseFont negrita) {
         List<String> etiquetas = new ArrayList<>(List.of(
-                "Habilitados: " + habilitados, "Asistieron: " + asistidos, "Ausentes: " + ausentes));
+                "Habilitados: " + habilitados, "Asistieron: " + asistidos, "Ausentes: " + ausentes, "No habilitados: " + noHabilitados));
         if (expulsados > 0) etiquetas.add("Expulsados: " + expulsados);
+        if (pendientes > 0) etiquetas.add("Pendientes: " + pendientes);
         float[] anchos = new float[etiquetas.size() + 1];
         for (int i = 0; i < etiquetas.size(); i++) anchos[i] = 1;
-        anchos[etiquetas.size()] = 5 - etiquetas.size();
+        // Hasta 6 etiquetas (con expulsados y pendientes): el espacio que sobra nunca queda en cero ni negativo.
+        anchos[etiquetas.size()] = Math.max(0.5f, 7 - etiquetas.size());
         var tabla = new PdfPTable(anchos);
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
@@ -385,13 +444,27 @@ public class ActaExamenService {
         return tabla;
     }
 
+    /** Devuelve la fuente con el color correspondiente al estado del estudiante (BUG-D01). */
+    private static Font fuenteEstado(String estado, BaseFont base) {
+        if ("Asistió".equals(estado)) {
+            return new Font(base, 8, Font.NORMAL, ESTADO_ASISTIO);
+        }
+        if ("Expulsado".equals(estado)) {
+            return new Font(base, 8, Font.NORMAL, ESTADO_EXPULSADO);
+        }
+        if ("Ausente".equals(estado)) {
+            return new Font(base, 8, Font.NORMAL, ESTADO_AUSENTE);
+        }
+        return new Font(base, 8, Font.NORMAL, TINTA);
+    }
+
     private PdfPTable tabla(List<FilaActa> filas, BaseFont base, BaseFont negrita) {
-        var tabla = new PdfPTable(new float[]{0.5f, 1.4f, 4.3f, 1.2f, 1.4f, 1.4f});
+        var tabla = new PdfPTable(new float[]{0.5f, 1.3f, 3.5f, 1.1f, 1.2f, 1.3f, 2.1f});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
 
         var fuenteEncabezado = new Font(negrita, 8, Font.NORMAL, Color.WHITE);
-        for (String columna : List.of("N.°", "Código SIS", "Apellidos y nombres", "Estado", "Hora de ingreso", "Hora de salida")) {
+        for (String columna : List.of("N.°", "Código SIS", "Apellidos y nombres", "Estado", "Hora de ingreso", "Hora de salida", "Registró")) {
             var celda = celda(columna, fuenteEncabezado);
             celda.setBackgroundColor(PRIMARIO);
             celda.setBorderColor(PRIMARIO);
@@ -401,7 +474,7 @@ public class ActaExamenService {
         var fuente = new Font(base, 8, Font.NORMAL, TINTA);
         if (filas.isEmpty()) {
             var vacia = celda("Sin estudiantes registrados en este examen.", fuente);
-            vacia.setColspan(6);
+            vacia.setColspan(7);
             vacia.setHorizontalAlignment(Element.ALIGN_CENTER);
             vacia.setPadding(12);
             tabla.addCell(vacia);
@@ -420,9 +493,10 @@ public class ActaExamenService {
                     celda(String.valueOf(numero), fuente),
                     celda(f.codigoSis(), fuente),
                     celdaNombre,
-                    celda(f.estado(), fuente),
+                    celda(f.estado(), fuenteEstado(f.estado(), base)),
                     celda(f.hora(), fuente),
-                    celda(f.salida(), fuente));
+                    celda(f.salida(), fuente),
+                    celda(f.registro(), fuente));
             for (PdfPCell celda : celdas) {
                 celda.setBackgroundColor(fondo);
                 tabla.addCell(celda);
@@ -433,10 +507,12 @@ public class ActaExamenService {
     }
 
     /** Sección 12: las dos firmas al pie de la última hoja, sobre el pie de página. */
-    private static void firmas(PdfContentByte lienzo, Document document, BaseFont base) {
+    private static void firmas(PdfContentByte lienzo, Document document, BaseFont base, BaseFont negrita, String docente, List<String> personal) {
         float y = document.bottom() + 24;
         float ancho = (document.right() - document.left() - 40) / 2;
         String[] textos = {"Firma del docente", "Firma del responsable de control"};
+        // Debajo de cada línea, quién firma: el docente y el personal de control (si es uno, su nombre).
+        String[] nombres = {docente, personal.size() == 1 ? personal.get(0) : null};
         for (int i = 0; i < 2; i++) {
             float x = document.left() + i * (ancho + 40);
             lienzo.setColorStroke(TINTA);
@@ -444,10 +520,19 @@ public class ActaExamenService {
             lienzo.moveTo(x, y);
             lienzo.lineTo(x + ancho, y);
             lienzo.stroke();
+            // Bajo la línea: el nombre en negrita y debajo qué firma («Firma del docente»…).
+            boolean conNombre = nombres[i] != null && !nombres[i].isBlank() && !"—".equals(nombres[i]);
+            if (conNombre) {
+                lienzo.beginText();
+                lienzo.setFontAndSize(negrita, 8);
+                lienzo.setColorFill(TINTA);
+                lienzo.showTextAligned(Element.ALIGN_CENTER, nombres[i], x + ancho / 2, y - 11, 0);
+                lienzo.endText();
+            }
             lienzo.beginText();
-            lienzo.setFontAndSize(base, 8);
+            lienzo.setFontAndSize(base, conNombre ? 7.5f : 8);
             lienzo.setColorFill(SUAVE);
-            lienzo.showTextAligned(Element.ALIGN_CENTER, textos[i], x + ancho / 2, y - 11, 0);
+            lienzo.showTextAligned(Element.ALIGN_CENTER, textos[i], x + ancho / 2, conNombre ? y - 21 : y - 11, 0);
             lienzo.endText();
         }
     }

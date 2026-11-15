@@ -139,7 +139,24 @@ public class ExcepcionService {
             return new com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse(x.getId(), x.getIdEstudiante(),
                     e == null ? null : (e.getNombre() + " " + e.getApellidos()).trim(), e == null ? null : e.getCodigoSis(),
                     x.getMotivoInhabilitacion(), x.getAccionTomada(), x.getObservaciones(), ambientes.get(x.getIdAmbiente()),
-                    u == null ? null : (u.getNombre() + " " + u.getApellidos()).trim(), x.getFechaHora());
+                    u == null ? null : (u.getNombre() + " " + u.getApellidos()).trim(), x.getFechaHora(), x.getIdExamen());
         }).toList();
+    }
+
+    /**
+     * BUG-G03: las excepciones de todos los exámenes indicados (cada uno, de su sesión actual), de la más reciente a la
+     * más antigua. El controlador pasa solo los exámenes que el usuario puede ver.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse> listarDe(java.util.Collection<Integer> idsExamen) {
+        return idsExamen.stream().flatMap(id -> listar(id).stream())
+                .sorted(java.util.Comparator.comparing(com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse::fechaHora,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<Integer> examenesConExcepciones() {
+        return excepcionRepo.examenesConExcepciones();
     }
 }

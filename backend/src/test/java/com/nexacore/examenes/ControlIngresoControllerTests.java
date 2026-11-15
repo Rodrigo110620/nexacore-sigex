@@ -46,6 +46,10 @@ class ControlIngresoControllerTests {
     @MockitoBean
     private com.nexacore.examenes.repositories.ExamenRepository examenes;
 
+    // Los usuarios son simulados (no existen en la base): la auditoría también, para no violar su clave foránea.
+    @MockitoBean
+    private com.nexacore.examenes.services.AuditoriaService auditoria;
+
     @Test
     @WithMockUser(username = "docente@sigex.test", roles = "DOCENTE")
     void docenteControlaSuExamenSinNecesitarRolControl() throws Exception {

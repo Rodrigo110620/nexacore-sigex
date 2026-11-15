@@ -210,21 +210,21 @@ export default function VerificacionHabilitacionModal(p: Props) {
                 </button>
               </>
             ) : (
-              <div className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex w-full flex-row sm:flex-row gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsExcepcionOpen(true)}
-                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#BA1A1A] px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#B91C1C] transition-colors"
-                >
-                  <ShieldAlert size={15} /> Registrar Excepción
-                </button>
+              <div className="grid w-full grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   autoFocus
                   onClick={p.onVolver}
-                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#081225] px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#1E293B] transition-colors"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#081225] px-3 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#1E293B] transition-colors"
                 >
-                  Cerrar <ArrowLeft size={16} />
+                  Cerrar <ArrowLeft size={16} className="shrink-0" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExcepcionOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#BA1A1A] px-3 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-[#B91C1C] transition-colors"
+                >
+                  <ShieldAlert size={15} className="shrink-0" /> Registrar Excepción
                 </button>
               </div>
             )}

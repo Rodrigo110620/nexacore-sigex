@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ChevronDown, GraduationCap, House, LogOut, QrCode, UserRound, X } from 'lucide-react'
+import { ChevronDown, GraduationCap, House, LifeBuoy, LogOut, QrCode, UserRound, X } from 'lucide-react'
+import MesaAyudaModal from '../ayuda/MesaAyudaModal'
 import { useAuth } from '../../context/AuthContext'
 import Footer from '../layout/Footer'
 import FotoEstudiante from './FotoEstudiante'
@@ -26,6 +27,7 @@ export default function PortalEstudianteLayout({ children, fotoUrl }: Props) {
   const navigate = useNavigate()
   const iniciales = (nombre ?? 'E').split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('')
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [ayuda, setAyuda] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -157,6 +159,15 @@ export default function PortalEstudianteLayout({ children, fotoUrl }: Props) {
                 <button
                   type="button"
                   role="menuitem"
+                  onClick={() => { setMenuAbierto(false); setAyuda(true) }}
+                  className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#011140] hover:bg-[#F1F6FF]"
+                >
+                  <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
+                  Mesa de ayuda
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   onClick={cerrarSesion}
                   className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm font-medium text-[#B91C1C] hover:bg-[#FEF2F2]"
                 >
@@ -167,6 +178,7 @@ export default function PortalEstudianteLayout({ children, fotoUrl }: Props) {
             )}
           </div>
         </header>
+        <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} nombreInicial={nombre ?? ''} />
         <main className="min-h-0 flex-1 overflow-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0">
           {children}
         </main>

@@ -162,6 +162,13 @@ public class IntentoIngresoService {
     @Transactional(readOnly = true)
     public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
             Integer idExamen, int page, int size, Integer soloDe) {
+        return reporte(idExamen, page, size, soloDe, null);
+    }
+
+    /** Con {@code buscar}: solo los intentos del estudiante por nombre o código SIS (BUG-G04). */
+    @Transactional(readOnly = true)
+    public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
+            Integer idExamen, int page, int size, Integer soloDe, String buscar) {
         if (page < 0) throw new IllegalArgumentException("La página no puede ser negativa");
         if (size < 1 || size > MAX_TAMANO_REPORTE) {
             throw new IllegalArgumentException("El tamaño de página debe estar entre 1 y " + MAX_TAMANO_REPORTE);
@@ -173,21 +180,22 @@ public class IntentoIngresoService {
             }
             desde = sesionExamenService.ultimoCierre(idExamen);
         }
-        var pagina = intentoRepository.reporte(idExamen, desde, soloDe, org.springframework.data.domain.PageRequest.of(page, size));
+        String patron = buscar == null || buscar.isBlank() ? null
+                : "%" + buscar.strip().toLowerCase(java.util.Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+        var pagina = intentoRepository.reporte(idExamen, desde, soloDe, patron, org.springframework.data.domain.PageRequest.of(page, size));
         return com.nexacore.examenes.dto.PageResponse.de(pagina.map(this::filaReporte));
     }
 
     private com.nexacore.examenes.dto.IntentoReporteResponse filaReporte(Object[] f) {
         String motivo = (String) f[9];
-        String tipo = motivo != null && motivo.startsWith("Ambiente incorrecto")
-                ? com.nexacore.examenes.dto.IntentoReporteResponse.AULA_INCORRECTA
-                : com.nexacore.examenes.dto.IntentoReporteResponse.NO_CORRESPONDE;
+        // BUG-G01: no inscrito, aula incorrecta y no habilitado se distinguen, con una etiqueta legible.
+        MotivoIntento.Clasificacion clase = MotivoIntento.de(motivo);
         String estudiante = (String) f[6];
         return new com.nexacore.examenes.dto.IntentoReporteResponse(
                 ((Number) f[0]).intValue(), ((Number) f[1]).intValue(), (String) f[2],
                 aFechaExamen(f[3]), aHora(f[4]), f[5] == null ? null : ((Number) f[5]).intValue(),
                 estudiante == null || estudiante.isBlank() ? null : estudiante.strip(), (String) f[7], (String) f[8],
-                motivo, tipo, (String) f[10], aFecha(f[11]));
+                motivo, clase.tipo(), (String) f[10], aFecha(f[11]), clase.etiqueta(), clase.detalle());
     }
 
     private static java.time.LocalDate aFechaExamen(Object valor) {

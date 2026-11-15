@@ -208,7 +208,10 @@ public class AuthService {
         passwordResetTokenRepository.save(entity);
 
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
-        emailService.enviarResetPassword(usuario.getEmail(), nombreCompleto, rawToken, resetExpirationMinutes);
+        // En segundo plano y tras guardar el enlace: la pantalla responde al instante y la demora no delata si el
+        // correo está registrado.
+        String destino = usuario.getEmail();
+        EnvioDiferido.alConfirmar(() -> emailService.enviarResetPassword(destino, nombreCompleto, rawToken, resetExpirationMinutes));
     }
 
     @Transactional

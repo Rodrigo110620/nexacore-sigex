@@ -23,6 +23,9 @@ spring:
     password: test
 
 app:
+  # En las pruebas los correos salen en el momento (sin hilo aparte): así se comprueba lo que se envía.
+  correo:
+    en-segundo-plano: false
   security:
     jwt:
       secret: test_secret_key_muy_larga_para_que_pase_la_validacion_de_longitud_minima

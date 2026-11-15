@@ -30,8 +30,16 @@ public class HistorialOperacionController {
             @RequestParam(defaultValue = "8") int size, @RequestParam(required = false) String search,
             @RequestParam(required = false) String modulo, @RequestParam(required = false) String operacion,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        return service.listar(page, size, search, modulo, operacion, desde, hasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Integer usuario, @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) Integer docente, @RequestParam(required = false) Integer examen) {
+        return service.listar(page, size, search, modulo, operacion, desde, hasta, usuario, new HistorialOperacionService.Extra(tipo, docente, examen));
+    }
+
+    @Operation(summary = "Quién realizó operaciones", description = "Para el filtro «Realizado por».")
+    @GetMapping("/usuarios")
+    public java.util.List<HistorialOperacionService.Autor> autores() {
+        return service.autores();
     }
 
     @Operation(summary = "Exportar el historial filtrado en PDF")
@@ -39,11 +47,13 @@ public class HistorialOperacionController {
     public ResponseEntity<byte[]> exportarPdf(@RequestParam(required = false) String search,
             @RequestParam(required = false) String modulo, @RequestParam(required = false) String operacion,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Integer usuario, @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) Integer docente, @RequestParam(required = false) Integer examen) {
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(nombre(desde, hasta, "pdf")).build().toString())
                 .contentType(MediaType.APPLICATION_PDF)
-                .body(service.exportarPdf(search, modulo, operacion, desde, hasta));
+                .body(service.exportarPdf(search, modulo, operacion, desde, hasta, usuario, new HistorialOperacionService.Extra(tipo, docente, examen)));
     }
 
     /** historial-operaciones_2026-11-03_a_2026-11-10.pdf */
@@ -57,10 +67,12 @@ public class HistorialOperacionController {
     public ResponseEntity<byte[]> exportar(@RequestParam(required = false) String search,
             @RequestParam(required = false) String modulo, @RequestParam(required = false) String operacion,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Integer usuario, @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) Integer docente, @RequestParam(required = false) Integer examen) {
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(nombre(desde, hasta, "csv")).build().toString())
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .body(service.exportar(search, modulo, operacion, desde, hasta));
+                .body(service.exportar(search, modulo, operacion, desde, hasta, usuario, new HistorialOperacionService.Extra(tipo, docente, examen)));
     }
 }

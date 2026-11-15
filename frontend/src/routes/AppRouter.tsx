@@ -32,6 +32,7 @@ import IdentificacionRoute from './IdentificacionRoute'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import EstudiantesPage from '../pages/panel_admin/EstudiantesPage'
 import RevisionFotosPage from '../pages/panel_admin/RevisionFotosPage'
+import MesaAyudaPage from '../pages/panel_admin/MesaAyudaPage'
 import InformacionIngresoPage from '../pages/Control/InformacionIngresoPage'
 import EstudianteRoute from './EstudianteRoute'
 import InicioEnDesarrollo from '../components/control/InicioEnDesarrollo'
@@ -179,6 +180,15 @@ export default function AppRouter() {
             <EstudianteRoute>
               <EstudiantesPage />
             </EstudianteRoute>
+          }
+        />
+        {/* Mesa de ayuda: bandeja de consultas (SOLO ADMIN) */}
+        <Route
+          path="/dashboard/mesa-ayuda"
+          element={
+            <AdminRoute permiso="USUARIOS_GESTIONAR">
+              <MesaAyudaPage />
+            </AdminRoute>
           }
         />
         {/* Revisión de fotos: cambios y reportes (SOLO ADMIN) */}

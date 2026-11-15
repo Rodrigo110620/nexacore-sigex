@@ -20,6 +20,8 @@ public class Notificacion {
 
     /** Tipos de reporte que generan notificación. */
     public static final String FOTO_REPORTADA = "FOTO_REPORTADA";
+    /** Nueva consulta en la mesa de ayuda (V57): solo la ve quien ve todas (ADMIN). */
+    public static final String AYUDA = "AYUDA";
     public static final String QR_DUPLICADO = "QR_DUPLICADO";
     public static final String INTENTO_INGRESO = "INTENTO_INGRESO";
     public static final String AULA_INCORRECTA = "AULA_INCORRECTA";

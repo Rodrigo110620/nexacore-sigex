@@ -35,7 +35,7 @@ export function PasoDelRol({ rol, materias, onMaterias, datosDocente, onDatosDoc
   if (rol === 'DOCENTE') {
     return (
       <div className="flex flex-col gap-4">
-        <DatosDocenteCampos value={datosDocente} onChange={onDatosDocente} />
+        <DatosDocenteCampos value={datosDocente} onChange={onDatosDocente} error={errores.especialidad} />
         <Titulo icono={BookOpen} titulo="Materias del docente"
           detalle="Elige al menos una. Solo podrá programar exámenes y ver estudiantes de estas materias. Después se pueden cambiar desde Usuarios." />
         <SelectorMaterias value={materias} onChange={onMaterias} error={errores.materias} />

@@ -44,6 +44,18 @@ public class AuditoriaService {
     }
 
     /**
+     * Registra a nombre de un usuario aunque no haya sesión: p. ej. el estudiante que activa su cuenta (lo hace sin
+     * sesión; al terminar, su usuario ya existe).
+     */
+    @Transactional
+    public void registrarComo(Integer idUsuario, String accion, Map<String, Object> detalles) {
+        if (idUsuario == null) {
+            return;
+        }
+        insertar(idUsuario, accion, detalles);
+    }
+
+    /**
      * Sin usuario en la sesión (tareas internas) no se registra nada. Se suma a la transacción de la
      * operación auditada; si se llama fuera de una (p. ej. la descarga del respaldo), abre la suya.
      */
@@ -57,6 +69,10 @@ public class AuditoriaService {
         if (idUsuario == null) {
             return;
         }
+        insertar(idUsuario, accion, detalles);
+    }
+
+    private void insertar(Integer idUsuario, String accion, Map<String, Object> detalles) {
         String json;
         try {
             json = objectMapper.writeValueAsString(detalles);

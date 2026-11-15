@@ -28,6 +28,10 @@ import java.util.List;
 @RequestMapping("/control-ingresos")
 public class ControlIngresoController {
 
+    /** Qué exámenes ve cada usuario en Reportes (ADMIN todos; el resto, los suyos). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.ExamenAccesoService acceso;
+
     /** Cada operación queda en el historial de operaciones (Configuración). */
     @org.springframework.beans.factory.annotation.Autowired
     private com.nexacore.examenes.services.AuditoriaService auditoria;
@@ -148,6 +152,15 @@ public class ControlIngresoController {
         auditoria.registrar("ESTUDIANTE_TRASLADADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", idExamen, "idEstudiante", idEstudiante,
                 "aulaOrigen", response.aulaOrigenNombre(), "aulaDestino", response.aulaDestinoNombre(), "motivo", request.motivo()));
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Excepciones de no habilitado de todos los exámenes",
+               description = "BUG-G03. El ADMIN ve todas; el DOCENTE y el CONTROL, solo las de sus exámenes.")
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')")
+    @GetMapping("/excepciones-no-habilitado")
+    public ResponseEntity<List<com.nexacore.examenes.dto.ExcepcionNoHabilitadoResponse>> listarTodasExcepciones(
+            Authentication authentication) {
+        return ResponseEntity.ok(excepcionService.listarDe(acceso.visibles(excepcionService.examenesConExcepciones(), authentication)));
     }
 
     @Operation(summary = "Reporte de excepciones de no habilitado",

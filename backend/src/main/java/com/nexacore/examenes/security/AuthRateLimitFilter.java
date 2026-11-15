@@ -31,7 +31,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
             "/auth/reset-password",
             "/auth/estudiante/activacion/solicitar",
             "/auth/estudiante/activacion/verificar",
-            "/auth/estudiante/activacion/confirmar"
+            "/auth/estudiante/activacion/confirmar",
+            "/ayuda/solicitar"
     );
 
     private final ObjectMapper objectMapper;

@@ -41,6 +41,7 @@ public class SecurityConfig {
         "/auth/estudiante/activacion/verificar",
         "/auth/estudiante/activacion/confirmar",
         "/health",
+        "/ayuda/solicitar",
     };
 
     private static final String[] SWAGGER_PATHS = {

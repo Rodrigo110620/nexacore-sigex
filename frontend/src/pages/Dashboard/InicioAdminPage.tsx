@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowRight, BarChart3, BookCheck, CalendarDays, CircleCheck, ClipboardCheck, Clock3, GraduationCap, Hourglass, ImageIcon,
+  ArrowRight, Ban, BarChart3, BookCheck, CalendarDays, CircleCheck, ClipboardCheck, Clock3, GraduationCap, Hourglass, ImageIcon,
   MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon,
 } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -12,6 +12,7 @@ import useEnVivo from '../../hooks/useEnVivo'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
 import { obtenerInicioAdmin, type InicioAdmin } from '../../services/inicioService'
 import { alRecibirNotificacion, listarNotificaciones, type Notificacion } from '../../services/notificacionService'
+import { listarHistorial, type OperacionAuditada } from '../../services/historialOperacionService'
 import { ahoraServidorMs } from '../../services/tiempoService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraNumerica, fechaLocal, formatFecha, horaCorta } from '../../utils/examenFormat'
 import { tienePermiso } from '../../utils/permisos'
@@ -20,15 +21,16 @@ import IncidenciasHoyModal from '../../components/inicio/IncidenciasHoyModal'
 import { EnVivo } from '../../components/inicio/Comun'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
 
-const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO'])
+const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO', 'AUDITORIA'])
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const COLORES_MOTIVOS: [string, string, string, string][] = [
-  ['#F43F5E', '#E11D48', '#FFE4E6', 'text-[#E11D48]'],
-  ['#FB923C', '#EA580C', '#FFEDD5', 'text-[#EA580C]'],
-  ['#FBBF24', '#D97706', '#FEF3C7', 'text-[#D97706]'],
-  ['#A78BFA', '#7C3AED', '#EDE9FE', 'text-[#7C3AED]'],
-  ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]'],
-]
+/** BUG-A05: cada tipo de intento con su color e ícono, como en el mockup (desde, hasta, fondo, texto, ícono). */
+const ESTILO_MOTIVO: Record<string, [string, string, string, string, LucideIcon]> = {
+  NO_CORRESPONDE: ['#F43F5E', '#E11D48', '#FFE4E6', 'text-[#E11D48]', UserX],
+  AULA_INCORRECTA: ['#FB923C', '#EA580C', '#FFEDD5', 'text-[#EA580C]', MapPin],
+  NO_HABILITADO: ['#FBBF24', '#D97706', '#FEF3C7', 'text-[#D97706]', Ban],
+  QR_DUPLICADO: ['#A78BFA', '#7C3AED', '#EDE9FE', 'text-[#7C3AED]', QrCode],
+}
+const ESTILO_OTRO: [string, string, string, string, LucideIcon] = ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3]
 
 
 
@@ -59,6 +61,8 @@ export default function InicioAdminPage() {
   const [datos, setDatos] = useState<InicioAdmin>()
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [actividad, setActividad] = useState<Notificacion[]>([])
+  // BUG-A04: la actividad reciente sale del historial de operaciones (todo lo que se hace en SIGEX).
+  const [operaciones, setOperaciones] = useState<OperacionAuditada[] | null>(null)
   const [error, setError] = useState('')
   const [recarga, setRecarga] = useState(0)
   const [ahora, setAhora] = useState(() => new Date(ahoraServidorMs()))
@@ -75,7 +79,8 @@ export default function InicioAdminPage() {
 
   useEffect(() => {
     let vigente = true
-    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(), listarNotificaciones()]).then(([resumen, lista, avisos]) => {
+    const historial = listarHistorial({ search: '', modulo: '', operacion: '', desde: '', hasta: '' }, 0, 5)
+    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(), listarNotificaciones(), historial]).then(([resumen, lista, avisos, ops]) => {
       if (!vigente) return
       if (resumen.status === 'fulfilled') {
         setDatos(resumen.value)
@@ -85,6 +90,7 @@ export default function InicioAdminPage() {
       }
       if (lista.status === 'fulfilled') setExamenes(lista.value)
       if (avisos.status === 'fulfilled') setActividad(avisos.value)
+      setOperaciones(ops.status === 'fulfilled' && ops.value ? ops.value.contenido : null)
     })
     return () => { vigente = false }
   }, [recarga])
@@ -143,7 +149,7 @@ export default function InicioAdminPage() {
               </div>
               <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3">
                 <Pendientes datos={datos} />
-                <ActividadReciente actividad={actividad} />
+                <ActividadReciente operaciones={operaciones} actividad={actividad} />
                 <AccesosRapidos auth={auth} />
               </div>
             </>
@@ -465,9 +471,8 @@ function TarjetaMotivos({ datos }: { datos: InicioAdmin }) {
         <p className="mt-4 flex flex-1 items-center justify-center rounded-xl border border-dashed border-[#C7D7F5] px-4 py-8 text-center text-sm text-[#627A9B]">Sin intentos incorrectos en la última semana.</p>
       ) : (
         <ul className="mt-4 space-y-3.5">
-          {datos.motivos.map((m, i) => {
-            const [desde, hasta, fondo, texto] = COLORES_MOTIVOS[Math.min(i, COLORES_MOTIVOS.length - 1)]
-            const Icono = m.motivo === 'Aula incorrecta' ? MapPin : i === 0 ? UserX : TriangleAlert
+          {datos.motivos.map((m) => {
+            const [desde, hasta, fondo, texto, Icono] = (m.tipo && ESTILO_MOTIVO[m.tipo]) || ESTILO_OTRO
             return (
               <li key={m.motivo} className="flex items-center gap-3">
                 <span className={`inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] ${texto}`} style={{ background: fondo }}>
@@ -534,7 +539,62 @@ const ICONOS_AVISO: Record<string, [LucideIcon, string]> = {
   TRASLADO_AMBIENTE: [MapPin, 'bg-[#E0E9FF] text-[#0439D9]'],
 }
 
-function ActividadReciente({ actividad }: { actividad: Notificacion[] }) {
+/** Ícono y color de cada módulo del historial, para la actividad reciente. */
+const ICONOS_MODULO: Record<string, [LucideIcon, string]> = {
+  Exámenes: [BookCheck, 'bg-[#E0E9FF] text-[#0439D9]'],
+  Control: [ClipboardCheck, 'bg-[#DCFCE7] text-[#16A34A]'],
+  Estudiantes: [GraduationCap, 'bg-[#FFEDD5] text-[#EA580C]'],
+  Usuarios: [UserRound, 'bg-[#EDE9FE] text-[#7C3AED]'],
+  Roles: [Settings, 'bg-[#F1F5F9] text-[#45628D]'],
+  Configuración: [Settings, 'bg-[#F1F5F9] text-[#45628D]'],
+  Ambientes: [MapPin, 'bg-[#E0F2FE] text-[#0284C7]'],
+}
+
+/** «14:35» si fue hoy; si no, «10/11 14:35». */
+function cuando(iso: string) {
+  const f = fechaHoraNumerica(iso)
+  return f.slice(0, 10) === fechaHoraNumerica(new Date().toISOString()).slice(0, 10) ? f.slice(-5) : `${f.slice(0, 5)} ${f.slice(-5)}`
+}
+
+/**
+ * BUG-A04: lo último que se hizo en SIGEX (historial de operaciones): quién, qué y cuándo. Si el historial no se puede
+ * leer, muestra los últimos avisos como antes.
+ */
+function ActividadReciente({ operaciones, actividad }: { operaciones: OperacionAuditada[] | null; actividad: Notificacion[] }) {
+  if (operaciones === null) return <ActividadDeAvisos actividad={actividad} />
+  const recientes = operaciones.slice(0, 5)
+  return (
+    <section aria-label="Actividad reciente" className={`${TARJETA} flex min-w-0 flex-col p-4 sm:p-5`}>
+      <h2 className="text-xs font-bold uppercase tracking-wide text-[#011140]">Actividad reciente</h2>
+      {recientes.length === 0 ? (
+        <p className="mt-4 flex-1 text-sm text-[#627A9B]">Todavía no hay operaciones registradas.</p>
+      ) : (
+        <ul className="mt-2 flex-1 divide-y divide-[#EEF2F7]">
+          {recientes.map((o) => {
+            const [Icono, clase] = ICONOS_MODULO[o.modulo] ?? [CircleCheck, 'bg-[#F1F5F9] text-[#45628D]']
+            return (
+              <li key={o.id} className="flex items-center gap-3 py-2.5">
+                <span className={`inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full ${clase}`}><Icono size={15} aria-hidden="true" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-[#011140]" title={o.objetivo ?? o.detalle}>
+                    {o.operacion}{o.objetivo ? ` · ${o.objetivo}` : ''}
+                  </span>
+                  <span className="block truncate text-[11px] text-[#627A9B]" title={`${o.detalle} — ${o.usuario}`}>{o.detalle} · {o.usuario}</span>
+                </span>
+                <span className="shrink-0 text-[11px] font-medium tabular-nums text-[#45628D]">{cuando(o.fechaHora)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <Link to="/dashboard/configuracion#historial" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0439D9] hover:underline">
+        Ver historial <ArrowRight size={14} aria-hidden="true" />
+      </Link>
+    </section>
+  )
+}
+
+function ActividadDeAvisos({ actividad }: { actividad: Notificacion[] }) {
   const recientes = [...actividad].sort((a, b) => b.creadaEn.localeCompare(a.creadaEn)).slice(0, 4)
   return (
     <section aria-label="Actividad reciente" className={`${TARJETA} flex min-w-0 flex-col p-4 sm:p-5`}>

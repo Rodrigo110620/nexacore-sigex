@@ -16,7 +16,7 @@ vi.mock('../components/examenes/RegisterExamenModal', () => ({ default: () => nu
 
 const examen: ExamenDto = {
   idExamen: 7, idParalelo: 2, asignatura: 'Cálculo', sigla: 'MAT-101',
-  docente: 'Docente de prueba', fecha: '2026-10-15', horaInicio: '09:00:00',
+  docente: 'Docente de prueba', fecha: '2099-10-15', horaInicio: '09:00:00',
   duracionMinutos: 90, idAmbiente: 3, ambienteNombre: 'Aula 204',
   estado: 'programado', normasGenerales: [], normasParticulares: [],
 }
@@ -35,7 +35,8 @@ describe('Exámenes es la agenda: solo «Ver detalle»; registrar, según el rol
     auth.roles = roles
     auth.isAdmin = roles.includes('ADMIN')
     render(<MemoryRouter><ExamenesPage /></MemoryRouter>)
-    expect(await screen.findAllByRole('button', { name: 'Ver detalle' })).toHaveLength(4)
+    // El cancelado está en su pestaña: aquí solo el programado (celular y escritorio).
+    expect(await screen.findAllByRole('button', { name: 'Ver detalle' })).toHaveLength(2)
     expect(screen.queryByRole('link', { name: /control de ingreso/ })).not.toBeInTheDocument()
     expect(screen.getAllByLabelText('Filtrar por ambiente').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Filtrar por fecha').length).toBeGreaterThan(0)

@@ -1,4 +1,5 @@
-import { Search, ChevronDown } from 'lucide-react'
+import { Search } from 'lucide-react'
+import FiltroSelect from '../ui/FiltroSelect'
 import { useId } from 'react'
 import type { UserFilterParams } from '../../types/user'
 import { useRoles } from '../../hooks/useRoles'
@@ -12,8 +13,6 @@ interface UserFiltersProps {
 export default function UserFilters({ value, onChange, disabled = false }: UserFiltersProps) {
   const id = useId()
   const searchId = `${id}-search`
-  const roleId = `${id}-role`
-  const statusId = `${id}-status`
   const { roles } = useRoles()
 
   return (
@@ -38,52 +37,20 @@ export default function UserFilters({ value, onChange, disabled = false }: UserF
           </div>
         </div>
 
-        <div className="min-w-0">
-          <label htmlFor={roleId} className="sr-only">Rol</label>
-          <div className="relative">
-            <select
-              id={roleId}
-              name="rol"
-              value={value.rol}
-              onChange={(event) => onChange({ ...value, rol: event.target.value as UserFilterParams['rol'] })}
-              disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
-            >
+        <FiltroSelect etiqueta="Rol" value={value.rol} disabled={disabled}
+          onChange={(v) => onChange({ ...value, rol: v as UserFilterParams['rol'] })}>
               <option value="">Todos los roles</option>
               {roles.map(r => (
                 <option key={r.value} value={r.value}>{r.value}</option>
               ))}
-            </select>
-            <ChevronDown
-              aria-hidden="true"
-              size={17}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3"
-            />
-          </div>
-        </div>
+        </FiltroSelect>
 
-        <div className="min-w-0">
-          <label htmlFor={statusId} className="sr-only">Estado</label>
-          <div className="relative">
-            <select
-              id={statusId}
-              name="estado"
-              value={value.estado}
-              onChange={(event) => onChange({ ...value, estado: event.target.value as UserFilterParams['estado'] })}
-              disabled={disabled}
-              className="h-11 w-full min-w-0 appearance-none rounded-md border border-[#B8CBEF] bg-white pl-2 pr-7 text-xs text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:bg-gray-100 sm:pl-4 sm:pr-10 sm:text-sm"
-            >
+        <FiltroSelect etiqueta="Estado" value={value.estado} disabled={disabled}
+          onChange={(v) => onChange({ ...value, estado: v as UserFilterParams['estado'] })}>
               <option value="">Todos los estados</option>
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo</option>
-            </select>
-            <ChevronDown
-              aria-hidden="true"
-              size={17}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#011140] sm:right-3"
-            />
-          </div>
-        </div>
+        </FiltroSelect>
       </div>
     </section>
   )

@@ -122,6 +122,19 @@ class CuentaEstudianteFlujoTests {
         verify(emailService).enviarQrEstudiante(eq(EMAIL), anyString(), eq(SIS), org.mockito.ArgumentMatchers.any());
     }
 
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    void laActivacionQuedaEnElHistorialDeOperacionesANombreDelEstudiante() {
+        activar();
+        Integer idUsuario = estudianteRepository.findByCodigoSis(SIS).orElseThrow().getIdUsuario();
+        var filas = jdbc.queryForList("SELECT accion, detalles FROM auditoria_operacion WHERE id_usuario = ?", idUsuario);
+        assertThat(filas).singleElement().satisfies(f -> {
+            assertThat(f.get("accion")).isEqualTo("CUENTA_ESTUDIANTE_ACTIVADA");
+            assertThat(String.valueOf(f.get("detalles"))).contains(SIS).contains("\"qrEnviado\":true");
+        });
+    }
+
     @Test
     void elQrSoloSeRegeneraCuandoElEstudianteYaActivoSuCuenta() {
         Integer id = estudianteRepository.findByCodigoSis(SIS).orElseThrow().getId();

@@ -103,3 +103,16 @@
     transform: none;
   }
 }
+
+/* Menú lateral contraído que se despliega un momento sobre el contenido (PanelLayout). */
+@keyframes menuAsoma {
+  from { opacity: 0.6; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes velo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[menuAsoma"], [class*="animate-[velo"] { animation: none; }
+}

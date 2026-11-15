@@ -135,7 +135,21 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
                   </thead>
                   <tbody>
                     {filas.slice(0, FILAS_PREVIA).map((f, r) => (
-                      <tr key={r}>{f.map((c, i) => <td key={i} className="border border-[#EEF2F7] px-2 py-1.5 text-[#011140]">{c}</td>)}</tr>
+                      <tr key={r}>
+                        {f.map((c, i) => {
+                          let clasesColor = 'text-[#011140]';
+                          if (c === 'Asistió') clasesColor = 'text-[#15803D] font-bold';
+                          else if (c === 'Ausente') clasesColor = 'text-[#B45309] font-bold';
+                          else if (c === 'Expulsado') clasesColor = 'text-[#B91C1C] font-bold';
+                          else if (c === 'No habilitado' || c === 'Pendiente') clasesColor = 'text-[#64748B] font-bold';
+
+                          return (
+                            <td key={i} className={`border border-[#EEF2F7] px-2 py-1.5 ${clasesColor}`}>
+                              {c}
+                            </td>
+                          );
+                        })}
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -183,4 +197,3 @@ function imprimir(url: string | null) {
   }
   document.body.appendChild(marco)
 }
-
