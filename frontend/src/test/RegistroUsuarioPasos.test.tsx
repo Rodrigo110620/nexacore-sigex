@@ -21,7 +21,7 @@ function llenarDatos() {
   escribir('Ej. Roberto Carlos', 'Juan')
   escribir('Ej. Méndez Quispe', 'Pérez Quispe')
   escribir('8 dígitos', '5544332')
-  escribir('usuario@est.umss.edu', 'juan.perez@umss.edu')
+  escribir('usuario@umss.edu', 'juan.perez@umss.edu')
 }
 
 describe('Registrar usuario en 4 pasos (IMP-12)', () => {
@@ -127,5 +127,14 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     siguiente()
     fireEvent.click(screen.getByRole('button', { name: /Registrar control/ }))
     await waitFor(() => expect(screen.getByText('Paso 2 de 4')).toBeInTheDocument())
+  })
+})
+
+describe('Correo del personal al registrar un usuario', () => {
+  it('sin @ pide completar el dominio; @umss.edu y un correo UMSS completo se aceptan', async () => {
+    const { validateEmail } = await import('../utils/validators')
+    expect(validateEmail('juan.perez')).toBe('Completa el dominio del correo (por ejemplo, @umss.edu)')
+    expect(validateEmail('juan.perez@umss.edu')).toBe('')
+    expect(validateEmail('armandofcyt@est.umss.edu')).toBe('')
   })
 })

@@ -1,8 +1,8 @@
-import { FormEvent, useMemo, useState } from 'react'
-import { ArrowLeft, CircleAlert, Eye, EyeOff, LockKeyhole, CheckCircle2 } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, ArrowRight, CircleAlert, Clock3, Eye, EyeOff, Lock, LockKeyhole, CheckCircle2 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import AuthLayout from '../../components/layout/AuthLayout'
-import { resetPassword } from '../../services/authService'
+import { estadoEnlaceReset, resetPassword } from '../../services/authService'
 import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/passwordPolicy'
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice'
 import { PIE_CORTO } from '../../utils/version'
@@ -20,6 +20,16 @@ export default function ResetPasswordPage() {
   const [generalError, setGeneralError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  // «Enlace no válido» (sección 3 del diseño): se consulta al abrir; sin token, ya no sirve.
+  const [enlace, setEnlace] = useState<{ token: string; valido: boolean | null } | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let vigente = true
+    void estadoEnlaceReset(token).then((valido) => { if (vigente) setEnlace({ token, valido }) })
+    return () => { vigente = false }
+  }, [token])
+  const enlaceInvalido = !token || (enlace?.token === token && enlace.valido === false)
+  const verificando = Boolean(token) && enlace?.token !== token
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -77,31 +87,52 @@ export default function ResetPasswordPage() {
           )}
 
           <div className="w-full">
-            <Link
-              to="/login"
-              className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2]"
-            >
-              <ArrowLeft size={16} aria-hidden="true" />
-              Volver al login
-            </Link>
+            {/* Con el enlace no válido, la tarjeta ya trae «Volver al inicio de sesión». */}
+            {!enlaceInvalido && (
+              <Link
+                to="/login"
+                className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#0439D9] hover:text-[#0027a2]"
+              >
+                <ArrowLeft size={16} aria-hidden="true" />
+                Volver al login
+              </Link>
+            )}
 
+            {enlaceInvalido ? (
+              <div className={cardClass} role="alert">
+                <span className="grid size-11 place-items-center rounded-xl bg-[#FFF7E6] text-[#B45309]" aria-hidden="true">
+                  <Clock3 size={20} />
+                </span>
+                <h1 className="mt-4 text-2xl font-extrabold text-[#092068]">Este enlace ya no es válido</h1>
+                <p className="mt-2 text-sm text-gray-500">El enlace venció (es válido 30 minutos) o ya fue usado.</p>
+                <p className="mt-5 flex items-start gap-2 rounded-xl border border-[#FDE7B0] bg-[#FFFBEB] p-3 text-xs text-[#B45309]">
+                  <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  Por seguridad, este enlace ya no permite cambiar tu contraseña. Solicita uno nuevo para continuar.
+                </p>
+                <Link to="/forgot-password"
+                  className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#0439D9] text-sm font-bold text-white transition-colors hover:bg-[#0027a2]">
+                  Solicitar nuevo enlace <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+                <div className="mt-5 border-t border-[#E6EAF0] pt-4 text-center">
+                  <Link to="/login" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0439D9] hover:underline">
+                    <ArrowLeft size={15} aria-hidden="true" /> Volver al inicio de sesión
+                  </Link>
+                </div>
+                <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-[#627A9B]">
+                  <Lock size={12} aria-hidden="true" /> Acceso con tu cuenta institucional
+                </p>
+              </div>
+            ) : verificando ? (
+              <div className={cardClass}>
+                <p role="status" className="py-6 text-center text-sm text-[#627A9B]">Verificando el enlace…</p>
+              </div>
+            ) : (
             <div className={cardClass}>
               <h1 className="text-2xl font-extrabold text-[#092068]">Restablecer contraseña</h1>
               <p className="mt-3 text-sm text-gray-500">
                 Elige una contraseña nueva para tu cuenta SIGEX.
               </p>
 
-              {!token && (
-                <div className="mt-6 flex items-start gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-xs text-[#B91C1C]">
-                  <CircleAlert size={16} className="mt-0.5 shrink-0" />
-                  <div>
-                    <p>El enlace no incluye un token válido.</p>
-                    <Link to="/forgot-password" className="mt-1 inline-block font-semibold underline">
-                      Solicitar un enlace nuevo
-                    </Link>
-                  </div>
-                </div>
-              )}
 
               <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
@@ -204,6 +235,7 @@ export default function ResetPasswordPage() {
                 )}
               </form>
             </div>
+            )}
           </div>
 
           {isMobile && (

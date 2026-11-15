@@ -291,6 +291,32 @@ class ActaExamenServiceTests {
     }
 
     @Test
+    void elExpulsadoDiceLaHoraYElMotivoDeLaExpulsion() throws Exception {
+        mockExamenValido(examenFinalizado());
+
+        var expulsado = estudiante(7, "20240007", "Pedro", "Expulsado");
+        when(asistenciaRepository.buscarPorIdExamen(20)).thenReturn(List.of(
+                asistencia(expulsado, true, LocalDateTime.parse("2026-10-01T10:00:00"))
+        ));
+        when(expulsionRepository.existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(
+                7, 20, ExpulsionRepository.DESDE_SIEMPRE)).thenReturn(true);
+        var expulsion = new com.nexacore.examenes.models.Expulsion();
+        expulsion.setFechaHora(LocalDateTime.parse("2026-10-01T10:42:13"));
+        expulsion.setMotivo("Copia o plagio");
+        when(expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
+                7, 20, ExpulsionRepository.DESDE_SIEMPRE)).thenReturn(java.util.Optional.of(expulsion));
+        when(trasladoRepository.findByIdExamenAndIdEstudianteAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(
+                anyInt(), anyInt(), any())).thenReturn(List.of());
+
+        byte[] pdf = service.generarActa(20);
+        String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
+
+        // La salida dice que es la hora de la expulsión, y bajo el nombre van la hora y el motivo.
+        assertTrue(texto.contains("10:42:13 (expulsado)"), texto);
+        assertTrue(texto.contains("Expulsado a las 10:42 · Motivo: Copia o plagio"), texto);
+    }
+
+    @Test
     void expulsionAnuladaCuentaComoAsistencia() throws Exception {
         mockExamenValido(examenFinalizado());
 

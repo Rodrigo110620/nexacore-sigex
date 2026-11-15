@@ -55,7 +55,7 @@ it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', 
   expect(within(modal).getByText('Lucía Aguilar · 2026001 · Ingeniería')).toBeInTheDocument()
   expect(within(modal).getByText('Entre 10 y 200 caracteres, con palabras que expliquen la expulsión.')).toBeInTheDocument()
   expect(within(modal).getByRole('group', { name: 'Motivos frecuentes' })).toBeInTheDocument()
-  expect(within(modal).getByText(/La expulsión queda registrada con la fecha y hora del servidor/)).toBeInTheDocument()
+  expect(within(modal).getByText(/La expulsión queda registrada con la hora del servidor y tu nombre. Se puede anular después/)).toBeInTheDocument()
   fireEvent.change(within(modal).getByRole('textbox'), { target: { value: '   ' } })
   expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)

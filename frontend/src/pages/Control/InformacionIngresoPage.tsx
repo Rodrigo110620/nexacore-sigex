@@ -34,12 +34,14 @@ import {
 import useEnVivo from "../../hooks/useEnVivo";
 import ExpulsionesReporte from "../../components/control/ExpulsionesReporte";
 import ExcepcionesNoHabilitadoReporte from "../../components/control/ExcepcionesNoHabilitadoReporte";
+import TablePagination from "../../components/users/TablePagination";
 import { fechaHoraNumerica, formatFecha } from "../../utils/examenFormat";
 
 type PestañaIngreso = "intentos" | "autorizados" | "excepciones";
 
 const fechaHora = (valor: string) => fechaHoraNumerica(valor);
 const PESTAÑAS: PestañaIngreso[] = ["autorizados", "excepciones", "intentos"];
+const POR_PAGINA = 10;
 /** Clases de la fila a la que se llega desde «Incidencias de hoy» (inicio del ADMIN). */
 const RESALTADO = " ring-2 ring-[#F59E0B]";
 
@@ -160,6 +162,20 @@ export default function InformacionIngresoPage() {
     registros === null ? null : ingresosAutorizados.length;
   const ingresosManuales = ingresosAutorizados.filter((registro) => registro.tipoIngreso === 'MANUAL');
   const lista = pestaña === "intentos" ? intentos : pestaña === "excepciones" ? ingresosManuales : ingresosAutorizados;
+
+  // De 10 en 10 (un examen grande tiene cientos de registros). Mientras no se elija una página, se abre la de la
+  // fila resaltada (si se llegó desde una notificación) o la primera; al cambiar de pestaña vuelve a empezar.
+  const [paginas, setPaginas] = useState<{ pestaña: PestañaIngreso; lista: number | null; reportes: number | null }>({ pestaña, lista: null, reportes: null });
+  const elegidas = paginas.pestaña === pestaña ? paginas : { pestaña, lista: null, reportes: null };
+  const focoEn = <T,>(items: T[] | null | undefined, enFoco: (x: T) => boolean) => {
+    const i = items?.findIndex(enFoco) ?? -1;
+    return i >= 0 ? Math.floor(i / POR_PAGINA) : 0;
+  };
+  const paginaLista = elegidas.lista ?? focoEn(lista as (IntentoIngreso | RegistroControlIngresoExamen)[] | null,
+    (x) => esFoco(x.idEstudiante, "fechaHora" in x ? x.fechaHora : null));
+  const paginaReportes = elegidas.reportes ?? focoEn(reportes, (x) => horaFoco != null && x.fechaHora?.slice(0, 16) === horaFoco);
+  const cambiarPagina = (cual: "lista" | "reportes") => (n: number) => setPaginas({ ...elegidas, [cual]: n });
+  const visibles = <T,>(items: T[] | null | undefined, pagina: number) => (items ?? []).slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
   const detalleReporte = reporteAbierto?.detalle ?? "";
   const extraerDetalle = (etiqueta: string) =>
     detalleReporte
@@ -305,7 +321,7 @@ export default function InformacionIngresoPage() {
             ) : pestaña === "intentos" ? (
               <>
                 <div className="mt-3 space-y-2">
-                  {reportes?.map((reporte) => (
+                  {visibles(reportes, paginaReportes).map((reporte) => (
                     <article
                       key={reporte.idReporte}
                       data-foco={horaFoco != null && reporte.fechaHora?.slice(0, 16) === horaFoco ? "true" : undefined}
@@ -344,11 +360,13 @@ export default function InformacionIngresoPage() {
                     </article>
                   ))}
                 </div>
+                <TablePagination page={paginaReportes} pageSize={POR_PAGINA} totalRecords={reportes?.length ?? 0}
+                  totalPages={Math.ceil((reportes?.length ?? 0) / POR_PAGINA)} onPageChange={cambiarPagina("reportes")} itemLabel="QR duplicados" />
                 <ul
                   aria-label="Intentos no autorizados"
                   className="mt-3 space-y-3"
                 >
-                  {(lista as IntentoIngreso[]).map((intento) => {
+                  {visibles(lista as IntentoIngreso[], paginaLista).map((intento) => {
                     const [textoPrincipal, textoDetalles] = (intento.motivo || "").split(" ### ");
                     const estaExpandido = expandido === intento.idIntento;
 
@@ -414,13 +432,16 @@ export default function InformacionIngresoPage() {
                     );
                   })}
                 </ul>
+                <TablePagination page={paginaLista} pageSize={POR_PAGINA} totalRecords={lista?.length ?? 0}
+                  totalPages={Math.ceil((lista?.length ?? 0) / POR_PAGINA)} onPageChange={cambiarPagina("lista")} itemLabel="intentos" />
               </>
             ) : (
+              <>
               <ul
                 aria-label="Ingresos autorizados"
                 className="mt-3 space-y-3"
               >
-                {(lista as RegistroControlIngresoExamen[]).map((registro) => (
+                {visibles(lista as RegistroControlIngresoExamen[], paginaLista).map((registro) => (
                   <li
                     key={registro.idRegistro}
                     data-foco={esFoco(registro.idEstudiante) ? "true" : undefined}
@@ -462,6 +483,9 @@ export default function InformacionIngresoPage() {
                   </li>
                 ))}
               </ul>
+              <TablePagination page={paginaLista} pageSize={POR_PAGINA} totalRecords={lista?.length ?? 0}
+                totalPages={Math.ceil((lista?.length ?? 0) / POR_PAGINA)} onPageChange={cambiarPagina("lista")} itemLabel={pestaña === "excepciones" ? "ingresos manuales" : "ingresos autorizados"} />
+              </>
             )}
           </div>
         </section>
