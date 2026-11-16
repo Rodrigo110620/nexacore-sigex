@@ -569,6 +569,24 @@ class PostgresIntegracionTests {
         sincronizar();
     }
 
+    @Test
+    void laListaDeEstudiantesSeFiltraPorCuentaActivadaOSinActivar() {
+        prepararCatalogo();
+        int conCuenta = estudiante("209970001", "Activo");
+        int sinCuenta = estudiante("209970002", "Pendiente");
+        int usuario = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Activo','Prueba','99970001','209970001@est.umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("UPDATE estudiante SET id_usuario = ? WHERE id_estudiante = ?", usuario, conCuenta);
+        sincronizar();
+
+        var activadas = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, "ACTIVADA").contenido();
+        var sinActivar = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, "SIN_ACTIVAR").contenido();
+        var todas = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, null).contenido();
+        assertThat(activadas).extracting(e -> e.id()).containsExactly(conCuenta);
+        assertThat(sinActivar).extracting(e -> e.id()).containsExactly(sinCuenta);
+        assertThat(todas).hasSize(2);
+    }
+
     private int estudiante(String sis, String nombre) {
         jdbc.update("INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email) VALUES (?, ?, 'Prueba', ?, ?)",
                 sis, nombre, sis.substring(2), sis + "@est.umss.edu");

@@ -208,11 +208,12 @@ public class EstudianteController {
             @RequestParam(required = false) Integer idExamen,
             @RequestParam(required = false) Integer idMateria,
             @RequestParam(required = false) Integer idParalelo,
+            @RequestParam(required = false) String cuenta,
             Authentication authentication
     ) {
         Integer idDocente = estudianteAlcance.docenteParaFiltrar(idExamen, authentication);
         return ResponseEntity.ok(
-                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente, idMateria, idParalelo)
+                estudianteService.listar(page, size, search, idFacultad, idCarrera, idDocente, idMateria, idParalelo, cuenta)
         );
     }
 

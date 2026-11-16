@@ -11,7 +11,7 @@ import ImportarEstudiantesModal from '../../components/estudiantes/ImportarEstud
 import VistaPreviaDescarga, { type FormatoDescarga } from '../../components/ui/VistaPreviaDescarga'
 import MenuImportarExportar from '../../components/ui/MenuImportarExportar'
 import { obtenerArchivo } from '../../services/descargas'
-import { getCarreras, getFacultades, getMateriasDocente } from '../../services/estudianteService'
+import { getCarreras, getEstudiantes, getFacultades, getMateriasDocente } from '../../services/estudianteService'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -82,8 +82,26 @@ export default function EstudiantesPage() {
       idParalelo: draftFilters.idParalelo,
       idFacultad: draftFilters.idFacultad,
       idCarrera: draftFilters.idCarrera,
+      cuenta: draftFilters.cuenta,
     })
-  }, [debouncedSearch, draftFilters.idMateria, draftFilters.idParalelo, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
+  }, [debouncedSearch, draftFilters.idMateria, draftFilters.idParalelo, draftFilters.idCarrera, draftFilters.idFacultad, draftFilters.cuenta, updateFilters])
+
+  // Cuántos activaron su cuenta y cuántos no, con la misma búsqueda y filtros (sin el de cuenta).
+  const [conteoCuentas, setConteoCuentas] = useState<{ todos: number; activada: number; sinActivar: number } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    const base = {
+      page: 0, size: 1, search: debouncedSearch.trim(), idFacultad: draftFilters.idFacultad, idCarrera: draftFilters.idCarrera,
+      idMateria: draftFilters.idMateria, idParalelo: draftFilters.idParalelo,
+    }
+    Promise.all([
+      getEstudiantes(base, controller.signal),
+      getEstudiantes({ ...base, cuenta: 'ACTIVADA' }, controller.signal),
+      getEstudiantes({ ...base, cuenta: 'SIN_ACTIVAR' }, controller.signal),
+    ]).then(([t, a, s]) => setConteoCuentas({ todos: t.totalRegistros, activada: a.totalRegistros, sinActivar: s.totalRegistros }))
+      .catch(() => { if (!controller.signal.aborted) setConteoCuentas(null) })
+    return () => controller.abort()
+  }, [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo, data.totalRegistros])
 
   useEffect(() => {
     if (!esAdmin) return
@@ -134,7 +152,7 @@ export default function EstudiantesPage() {
     obtenerArchivo(`/estudiantes/planilla.${f}`, filtrosDescarga, `planilla_estudiantes.${f}`), [filtrosDescarga])
   const obtenerListaCsv = useCallback(() => obtenerArchivo('/estudiantes/planilla.csv', filtrosDescarga, 'planilla_estudiantes.csv'), [filtrosDescarga])
 
-  const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
+  const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera || draftFilters.cuenta)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
   return (
@@ -230,6 +248,24 @@ export default function EstudiantesPage() {
               onClose={() => setFichaEstudiante(null)}
             />
 
+            {/* Quiénes activaron su cuenta: sin cuenta no tienen su QR para el examen. */}
+            <div role="tablist" aria-label="Cuenta del estudiante" className="mb-3 grid grid-cols-3 border-b border-[#D8E3F5] sm:flex sm:gap-2">
+              {([['', 'Todos', conteoCuentas?.todos], ['ACTIVADA', 'Cuenta activada', conteoCuentas?.activada], ['SIN_ACTIVAR', 'Sin activar', conteoCuentas?.sinActivar]] as const).map(([valor, texto, n]) => {
+                const activa = (draftFilters.cuenta ?? '') === valor
+                return (
+                  <button key={texto} type="button" role="tab" aria-selected={activa}
+                    onClick={() => setDraftFilters((f) => ({ ...f, cuenta: valor }))}
+                    className={`-mb-px inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-2 text-xs font-semibold transition-colors sm:px-3 sm:text-sm ${
+                      activa ? 'border-[#0439D9] text-[#0439D9]' : 'border-transparent text-[#45628D] hover:border-[#B8CBEF] hover:text-[#011140]'}`}>
+                    {texto}
+                    {n != null && (
+                      <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${activa ? 'bg-[#0439D9] text-white' : valor === 'SIN_ACTIVAR' && n > 0 ? 'bg-[#FEF3C7] text-[#B45309]' : 'bg-[#EDF2FE] text-[#45628D]'}`}>{n}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="flex flex-col">
               {loading ? (
                 <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
@@ -258,8 +294,8 @@ export default function EstudiantesPage() {
                   )}
                 </div>
               ) : estudiantes.length > 0 ? (
-                <div className="min-[960px]:rounded-none">                  {/* Móvil */}
-                  <div className="min-[960px]:hidden">
+                <div className="min-[960px]:rounded-none">                  {/* Móvil y laptops chicas: la tabla necesita 920 px, así que hasta 1100 px van tarjetas. */}
+                  <div className="min-[1100px]:hidden">
                     <EstudianteCardList
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
@@ -269,7 +305,7 @@ export default function EstudiantesPage() {
                     />
                   </div>
                   {/* Desktop */}
-                  <div className="hidden min-[960px]:block">
+                  <div className="hidden min-[1100px]:block">
                     <EstudianteTable
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
@@ -289,7 +325,7 @@ export default function EstudiantesPage() {
                   />
                 </div>
               ) : (
-                <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes para mostrar.'} />
+                <EmptyState message={draftFilters.cuenta === 'SIN_ACTIVAR' && !draftFilters.search.trim() ? 'Todos los estudiantes activaron su cuenta.' : hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes para mostrar.'} />
               )}
             </div>
           </div>

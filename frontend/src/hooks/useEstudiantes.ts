@@ -58,6 +58,7 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
         idParalelo: filters.idParalelo,
         idFacultad: filters.idFacultad,
         idCarrera: filters.idCarrera,
+        cuenta: filters.cuenta,
       },
       controller.signal,
     )
@@ -89,7 +90,8 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
         current.idMateria !== nextFilters.idMateria ||
         current.idParalelo !== nextFilters.idParalelo ||
         current.idFacultad !== nextFilters.idFacultad ||
-        current.idCarrera !== nextFilters.idCarrera
+        current.idCarrera !== nextFilters.idCarrera ||
+        (current.cuenta ?? '') !== (nextFilters.cuenta ?? '')
       return didChange ? nextFilters : current
     })
     setPage(0)
