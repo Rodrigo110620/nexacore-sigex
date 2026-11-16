@@ -57,6 +57,9 @@ public class CuentaEstudianteService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AuditoriaService auditoriaService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
     public CuentaEstudianteService(EstudianteRepository estudianteRepository,
                                    EstudianteActivacionRepository activacionRepository,
                                    UsuarioRepository usuarioRepository,
@@ -182,6 +185,10 @@ public class CuentaEstudianteService {
         usuarioRolRepository.save(usuarioRol);
 
         activacionRepository.delete(activacion);
+        // Pasa a «Cuenta activada» en la lista de estudiantes abierta.
+        if (notificacionEnVivo != null) {
+            notificacionEnVivo.emitirCambio(NotificacionService.CAMBIO_ESTUDIANTE, null, estudiante.getId());
+        }
 
         // El QR se envía al activar la cuenta (no al registrarlo): recién ahí el estudiante está activo.
         // Si ya tenía uno (registrado antes de este cambio), ya le llegó y no se reenvía.

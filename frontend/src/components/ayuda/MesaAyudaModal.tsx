@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import axios from 'axios'
 import { ArrowLeft, ArrowRight, CalendarClock, Camera, CircleCheck, CircleHelp, GraduationCap, KeyRound, LifeBuoy, LoaderCircle, QrCode, Send, UserX, X, type LucideIcon } from 'lucide-react'
 import { enviarSolicitudAyuda, type TipoAyuda } from '../../services/mesaAyudaService'
@@ -29,15 +30,15 @@ const TEMAS: Tema[] = [
     accion: { texto: 'Recuperar mi contraseña', href: '/forgot-password' },
     pista: 'Ej.: «Pedí el enlace con juan.perez@umss.edu y no me llega, ni en correo no deseado».' },
   { tipo: 'ACTIVACION', titulo: 'Activar mi cuenta de estudiante', Icono: GraduationCap,
-    explicacion: 'La primera vez, cada estudiante activa su cuenta y crea su propia contraseña. Solo necesitas tu código SIS, tu carnet y acceso a tu correo institucional.',
+    explicacion: 'La primera vez, cada estudiante activa su cuenta y crea su propia contraseña. Solo necesitas tu código SIS y acceso a tu correo institucional.',
     pasos: [
       'En la pantalla de ingreso pulsa «Activar cuenta» (o usa el botón de abajo).',
-      'Escribe tu código SIS (9 dígitos) y tu carnet de identidad, tal como están registrados en la universidad.',
+      'Escribe tu código SIS (9 dígitos), tal como está registrado en la universidad.',
       'Te enviamos un código de 6 dígitos a tu correo institucional: tucódigoSIS@est.umss.edu.',
-      'Escribe ese código y crea tu contraseña. Desde ese momento ya puedes ingresar al portal.',
+      'Escribe ese código, tu carnet de identidad (si te lo pide) y crea tu contraseña. Desde ese momento ya puedes ingresar al portal.',
     ],
     accion: { texto: 'Activar mi cuenta', href: '/activar-cuenta' },
-    pista: 'Ej.: «Mi código SIS es 202100110, puse mi carnet y me dice que los datos no coinciden».' },
+    pista: 'Ej.: «Mi código SIS es 202100110 y no me llega el código a mi correo institucional».' },
   { tipo: 'CUENTA', titulo: 'No tengo cuenta o no puedo entrar', Icono: UserX,
     explicacion: 'Depende de tu rol: los estudiantes activan su propia cuenta; las del personal (docentes y control) las crea el administrador.',
     pasos: [
@@ -144,11 +145,14 @@ export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[#011140]/45 sm:items-center sm:p-4" onClick={onClose}>
+  // En un portal: si se abre dentro de una tarjeta con transform (el login), «fixed» quedaría encerrado en ella.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[#011140]/50 backdrop-blur-[2px] sm:items-center sm:p-6" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby={`${id}-titulo`} onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-xl sm:rounded-2xl">
-        <div className="flex items-start gap-3 border-b border-[#EDF1F7] px-5 py-4">
+        className="flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl">
+        {/* Asa de la hoja inferior en el celular. */}
+        <span aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[#D8E3F5] sm:hidden" />
+        <div className="flex items-start gap-3 border-b border-[#EDF1F7] px-4 py-3 sm:px-6 sm:py-4">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#E9F1FF] text-[#0439D9]"><LifeBuoy size={20} aria-hidden="true" /></span>
           <div className="min-w-0 flex-1">
             <h2 id={`${id}-titulo`} className="text-base font-bold text-[#011140]">Mesa de ayuda</h2>
@@ -159,7 +163,7 @@ export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
         </div>
 
         {!enviadoA && (
-          <ol aria-label="Pasos" className="flex items-center gap-2 border-b border-[#EDF1F7] px-5 py-3 text-xs">
+          <ol aria-label="Pasos" className="flex items-center gap-2 border-b border-[#EDF1F7] px-4 py-2.5 text-xs sm:px-6 sm:py-3">
             {PASOS.map((nombrePaso, i) => (
               <li key={nombrePaso} aria-current={paso === i ? 'step' : undefined} className="flex min-w-0 items-center gap-2">
                 {i > 0 && <span aria-hidden="true" className={`h-px w-4 shrink-0 sm:w-8 ${paso >= i ? 'bg-[#0439D9]' : 'bg-[#D8E3F5]'}`} />}
@@ -173,7 +177,7 @@ export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
           </ol>
         )}
 
-        <div className="overflow-y-auto px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-5">
           {enviadoA ? (
             <div role="status" className="flex flex-col items-center gap-2 py-6 text-center">
               <span className="grid size-14 place-items-center rounded-full bg-[#DCFCE7] text-[#15803D]"><CircleCheck size={28} aria-hidden="true" /></span>
@@ -191,11 +195,12 @@ export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
           ) : paso === 0 ? (
             <>
               <h3 className="text-sm font-bold text-[#011140]">¿Con qué necesitas ayuda?</h3>
-              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                {TEMAS.map((t) => (
-                  <li key={t.tipo}>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 sm:gap-3">
+                {TEMAS.map((t, i) => (
+                  // El último («Otro problema») ocupa la fila entera en escritorio: no queda un hueco al lado.
+                  <li key={t.tipo} className={i === TEMAS.length - 1 && TEMAS.length % 2 === 1 ? 'sm:col-span-2' : undefined}>
                     <button type="button" onClick={() => elegir(t)}
-                      className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-[#E4E9F2] bg-white px-3 text-left text-sm font-semibold text-[#011140] transition-colors hover:border-[#0439D9] hover:bg-[#F6F9FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/40">
+                      className="flex min-h-[52px] w-full items-center gap-3 rounded-xl border border-[#E4E9F2] bg-white px-3 py-2 text-left text-sm font-semibold leading-snug text-[#011140] transition-colors hover:border-[#0439D9] hover:bg-[#F6F9FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/40 sm:min-h-16 sm:px-4">
                       <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><t.Icono size={18} aria-hidden="true" /></span>
                       <span className="min-w-0 flex-1">{t.titulo}</span>
                       <ArrowRight size={15} className="shrink-0 text-[#8BA0BF]" aria-hidden="true" />
@@ -272,6 +277,7 @@ export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

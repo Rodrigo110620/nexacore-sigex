@@ -34,6 +34,14 @@ import java.util.stream.Collectors;
 @Service
 public class ImportacionEstudiantesService {
 
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
+
     /** El correo no se pide: es el código SIS @est.umss.edu (si un archivo viejo trae «email», se ignora). */
     static final List<String> COLUMNAS = List.of(
         "codigoSis", "nombre", "apellidos", "idFacultad", "idCarrera"
@@ -136,6 +144,7 @@ public class ImportacionEstudiantesService {
         // Los errores se informan en el orden de las filas del archivo.
         errores.addAll(erroresAlGuardar);
         errores.sort(Comparator.comparingInt(ImportacionEstudiantesService::numeroDeFila));
+        if (insertados > 0) avisarEnVivo(NotificacionService.CAMBIO_ESTUDIANTE, null);
         return new ImportarEstudiantesResponse(insertados, ignorados, errores);
     }
 

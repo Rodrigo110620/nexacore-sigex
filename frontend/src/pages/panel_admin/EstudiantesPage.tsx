@@ -1,4 +1,5 @@
 import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
+import useEnVivo from '../../hooks/useEnVivo'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -64,7 +65,11 @@ export default function EstudiantesPage() {
     updateFilters,
     changePage,
     retry,
+    recargarEnSilencio,
   } = useEstudiantes()
+  // En vivo: altas, ediciones, importaciones, cuentas activadas y fotos nuevas aparecen sin recargar la página.
+  const [enVivo, setEnVivo] = useState(0)
+  useEnVivo((c) => c.tipo === 'ESTUDIANTE' || c.tipo === 'FOTO', () => { recargarEnSilencio(); setEnVivo((n) => n + 1) })
 
   const handleViewClick = (estudiante: EstudianteListItem) => {
     setFichaEstudiante(estudiante)
@@ -101,7 +106,7 @@ export default function EstudiantesPage() {
     ]).then(([t, a, s]) => setConteoCuentas({ todos: t.totalRegistros, activada: a.totalRegistros, sinActivar: s.totalRegistros }))
       .catch(() => { if (!controller.signal.aborted) setConteoCuentas(null) })
     return () => controller.abort()
-  }, [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo, data.totalRegistros])
+  }, [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo, data.totalRegistros, enVivo])
 
   useEffect(() => {
     if (!esAdmin) return
@@ -110,7 +115,7 @@ export default function EstudiantesPage() {
       .then((lista) => { if (!cancelado) setFotosPorRevisar(lista.length) })
       .catch(() => { /* el acceso sigue disponible aunque no se sepa cuántas hay */ })
     return () => { cancelado = true }
-  }, [esAdmin])
+  }, [esAdmin, enVivo])
 
   const handleFiltersChange = (next: EstudianteFilterParams) => setDraftFilters(next)
 

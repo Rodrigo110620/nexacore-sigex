@@ -28,6 +28,14 @@ import java.util.List;
 @Service
 public class EstudianteService {
 
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
+
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     static final int BUSQUEDA_MAX = 40;
 
@@ -188,6 +196,7 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
+        avisarEnVivo(NotificacionService.CAMBIO_ESTUDIANTE, estudiante.getId());
         // El QR ya no se envía al registrar: queda "Pendiente de activación" y le llega al activar su cuenta.
 
         return new EstudianteListResponse(
@@ -296,6 +305,7 @@ public class EstudianteService {
         relacion.setEstudiante(e);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
+        avisarEnVivo(NotificacionService.CAMBIO_ESTUDIANTE, e.getId());
 
         return toResponse(e);
     }
