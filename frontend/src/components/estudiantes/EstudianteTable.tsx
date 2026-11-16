@@ -33,14 +33,15 @@ export default function EstudianteTable({
 }: EstudianteTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
-      <table className="w-full min-w-[1100px] table-fixed text-left">
+      {/* Entra completa desde 1280 px con el menú lateral: «Acciones» con su ancho justo y el resto repartido. */}
+      <table className="w-full min-w-[920px] table-fixed text-left">
         <colgroup>
           <col className="w-[24%]" />
-          <col className="w-[12%]" />
-          <col className="w-[26%]" />
-          <col className="w-[11%]" />
-          <col className="w-[14%]" />
+          <col className="w-[10%]" />
+          <col className="w-[22%]" />
           <col className="w-[13%]" />
+          <col className="w-[16%]" />
+          <col className="w-[156px]" />
         </colgroup>
         <caption className="sr-only">Lista de estudiantes registrados</caption>
         <thead className="bg-[#F8FAFC] text-xs uppercase tracking-wide text-[#627A9B]">

@@ -294,8 +294,8 @@ export default function EstudiantesPage() {
                   )}
                 </div>
               ) : estudiantes.length > 0 ? (
-                <div className="min-[960px]:rounded-none">                  {/* Móvil */}
-                  <div className="min-[960px]:hidden">
+                <div className="min-[960px]:rounded-none">                  {/* Móvil y laptops chicas: la tabla necesita 920 px, así que hasta 1100 px van tarjetas. */}
+                  <div className="min-[1100px]:hidden">
                     <EstudianteCardList
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
@@ -305,7 +305,7 @@ export default function EstudiantesPage() {
                     />
                   </div>
                   {/* Desktop */}
-                  <div className="hidden min-[960px]:block">
+                  <div className="hidden min-[1100px]:block">
                     <EstudianteTable
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
