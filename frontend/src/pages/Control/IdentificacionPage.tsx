@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { Volume2, VolumeX } from 'lucide-react'
+import { activarSonido, sonar, sonidoActivo } from '../../utils/sonido'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Building2 } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -149,12 +151,20 @@ export default function IdentificacionPage() {
     const restante = DURACION_MINIMA_VERIFICACION_MS - (Date.now() - inicioVerificacion)
     if (restante > 0) await new Promise<void>((resolver) => setTimeout(resolver, restante))
     if (lectura !== lecturaQrActual.current) return
-    if (resultado === 'invalido') setQrInvalidoOpen(true)
+    if (resultado === 'invalido') { sonar('denegado'); setQrInvalidoOpen(true) }
   }
+  const [conSonido, setConSonido] = useState(sonidoActivo)
 
   return (
     <PanelLayout topBarVariant="controlMinimal" locationLabel={examen && [examen.ambienteUbicacion, examen.ambienteNombre].filter(Boolean).join(' · ')} title="CONTROL DE INGRESO" description="Identifica al estudiante por código universitario, CI o QR.">
       <div className="w-full px-4 py-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-7 lg:pb-7">
+        <div className="mb-2 flex justify-end">
+          <button type="button" aria-pressed={conSonido} onClick={() => { activarSonido(!conSonido); setConSonido(!conSonido); if (!conSonido) sonar('autorizado') }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#D8E3F5] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#45628D] hover:bg-[#F1F6FF]">
+            {conSonido ? <Volume2 size={14} aria-hidden="true" /> : <VolumeX size={14} aria-hidden="true" />}
+            {conSonido ? 'Sonido activado' : 'Sonido silenciado'}
+          </button>
+        </div>
         {examen && (
           <span className="mb-3 inline-flex max-w-full items-center gap-1 rounded-full border border-[#E2E6EC] bg-white px-2 py-1 text-[10px] text-[#344158] lg:hidden">
             <Building2 size={11} className="shrink-0" aria-hidden="true" />

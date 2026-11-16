@@ -2,12 +2,14 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest'
 import ResumenReportes from '../components/reportes/ResumenReportes'
 import useFilasNuevas from '../hooks/useFilasNuevas'
+import GraficoPorHora from '../components/reportes/GraficoPorHora'
 
+const H = Array<number>(24).fill(0)
 const RESUMEN = {
-  intentos: { total: 12, hoy: 3, ayer: 5 },
-  expulsiones: { total: 2, hoy: 0, ayer: 1 },
+  intentos: { total: 12, hoy: 3, ayer: 5, porHora: H },
+  expulsiones: { total: 2, hoy: 0, ayer: 1, porHora: H },
   excepciones: null,
-  fotos: { total: 4, hoy: 1, ayer: 0 },
+  fotos: { total: 4, hoy: 1, ayer: 0, porHora: H },
 }
 
 describe('Resumen de Reportes', () => {
@@ -45,5 +47,21 @@ describe('useFilasNuevas', () => {
     act(() => { vi.advanceTimersByTime(10) })
     expect(result.current.size).toBe(0)
     vi.useRealTimers()
+  })
+})
+
+describe('GraficoPorHora', () => {
+  it('resume el día, marca la hora con más y muestra la cifra de cada hora al pasar el mouse', () => {
+    const porHora = Array<number>(24).fill(0)
+    porHora[8] = 2
+    porHora[10] = 5
+    const { container } = render(<GraficoPorHora porHora={porHora} titulo="Intentos de hoy" unidad={['intento', 'intentos']} />)
+    expect(screen.getByText('7 intentos')).toBeInTheDocument()
+    expect(screen.getByText(/más a las 10:00/)).toBeInTheDocument()
+    // Tabla accesible con cada hora.
+    expect(screen.getByRole('row', { name: '10:00 5' })).toBeInTheDocument()
+    const barras = container.querySelectorAll('button')
+    fireEvent.mouseEnter(barras[10 - 7])
+    expect(screen.getByRole('status')).toHaveTextContent('10:00 · 5 intentos')
   })
 })

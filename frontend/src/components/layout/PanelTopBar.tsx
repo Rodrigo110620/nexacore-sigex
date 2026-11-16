@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookCheck, Building2, ChevronDown, ClipboardCheck, LifeBuoy, LogOut, UserRound, X, GraduationCap, LayoutGrid, BarChart3, Settings } from 'lucide-react'
+import { BookCheck, Building2, ChevronDown, ClipboardCheck, LifeBuoy, LogOut, Search, UserRound, X, GraduationCap, LayoutGrid, BarChart3, Settings } from 'lucide-react'
 import MesaAyudaModal from '../ayuda/MesaAyudaModal'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import CampanaNotificaciones from '../notificaciones/CampanaNotificaciones'
+import { EVENTO_ABRIR_BUSCADOR } from '../../utils/buscador'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
 import { EVENTO_MI_FOTO } from '../../utils/miFoto'
 import { tienePermiso } from '../../utils/permisos'
@@ -153,6 +154,13 @@ export default function PanelTopBar({
         </div>
 
         <div className="relative flex shrink-0 items-center gap-2" ref={menuRef}>
+          {/* Buscador rápido (Ctrl+K); en el celular, solo el ícono. */}
+          <button type="button" onClick={() => window.dispatchEvent(new Event(EVENTO_ABRIR_BUSCADOR))} aria-label="Buscar (Ctrl+K)" title="Buscar (Ctrl+K)"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#D8E3F5] bg-white px-2.5 text-sm text-[#8BA0BF] transition-colors hover:border-[#B8CBEF] hover:text-[#45628D] lg:w-56 lg:px-3">
+            <Search size={16} className="shrink-0" aria-hidden="true" />
+            <span className="hidden flex-1 text-left lg:inline">Buscar…</span>
+            <kbd className="hidden rounded border border-[#D8E3F5] px-1.5 text-[10px] font-semibold text-[#8BA0BF] lg:inline">Ctrl K</kbd>
+          </button>
           {tienePermiso(auth, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'NOTIFICACIONES_TODAS') && (
             <CampanaNotificaciones roles={roles} compacta={minimalControlHeader} />
           )}

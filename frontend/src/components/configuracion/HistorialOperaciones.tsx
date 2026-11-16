@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import PuntoVivo from '../ui/PuntoVivo'
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Download, Minus, Plus, Search, X } from 'lucide-react'
 import { listarAutores, listarHistorial, obtenerHistorial, type AutorHistorial, type FiltrosHistorial, type OperacionAuditada, type PaginaHistorial } from '../../services/historialOperacionService'
 import VistaPreviaDescarga, { type FormatoDescarga } from '../ui/VistaPreviaDescarga'
@@ -189,7 +190,7 @@ export default function HistorialOperaciones() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0"><h2 id="historial-titulo" className="text-base font-bold text-[#011140]">Historial de operaciones</h2><p className="mt-0.5 text-xs text-[#627A9B]">Quién hizo qué y cuándo en todo el sistema: usuarios, estudiantes, exámenes, control de ingreso y configuración.</p></div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D] sm:inline-flex"><span className="size-1.5 animate-pulse rounded-full bg-[#16A34A]" aria-hidden="true" />En vivo</span>
+          <span className="hidden items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D] sm:inline-flex"><PuntoVivo tamano="size-1.5" />En vivo</span>
           <button type="button" onClick={() => setEligiendo(true)} aria-label="Exportar el historial en PDF" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-3 text-xs font-bold text-white hover:bg-[#0027a2] sm:px-4"><Download size={15} aria-hidden="true" /><span className="hidden sm:inline">Descargar PDF</span></button>
         </div>
       </div>

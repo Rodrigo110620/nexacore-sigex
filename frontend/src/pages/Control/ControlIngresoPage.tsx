@@ -1,4 +1,5 @@
 import { normalizarJustificacion, validarJustificacion } from '../../utils/justificacionManual'
+import { sonar } from '../../utils/sonido'
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, ChevronDown, LogOut, ClipboardList, Gavel, Fingerprint, Ban, ShieldX, UserCheck, CheckCircle2, ChevronLeft, LoaderCircle, X, Building2, Flag } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -70,6 +71,8 @@ export const VOLVER_A_IDENTIFICAR_MS = 6000
 /** Vibración corta al autorizar y doble al denegar, si el celular lo permite. */
 function vibrar(autorizado: boolean) {
   try { navigator.vibrate?.(autorizado ? 40 : [60, 50, 60]) } catch { /* sin vibración */ }
+  // Y un sonido distinto para cada resultado (se puede silenciar).
+  sonar(autorizado ? 'autorizado' : 'denegado')
 }
 
 /** Ícono de "autorizado": la marca de verificación se dibuja al aparecer (sin animación si se pidió reducir movimiento). */

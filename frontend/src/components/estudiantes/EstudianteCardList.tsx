@@ -1,4 +1,6 @@
 import MateriasDocente from './MateriasDocente'
+import { claseFilaViva, useFilasVivasActuales } from '../../hooks/useFilaViva'
+import { MarcaFilaViva } from '../ui/FilaViva'
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
@@ -31,12 +33,13 @@ export default function EstudianteCardList({
   puedeEditar = true,
   ocultarMaterias = false,
 }: EstudianteCardListProps) {
+  const vivas = useFilasVivasActuales()
   return (
     <ul className="grid grid-cols-1 gap-3 sm:gap-4">
       {estudiantes.map((e) => (
         <li
           key={e.id}
-          className="rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm"
+          className={`rounded-xl border border-[#D8E3F5] bg-white p-3 shadow-sm transition-shadow hover:shadow-md ${claseFilaViva(vivas.get(e.id))}`}
         >
           <div className="flex items-start gap-3">
             <FotoEstudiante
@@ -48,7 +51,7 @@ export default function EstudianteCardList({
             <div className="min-w-0 flex-1">
                <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate text-sm font-bold text-[#011140]">
-                  {e.nombre} {e.apellidos}
+                  {e.nombre} {e.apellidos}<MarcaFilaViva estado={vivas.get(e.id)} />
                 </p>
                 <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                   e.estadoMatricula === 'NO_MATRICULADO' 

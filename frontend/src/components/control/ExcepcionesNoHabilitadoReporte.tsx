@@ -14,7 +14,7 @@ import { fechaHoraNumerica } from '../../utils/examenFormat'
  */
 const TAMANO_PAGINA = 10
 
-export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen, buscar = '', resaltar = null }: {
+export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen, buscar = '', resaltar = null, desde }: {
   /** null: las de todos los exámenes que puede ver (BUG-G03). */
   idExamen: number | null
   nombresExamen?: Map<number, string>
@@ -22,6 +22,8 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
   buscar?: string
   /** Estudiante al que lleva una notificación o «Incidencias → Revisar»: su fila se resalta (y se abre su página). */
   resaltar?: number | null
+  /** Período de Reportes: solo desde esta fecha y hora. */
+  desde?: string
 }) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
@@ -52,7 +54,7 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
   // Una recarga en vivo del mismo examen no vuelve a «Consultando…»: se ve la lista hasta tener la nueva.
   const actual = resultado?.clave === clave || (resultado?.registros && resultado.clave.startsWith(`${idExamen ?? 'todos'}|${sesion}|`)) ? resultado : undefined
   const nuevas = useFilasNuevas(actual?.registros?.map((x) => x.idExcepcion), `${idExamen ?? 'todos'}`)
-  const filtrados = actual?.registros?.filter((x) => coincide(buscar, x.estudiante, x.codigoSis))
+  const filtrados = actual?.registros?.filter((x) => coincide(buscar, x.estudiante, x.codigoSis) && (!desde || x.fechaHora >= desde))
   const total = filtrados?.length ?? 0
   const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
   const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import PuntoVivo from '../ui/PuntoVivo'
+import { NumeroVivo } from '../ui/FilaViva'
 import { Ban, CameraOff, ShieldAlert, UserX, type LucideIcon } from 'lucide-react'
 import type { ClaveResumen, Cifra, ResumenReportes as Resumen } from '../../hooks/useResumenReportes'
 
@@ -8,19 +9,6 @@ const TARJETAS: { clave: ClaveResumen; texto: string; corto: string; Icono: Luci
   { clave: 'excepciones', texto: 'Excepciones', corto: 'Excepciones', Icono: ShieldAlert, color: 'text-[#6D28D9]', fondo: 'bg-[#EDE9FE]' },
   { clave: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos', Icono: CameraOff, color: 'text-[#0439D9]', fondo: 'bg-[#E9F1FF]' },
 ]
-
-/** El número late un instante cuando cambia (llegó algo en vivo). */
-function Numero({ valor }: { valor: number }) {
-  const anterior = useRef(valor)
-  const [latido, setLatido] = useState(0)
-  useEffect(() => {
-    if (anterior.current === valor) return
-    anterior.current = valor
-    const t = window.setTimeout(() => setLatido((n) => n + 1), 0)
-    return () => window.clearTimeout(t)
-  }, [valor])
-  return <span key={latido} className={latido ? 'sigex-cifra-cambia' : undefined}>{valor}</span>
-}
 
 function Tendencia({ cifra }: { cifra: Cifra }) {
   return (
@@ -43,6 +31,10 @@ export default function ResumenReportes({ resumen, activa, onElegir }: {
   onElegir: (clave: ClaveResumen) => void
 }) {
   return (
+    <div>
+    <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D]">
+      <PuntoVivo tamano="size-1.5" /> En vivo · se actualiza solo
+    </p>
     <ul aria-label="Resumen de reportes" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       {TARJETAS.map(({ clave, texto, corto, Icono, color, fondo }) => {
         const cifra = resumen[clave]
@@ -60,7 +52,7 @@ export default function ResumenReportes({ resumen, activa, onElegir }: {
                 </span>
                 {cifra ? (
                   <>
-                    <span className="block text-2xl font-extrabold leading-tight text-[#011140] sm:text-[28px]"><Numero valor={cifra.total} /></span>
+                    <span className="block text-2xl font-extrabold leading-tight text-[#011140] sm:text-[28px]"><NumeroVivo valor={cifra.total} /></span>
                     <Tendencia cifra={cifra} />
                   </>
                 ) : (
@@ -75,5 +67,6 @@ export default function ResumenReportes({ resumen, activa, onElegir }: {
         )
       })}
     </ul>
+    </div>
   )
 }
