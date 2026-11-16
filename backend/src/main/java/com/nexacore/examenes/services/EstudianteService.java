@@ -75,12 +75,19 @@ public class EstudianteService {
         return listar(page, size, search, idFacultad, idCarrera, idDocente, null, null);
     }
 
-    @Transactional(readOnly = true)
     public PageResponse<EstudianteListResponse> listar(int page, int size, String search,
             Integer idFacultad, Integer idCarrera, Integer idDocente, Integer idMateria, Integer idParalelo) {
+        return listar(page, size, search, idFacultad, idCarrera, idDocente, idMateria, idParalelo, null);
+    }
+
+    /** cuenta: ACTIVADA (activó su cuenta), SIN_ACTIVAR o null (todas). */
+    @Transactional(readOnly = true)
+    public PageResponse<EstudianteListResponse> listar(int page, int size, String search,
+            Integer idFacultad, Integer idCarrera, Integer idDocente, Integer idMateria, Integer idParalelo, String cuenta) {
+        String filtroCuenta = "ACTIVADA".equalsIgnoreCase(cuenta) ? "ACTIVADA" : "SIN_ACTIVAR".equalsIgnoreCase(cuenta) ? "SIN_ACTIVAR" : null;
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), TAMANO_MAXIMO_PAGINA));
         Page<Estudiante> pagina = estudianteRepository.buscarConFiltros(
-                normalizarBusqueda(search), idFacultad, idCarrera, idDocente, idMateria, idParalelo, pageable
+                normalizarBusqueda(search), idFacultad, idCarrera, idDocente, idMateria, idParalelo, filtroCuenta, pageable
         );
 
         return PageResponse.de(pagina.map(e -> conMaterias(toResponse(e), idDocente)));

@@ -3,8 +3,8 @@ vi.mock('../services/estudianteService', () => ({
     { idMateria: 5, materia: 'Base de Datos I', idParalelo: 2, paralelo: '2' },
     { idMateria: 9, materia: 'Taller de Programación', idParalelo: 1, paralelo: '1' },
   ]),
-  getEstudiantes: vi.fn((p: { idParalelo?: string }) => Promise.resolve({ contenido: [], pagina: 0, tamano: 1, totalPaginas: 1,
-    totalRegistros: p.idParalelo === '2' ? 32 : p.idParalelo === '1' ? 28 : 60 })),
+  getEstudiantes: vi.fn((p: { idParalelo?: string; cuenta?: string }) => Promise.resolve({ contenido: [], pagina: 0, tamano: 1, totalPaginas: 1,
+    totalRegistros: p.cuenta === 'ACTIVADA' ? 45 : p.cuenta === 'SIN_ACTIVAR' ? 15 : p.idParalelo === '2' ? 32 : p.idParalelo === '1' ? 28 : 60 })),
 }))
 import type { ReactNode } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -72,5 +72,16 @@ describe('acciones de la página Estudiantes según el rol', () => {
   it('el ADMIN no ve las cards: sigue con la tabla y sus filtros', () => {
     pagina(['ADMIN'])
     expect(screen.queryByRole('region', { name: 'Mis materias y grupos' })).not.toBeInTheDocument()
+  })
+
+  it('separa a quienes activaron su cuenta de quienes no, con su número', async () => {
+    pagina(['ADMIN'])
+    const pestanas = await screen.findByRole('tablist', { name: 'Cuenta del estudiante' })
+    expect(await screen.findByRole('tab', { name: /Cuenta activada\s*45/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Sin activar\s*15/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Todos\s*60/ })).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByRole('tab', { name: /Sin activar/ }))
+    expect(screen.getByRole('tab', { name: /Sin activar/ })).toHaveAttribute('aria-selected', 'true')
+    expect(pestanas).toBeInTheDocument()
   })
 })

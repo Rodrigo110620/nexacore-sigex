@@ -40,6 +40,8 @@ export interface EstudianteFilterParams {
   search: string
   idFacultad: string | ''
   idCarrera: string | ''
+  /** Cuenta del estudiante: ACTIVADA (ya la activó), SIN_ACTIVAR o '' (todos). */
+  cuenta?: '' | 'ACTIVADA' | 'SIN_ACTIVAR'
 }
 
 export interface EstudianteListPage {

@@ -155,6 +155,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
+          AND (:cuenta IS NULL OR (:cuenta = 'ACTIVADA' AND e.idUsuario IS NOT NULL) OR (:cuenta = 'SIN_ACTIVAR' AND e.idUsuario IS NULL))
         ORDER BY e.apellidos, e.nombre
         """,
         countQuery = """
@@ -180,6 +181,7 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                WHERE ia.id.idEstudiante = e.id AND LOWER(ia.estado) = 'inscrito'
                  AND (:idMateria IS NULL OR ia.id.idMateria = :idMateria)
                  AND (:idParalelo IS NULL OR ia.id.idParalelo = :idParalelo)))
+          AND (:cuenta IS NULL OR (:cuenta = 'ACTIVADA' AND e.idUsuario IS NOT NULL) OR (:cuenta = 'SIN_ACTIVAR' AND e.idUsuario IS NULL))
         """)
 Page<Estudiante> buscarConFiltros(
     @Param("search") String search,
@@ -188,12 +190,19 @@ Page<Estudiante> buscarConFiltros(
     @Param("idDocente") Integer idDocente,
     @Param("idMateria") Integer idMateria,
     @Param("idParalelo") Integer idParalelo,
+    @Param("cuenta") String cuenta,
     Pageable pageable
 );
 
+/** Sin filtro de cuenta (Todas). */
+default Page<Estudiante> buscarConFiltros(String search, Integer idFacultad, Integer idCarrera,
+        Integer idDocente, Integer idMateria, Integer idParalelo, Pageable pageable) {
+    return buscarConFiltros(search, idFacultad, idCarrera, idDocente, idMateria, idParalelo, null, pageable);
+}
+
 default Page<Estudiante> buscarConFiltros(String search, Integer idFacultad, Integer idCarrera,
         Integer idDocente, Pageable pageable) {
-    return buscarConFiltros(search, idFacultad, idCarrera, idDocente, null, null, pageable);
+    return buscarConFiltros(search, idFacultad, idCarrera, idDocente, null, null, null, pageable);
 }
 
 @Query("""
