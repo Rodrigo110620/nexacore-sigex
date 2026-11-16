@@ -27,7 +27,7 @@ import {
     validateCodigoSis,
     validateSisDistintoDeCi,
     validateDocumento,
-    validateStudentEmail,
+    correoDelCodigoSis,
     validateNombre,
     validateTelefono,
 } from '../../utils/validators'
@@ -132,7 +132,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 const loadedForm: FormState = {
                     nombre: est.nombre,
                     apellidos: est.apellidos,
-                    ci: est.ci,
+                    ci: est.ci ?? '',
                     telefono: est.telefono ?? '',
                     codigoSis: est.codigoSis,
                     email: est.email ?? '',
@@ -237,16 +237,16 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
         const next: Record<string, string> = {}
         const nombreError = validateNombre(form.nombre)
         const apellidosError = validateApellidos(form.apellidos)
-        const ciError = validateDocumento(form.ci)
+        // El C.I. es opcional hasta que el estudiante active su cuenta (ahí lo escribe él).
+        const ciError = form.ci.trim()
+            ? validateDocumento(form.ci)
+            : estudiante?.tieneCuenta ? 'El estudiante ya activó su cuenta: su CI no puede quedar vacío.' : ''
         const telefonoError = validateTelefono(form.telefono)
-        // El correo del estudiante es su código SIS @est.umss.edu.
-        const emailError = validateStudentEmail(form.email, form.codigoSis)
 
         if (nombreError) next.nombre = nombreError
         if (apellidosError) next.apellidos = apellidosError
         if (ciError) next.ci = ciError
         if (telefonoError) next.telefono = telefonoError
-        if (emailError) next.email = emailError
 
         const sisErr = validateCodigoSis(form.codigoSis) || validateSisDistintoDeCi(form.codigoSis, form.ci)
         if (sisErr) next.codigoSis = sisErr
@@ -265,7 +265,8 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                 apellidos: form.apellidos.trim(),
                 ci: form.ci.trim(),
                 telefono: form.telefono.trim(),
-                email: form.email.trim(),
+                // El correo no se edita: es el código SIS @est.umss.edu.
+                email: correoDelCodigoSis(form.codigoSis),
                 codigoSis: form.codigoSis.trim(),
                 idFacultad: Number(form.idFacultad),
                 idCarrera: Number(form.idCarrera),
@@ -435,7 +436,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <label className="block text-xs font-semibold text-[#011140]">
-                                        Documento (CI) <b className="text-red-500">*</b>
+                                        Documento (CI) {estudiante?.tieneCuenta && <b className="text-red-500">*</b>}
                                         <input
                                             type="text"
                                             inputMode="numeric"
@@ -443,6 +444,7 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                             maxLength={FIELD_LIMITS.documento.max}
                                             onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))}
                                             className={inputClass}
+                                            placeholder={estudiante?.tieneCuenta ? undefined : 'Opcional: lo escribe al activar'}
                                         />
                                         <FieldError>{errors.ci}</FieldError>
                                     </label>
@@ -480,12 +482,12 @@ export default function EditarEstudianteModal({ open, estudianteId, onClose, onS
                                         Correo Electrónico
                                         <input
                                             type="email"
-                                            value={form.email}
-                                            maxLength={FIELD_LIMITS.email.max}
-                                            onChange={(e) => update('email', e.target.value)}
-                                            className={inputClass}
+                                            readOnly
+                                            aria-readonly="true"
+                                            value={form.codigoSis.length === 9 ? correoDelCodigoSis(form.codigoSis) : ''}
+                                            className={`${inputClass} cursor-default bg-[#F8FAFC] text-[#45628D]`}
                                         />
-                                        <FieldError>{errors.email}</FieldError>
+                                        <span className="mt-1 block text-[10px] font-normal text-[#627A9B]">Se genera con el código SIS.</span>
                                     </label>
                                 </div>
                             </div>

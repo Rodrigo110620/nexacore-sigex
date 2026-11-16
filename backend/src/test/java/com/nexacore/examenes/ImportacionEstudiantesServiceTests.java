@@ -145,7 +145,7 @@ class ImportacionEstudiantesServiceTests {
     void reportaFilasInvalidasSinGuardarlas() {
         var file = csv(ENCABEZADO
             + "12345,Ana,Pérez,7489210,ana@umss.edu,1,10\n"
-            + "202404013,Luis,Rojas,7489211,,1,10\n"
+            + "202404013,Luis,Ro7as,7489211,,1,10\n"
             + "202404014,Eva,Soto,7489212,202404014@est.umss.edu,uno,10\n");
 
         var result = service.importar(file);
@@ -154,7 +154,7 @@ class ImportacionEstudiantesServiceTests {
         assertEquals(3, result.ignorados());
         assertTrue(result.errores().get(0).startsWith("Fila 2: "));
         assertTrue(result.errores().get(0).contains("9 dígitos"));
-        assertTrue(result.errores().get(1).contains("correo electrónico es obligatorio"));
+        assertTrue(result.errores().get(1).contains("apellidos"));
         assertTrue(result.errores().get(2).contains("idFacultad debe ser un número"));
         verify(estudianteService, never()).registrar(any());
     }
@@ -199,14 +199,22 @@ class ImportacionEstudiantesServiceTests {
     }
 
     @Test
-    void unaFilaConCorreoConNombreSeRechazaEnLaColumnaCorreo() {
-        var result = service.importar(csv(ENCABEZADO
-            + "202404012,Ana,Pérez,7489210,ana.perez@est.umss.edu,1,10\n"
-            + "202404013,Leo,Mena,7489213,202404013@est.umss.edu,1,10\n"));
-
-        assertEquals(1, result.insertados());
-        org.assertj.core.api.Assertions.assertThat(result.errores()).singleElement().asString()
-            .startsWith("Fila 2: El correo del estudiante debe ser su código SIS @est.umss.edu");
+    void elCorreoSeGeneraConElCodigoSisYElCiEsOpcional() {
+        // Un archivo viejo con «email» (aunque sea otro) se acepta: el correo sale siempre del código SIS.
+        var conCorreo = service.importar(csv(ENCABEZADO
+            + "202404012,Ana,Pérez,7489210,ana.perez@est.umss.edu,1,10\n"));
+        assertEquals(1, conCorreo.insertados());
+        // Solo con las columnas obligatorias (sin ci ni email) también se importa.
+        var minimo = service.importar(csv("codigoSis,nombre,apellidos,idFacultad,idCarrera\n"
+            + "202404013,Leo,Mena,1,10\n"));
+        assertEquals(1, minimo.insertados(), String.valueOf(minimo.errores()));
+        var capturas = org.mockito.ArgumentCaptor.forClass(RegistrarEstudianteRequest.class);
+        verify(estudianteService, times(2)).registrar(capturas.capture());
+        var primera = capturas.getAllValues().get(0);
+        var segunda = capturas.getAllValues().get(1);
+        assertEquals("202404012@est.umss.edu", primera.email());
+        assertEquals("202404013@est.umss.edu", segunda.email());
+        org.junit.jupiter.api.Assertions.assertNull(segunda.ci());
     }
 
     @Test

@@ -434,7 +434,7 @@ export default function EstudiantesHabilitadosTab({
             
                       <p className={`truncate text-sm font-bold ${esInactivo ? 'text-gray-400' : 'text-[#011140]'}`}>{e.nombre} {e.apellidos}</p>
                       <p className="mt-0.5 truncate text-[11px] text-[#627A9B]">Cód: {e.codigoSis}</p>
-                      <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci}</p>
+                      <p className="truncate text-[11px] text-[#627A9B]">CI: {e.ci || '—'}</p>
                       <AvisoCruce estudiante={e} />
                       <AvisoSinFoto estudiante={e} />
                     </div>
@@ -552,7 +552,7 @@ export default function EstudiantesHabilitadosTab({
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{e.ci}</td>
+                      <td className="px-4 py-3 text-gray-600">{e.ci || '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-2 text-sm font-medium ${visual.className}`}>
                           <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${visual.iconWrap}`}>

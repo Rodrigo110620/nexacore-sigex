@@ -234,7 +234,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                     {/* En laptop la carrera va bajo el nombre (su columna aparece desde xl) para no apretar la tabla. */}
                     {estudiante.carrera && <p className="truncate text-[11px] text-[#627A9B] xl:hidden">{estudiante.carrera}</p>}
                   </Identidad></td>
-                  <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci}</td>
+                  <td className={`px-4 py-3 text-sm font-semibold ${colorCi(habilitado)}`}>{estudiante.ci || '—'}</td>
                   <td className="hidden px-4 py-3 text-sm text-[#011140] xl:table-cell">{estudiante.carrera ?? '—'}</td>
                   <td className="px-4 py-3">
                     <EstadoIngresoBadge ingresado={estudiante.ingresado} expulsado={estudiante.expulsado} salida={estudiante.fechaHoraSalida} />
@@ -286,7 +286,7 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
                   <SinFoto estudiante={estudiante} />
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-[#EDF1F7] pt-2">
                     <div className="min-w-0 text-[10px]">
-                      <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci}</p>
+                      <p className={`font-semibold ${colorCi(habilitado)}`}>CI: {estudiante.ci || '—'}</p>
                       {estudiante.carrera && <p className="mt-0.5 truncate text-[#627A9B]">{estudiante.carrera}</p>}
                     </div>
                     <Acciones idExamen={idExamen} estudiante={estudiante} salida={puedeSalida(estudiante)} onExito={onExito} onExpulsar={accionExpulsar(estudiante)} onReasignar={puedeReasignar ? () => handleReasignarClick(estudiante) : undefined} />

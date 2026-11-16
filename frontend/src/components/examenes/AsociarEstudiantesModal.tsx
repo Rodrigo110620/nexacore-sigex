@@ -403,10 +403,10 @@ export default function AsociarEstudiantesModal({
                                   </span>
                                   <span className="mt-0.5 block truncate text-xs text-[#98A2B3]">Cód: {e.codigoSis}</span>
                                   <span className="mt-0.5 block truncate text-xs text-[#667085] sm:hidden">
-                                    CI {e.ci} · {carrerasDe(e)}
+                                    CI {e.ci || '—'} · {carrerasDe(e)}
                                   </span>
                                 </td>
-                                <td className="hidden py-4 pr-4 font-medium text-[#101828] sm:table-cell">{e.ci}</td>
+                                <td className="hidden py-4 pr-4 font-medium text-[#101828] sm:table-cell">{e.ci || '—'}</td>
                                 <td className="hidden truncate py-4 pr-5 text-[#344054] md:table-cell" title={carrerasDe(e)}>
                                   {carrerasDe(e)}
                                 </td>

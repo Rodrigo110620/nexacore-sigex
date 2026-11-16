@@ -122,6 +122,43 @@ class CuentaEstudianteFlujoTests {
         verify(emailService).enviarQrEstudiante(eq(EMAIL), anyString(), eq(SIS), org.mockito.ArgumentMatchers.any());
     }
 
+    // V58: registrado sin C.I. (CSV o registro manual), lo escribe al activar con solo su código SIS.
+    @Test
+    void sinCiRegistradoLoEscribeAlActivar() {
+        Estudiante e = estudianteRepository.findByCodigoSis(SIS).orElseThrow();
+        e.setCi(null);
+        estudianteRepository.saveAndFlush(e);
+
+        cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS));
+        ArgumentCaptor<String> codigo = ArgumentCaptor.forClass(String.class);
+        verify(emailService).enviarCodigoActivacion(eq(EMAIL), anyString(), codigo.capture(), anyInt());
+
+        var estado = cuentaService.verificarCodigo(new com.nexacore.examenes.dto.VerificarCodigoActivacionRequest(SIS, codigo.getValue()));
+        assertThat(estado.ciRegistrado()).isFalse();
+        assertThat(estado.ciEnmascarado()).isNull();
+        assertThatThrownBy(() -> cuentaService.confirmarActivacion(new ConfirmarActivacionRequest(SIS, codigo.getValue(), PASSWORD, PASSWORD)))
+                .hasMessageContaining("Escribe tu C.I.");
+        assertThatThrownBy(() -> cuentaService.confirmarActivacion(new ConfirmarActivacionRequest(SIS, codigo.getValue(), PASSWORD, PASSWORD, "1234567")))
+                .hasMessageContaining("secuencia");
+
+        cuentaService.confirmarActivacion(new ConfirmarActivacionRequest(SIS, codigo.getValue(), PASSWORD, PASSWORD, CI));
+        entityManager.flush();
+        entityManager.clear();
+        Estudiante activado = estudianteRepository.findByCodigoSis(SIS).orElseThrow();
+        assertThat(activado.getCi()).isEqualTo(CI);
+        assertThat(usuarioRepository.findById(activado.getIdUsuario()).orElseThrow().getCi()).isEqualTo(CI);
+    }
+
+    @Test
+    void conCiRegistradoSoloSeMuestraEnmascarado() {
+        cuentaService.solicitarActivacion(new SolicitarActivacionRequest(SIS));
+        ArgumentCaptor<String> codigo = ArgumentCaptor.forClass(String.class);
+        verify(emailService).enviarCodigoActivacion(eq(EMAIL), anyString(), codigo.capture(), anyInt());
+        var estado = cuentaService.verificarCodigo(new com.nexacore.examenes.dto.VerificarCodigoActivacionRequest(SIS, codigo.getValue()));
+        assertThat(estado.ciRegistrado()).isTrue();
+        assertThat(estado.ciEnmascarado()).isEqualTo("••••210");
+    }
+
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @Test

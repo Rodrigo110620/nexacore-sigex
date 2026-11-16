@@ -34,11 +34,15 @@ import java.util.stream.Collectors;
 @Service
 public class ImportacionEstudiantesService {
 
+    /** El correo no se pide: es el código SIS @est.umss.edu (si un archivo viejo trae «email», se ignora). */
     static final List<String> COLUMNAS = List.of(
-        "codigoSis", "nombre", "apellidos", "ci", "email", "idFacultad", "idCarrera"
+        "codigoSis", "nombre", "apellidos", "idFacultad", "idCarrera"
     );
-    /** Columnas opcionales (IMP-06): si no vienen, sin teléfono y MATRICULADO. */
-    static final List<String> COLUMNAS_OPCIONALES = List.of("telefono", "estadoMatricula");
+    /**
+     * Columnas opcionales (IMP-06): si no vienen, sin C.I. (lo escribe el estudiante al activar su cuenta),
+     * sin teléfono y MATRICULADO.
+     */
+    static final List<String> COLUMNAS_OPCIONALES = List.of("ci", "telefono", "estadoMatricula");
     static final int MAX_FILAS = 10_000;
     static final int BLOQUE = 500;
 
@@ -68,7 +72,6 @@ public class ImportacionEstudiantesService {
         List<Pendiente> pendientes = new ArrayList<>();
         Set<String> sisEnArchivo = new HashSet<>();
         Set<String> ciEnArchivo = new HashSet<>();
-        Set<String> emailEnArchivo = new HashSet<>();
 
         try (CSVParser parser = CSVParser.parse(contenido, formato)) {
             LecturaCsv.validarEncabezados(parser.getHeaderNames(), COLUMNAS);
@@ -85,7 +88,7 @@ public class ImportacionEstudiantesService {
             for (CSVRecord fila : filas) {
                 // +1 por la fila de encabezados: coincide con la numeración de Excel.
                 int numero = (int) fila.getRecordNumber() + 1;
-                Validacion validacion = validarFila(fila, sisEnArchivo, ciEnArchivo, emailEnArchivo);
+                Validacion validacion = validarFila(fila, sisEnArchivo, ciEnArchivo);
                 if (validacion.error() == null) {
                     pendientes.add(new Pendiente("Fila " + numero + ": ", validacion.request()));
                 } else {
@@ -154,7 +157,7 @@ public class ImportacionEstudiantesService {
             Set<Integer> facultades = new HashSet<>(), carreras = new HashSet<>();
             for (Pendiente p : lectura.pendientes()) {
                 sis.add(p.request().codigoSis());
-                ci.add(p.request().ci());
+                if (p.request().ci() != null) ci.add(p.request().ci());
                 email.add(p.request().email());
             }
             Set<String> sisExistentes = existentes("SELECT codigo_sis FROM estudiante WHERE codigo_sis IN (:v)", sis);
@@ -309,7 +312,7 @@ public class ImportacionEstudiantesService {
         "emailDelCodigoSis", "Correo");
 
     private Validacion validarFila(
-        CSVRecord fila, Set<String> sisEnArchivo, Set<String> ciEnArchivo, Set<String> emailEnArchivo
+        CSVRecord fila, Set<String> sisEnArchivo, Set<String> ciEnArchivo
     ) {
         if (!fila.isConsistent()) {
             return Validacion.rechazo("la cantidad de columnas no coincide con los encabezados.");
@@ -329,9 +332,9 @@ public class ImportacionEstudiantesService {
         RegistrarEstudianteRequest request = new RegistrarEstudianteRequest(
             LecturaCsv.valor(fila, "nombre"),
             LecturaCsv.valor(fila, "apellidos"),
-            LecturaCsv.valor(fila, "ci"),
+            opcional(LecturaCsv.valor(fila, "ci")),
             opcional(LecturaCsv.valor(fila, "telefono")),
-            LecturaCsv.valor(fila, "email").toLowerCase(Locale.ROOT),
+            null,
             LecturaCsv.valor(fila, "codigoSis"),
             idFacultad,
             idCarrera,
@@ -343,7 +346,7 @@ public class ImportacionEstudiantesService {
         if (!violaciones.isEmpty()) {
             // La columna es la del primer error (en orden de las columnas del archivo).
             String columna = violaciones.stream().map(v -> v.getPropertyPath().toString())
-                .min(Comparator.comparingInt(c -> COLUMNAS.indexOf(c) < 0 ? 99 : COLUMNAS.indexOf(c)))
+                .min(Comparator.comparingInt(ImportacionEstudiantesService::ordenColumna))
                 .map(c -> COLUMNA_VISIBLE.getOrDefault(c, c)).orElse(null);
             return Validacion.rechazo(columna, violaciones.stream()
                 .map(ConstraintViolation::getMessage)
@@ -354,14 +357,22 @@ public class ImportacionEstudiantesService {
         if (!sisEnArchivo.add(request.codigoSis())) {
             return Validacion.rechazo("Código SIS", "el código SIS " + request.codigoSis() + " está repetido en el archivo.");
         }
-        if (!ciEnArchivo.add(request.ci())) {
+        if (request.ci() != null && !ciEnArchivo.add(request.ci())) {
             return Validacion.rechazo("CI", "el CI " + request.ci() + " está repetido en el archivo.");
         }
-        if (!emailEnArchivo.add(request.email())) {
-            return Validacion.rechazo("Correo", "el correo " + request.email() + " está repetido en el archivo.");
-        }
 
-        return new Validacion(request, null, null);
+        // El correo sale del código SIS (no se pide en el archivo).
+        return new Validacion(new RegistrarEstudianteRequest(request.nombre(), request.apellidos(), request.ci(),
+            request.telefono(), com.nexacore.examenes.dto.ReglasEstudiante.correoDe(request.codigoSis()).toLowerCase(Locale.ROOT),
+            request.codigoSis(), request.idFacultad(), request.idCarrera(), request.condicion(), request.estadoMatricula()), null, null);
+    }
+
+    /** Orden de las columnas en el archivo (para mostrar el error de la primera). */
+    private static int ordenColumna(String columna) {
+        int i = COLUMNAS.indexOf(columna);
+        if (i >= 0) return i;
+        int j = COLUMNAS_OPCIONALES.indexOf(columna);
+        return j >= 0 ? COLUMNAS.size() + j : 99;
     }
 
     private static Integer aEntero(String texto) {

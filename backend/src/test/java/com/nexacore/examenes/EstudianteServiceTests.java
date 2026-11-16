@@ -93,7 +93,7 @@ class EstudianteServiceTests {
 
     @Test
     void rechazaCorreoDuplicado() {
-        when(estudianteRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
+        when(estudianteRepository.existsByEmailIgnoreCase("202404012@est.umss.edu")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
         assertTrue(error.getMessage().contains("correo electrónico"));
         verify(estudianteRepository, never()).save(any());
@@ -109,7 +109,7 @@ class EstudianteServiceTests {
 
     @Test
     void rechazaCorreoDuplicadoEnUsuarios() {
-        when(usuarioRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("202404012@est.umss.edu")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
         assertTrue(error.getMessage().contains("usuario del sistema"));
         verify(estudianteRepository, never()).save(any());
