@@ -5,6 +5,8 @@ import TablePagination from '../users/TablePagination'
 import { anularExpulsion, listarExpulsionesExamen, listarExpulsionesTodas, type ExpulsionResponse } from '../../services/expulsionService'
 import { coincide } from '../../utils/buscar'
 import useEnVivo from '../../hooks/useEnVivo'
+import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
+import EtiquetaNuevo from '../reportes/EtiquetaNuevo'
 import { useAuth } from '../../context/AuthContext'
 import { MOTIVO_ANULACION, normalizarMotivoAnulacion, validarMotivoAnulacion } from '../../utils/anulacionExpulsionTexto'
 import RegistroExpulsion from './RegistroExpulsion'
@@ -95,8 +97,15 @@ export default function ExpulsionesReporte({ idExamen, examen, controles, nombre
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExpulsionResponse[]; error?: string }>()
-  const clave = `${idExamen ?? 'todos'}|${recarga}`
-  useEnVivo((cambio) => idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
+  // Si el examen cambió (p. ej. se reprogramó), lo anterior es de otra sesión: se oculta mientras consulta.
+  // Con otros cambios en vivo se sigue viendo la lista hasta tener la nueva (sin parpadeo).
+  const [sesion, setSesion] = useState(0)
+  const clave = `${idExamen ?? 'todos'}|${sesion}|${recarga}`
+  useEnVivo((cambio) => {
+    const afecta = idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen
+    if (afecta && cambio.tipo === 'EXAMEN') setSesion((n) => n + 1)
+    return afecta
+  }, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
@@ -108,7 +117,9 @@ export default function ExpulsionesReporte({ idExamen, examen, controles, nombre
     return () => { vigente = false }
   }, [idExamen, clave])
 
-  const actual = resultado?.clave === clave ? resultado : undefined
+  // Una recarga en vivo del mismo examen no vuelve a «Consultando…»: se ve la lista hasta tener la nueva.
+  const actual = resultado?.clave === clave || (resultado?.registros && resultado.clave.startsWith(`${idExamen ?? 'todos'}|${sesion}|`)) ? resultado : undefined
+  const nuevas = useFilasNuevas(actual?.registros?.map((e) => e.idExpulsion), `${idExamen ?? 'todos'}`)
   // El endpoint de controles ya está acotado al examen y puede omitir idExamen.
   const nombres = new Map(controles.filter((r) => r.idExamen == null || r.idExamen === idExamen).map((r) => [r.idEstudiante, r]))
   const titulo = (e: ExpulsionResponse) => {
@@ -143,10 +154,10 @@ export default function ExpulsionesReporte({ idExamen, examen, controles, nombre
         <>
         <ul className="mt-3 space-y-3">
           {visibles.map((registro) => (
-            <li key={registro.idExpulsion} className={`rounded-lg border p-3 ${registro.anuladaEn ? 'border-[#D8E3F5] bg-[#F8FAFC]' : 'border-[#F1C4C9] bg-[#FFF8F8]'}`}>
+            <li key={registro.idExpulsion} className={`rounded-lg border p-3 ${registro.anuladaEn ? 'border-[#D8E3F5] bg-[#F8FAFC]' : 'border-[#F1C4C9] bg-[#FFF8F8]'} ${nuevas.has(registro.idExpulsion) ? CLASE_FILA_NUEVA : ''}`}>
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-sm font-semibold text-[#011140]">
-                  {titulo(registro)}
+                  {titulo(registro)}{nuevas.has(registro.idExpulsion) && <EtiquetaNuevo />}
                 </h4>
                 {registro.anuladaEn && (
                   <span className="rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">Anulada · sigue con su examen</span>

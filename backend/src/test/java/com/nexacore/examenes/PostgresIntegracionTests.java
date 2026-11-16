@@ -817,6 +817,9 @@ class PostgresIntegracionTests {
         assertThat(vigente.totalRegistros()).isEqualTo(1);
         assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
                 .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
+        // Resumen de Reportes («hoy», «ayer»): solo los registrados después de la hora indicada.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null, null, java.time.LocalDateTime.of(2026, 10, 28, 8, 8)).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
     }
 
     @Test

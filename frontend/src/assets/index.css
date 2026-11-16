@@ -138,3 +138,24 @@
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-[menuAsoma"], [class*="animate-[velo"] { animation: none; }
 }
+
+/* Reportes: una fila que llegó en vivo se resalta en ámbar y se apaga sola (useFilasNuevas). */
+@keyframes filaNueva {
+  0% { background-color: #FDE68A; }
+  100% { background-color: #FFFBEB; }
+}
+.sigex-fila-nueva {
+  background-color: #FFFBEB !important;
+  box-shadow: inset 3px 0 0 #F59E0B;
+  animation: filaNueva 1.6s ease-out;
+}
+/* Resumen de Reportes: el número late un instante cuando cambia. */
+@keyframes cifraCambia {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.sigex-cifra-cambia { animation: cifraCambia 0.6s ease-out; display: inline-block; }
+@media (prefers-reduced-motion: reduce) {
+  .sigex-fila-nueva, .sigex-cifra-cambia { animation: none; }
+}

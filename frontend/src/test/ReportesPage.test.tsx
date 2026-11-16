@@ -94,7 +94,8 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     await screen.findByRole('option', { name: 'Física I · 31/10/2026 · 08:30' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
     expect(await screen.findByText('No hubo intentos incorrectos en este examen.')).toBeInTheDocument()
-    expect(reporteIntentos).toHaveBeenLastCalledWith(20, 0, 10, '')
+    // La última llamada puede ser la del resumen (con «desde»): basta con que se pidió la lista de ese examen.
+    expect(reporteIntentos).toHaveBeenCalledWith(20, 0, 10, '')
   })
 
   it('las expulsiones y excepciones se ven de todos los exámenes o de uno (BUG-G02, G03)', async () => {
