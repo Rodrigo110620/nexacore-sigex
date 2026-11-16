@@ -42,6 +42,14 @@ export async function gruposDeMateria(idMateria: number, idDocente?: number | nu
   return data
 }
 
+/** Grupos de la materia que ya tienen otro docente (no se ofrecen al asignar grupos). exceptoDocente: el que se edita. */
+export async function gruposOcupados(idMateria: number, exceptoDocente?: number | null, signal?: AbortSignal): Promise<string[]> {
+  const { data } = await api.get<string[]>(`/materias/${idMateria}/grupos-ocupados`, {
+    params: exceptoDocente ? { exceptoDocente } : undefined, signal,
+  })
+  return data
+}
+
 /** IMP-12: las materias de un docente (solo ADMIN). */
 export async function materiasDelDocente(idDocente: number): Promise<MateriaDto[]> {
   const { data } = await api.get<MateriaDto[]>(`/usuarios/${idDocente}/materias`)

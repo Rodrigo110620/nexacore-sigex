@@ -932,6 +932,17 @@ class PostgresIntegracionTests {
         }
     }
 
+    // Al asignar grupos: se ofrecen solo los libres; los del propio docente no cuentan como ocupados.
+    @Test
+    void losGruposOcupadosSonLosDeOtroDocente() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-OCU"));
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'g3')", idMateria, idDocente);
+
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, null)).containsExactly("G1", "G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).isEmpty();
+    }
+
     @Test
     void elDocenteSeRegistraConAlMenosUnaMateria() {
         prepararCatalogo();
