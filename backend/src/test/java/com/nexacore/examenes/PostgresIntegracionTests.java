@@ -817,6 +817,9 @@ class PostgresIntegracionTests {
         assertThat(vigente.totalRegistros()).isEqualTo(1);
         assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
                 .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
+        // Resumen de Reportes («hoy», «ayer»): solo los registrados después de la hora indicada.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null, null, java.time.LocalDateTime.of(2026, 10, 28, 8, 8)).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
     }
 
     @Test
@@ -930,6 +933,17 @@ class PostgresIntegracionTests {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // Al asignar grupos: se ofrecen solo los libres; los del propio docente no cuentan como ocupados.
+    @Test
+    void losGruposOcupadosSonLosDeOtroDocente() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-OCU"));
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'g3')", idMateria, idDocente);
+
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, null)).containsExactly("G1", "G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).isEmpty();
     }
 
     @Test

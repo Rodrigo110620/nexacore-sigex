@@ -22,17 +22,15 @@ public record ActualizarEstudianteRequest(
     @Pattern(regexp = ReglasEstudiante.CODIGO_SIS, message = ReglasEstudiante.MSG_CODIGO_SIS)
     String codigoSis,
 
-    @NotBlank(message = "El documento es obligatorio")
-    @Pattern(regexp = ReglasEstudiante.CI, message = ReglasEstudiante.MSG_CI)
+    /** Opcional: vacío lo deja sin C.I. (solo si aún no activó su cuenta). */
+    @Pattern(regexp = ReglasEstudiante.CI_OPCIONAL, message = ReglasEstudiante.MSG_CI)
     String ci,
 
     /** Opcional: si no se envía se conserva; vacío lo quita. */
     @Pattern(regexp = ReglasEstudiante.TELEFONO, message = ReglasEstudiante.MSG_TELEFONO)
     String telefono,
 
-    @NotBlank(message = "El correo electrónico es obligatorio")
-    @Pattern(regexp = ReglasEstudiante.EMAIL, message = ReglasEstudiante.MSG_EMAIL)
-    @Size(max = ReglasEstudiante.EMAIL_MAX, message = "El correo no puede superar 100 caracteres")
+    /** Ya no se pide: es siempre el código SIS @est.umss.edu (lo que llegue aquí se ignora). */
     String email,
 
     @NotNull(message = "La facultad es obligatoria")
@@ -52,13 +50,5 @@ public record ActualizarEstudianteRequest(
     public ActualizarEstudianteRequest(String nombre, String apellidos, String codigoSis, String ci, String email,
                                        Integer idFacultad, Integer idCarrera, String condicion) {
         this(nombre, apellidos, codigoSis, ci, null, email, idFacultad, idCarrera, condicion, null);
-    }
-
-    /** El correo debe ser el código SIS @est.umss.edu (se informa en la columna Correo). */
-    @jakarta.validation.constraints.AssertTrue(message = ReglasEstudiante.MSG_EMAIL_SIS)
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    @io.swagger.v3.oas.annotations.Hidden
-    public boolean isEmailDelCodigoSis() {
-        return ReglasEstudiante.correoDelCodigoSis(email, codigoSis);
     }
 }

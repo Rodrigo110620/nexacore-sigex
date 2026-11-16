@@ -73,6 +73,10 @@ public class NotificacionService {
     public static final String CAMBIO_HABILITACION = "HABILITACION";
     public static final String CAMBIO_EXAMEN = "EXAMEN";
     public static final String CAMBIO_FOTO = "FOTO";
+    /** Alta, edición, importación o activación de cuenta de estudiantes: recargan las listas de estudiantes. */
+    public static final String CAMBIO_ESTUDIANTE = "ESTUDIANTE";
+    /** Alta, edición, estado o importación de usuarios del personal: recarga la lista de usuarios. */
+    public static final String CAMBIO_USUARIO = "USUARIO";
 
     /** Evento "cambio": qué cambió y de qué examen o estudiante (null si es general). */
     public record Cambio(String tipo, Integer idExamen, Integer idEstudiante) {}

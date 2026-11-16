@@ -28,6 +28,14 @@ import java.util.List;
 @Service
 public class EstudianteService {
 
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
+
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     static final int BUSQUEDA_MAX = 40;
 
@@ -134,15 +142,16 @@ public class EstudianteService {
     @Transactional
     public EstudianteListResponse registrar(RegistrarEstudianteRequest request) {
         String codigoSis = limpiar(request.codigoSis());
-        String ci = limpiar(request.ci());
-        String email = limpiar(request.email()).toLowerCase();
+        // El C.I. es opcional (lo completa el estudiante al activar) y el correo sale del código SIS.
+        String ci = com.nexacore.examenes.dto.ReglasEstudiante.ciOpcional(request.ci());
+        String email = com.nexacore.examenes.dto.ReglasEstudiante.correoDe(codigoSis).toLowerCase();
         com.nexacore.examenes.dto.ReglasEstudiante.validarSisDistintoDeCi(codigoSis, ci);
 
         // BUG-A03: Validar duplicados en ESTUDIANTES
         if (estudianteRepository.existsByCodigoSisIgnoreCase(codigoSis)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
         }
-        if (estudianteRepository.existsByCiIgnoreCase(ci)) {
+        if (ci != null && estudianteRepository.existsByCiIgnoreCase(ci)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese CI.");
         }
         if (estudianteRepository.existsByEmailIgnoreCase(email)) {
@@ -150,7 +159,7 @@ public class EstudianteService {
         }
 
         // BUG-A03: Validar duplicados también contra USUARIOS del sistema
-        if (usuarioRepository.existsByCiIgnoreCase(ci)) {
+        if (ci != null && usuarioRepository.existsByCiIgnoreCase(ci)) {
             throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese CI.");
         }
         if (usuarioRepository.existsByEmailIgnoreCase(email)) {
@@ -187,6 +196,7 @@ public class EstudianteService {
         relacion.setEstudiante(estudiante);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
+        avisarEnVivo(NotificacionService.CAMBIO_ESTUDIANTE, estudiante.getId());
         // El QR ya no se envía al registrar: queda "Pendiente de activación" y le llega al activar su cuenta.
 
         return new EstudianteListResponse(
@@ -227,17 +237,21 @@ public class EstudianteService {
                 .orElseThrow(() -> new IllegalArgumentException("Estudiante no encontrado con id: " + id));
 
         String nuevoCodigo = limpiar(request.codigoSis());
-        String nuevoCi = limpiar(request.ci());
-        String nuevoEmail = limpiar(request.email()).toLowerCase();
+        String nuevoCi = com.nexacore.examenes.dto.ReglasEstudiante.ciOpcional(request.ci());
+        String nuevoEmail = com.nexacore.examenes.dto.ReglasEstudiante.correoDe(nuevoCodigo).toLowerCase();
         com.nexacore.examenes.dto.ReglasEstudiante.validarSisDistintoDeCi(nuevoCodigo, nuevoCi);
+        boolean cambiaCi = nuevoCi != null && !nuevoCi.equalsIgnoreCase(e.getCi());
+        // Con la cuenta activada, su usuario necesita el C.I.: ya no se puede dejar vacío.
+        if (nuevoCi == null && e.getIdUsuario() != null) {
+            throw new IllegalArgumentException("El estudiante ya activó su cuenta: su C.I. no puede quedar vacío.");
+        }
 
         // Validar duplicados en ESTUDIANTES
         if (!e.getCodigoSis().equalsIgnoreCase(nuevoCodigo)
                 && estudianteRepository.existsByCodigoSisIgnoreCase(nuevoCodigo)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese código SIS.");
         }
-        if (!e.getCi().equalsIgnoreCase(nuevoCi)
-                && estudianteRepository.existsByCiIgnoreCase(nuevoCi)) {
+        if (cambiaCi && estudianteRepository.existsByCiIgnoreCase(nuevoCi)) {
             throw new EstudianteDuplicadoException("Ya existe un estudiante con ese CI.");
         }
         if (!nuevoEmail.isEmpty()
@@ -247,8 +261,7 @@ public class EstudianteService {
         }
 
         // BUG-A03: Validar duplicados también contra USUARIOS del sistema
-        if (!e.getCi().equalsIgnoreCase(nuevoCi)
-                && usuarioRepository.existsByCiIgnoreCase(nuevoCi)) {
+        if (cambiaCi && usuarioRepository.existsByCiIgnoreCase(nuevoCi)) {
             throw new EstudianteDuplicadoException("Ya existe un usuario del sistema con ese CI.");
         }
         if (!nuevoEmail.isEmpty()
@@ -269,7 +282,7 @@ public class EstudianteService {
         e.setApellidos(limpiar(request.apellidos()));
         e.setCodigoSis(nuevoCodigo);
         e.setCi(nuevoCi);
-        e.setEmail(nuevoEmail.isEmpty() ? null : nuevoEmail);
+        e.setEmail(nuevoEmail);
         e.setCondicion(CondicionEstudiante.normalizar(request.condicion(), e.getCondicion()));
         
         // Unificado con la lógica de tu compañero (EstadoMatricula)
@@ -292,6 +305,7 @@ public class EstudianteService {
         relacion.setEstudiante(e);
         relacion.setCarrera(carrera);
         estudianteCarreraRepository.save(relacion);
+        avisarEnVivo(NotificacionService.CAMBIO_ESTUDIANTE, e.getId());
 
         return toResponse(e);
     }

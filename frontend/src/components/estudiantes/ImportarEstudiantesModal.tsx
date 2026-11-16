@@ -233,7 +233,7 @@ export default function ImportarEstudiantesModal({ open, onClose, onImported }: 
 
               <div className="rounded-lg bg-[#F2F5FA] p-3 text-xs leading-relaxed text-[#45628D]">
                 <p className="flex items-start gap-2"><Info size={15} className="mt-0.5 shrink-0 text-[#0439D9]" aria-hidden="true" />
-                  <span>Columnas: codigoSis, nombre, apellidos, ci, email, idFacultad, idCarrera; opcionales: telefono y estadoMatricula (MATRICULADO o NO_MATRICULADO).</span>
+                  <span>Columnas: codigoSis, nombre, apellidos, idFacultad, idCarrera; opcionales: ci, telefono y estadoMatricula (MATRICULADO o NO_MATRICULADO). El correo se genera con el código SIS (código SIS@est.umss.edu) y, si no hay CI, el estudiante lo escribe al activar su cuenta.</span>
                 </p>
                 <button type="button" onClick={() => setVerCarreras((v) => !v)} className="ml-6 mt-1 font-semibold text-[#0439D9] hover:underline">
                   {verCarreras ? 'Ocultar IDs de carreras' : 'Ver IDs de facultades y carreras'}

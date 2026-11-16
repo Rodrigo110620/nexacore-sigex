@@ -71,7 +71,7 @@ export default function EstudianteTable({
                   </span>
                 </div>
               </th>
-              <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci}</td>
+              <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci || '—'}</td>
               <td className="px-3 py-3">
                 {(!ocultarMaterias && e.materiasDocente != null) ? <MateriasDocente materias={e.materiasDocente!} compacto /> : <>
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>

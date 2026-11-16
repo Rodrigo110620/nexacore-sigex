@@ -31,5 +31,8 @@ export default function useUserStats() {
     setRetryCount((n) => n + 1)
   }, [])
 
-  return { stats, loading, retry }
+  /** Recarga en vivo, sin mostrar «cargando». */
+  const recargarEnSilencio = useCallback(() => setRetryCount((n) => n + 1), [])
+
+  return { stats, loading, retry, recargarEnSilencio }
 }

@@ -60,18 +60,19 @@ public class RegistroLoteEstudiantesService {
         }
 
         Set<String> sisEstudiantes = existentes("estudiante", "codigo_sis", filas.stream().map(Fila::codigoSis).toList());
-        Set<String> ciEstudiantes = existentes("estudiante", "ci", filas.stream().map(Fila::ci).toList());
+        List<String> cis = filas.stream().map(Fila::ci).filter(java.util.Objects::nonNull).toList();
+        Set<String> ciEstudiantes = existentes("estudiante", "ci", cis);
         Set<String> emailEstudiantes = existentes("estudiante", "email", filas.stream().map(Fila::email).toList());
-        Set<String> ciUsuarios = existentes("usuario", "ci", filas.stream().map(Fila::ci).toList());
+        Set<String> ciUsuarios = existentes("usuario", "ci", cis);
         Set<String> emailUsuarios = existentes("usuario", "email", filas.stream().map(Fila::email).toList());
         Set<String> carreras = carrerasExistentes(filas);
 
         List<Fila> nuevas = new ArrayList<>();
         for (Fila f : filas) {
             String error = sisEstudiantes.contains(minusculas(f.codigoSis())) ? "Ya existe un estudiante con ese código SIS."
-                    : ciEstudiantes.contains(minusculas(f.ci())) ? "Ya existe un estudiante con ese CI."
+                    : f.ci() != null && ciEstudiantes.contains(minusculas(f.ci())) ? "Ya existe un estudiante con ese CI."
                     : emailEstudiantes.contains(f.email()) ? "Ya existe un estudiante con ese correo electrónico."
-                    : ciUsuarios.contains(minusculas(f.ci())) ? "Ya existe un usuario del sistema con ese CI."
+                    : f.ci() != null && ciUsuarios.contains(minusculas(f.ci())) ? "Ya existe un usuario del sistema con ese CI."
                     : emailUsuarios.contains(f.email()) ? "Ya existe un usuario del sistema con ese correo electrónico."
                     : !carreras.contains(f.idCarrera() + "/" + f.idFacultad())
                             ? "La carrera seleccionada no pertenece a la facultad indicada."
@@ -85,14 +86,15 @@ public class RegistroLoteEstudiantesService {
 
     private static Fila normalizar(int indice, RegistrarEstudianteRequest r) {
         String codigoSis = limpiar(r.codigoSis());
-        String ci = limpiar(r.ci());
+        // C.I. opcional (lo completa el estudiante al activar); el correo sale siempre del código SIS.
+        String ci = ReglasEstudiante.ciOpcional(r.ci());
         ReglasEstudiante.validarSisDistintoDeCi(codigoSis, ci);
         if (r.idCarrera() == null || r.idFacultad() == null) {
             throw new IllegalArgumentException("La carrera seleccionada no pertenece a la facultad indicada.");
         }
         return new Fila(indice, codigoSis, limpiar(r.nombre()), limpiar(r.apellidos()), ci,
                 EstadoMatricula.normalizarTelefono(r.telefono(), null),
-                limpiar(r.email()).toLowerCase(Locale.ROOT),
+                ReglasEstudiante.correoDe(codigoSis).toLowerCase(Locale.ROOT),
                 CondicionEstudiante.normalizar(r.condicion(), CondicionEstudiante.REGULAR),
                 EstadoMatricula.normalizar(r.estadoMatricula(), EstadoMatricula.MATRICULADO),
                 r.idCarrera(), r.idFacultad());
@@ -152,6 +154,6 @@ public class RegistroLoteEstudiantesService {
     }
 
     private static String minusculas(String valor) {
-        return valor.toLowerCase(Locale.ROOT);
+        return valor == null ? null : valor.toLowerCase(Locale.ROOT);
     }
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
+import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
+import EtiquetaNuevo from '../reportes/EtiquetaNuevo'
 import TablePagination from '../users/TablePagination'
 import { listarExcepcionesNoHabilitado, listarExcepcionesTodas, type ExcepcionNoHabilitado } from '../../services/excepcionNoHabilitadoService'
 import { coincide } from '../../utils/buscar'
@@ -24,8 +26,15 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; registros?: ExcepcionNoHabilitado[]; error?: string }>()
-  const clave = `${idExamen ?? 'todos'}|${recarga}`
-  useEnVivo((cambio) => idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
+  // Si el examen cambió (p. ej. se reprogramó), lo anterior es de otra sesión: se oculta mientras consulta.
+  // Con otros cambios en vivo se sigue viendo la lista hasta tener la nueva (sin parpadeo).
+  const [sesion, setSesion] = useState(0)
+  const clave = `${idExamen ?? 'todos'}|${sesion}|${recarga}`
+  useEnVivo((cambio) => {
+    const afecta = idExamen == null ? cambio.idExamen != null : cambio.idExamen === idExamen
+    if (afecta && cambio.tipo === 'EXAMEN') setSesion((n) => n + 1)
+    return afecta
+  }, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
@@ -40,7 +49,9 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
     return () => { vigente = false }
   }, [idExamen, clave, resaltar])
 
-  const actual = resultado?.clave === clave ? resultado : undefined
+  // Una recarga en vivo del mismo examen no vuelve a «Consultando…»: se ve la lista hasta tener la nueva.
+  const actual = resultado?.clave === clave || (resultado?.registros && resultado.clave.startsWith(`${idExamen ?? 'todos'}|${sesion}|`)) ? resultado : undefined
+  const nuevas = useFilasNuevas(actual?.registros?.map((x) => x.idExcepcion), `${idExamen ?? 'todos'}`)
   const filtrados = actual?.registros?.filter((x) => coincide(buscar, x.estudiante, x.codigoSis))
   const total = filtrados?.length ?? 0
   const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
@@ -71,9 +82,9 @@ export default function ExcepcionesNoHabilitadoReporte({ idExamen, nombresExamen
           {visibles.map((x) => (
             <li key={x.idExcepcion} data-foco={resaltar != null && x.idEstudiante === resaltar ? 'true' : undefined}
               className={`rounded-lg border p-3 ${resaltar != null && x.idEstudiante === resaltar
-                ? 'border-[#F59E0B] bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : 'border-[#FDE68A] bg-[#FFFBEB]'}`}>
+                ? 'border-[#F59E0B] bg-[#FFFBEB] outline outline-2 -outline-offset-2 outline-[#F59E0B]' : 'border-[#FDE68A] bg-[#FFFBEB]'} ${nuevas.has(x.idExcepcion) ? CLASE_FILA_NUEVA : ''}`}>
               <h4 className="text-sm font-semibold text-[#011140]">
-                {x.estudiante ?? `Estudiante #${x.idEstudiante}`}{x.codigoSis ? ` · SIS ${x.codigoSis}` : ''}
+                {x.estudiante ?? `Estudiante #${x.idEstudiante}`}{x.codigoSis ? ` · SIS ${x.codigoSis}` : ''}{nuevas.has(x.idExcepcion) && <EtiquetaNuevo />}
               </h4>
               {idExamen == null && x.idExamen != null && (
                 <p className="mt-0.5 text-xs text-[#627A9B]">{nombresExamen?.get(x.idExamen) ?? `Examen #${x.idExamen}`}</p>

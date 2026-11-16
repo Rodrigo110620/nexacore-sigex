@@ -60,7 +60,7 @@ export default function EstudianteCardList({
               </div>
               
               <p className="mt-1 truncate text-[11px] text-[#627A9B]">
-                Cód: {e.codigoSis} · DNI: {e.ci}
+                Cód: {e.codigoSis} · DNI: {e.ci || '—'}
               </p>
               <div className="mt-1.5"><EstadoCuentaBadge tieneCuenta={e.tieneCuenta} compacto /></div>
             </div>

@@ -51,11 +51,11 @@ function extractFieldErrorMessage(error: unknown, fallback: string): string {
   return primero || extractErrorMessage(error, fallback)
 }
 
-/** Paso 1 de la activación de la cuenta del estudiante (CTA-01): verifica sus datos y envía el código. */
+/** Paso 1 de la activación de la cuenta del estudiante (CTA-01): envía el código a su correo institucional. */
 export async function solicitarActivacionEstudiante(payload: {
   codigoSis: string
-  ci: string
-  email: string
+  ci?: string
+  email?: string
 }): Promise<string> {
   try {
     const { data } = await api.post<{ mensaje: string }>('/auth/estudiante/activacion/solicitar', payload)
@@ -67,9 +67,18 @@ export async function solicitarActivacionEstudiante(payload: {
 
 /** Paso final de la activación: confirma el código recibido por correo y crea la contraseña. */
 /** Paso 2 (BUG-E03 de HU#5): comprueba el código antes de pedir la contraseña. */
-export async function verificarCodigoActivacionEstudiante(payload: { codigoSis: string; codigo: string }): Promise<void> {
+/** Con el código correcto: si la administración ya registró su C.I. (enmascarado) o debe escribirlo. */
+export interface EstadoActivacion {
+  mensaje?: string
+  ciRegistrado: boolean
+  ciEnmascarado?: string | null
+}
+
+export async function verificarCodigoActivacionEstudiante(payload: { codigoSis: string; codigo: string }): Promise<EstadoActivacion> {
   try {
-    await api.post('/auth/estudiante/activacion/verificar', payload)
+    const { data } = await api.post<EstadoActivacion>('/auth/estudiante/activacion/verificar', payload)
+    // Un backend anterior respondía solo { mensaje }: ahí el C.I. ya estaba registrado.
+    return { ...data, ciRegistrado: data?.ciRegistrado ?? true }
   } catch (error: unknown) {
     throw new Error(extractFieldErrorMessage(error, 'No se pudo verificar el código. Intenta más tarde.'))
   }
@@ -80,6 +89,8 @@ export async function confirmarActivacionEstudiante(payload: {
   codigo: string
   passwordNueva: string
   passwordConfirmacion: string
+  /** Solo si la administración no registró su C.I. */
+  ci?: string
 }): Promise<string> {
   try {
     const { data } = await api.post<{ mensaje: string }>('/auth/estudiante/activacion/confirmar', payload)

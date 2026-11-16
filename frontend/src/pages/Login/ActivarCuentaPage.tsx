@@ -51,7 +51,7 @@ function reglasPassword(password: string, codigoSis: string, ci: string) {
     { texto: 'Un símbolo', cumple: /[\p{P}\p{S}]/u.test(password) },
     {
       texto: 'No contiene tu código SIS ni tu C.I.',
-      cumple: password.length > 0 && !password.includes(codigoSis) && !password.includes(ci),
+      cumple: password.length > 0 && !password.includes(codigoSis) && (!ci || !password.includes(ci)),
     },
   ]
 }
@@ -123,7 +123,10 @@ export default function ActivarCuentaPage() {
   const [paso, setPaso] = useState<Paso>(1)
 
   const [codigoSis, setCodigoSis] = useState('')
+  // El C.I. se pide recién al crear la contraseña y solo si la administración no lo registró (V58).
   const [ci, setCi] = useState('')
+  const [ciRegistrado, setCiRegistrado] = useState(true)
+  const [ciEnmascarado, setCiEnmascarado] = useState<string | null>(null)
   const [codigo, setCodigo] = useState('')
   const [password, setPassword] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
@@ -152,7 +155,7 @@ export default function ActivarCuentaPage() {
     setCargando(true)
     setErrorGeneral('')
     try {
-      const mensaje = await solicitarActivacionEstudiante({ codigoSis, ci, email: correoDelSis(codigoSis) })
+      const mensaje = await solicitarActivacionEstudiante({ codigoSis, email: correoDelSis(codigoSis) })
       setAvisoEnvio(mensaje)
       setReenviarEn(SEGUNDOS_ENTRE_ENVIOS)
       return true
@@ -172,11 +175,6 @@ export default function ActivarCuentaPage() {
       const ficticio = motivoIdentificadorFicticio('codigo', codigoSis)
       if (ficticio) nuevos.codigoSis = ficticio
     }
-    if (!/^\d{7,8}$/.test(ci)) nuevos.ci = 'El C.I. debe tener 7 u 8 dígitos'
-    else {
-      const ficticio = motivoIdentificadorFicticio('ci', ci)
-      if (ficticio) nuevos.ci = ficticio
-    }
     setErrores(nuevos)
     if (Object.keys(nuevos).length > 0) return
     if (await enviarCodigo()) setPaso(2)
@@ -193,7 +191,10 @@ export default function ActivarCuentaPage() {
     // BUG-E03 de HU#5: con un código falso o vencido no se pasa a crear la contraseña.
     setCargando(true)
     try {
-      await verificarCodigoActivacionEstudiante({ codigoSis, codigo })
+      const estado = await verificarCodigoActivacionEstudiante({ codigoSis, codigo })
+      setCiRegistrado(estado.ciRegistrado)
+      setCiEnmascarado(estado.ciEnmascarado ?? null)
+      if (estado.ciRegistrado) setCi('')
       setPaso(3)
     } catch (err: unknown) {
       setErrores({ codigo: err instanceof Error ? err.message : 'No se pudo verificar el código.' })
@@ -209,6 +210,14 @@ export default function ActivarCuentaPage() {
   const activarCuenta = async (event: FormEvent) => {
     event.preventDefault()
     const nuevos: Record<string, string> = {}
+    if (!ciRegistrado) {
+      if (!/^\d{7,8}$/.test(ci)) nuevos.ci = 'El C.I. debe tener 7 u 8 dígitos'
+      else {
+        const ficticio = motivoIdentificadorFicticio('ci', ci)
+        if (ficticio) nuevos.ci = ficticio
+        else if (codigoSis.includes(ci)) nuevos.ci = 'El C.I. no puede ser igual al código SIS ni estar contenido en él'
+      }
+    }
     const errorPassword = validateNewPassword(password)
     if (errorPassword) nuevos.password = errorPassword
     else if (!reglas[reglas.length - 1].cumple) nuevos.password = 'La contraseña no puede contener tu código SIS ni tu C.I.'
@@ -225,6 +234,7 @@ export default function ActivarCuentaPage() {
         codigo,
         passwordNueva: password,
         passwordConfirmacion: confirmacion,
+        ...(ciRegistrado ? {} : { ci }),
       })
       setMensajeExito(mensaje)
       setPassword('')
@@ -289,8 +299,8 @@ export default function ActivarCuentaPage() {
                 <>
                   <ProgresoAsistente titulo="Activar mi cuenta" pasos={PASOS} paso={1} />
                   <EncabezadoAsistente icono={UserRoundCheck} titulo="Verifica tu identidad">
-                    Ingresa tu código SIS y tu C.I. registrados en la UMSS. Si coinciden, te enviaremos un código a tu
-                    correo institucional.
+                    Ingresa tu código SIS de la UMSS. Te enviaremos un código a tu correo institucional para confirmar
+                    que eres tú.
                   </EncabezadoAsistente>
                   <form onSubmit={verificarIdentidad} noValidate className="flex flex-col gap-4">
                     <Campo
@@ -307,20 +317,6 @@ export default function ActivarCuentaPage() {
                         limpiar('codigoSis')
                       }}
                     />
-                    <Campo
-                      id="activacion-ci"
-                      label="C.I."
-                      icono={IdCard}
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="7 u 8 dígitos"
-                      value={ci}
-                      error={errores.ci}
-                      onChange={(e) => {
-                        setCi(soloDigitos(e.target.value, FIELD_LIMITS.documento.max))
-                        limpiar('ci')
-                      }}
-                    />
                     <div className="flex items-start gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] p-3 text-xs">
                       <Mail size={16} className="mt-0.5 shrink-0 text-[#64748B]" aria-hidden="true" />
                       <p className="text-gray-500">
@@ -331,7 +327,7 @@ export default function ActivarCuentaPage() {
                       </p>
                     </div>
                     <p className="text-[11px] text-gray-500">
-                      Usamos estos datos solo para verificar tu identidad. No se muestran ni se comparten.
+                      Usamos tu código SIS solo para verificar tu identidad. No se muestra ni se comparte.
                     </p>
                     {errorGeneral && <Alerta>{errorGeneral}</Alerta>}
                     <BotonPrincipal cargando={cargando} textoCargando="VERIFICANDO...">
@@ -403,9 +399,37 @@ export default function ActivarCuentaPage() {
                 <>
                   <ProgresoAsistente titulo="Activar mi cuenta" pasos={PASOS} paso={3} />
                   <EncabezadoAsistente icono={LockKeyhole} titulo="Crea tu contraseña">
-                    Protege tu cuenta institucional con una contraseña única y segura.
+                    {ciRegistrado
+                      ? 'Protege tu cuenta institucional con una contraseña única y segura.'
+                      : 'Escribe tu C.I. y protege tu cuenta institucional con una contraseña única y segura.'}
                   </EncabezadoAsistente>
                   <form onSubmit={activarCuenta} noValidate className="flex flex-col gap-4">
+                    {ciRegistrado ? (
+                      ciEnmascarado && (
+                        <div className="flex items-start gap-2 rounded-xl border border-[#D8E3F5] bg-[#F8FAFC] p-3 text-xs" data-testid="ci-registrado">
+                          <IdCard size={16} className="mt-0.5 shrink-0 text-[#64748B]" aria-hidden="true" />
+                          <p className="text-gray-500">
+                            C.I. registrado: <strong className="font-mono text-[#011140]">{ciEnmascarado}</strong>. Si no es el tuyo,
+                            comunícate con la administración.
+                          </p>
+                        </div>
+                      )
+                    ) : (
+                      <Campo
+                        id="activacion-ci"
+                        label="C.I."
+                        icono={IdCard}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="7 u 8 dígitos"
+                        value={ci}
+                        error={errores.ci}
+                        onChange={(e) => {
+                          setCi(soloDigitos(e.target.value, FIELD_LIMITS.documento.max))
+                          limpiar('ci')
+                        }}
+                      />
+                    )}
                     <Campo
                       id="activacion-password"
                       label="CONTRASEÑA"

@@ -88,14 +88,9 @@ class TelefonoMatriculaTests {
     /** El correo del estudiante es su código SIS @est.umss.edu, al registrar y al editar (sin distinguir mayúsculas). */
     @Test
     void elCorreoDelEstudianteEsSuCodigoSis() {
-        assertThat(validator.validate(edicion("202104010", null, "202104010@EST.umss.edu"))).isEmpty();
-        assertThat(validator.validate(edicion("202104010", null, "maria.gonzalez@est.umss.edu")))
-                .anyMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
-        assertThat(validator.validate(edicion("202104010", null, "202104011@est.umss.edu")))
-                .anyMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
-        // Con un código SIS inválido solo se informa ese error, no también el del correo.
-        assertThat(validator.validate(edicion("12345678", null, "maria.gonzalez@est.umss.edu")))
-                .noneMatch(v -> v.getPropertyPath().toString().equals("emailDelCodigoSis"));
+        // El correo ya no se pide: se genera con el código SIS y lo que llegue no se valida.
+        assertThat(com.nexacore.examenes.dto.ReglasEstudiante.correoDe(" 202104010 ")).isEqualTo("202104010@est.umss.edu");
+        assertThat(validator.validate(edicion("202104010", null, "maria.gonzalez@est.umss.edu"))).isEmpty();
     }
 
     /** La edición aplica las mismas reglas que el registro (antes aceptaba esto y fallaba al guardar). */
@@ -103,8 +98,6 @@ class TelefonoMatriculaTests {
     void alEditarSeAplicanLasMismasReglasQueAlRegistrar() {
         assertThat(validator.validate(edicion("12345678", null, "maria.gonzalez@est.umss.edu")))
                 .anyMatch(v -> v.getPropertyPath().toString().equals("codigoSis"));
-        assertThat(validator.validate(edicion("202104010", null, "maria@gmail.com")))
-                .anyMatch(v -> v.getPropertyPath().toString().equals("email"));
         var nombreConNumeros = new com.nexacore.examenes.dto.ActualizarEstudianteRequest("María2", "González",
                 "202104010", "7489210", null, "202104010@est.umss.edu", 1, 10, null, null);
         assertThat(validator.validate(nombreConNumeros))

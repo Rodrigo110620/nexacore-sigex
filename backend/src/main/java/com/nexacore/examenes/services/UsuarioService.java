@@ -54,6 +54,16 @@ import java.util.Objects;
  */
 @Service
 public class UsuarioService {
+
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private static final String CAMBIO_USUARIO = NotificacionService.CAMBIO_USUARIO;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final String SIN_ROL = "SIN_ROL";
     private static final String CARACTERES = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -142,6 +152,7 @@ public class UsuarioService {
         boolean enviado = emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
         auditoriaService.registrar("USUARIO_CREADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
                 "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -214,6 +225,7 @@ public class UsuarioService {
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         auditoriaService.registrar("USUARIO_EDITADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
                 "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -246,6 +258,7 @@ public class UsuarioService {
         auditoriaService.registrar(activo ? "USUARIO_DESBLOQUEADO" : "USUARIO_BLOQUEADO",
                 Map.of("idUsuario", usuario.getId(), "nombre", usuario.getNombre() + " " + usuario.getApellidos(),
                         "email", usuario.getEmail(), "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return aListResponse(usuario);
     }
 
