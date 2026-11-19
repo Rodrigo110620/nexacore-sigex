@@ -7,6 +7,7 @@ import com.nexacore.examenes.models.Expulsion;
 import com.nexacore.examenes.repositories.AsistenciaExamenRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
 import com.nexacore.examenes.repositories.ExpulsionRepository;
+import com.nexacore.examenes.repositories.UsuarioRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.poi.ss.usermodel.*;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -30,24 +32,28 @@ public class AsistenciaExportService {
     private final AsistenciaExamenRepository asistenciaRepository;
     private final ExamenRepository examenRepository;
     private final ExpulsionRepository expulsionRepository;
+    private final UsuarioRepository usuarioRepository;
     private final SalidaExamenService salidaExamenService; 
+
     private static final DateTimeFormatter HORA_FORMATO = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     public AsistenciaExportService(
             AsistenciaExamenRepository asistenciaRepository, 
             ExamenRepository examenRepository,
             ExpulsionRepository expulsionRepository,
+            UsuarioRepository usuarioRepository,
             @Autowired(required = false) SalidaExamenService salidaExamenService) { 
         this.asistenciaRepository = asistenciaRepository;
         this.examenRepository = examenRepository;
         this.expulsionRepository = expulsionRepository;
+        this.usuarioRepository = usuarioRepository;
         this.salidaExamenService = salidaExamenService;
     }
 
     private Examen validarExamenIniciado(Integer idExamen) {
         Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen));
-        String estado = com.nexacore.examenes.utils.EstadoExamen.de(examen, java.time.LocalDateTime.now());
+        String estado = com.nexacore.examenes.utils.EstadoExamen.de(examen, LocalDateTime.now());
         if (com.nexacore.examenes.utils.EstadoExamen.PROGRAMADO.equals(estado) || com.nexacore.examenes.utils.EstadoExamen.CANCELADO.equals(estado)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT,
                     "No se puede descargar la asistencia porque el examen aún no ha iniciado o está cancelado.");
@@ -74,38 +80,49 @@ public class AsistenciaExportService {
         validarExamenIniciado(idExamen); 
 
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
-        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
+        LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         java.util.Set<Integer> expulsados = salidaExamenService == null ? java.util.Set.of() : salidaExamenService.expulsados(idExamen);
+        
         var out = new ByteArrayOutputStream();
         var formato = CSVFormat.DEFAULT.builder()
                 .setDelimiter(';')
                 .setRecordSeparator("\n")
-                .setHeader("Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida")
+                .setHeader("Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida", "Registro")
                 .build();
 
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
             writer.write('\uFEFF'); 
             var printer = new CSVPrinter(writer, formato);
             for (AsistenciaExamen a : asistencias) {
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
                 
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
                 
                 String estado;
                 String horaSalida;
+                String registro;
 
                 if (expulsion != null) {
                     estado = "Expulsado";
-                    horaSalida = expulsion.getFechaHora().format(HORA_FORMATO);
+                    horaSalida = "-";
+                    registro = obtenerNombreUsuario(expulsion.getIdUsuarioResponsable());
+                } else if (Boolean.FALSE.equals(a.getHabilitado())) {
+                    estado = "No habilitado";
+                    horaSalida = "-";
+                    registro = "-";
+                } else if (a.getHabilitado() == null) {
+                    estado = "Pendiente";
+                    horaSalida = "-";
+                    registro = "-";
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     estado = esAsistio ? "Asistió" : "Ausente";
                     horaSalida = salida(a, fin, expulsados);
+                    registro = esAsistio ? obtenerNombreUsuario(a.getIdUsuarioControl()) : "-";
                 }
 
                 String horaIngreso = a.getFechaHoraIngreso() != null ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-";
-                printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(), estado, horaIngreso, horaSalida);
+                printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(), estado, horaIngreso, horaSalida, registro);
             }
             printer.flush();
         } catch (IOException e) {
@@ -119,7 +136,7 @@ public class AsistenciaExportService {
         validarExamenIniciado(idExamen);
 
         List<AsistenciaExamen> asistencias = asistenciaRepository.buscarPorIdExamen(idExamen);
-        java.time.LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
+        LocalDateTime fin = salidaExamenService == null ? null : salidaExamenService.finSiTermino(idExamen);
         java.util.Set<Integer> expulsados = salidaExamenService == null ? java.util.Set.of() : salidaExamenService.expulsados(idExamen);
         
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100); 
@@ -132,9 +149,11 @@ public class AsistenciaExportService {
             CellStyle estiloAsistio = crearEstiloColor(workbook, IndexedColors.GREEN);
             CellStyle estiloAusente = crearEstiloColor(workbook, IndexedColors.ORANGE);
             CellStyle estiloExpulsado = crearEstiloColor(workbook, IndexedColors.RED);
+            CellStyle estiloNoHabilitado = crearEstiloColor(workbook, IndexedColors.VIOLET); 
+            CellStyle estiloPendiente = crearEstiloColor(workbook, IndexedColors.GOLD); 
 
             Row header = sheet.createRow(0);
-            String[] columnas = {"Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida"};
+            String[] columnas = {"Código SIS", "Nombre", "Apellidos", "Estado", "Hora de ingreso", "Hora de salida", "Registro"};
             for (int i = 0; i < columnas.length; i++) {
                 Cell celdaHeader = header.createCell(i);
                 celdaHeader.setCellValue(columnas[i]);
@@ -143,8 +162,6 @@ public class AsistenciaExportService {
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
-                if (!Boolean.TRUE.equals(a.getHabilitado())) continue;
-
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
 
@@ -155,22 +172,34 @@ public class AsistenciaExportService {
                 
                 Cell celdaEstado = row.createCell(3);
                 Cell celdaSalida = row.createCell(5);
+                Cell celdaRegistro = row.createCell(6); 
 
                 if (expulsion != null) {
                     celdaEstado.setCellValue("Expulsado");
                     celdaEstado.setCellStyle(estiloExpulsado);
-                    celdaSalida.setCellValue(expulsion.getFechaHora().format(HORA_FORMATO));
+                    celdaSalida.setCellValue("-");
+                    celdaRegistro.setCellValue(obtenerNombreUsuario(expulsion.getIdUsuarioResponsable()));
+                } else if (Boolean.FALSE.equals(a.getHabilitado())) {
+                    celdaEstado.setCellValue("No habilitado");
+                    celdaEstado.setCellStyle(estiloNoHabilitado); 
+                    celdaSalida.setCellValue("-");
+                    celdaRegistro.setCellValue("-");
+                } else if (a.getHabilitado() == null) {
+                    celdaEstado.setCellValue("Pendiente");
+                    celdaEstado.setCellStyle(estiloPendiente); 
+                    celdaSalida.setCellValue("-");
+                    celdaRegistro.setCellValue("-");
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     celdaEstado.setCellValue(esAsistio ? "Asistió" : "Ausente");
                     celdaEstado.setCellStyle(esAsistio ? estiloAsistio : estiloAusente);
                     celdaSalida.setCellValue(salida(a, fin, expulsados));
+                    celdaRegistro.setCellValue(esAsistio ? obtenerNombreUsuario(a.getIdUsuarioControl()) : "-");
                 }
 
                 row.createCell(4).setCellValue(a.getFechaHoraIngreso() != null ? a.getFechaHoraIngreso().format(HORA_FORMATO) : "-");
             }
 
-            // Ajustar ancho de columnas para que se vea bien
             for (int i = 0; i < columnas.length; i++) {
                 sheet.setColumnWidth(i, 5000);
             }
@@ -183,21 +212,29 @@ public class AsistenciaExportService {
         }
     }
 
+    private String obtenerNombreUsuario(Integer idUsuario) {
+        if (idUsuario == null) return "-";
+        try {
+            return usuarioRepository.findById(idUsuario)
+                    .map(u -> ((u.getNombre() != null ? u.getNombre() : "") + " " + (u.getApellidos() != null ? u.getApellidos() : "")).trim())
+                    .orElse("-");
+        } catch (Exception e) {
+            return "-"; 
+        }
+    }
+
     private CellStyle crearEstiloEncabezado(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
         Font font = workbook.createFont();
         font.setBold(true);
         font.setColor(IndexedColors.BLACK.getIndex());
         style.setFont(font);
-        
         style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
-        
         return style;
     }
 
@@ -210,9 +247,8 @@ public class AsistenciaExportService {
         return style;
     }
 
-    private String salida(AsistenciaExamen a, java.time.LocalDateTime fin, java.util.Set<Integer> expulsados) {
+    private String salida(AsistenciaExamen a, LocalDateTime fin, java.util.Set<Integer> expulsados) {
         if (a.getFechaHoraSalida() != null) return a.getFechaHoraSalida().format(HORA_FORMATO);
-        // Si no hay hora de ingreso, o no ha terminado el examen, o está expulsado, no hay hora de salida normal.
         if (a.getFechaHoraIngreso() == null || fin == null || expulsados.contains(a.getEstudiante().getId())) return "-";
         return fin.format(HORA_FORMATO) + SalidaExamenService.AL_CIERRE;
     }
