@@ -347,7 +347,9 @@ export default function ReportesPage() {
 
             {resumen[pestana] && (
               <div className="mt-3">
-                <GraficoPorHora porHora={resumen[pestana]!.porHora} titulo={`${TITULO_GRAFICO[pestana]} de hoy, por hora`} unidad={UNIDAD[pestana]} />
+                <GraficoPorHora porHora={resumen[pestana]!.porHora} porHoraAyer={resumen[pestana]!.porHoraAyer} ultimoHoy={resumen[pestana]!.ultimoHoy}
+                  horaActual={new Date().getHours()} porMotivo={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]}
+                  titulo={`${TITULO_GRAFICO[pestana]} · hoy y ayer, por hora`} unidad={UNIDAD[pestana]} />
               </div>
             )}
 

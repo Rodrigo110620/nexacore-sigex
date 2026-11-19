@@ -54,7 +54,7 @@ export default function UserListContent({
   onExportClick,
   onImportClick,
 }: UserListContentProps) {
-  // Desde el buscador rápido (Ctrl+K) llega ?buscar=<correo>.
+  // Con ?buscar=<correo> en la dirección (p. ej. desde un enlace), la lista abre ya filtrada.
   const [draftFilters, setDraftFilters] = useState<UserFilterParams>(() => {
     const buscar = new URLSearchParams(window.location.search).get('buscar')
     return buscar ? { ...initialFilters, search: buscar } : initialFilters

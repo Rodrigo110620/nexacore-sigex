@@ -44,7 +44,7 @@ export default function EstudiantesPage() {
   const puedeDescargarLista = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
 
-  // Desde el buscador rápido (Ctrl+K) llega ?buscar=<código SIS>.
+  // Con ?buscar=<código SIS> en la dirección (p. ej. desde un enlace), la lista abre ya filtrada.
   const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(() => {
     const buscar = new URLSearchParams(window.location.search).get('buscar')
     return buscar ? { ...initialFilters, search: buscar } : initialFilters
