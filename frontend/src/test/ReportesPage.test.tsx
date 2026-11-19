@@ -53,7 +53,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
         etiqueta: 'Aula incorrecta (691B, debía 692F)', detalle: null }),
       intento({ idIntento: 3, motivo: 'Intento ingresar no habilitado ### Motivo: Deuda en biblioteca | Acción tomada: Se retiró', tipo: 'NO_HABILITADO',
         etiqueta: 'No habilitado: Deuda en biblioteca', detalle: 'Acción tomada: Se retiró' }),
-    ], pagina: 0, tamano: 20, totalRegistros: 3, totalPaginas: 1 })
+    ], pagina: 0, tamano: 10, totalRegistros: 3, totalPaginas: 1 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
 
     const reporte = await screen.findByRole('region', { name: 'Intentos de ingreso incorrectos' })
@@ -70,35 +70,36 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     expect(within(tabla).getByText('Acción tomada: Se retiró')).toBeInTheDocument()
     expect(tabla).not.toHaveTextContent('###')
     expect(within(reporte).getByText('3 intentos')).toBeInTheDocument()
-    expect(reporteIntentos).toHaveBeenCalledWith(null, 0, 20, '')
+    expect(reporteIntentos).toHaveBeenCalledWith(null, 0, 10, '')
   })
 
   it('pagina los intentos con la misma paginación que las demás tablas', async () => {
     vi.mocked(reporteIntentos).mockImplementation(async (_id, pagina = 0) => ({
       contenido: [intento({ idIntento: pagina + 1, estudiante: pagina === 0 ? 'Zoe Quispe Luna' : 'Ana Rojas' })],
-      pagina, tamano: 20, totalRegistros: 45, totalPaginas: 3,
+      pagina, tamano: 10, totalRegistros: 45, totalPaginas: 5,
     }))
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
 
     const paginacion = await screen.findByRole('navigation', { name: 'Paginación de intentos' })
-    expect(within(paginacion).getByText(/Mostrando/)).toHaveTextContent('Mostrando 1–20 de 45 intentos')
+    expect(within(paginacion).getByText(/Mostrando/)).toHaveTextContent('Mostrando 1–10 de 45 intentos')
     fireEvent.click(within(paginacion).getByRole('button', { name: 'Ir a la página 2' }))
     expect(await screen.findAllByText('Ana Rojas')).not.toHaveLength(0)
-    expect(reporteIntentos).toHaveBeenLastCalledWith(null, 1, 20, '')
-    expect(screen.getByRole('navigation', { name: 'Paginación de intentos' })).toHaveTextContent('Mostrando 21–40 de 45 intentos')
+    expect(reporteIntentos).toHaveBeenLastCalledWith(null, 1, 10, '')
+    expect(screen.getByRole('navigation', { name: 'Paginación de intentos' })).toHaveTextContent('Mostrando 11–20 de 45 intentos')
   })
 
   it('el filtro por examen pide solo los intentos de ese examen', async () => {
-    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     await screen.findByRole('option', { name: 'Física I · 31/10/2026 · 08:30' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
     expect(await screen.findByText('No hubo intentos incorrectos en este examen.')).toBeInTheDocument()
-    expect(reporteIntentos).toHaveBeenLastCalledWith(20, 0, 20, '')
+    // La última llamada puede ser la del resumen (con «desde»): basta con que se pidió la lista de ese examen.
+    expect(reporteIntentos).toHaveBeenCalledWith(20, 0, 10, '')
   })
 
   it('las expulsiones y excepciones se ven de todos los exámenes o de uno (BUG-G02, G03)', async () => {
-    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
     expect(screen.getByText('Expulsiones del examen todos')).toBeInTheDocument()
@@ -113,10 +114,10 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
   })
 
   it('el buscador filtra por estudiante o código SIS en todas las pestañas (BUG-G04)', async () => {
-    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar estudiante o código SIS' }), { target: { value: '2019' } })
-    await waitFor(() => expect(reporteIntentos).toHaveBeenLastCalledWith(null, 0, 20, '2019'))
+    await waitFor(() => expect(reporteIntentos).toHaveBeenLastCalledWith(null, 0, 10, '2019'))
     fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
     expect(screen.getByText('Expulsiones del examen todos · 2019')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Borrar la búsqueda' }))
@@ -129,7 +130,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     try {
       vi.mocked(listarExamenes).mockClear()
       vi.mocked(listarMisExamenes).mockResolvedValue([])
-      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
       render(<MemoryRouter><ReportesPage /></MemoryRouter>)
       expect(await screen.findByText(/Aún no tienes exámenes: aquí aparecen los tuyos/)).toBeInTheDocument()
       expect(screen.getByRole('option', { name: 'Todos mis exámenes' })).toBeInTheDocument()
@@ -145,7 +146,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     vi.mocked(listarExamenes).mockResolvedValue([
       { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
     ] as ExamenDto[])
-    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
@@ -159,7 +160,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
       vi.mocked(listarMisExamenes).mockResolvedValue([
         { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
       ] as ExamenDto[])
-      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+      vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
       vi.mocked(descargarActaPDF).mockResolvedValue('acta_examen_20.pdf')
       render(<MemoryRouter><ReportesPage /></MemoryRouter>)
       await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
@@ -174,7 +175,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     vi.mocked(listarExamenes).mockResolvedValue([
       { idExamen: 20, idParalelo: 1, asignatura: 'Física I', fecha: '2026-10-01', horaInicio: '10:00:00', estado: 'en_curso' },
     ] as ExamenDto[])
-    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 20, totalRegistros: 0, totalPaginas: 0 })
+    vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     vi.mocked(obtenerArchivo).mockResolvedValue({ blob: new Blob(['%PDF-1.5']), nombre: 'acta_Fisica-I_G1_2026-10-01.pdf' })
     URL.createObjectURL = vi.fn(() => 'blob:acta')
     URL.revokeObjectURL = vi.fn()

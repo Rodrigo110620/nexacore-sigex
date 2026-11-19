@@ -34,15 +34,14 @@ public class CuentaEstudianteController {
     public ResponseEntity<Map<String, String>> solicitar(@Valid @RequestBody SolicitarActivacionRequest request) {
         cuentaEstudianteService.solicitarActivacion(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("mensaje",
-                "Si los datos coinciden con un estudiante registrado sin cuenta, te enviamos un código a tu correo institucional."));
+                "Si tu código SIS corresponde a un estudiante registrado sin cuenta, te enviamos un código a tu correo institucional."));
     }
 
     @Operation(summary = "Comprobar el código de verificación",
             description = "Antes de pedir la contraseña; cada código fallido cuenta en el límite de intentos.")
     @PostMapping("/verificar")
-    public ResponseEntity<Map<String, String>> verificar(@Valid @RequestBody VerificarCodigoActivacionRequest request) {
-        cuentaEstudianteService.verificarCodigo(request);
-        return ResponseEntity.ok(Map.of("mensaje", "Código correcto. Crea tu contraseña."));
+    public ResponseEntity<com.nexacore.examenes.dto.EstadoActivacionResponse> verificar(@Valid @RequestBody VerificarCodigoActivacionRequest request) {
+        return ResponseEntity.ok(cuentaEstudianteService.verificarCodigo(request));
     }
 
     @Operation(summary = "Confirmar el código y crear la contraseña")

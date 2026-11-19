@@ -569,6 +569,24 @@ class PostgresIntegracionTests {
         sincronizar();
     }
 
+    @Test
+    void laListaDeEstudiantesSeFiltraPorCuentaActivadaOSinActivar() {
+        prepararCatalogo();
+        int conCuenta = estudiante("209970001", "Activo");
+        int sinCuenta = estudiante("209970002", "Pendiente");
+        int usuario = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Activo','Prueba','99970001','209970001@est.umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("UPDATE estudiante SET id_usuario = ? WHERE id_estudiante = ?", usuario, conCuenta);
+        sincronizar();
+
+        var activadas = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, "ACTIVADA").contenido();
+        var sinActivar = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, "SIN_ACTIVAR").contenido();
+        var todas = estudianteService.listar(0, 50, "20997000", null, null, null, null, null, null).contenido();
+        assertThat(activadas).extracting(e -> e.id()).containsExactly(conCuenta);
+        assertThat(sinActivar).extracting(e -> e.id()).containsExactly(sinCuenta);
+        assertThat(todas).hasSize(2);
+    }
+
     private int estudiante(String sis, String nombre) {
         jdbc.update("INSERT INTO estudiante (codigo_sis, nombre, apellidos, ci, email) VALUES (?, ?, 'Prueba', ?, ?)",
                 sis, nombre, sis.substring(2), sis + "@est.umss.edu");
@@ -799,6 +817,9 @@ class PostgresIntegracionTests {
         assertThat(vigente.totalRegistros()).isEqualTo(1);
         assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
                 .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
+        // Resumen de Reportes («hoy», «ayer»): solo los registrados después de la hora indicada.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null, null, java.time.LocalDateTime.of(2026, 10, 28, 8, 8)).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
     }
 
     @Test
@@ -812,13 +833,14 @@ class PostgresIntegracionTests {
         int enCurso = examen(pa, "08:00", 120);
         int porIniciar = examen(pb, "08:00", 60);
         int deAyer = examen(pc, "08:00", 60);
-        var inicioA = ahora.minusMinutes(30);
+        // Cerca de medianoche «hace 30 min» sería ayer: hoyAntes() no deja salir del día (CI corrió a las 00:12).
+        var inicioA = hoyAntes(ahora, 30);
         var inicioB = ahora.plusMinutes(2);
         jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioA.toLocalDate(), inicioA.toLocalTime(), enCurso);
         jdbc.update("UPDATE examen SET fecha = ?, hora_inicio = ? WHERE id_examen = ?", inicioB.toLocalDate(), inicioB.toLocalTime(), porIniciar);
         jdbc.update("UPDATE examen SET fecha = ? WHERE id_examen = ?", ahora.toLocalDate().minusDays(1), deAyer);
         String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, ?, ?)";
-        var ingreso = java.sql.Timestamp.valueOf(ahora.minusMinutes(1));
+        var ingreso = java.sql.Timestamp.valueOf(hoyAntes(ahora, 1));
         // En curso: 2 habilitados (uno ingresó) y 1 no habilitado.
         jdbc.update(asociar, estudiante("209800001", "Ana"), enCurso, pa, true, ingreso);
         jdbc.update(asociar, estudiante("209800002", "Beto"), enCurso, pa, true, null);
@@ -913,6 +935,17 @@ class PostgresIntegracionTests {
         }
     }
 
+    // Al asignar grupos: se ofrecen solo los libres; los del propio docente no cuentan como ocupados.
+    @Test
+    void losGruposOcupadosSonLosDeOtroDocente() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-OCU"));
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'g3')", idMateria, idDocente);
+
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, null)).containsExactly("G1", "G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).isEmpty();
+    }
+
     @Test
     void elDocenteSeRegistraConAlMenosUnaMateria() {
         prepararCatalogo();
@@ -977,6 +1010,7 @@ class PostgresIntegracionTests {
         jdbc.update(asociar, estudiante("209910001", "Ana"), ayer, paralelo, true, null, java.sql.Timestamp.valueOf(java.time.LocalDate.now().minusDays(1).atTime(10, 5, 9)));
         jdbc.update(asociar, estudiante("209910002", "Beto"), ayer, paralelo, true, null, null);
         jdbc.update(asociar, estudiante("209910003", "Ciro"), ayer, paralelo, false, "Deuda en biblioteca", null);
+        jdbc.update(asociar, estudiante("209910004", "Dora"), ayer, paralelo, null, null, null);
         // Más de 500 habilitados (criterio 2): la exportación termina sin problema.
         for (int i = 0; i < 600; i++) {
             jdbc.update(asociar, estudiante(String.format("2099%05d", 20000 + i), "Masivo"), ayer, paralelo, true, null, null);
@@ -985,11 +1019,13 @@ class PostgresIntegracionTests {
 
         String csv = new String(asistenciaExportService.generarCsv(ayer), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csv).startsWith("\uFEFFCódigo SIS;Nombre;Apellidos;Estado;Hora");
-        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-").doesNotContain("Ciro");
-        assertThat(csv.lines().count()).isEqualTo(1 + 2 + 600);
+        // Como el acta: el no habilitado y el pendiente se listan con su estado y sin horas.
+        assertThat(csv).contains("209910001;Ana;Prueba;Asistió;10:05:09").contains("209910002;Beto;Prueba;Ausente;-")
+                .contains("209910003;Ciro;Prueba;No habilitado;-;-").contains("209910004;Dora;Prueba;Pendiente;-;-");
+        assertThat(csv.lines().count()).isEqualTo(1 + 4 + 600);
         byte[] xlsx = asistenciaExportService.generarExcel(ayer);
         try (var libro = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(xlsx))) {
-            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(602);
+            assertThat(libro.getSheetAt(0).getLastRowNum()).isEqualTo(604);
         }
         assertThat(asistenciaExportService.nombreArchivo(ayer, "xlsx"))
                 .isEqualTo("asistencia_Materia-TST-EXP_1_" + java.time.LocalDate.now().minusDays(1) + ".xlsx");
@@ -1306,12 +1342,12 @@ class PostgresIntegracionTests {
         jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 1 WHERE id_examen = ?", examen);
         var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
         String asociar = "INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso) VALUES (?, ?, ?, TRUE, ?)";
-        jdbc.update(asociar, ana, examen, g1, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+        jdbc.update(asociar, ana, examen, g1, java.sql.Timestamp.valueOf(hoyAntes(ahora, 20)));
         jdbc.update(asociar, beto, examen, g1, null);
         jdbc.update("INSERT INTO registro_control_ingreso (id_examen, id_paralelo, id_estudiante, id_usuario_control, resultado_autorizacion, fecha_hora, tipo_ingreso) "
-                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, 'NORMAL')", examen, g1, ana, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(20)));
+                + "VALUES (?, ?, ?, ?, 'AUTORIZADO', ?, 'NORMAL')", examen, g1, ana, idDocente, java.sql.Timestamp.valueOf(hoyAntes(ahora, 20)));
         jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
-                ana, examen, idDocente, java.sql.Timestamp.valueOf(ahora.minusMinutes(5)));
+                ana, examen, idDocente, java.sql.Timestamp.valueOf(hoyAntes(ahora, 5)));
         int manana = examen(g1, "09:00", 60);
         sincronizar();
 
@@ -1412,8 +1448,8 @@ class PostgresIntegracionTests {
         Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
                 + "VALUES ('Otro', 'Control', '6666666', 'otro.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
         var ahora = asistenciaExamenRepository.obtenerFechaHoraServidor();
-        var hace = java.sql.Timestamp.valueOf(ahora.minusMinutes(3));
-        var antes = java.sql.Timestamp.valueOf(ahora.minusMinutes(10));
+        var hace = java.sql.Timestamp.valueOf(hoyAntes(ahora, 3));
+        var antes = java.sql.Timestamp.valueOf(hoyAntes(ahora, 10));
         int ana = estudiante("209600001", "Ana");
         int beto = estudiante("209600002", "Beto");
         int ciro = estudiante("209600003", "Ciro");
@@ -1427,7 +1463,7 @@ class PostgresIntegracionTests {
         jdbc.update(ingreso, examen, paralelo, beto, idDocente, hace, "MANUAL", "Su QR no se lee; presentó su carnet");
         jdbc.update(ingreso, examen, paralelo, ciro, otro, hace, "NORMAL", null);
         String intento = "INSERT INTO intento_ingreso (id_examen, id_paralelo, id_usuario_control, ci_o_codigo, observacion, fecha_hora) VALUES (?, ?, ?, ?, ?, ?)";
-        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(ahora.minusMinutes(1)));
+        jdbc.update(intento, examen, paralelo, idDocente, "9999999", "No está inscrito en la materia", java.sql.Timestamp.valueOf(hoyAntes(ahora, 1)));
         jdbc.update(intento, examen, paralelo, idDocente, "209600003", "Intento ingresar no habilitado ### Ciro", hace);
         jdbc.update("INSERT INTO expulsion (id_estudiante, id_examen, id_usuario_responsable, motivo, fecha_hora) VALUES (?, ?, ?, 'Uso de celular durante el examen', ?)",
                 ana, examen, otro, hace);
@@ -1725,5 +1761,16 @@ class PostgresIntegracionTests {
                 VALUES (?, ?, ?, ?, 'No pagó la matrícula', '   ')
                 """, ana, idExamen, idAmbiente, idDocente))
                 .hasMessageContaining("ck_excepcion_accion");
+    }
+
+    /**
+     * «Hace N minutos», pero sin salir del día de hoy: las pruebas que cuentan lo «de hoy» fallaban si corrían
+     * en la primera media hora del día (CI a las 00:12). Cerca de medianoche queda en los primeros segundos del
+     * día, en el mismo orden (más minutos atrás = más temprano).
+     */
+    private static java.time.LocalDateTime hoyAntes(java.time.LocalDateTime ahora, int minutos) {
+        var limite = ahora.toLocalDate().atStartOfDay().plusSeconds(60 - Math.min(minutos, 59));
+        var hace = ahora.minusMinutes(minutos);
+        return hace.isBefore(limite) ? limite : hace;
     }
 }

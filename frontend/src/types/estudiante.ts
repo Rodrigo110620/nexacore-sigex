@@ -21,7 +21,8 @@ export interface EstudianteListItem {
   codigoSis: string
   nombre: string
   apellidos: string
-  ci: string
+  /** null si la administración no lo registró: el estudiante lo escribe al activar su cuenta (V58). */
+  ci: string | null
   telefono?: string | null 
   email?: string | null
   materiasDocente?: MateriaDocenteInfo[] | null
@@ -40,6 +41,8 @@ export interface EstudianteFilterParams {
   search: string
   idFacultad: string | ''
   idCarrera: string | ''
+  /** Cuenta del estudiante: ACTIVADA (ya la activó), SIN_ACTIVAR o '' (todos). */
+  cuenta?: '' | 'ACTIVADA' | 'SIN_ACTIVAR'
 }
 
 export interface EstudianteListPage {
@@ -67,9 +70,11 @@ export interface FacultadOption {
 export interface RegistrarEstudiantePayload {
   nombre: string
   apellidos: string
-  ci: string
+  /** Opcional: si no se envía, el estudiante lo escribe al activar su cuenta. */
+  ci?: string
   telefono?: string
-  email: string
+  /** Ya no se pide: el backend lo genera como código SIS @est.umss.edu. */
+  email?: string
   codigoSis: string
   idFacultad: number
   idCarrera: number
@@ -79,9 +84,10 @@ export interface RegistrarEstudiantePayload {
 export interface ActualizarEstudiantePayload {
   nombre: string
   apellidos: string
-  ci: string
+  ci?: string
   telefono?: string
-  email: string
+  /** Ya no se pide: el backend lo genera como código SIS @est.umss.edu. */
+  email?: string
   codigoSis: string
   idFacultad: number
   idCarrera: number

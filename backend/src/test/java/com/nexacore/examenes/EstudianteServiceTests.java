@@ -93,7 +93,7 @@ class EstudianteServiceTests {
 
     @Test
     void rechazaCorreoDuplicado() {
-        when(estudianteRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
+        when(estudianteRepository.existsByEmailIgnoreCase("202404012@est.umss.edu")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
         assertTrue(error.getMessage().contains("correo electrónico"));
         verify(estudianteRepository, never()).save(any());
@@ -109,7 +109,7 @@ class EstudianteServiceTests {
 
     @Test
     void rechazaCorreoDuplicadoEnUsuarios() {
-        when(usuarioRepository.existsByEmailIgnoreCase("maria@umss.edu")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("202404012@est.umss.edu")).thenReturn(true);
         var error = assertThrows(EstudianteDuplicadoException.class, () -> service.registrar(request()));
         assertTrue(error.getMessage().contains("usuario del sistema"));
         verify(estudianteRepository, never()).save(any());
@@ -124,13 +124,13 @@ class EstudianteServiceTests {
 
     @Test
     void listarLimitaElTamanoDePaginaYCorrigeValoresInvalidos() {
-        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(), any(), any())).thenReturn(Page.empty());
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(Page.empty());
 
         service.listar(-3, 100_000, null, null, null);
         service.listar(0, 0, null, null, null);
 
         var paginas = org.mockito.ArgumentCaptor.forClass(Pageable.class);
-        verify(estudianteRepository, times(2)).buscarConFiltros(any(), any(), any(), any(), any(), any(), paginas.capture());
+        verify(estudianteRepository, times(2)).buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), paginas.capture());
         assertEquals(0, paginas.getAllValues().get(0).getPageNumber());
         assertEquals(100, paginas.getAllValues().get(0).getPageSize());
         assertEquals(1, paginas.getAllValues().get(1).getPageSize());
@@ -138,13 +138,13 @@ class EstudianteServiceTests {
 
     @Test
     void listarNormalizaLosEspaciosDeLaBusqueda() {
-        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
         service.listar(0, 10, "  Juan    Pérez ", null, null);
 
         // Espacios simples y sin tildes ni mayúsculas: la consulta compara sin tildes.
-        verify(estudianteRepository).buscarConFiltros(eq("juan perez"), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+        verify(estudianteRepository).buscarConFiltros(eq("juan perez"), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     }
 
     @Test
@@ -153,6 +153,21 @@ class EstudianteServiceTests {
                 () -> service.listar(0, 10, "x".repeat(41), null, null));
 
         assertTrue(error.getMessage().contains("40"));
-        verify(estudianteRepository, never()).buscarConFiltros(any(), any(), any(), any(), any(), any(), any(Pageable.class));
+        verify(estudianteRepository, never()).buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void listarFiltraPorCuentaActivadaOSinActivar() {
+        when(estudianteRepository.buscarConFiltros(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.listar(0, 10, null, null, null, null, null, null, "sin_activar");
+        service.listar(0, 10, null, null, null, null, null, null, "ACTIVADA");
+        service.listar(0, 10, null, null, null, null, null, null, "otra cosa");
+
+        verify(estudianteRepository).buscarConFiltros(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq("SIN_ACTIVAR"), any(Pageable.class));
+        verify(estudianteRepository).buscarConFiltros(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq("ACTIVADA"), any(Pageable.class));
+        // Un valor que no se conoce no filtra (Todas).
+        verify(estudianteRepository).buscarConFiltros(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), (String) isNull(), any(Pageable.class));
     }
 }

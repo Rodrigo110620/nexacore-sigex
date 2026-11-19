@@ -58,14 +58,18 @@ class EstudianteControllerTests {
             .andExpect(status().isCreated());
     }
 
-    // El correo del estudiante es su código SIS @est.umss.edu; el error llega en el campo email.
+    // El correo del estudiante se genera con su código SIS y el C.I. es opcional (V58).
     @Test
     @WithMockUser(roles = "ADMIN")
-    void elCorreoDelEstudianteDebeSerSuCodigoSis() throws Exception {
-        mockMvc.perform(post("/estudiantes").contentType("application/json")
-                .content(JSON_VALIDO.replace("202404012@est.umss.edu", "maria.gonzalez@est.umss.edu")))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.errores.email").value(org.hamcrest.Matchers.containsString("código SIS @est.umss.edu")));
+    void elCorreoYElCiYaNoSePiden() throws Exception {
+        // Sin correo ni C.I.: el correo se genera con el código SIS y el C.I. lo escribe el estudiante al activar.
+        String sinCorreoNiCi = """
+            {"nombre":"María","apellidos":"González","codigoSis":"202404012","idFacultad":1,"idCarrera":10}
+            """;
+        when(estudianteService.registrar(any())).thenReturn(new com.nexacore.examenes.dto.EstudianteListResponse(
+            1, "202404012", "María", "González", null, null, "202404012@est.umss.edu", List.of(), null, null, null, false));
+        mockMvc.perform(post("/estudiantes").contentType("application/json").content(sinCorreoNiCi))
+            .andExpect(status().isCreated());
     }
 
     // Desde la V49 el registro de estudiantes es del ADMIN: el docente ve a los suyos, pero no los edita.
@@ -114,7 +118,7 @@ class EstudianteControllerTests {
             .andExpect(jsonPath("$.errores.nombre").exists())
             .andExpect(jsonPath("$.errores.apellidos").exists())
             .andExpect(jsonPath("$.errores.ci").exists())
-            .andExpect(jsonPath("$.errores.email").value("Use un correo institucional UMSS con al menos 3 caracteres antes de @; no se aceptan caracteres repetidos"))
+            .andExpect(jsonPath("$.errores.email").doesNotExist())
             .andExpect(jsonPath("$.errores.codigoSis").exists());
     }
 

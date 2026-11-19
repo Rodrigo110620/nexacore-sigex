@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Calendar, MapPin, ShieldAlert, Info, Mail, CheckCircle2 } from 'lucide-react'
-import { reasignarAmbiente } from '../../services/controlExamenService'
+import { obtenerResumenExamen, reasignarAmbiente, type OcupacionAula } from '../../services/controlExamenService'
 import type { EstudianteAsignado } from '../../services/controlExamenService'
 import { listarAmbientes, type AmbienteDto } from '../../services/ambienteService'
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { getUserInitials } from '../users/userAvatar.utils'
 import { MOTIVO_ESCRITO, espaciosAlEscribir, normalizarMotivo, validarMotivoEscrito } from '../../utils/motivoEscrito'
 
 interface Props {
@@ -81,6 +83,21 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
       vigente = false
     }
   }, [])
+
+  // Sección 24 del diseño: cada aula destino dice cuántos lugares libres le quedan.
+  const [ocupacion, setOcupacion] = useState<OcupacionAula[]>([])
+  useEffect(() => {
+    let vigente = true
+    obtenerResumenExamen(idExamen).then((r) => { if (vigente) setOcupacion(r.aulas ?? []) }).catch(() => undefined)
+    return () => { vigente = false }
+  }, [idExamen])
+  const lugares = (idAmbiente: number) => {
+    const o = ocupacion.find((x) => x.idAmbiente === idAmbiente)
+    if (!o) return ''
+    if (o.capacidad == null) return ' · sin aforo registrado'
+    const libres = Math.max(0, o.capacidad - o.ocupados)
+    return libres === 0 ? ' · llena' : ` · ${libres} ${libres === 1 ? 'lugar libre' : 'lugares libres'}`
+  }
 
   const opciones = useMemo(() => {
     const lista = Array.isArray(aulas) ? aulas : ambientes
@@ -244,9 +261,12 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
         <div className="p-4 sm:p-6 space-y-5">
           {/* Estudiante info */}
           <div className="flex items-start gap-3 px-1">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#F2F2F2] flex items-center justify-center text-[#011140] font-bold text-xs border border-[#E2E6EC]">
-              {estudiante.nombre.charAt(0)}{estudiante.apellidos.charAt(0)}
-            </div>
+            <FotoEstudiante
+              fotoUrl={estudiante.fotoUrl}
+              nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+              iniciales={getUserInitials(estudiante)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E2E6EC] bg-[#F2F2F2] text-xs font-bold text-[#011140]"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
               <p className="text-[10px] text-[#758EBF]">{estudiante.codigoSis}</p>
@@ -281,7 +301,7 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
               <option value="">{cargandoAmbientes ? 'Cargando aulas...' : 'Seleccionar aula'}</option>
               {opciones.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.nombre}{a.ubicacion ? ` · ${a.ubicacion}` : ''}
+                  {a.nombre}{lugares(a.id) || (a.ubicacion ? ` · ${a.ubicacion}` : '')}
                 </option>
               ))}
             </select>

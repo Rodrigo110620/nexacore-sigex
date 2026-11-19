@@ -36,8 +36,8 @@ public class Estudiante {
     @Column(name = "apellidos", nullable = false)
     private String apellidos;
 
-    @NotNull
-    @Column(name = "ci", nullable = false)
+    /** Opcional (V58): si la administración no lo cargó, el estudiante lo escribe al activar su cuenta. */
+    @Column(name = "ci")
     private String ci;
 
     /** Teléfono o celular opcional: 7 u 8 dígitos que empiezan con 2, 3, 4, 6 o 7 (V32). */

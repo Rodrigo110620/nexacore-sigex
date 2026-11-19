@@ -34,7 +34,6 @@ function renderPagina() {
 
 async function completarIdentidad() {
   await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '202104010')
-  await userEvent.type(screen.getByLabelText('C.I.'), '7489210')
   await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
 }
 
@@ -47,17 +46,43 @@ describe('ActivarCuentaPage (CTA-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     solicitar.mockResolvedValue(AVISO)
-    verificar.mockResolvedValue()
+    verificar.mockResolvedValue({ ciRegistrado: true, ciEnmascarado: '••••210' })
   })
 
-  it('no acepta un código SIS ni un C.I. ficticios (BUG-E01/E02 de HU#5)', async () => {
+  it('no acepta un código SIS ficticio (BUG-E01 de HU#5) y ya no pide el C.I. al inicio', async () => {
     renderPagina()
+    expect(screen.queryByLabelText('C.I.')).not.toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '444444444')
-    await userEvent.type(screen.getByLabelText('C.I.'), '12345678')
     await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
     expect(screen.getByText('El código SIS no puede ser un mismo dígito repetido')).toBeInTheDocument()
-    expect(screen.getByText('El C.I. no puede ser una secuencia ascendente o descendente')).toBeInTheDocument()
     expect(solicitar).not.toHaveBeenCalled()
+  })
+
+  it('si la administración no registró su C.I., lo escribe al crear la contraseña (BUG-E02: no ficticio)', async () => {
+    verificar.mockResolvedValue({ ciRegistrado: false, ciEnmascarado: null })
+    confirmar.mockResolvedValue('Tu cuenta quedó activada.')
+    renderPagina()
+    await completarIdentidad()
+    await completarCodigo()
+    await userEvent.type(screen.getByLabelText('C.I.'), '12345678')
+    await userEvent.type(screen.getByLabelText('CONTRASEÑA'), 'Segura#2026')
+    await userEvent.type(screen.getByLabelText('CONFIRMAR CONTRASEÑA'), 'Segura#2026')
+    await userEvent.click(screen.getByRole('button', { name: /activar mi cuenta/i }))
+    expect(screen.getByText('El C.I. no puede ser una secuencia ascendente o descendente')).toBeInTheDocument()
+    expect(confirmar).not.toHaveBeenCalled()
+
+    await userEvent.clear(screen.getByLabelText('C.I.'))
+    await userEvent.type(screen.getByLabelText('C.I.'), '7489210')
+    await userEvent.click(screen.getByRole('button', { name: /activar mi cuenta/i }))
+    expect(confirmar).toHaveBeenCalledWith(expect.objectContaining({ codigoSis: '202104010', ci: '7489210' }))
+  })
+
+  it('si su C.I. ya está registrado, solo se le muestra enmascarado', async () => {
+    renderPagina()
+    await completarIdentidad()
+    await completarCodigo()
+    expect(screen.queryByLabelText('C.I.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('ci-registrado')).toHaveTextContent('••••210')
   })
 
   it('con un código de verificación falso no pasa a crear la contraseña (BUG-E03 de HU#5)', async () => {
@@ -74,11 +99,9 @@ describe('ActivarCuentaPage (CTA-01)', () => {
   it('valida el formato de los datos antes de pedir el código', async () => {
     renderPagina()
     await userEvent.type(screen.getByLabelText('CÓDIGO SIS'), '2021')
-    await userEvent.type(screen.getByLabelText('C.I.'), '12')
     await userEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
     expect(screen.getByText('El código SIS debe tener 9 dígitos')).toBeInTheDocument()
-    expect(screen.getByText('El C.I. debe tener 7 u 8 dígitos')).toBeInTheDocument()
     expect(solicitar).not.toHaveBeenCalled()
   })
 
@@ -99,7 +122,7 @@ describe('ActivarCuentaPage (CTA-01)', () => {
     renderPagina()
     await completarIdentidad()
 
-    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', ci: '7489210', email: '202104010@est.umss.edu' })
+    expect(solicitar).toHaveBeenCalledWith({ codigoSis: '202104010', email: '202104010@est.umss.edu' })
     expect(await screen.findByRole('heading', { name: 'Verifica tu correo' })).toBeInTheDocument()
     expect(screen.getByText(AVISO)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reenviar código en \d+ s/i })).toBeDisabled()

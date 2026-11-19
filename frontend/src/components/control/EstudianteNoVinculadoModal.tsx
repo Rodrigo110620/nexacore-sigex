@@ -68,7 +68,7 @@ export default function EstudianteNoVinculadoModal({
 
   const datos: [string, string | undefined][] = [
     ['Código', estudiante.codigoSis],
-    ['CI', estudiante.ci],
+    ['CI', estudiante.ci || '—'],
     ['Materia', materia],
     ['Aula', aula],
   ]

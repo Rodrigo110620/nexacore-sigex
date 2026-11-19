@@ -6,6 +6,10 @@ import ExcepcionesNoHabilitadoReporte from '../../components/control/Excepciones
 import FotosReportadasReporte from '../../components/control/FotosReportadasReporte'
 import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
+import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
+import useResumenReportes from '../../hooks/useResumenReportes'
+import ResumenReportes from '../../components/reportes/ResumenReportes'
+import EtiquetaNuevo from '../../components/reportes/EtiquetaNuevo'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
 import { useAuth } from '../../context/AuthContext'
 import { tienePermiso } from '../../utils/permisos'
@@ -24,7 +28,8 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
 ]
-const TAMANO = 20
+// De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
+const TAMANO = 10
 
 const nombreExamen = (e: ExamenDto) => `${materiaYGrupo(e)} · ${formatFecha(e.fecha)} · ${e.horaInicio.slice(0, 5)}`
 
@@ -57,20 +62,29 @@ const examenDe = (i: IntentoReporte) =>
 function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null; examen?: string; buscar: string }) {
   const [pagina, setPagina] = useState(0)
   const [recarga, setRecarga] = useState(0)
-  const [resultado, setResultado] = useState<{ clave: string; datos?: PaginaIntentos; error?: string }>()
-  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}|${buscar}`
-  useEnVivo((cambio) => idExamen == null || cambio.idExamen === idExamen, () => setRecarga((n) => n + 1))
+  const [resultado, setResultado] = useState<{ clave: string; contexto: string; datos?: PaginaIntentos; error?: string }>()
+  // Una recarga en vivo no vuelve a «Consultando…»: se sigue viendo la lista hasta tener la nueva. Si el examen
+  // cambió (p. ej. se reprogramó), lo anterior es de otra sesión y se oculta mientras consulta.
+  const [sesion, setSesion] = useState(0)
+  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}|${buscar}|${sesion}`
+  const contexto = `${idExamen ?? 'todos'}|${pagina}|${buscar}|${sesion}`
+  useEnVivo((cambio) => {
+    const afecta = idExamen == null || cambio.idExamen === idExamen
+    if (afecta && idExamen != null && cambio.tipo === 'EXAMEN') setSesion((n) => n + 1)
+    return afecta
+  }, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
     let vigente = true
     reporteIntentos(idExamen, pagina, TAMANO, buscar)
-      .then((datos) => { if (vigente) setResultado({ clave, datos }) })
-      .catch(() => { if (vigente) setResultado({ clave, error: 'No se pudo cargar el reporte de intentos.' }) })
+      .then((datos) => { if (vigente) setResultado({ clave, contexto, datos }) })
+      .catch(() => { if (vigente) setResultado({ clave, contexto, error: 'No se pudo cargar el reporte de intentos.' }) })
     return () => { vigente = false }
-  }, [idExamen, pagina, clave, buscar])
+  }, [idExamen, pagina, clave, contexto, buscar])
 
-  const actual = resultado?.clave === clave ? resultado : undefined
+  const actual = resultado?.contexto === contexto ? resultado : undefined
   const datos = actual?.datos
+  const nuevas = useFilasNuevas(datos?.contenido.map((i) => i.idIntento), contexto)
 
   return (
     <section aria-label="Intentos de ingreso incorrectos" className="rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-5">
@@ -112,8 +126,8 @@ function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null
               </thead>
               <tbody>
                 {datos.contenido.map((i) => (
-                  <tr key={i.idIntento} className="border-b border-[#EDF1F7] align-top">
-                    <td className="px-3 py-2.5 font-semibold text-[#011140]">{quien(i)}</td>
+                  <tr key={i.idIntento} className={`border-b border-[#EDF1F7] align-top ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
+                    <td className="px-3 py-2.5 font-semibold text-[#011140]">{quien(i)}{nuevas.has(i.idIntento) && <EtiquetaNuevo />}</td>
                     <td className="px-3 py-2.5 text-[#334155]">{i.codigoSis ?? i.identificador}</td>
                     <td className="px-3 py-2.5 text-[#334155]">{examenDe(i)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</td>
@@ -129,25 +143,25 @@ function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null
               </tbody>
             </table>
           </div>
-          <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:hidden">
+          <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
             {datos.contenido.map((i) => (
-              <li key={i.idIntento} className="rounded-xl border border-[#E4E9F2] bg-white p-3">
+              <li key={i.idIntento} className={`min-w-0 rounded-xl border border-[#E4E9F2] bg-white p-3 ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold text-[#011140]">{i.estudiante ?? 'No identificado'}</p>
+                    <p className="break-words text-sm font-semibold text-[#011140]">{i.estudiante ?? 'No identificado'}{nuevas.has(i.idIntento) && <EtiquetaNuevo />}</p>
                     <p className="text-xs text-[#627A9B]">{i.codigoSis ? `SIS ${i.codigoSis}` : `Identificador ${i.identificador}`}</p>
                   </div>
                 </div>
                 <div className="mt-2"><EtiquetaTipo intento={i} /></div>
                 {detalleDe(i) && <p className="mt-2 break-words rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-xs text-[#334E7A] [overflow-wrap:anywhere]">{detalleDe(i)}</p>}
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
                   <dt className="text-[#627A9B]">Examen</dt>
                   <dd className="min-w-0 text-right">
                     <span className="block break-words font-medium text-[#011140]">{i.examen ?? `Examen #${i.idExamen}`}</span>
                     <span className="text-[#627A9B]">{formatFecha(i.fechaExamen)} · {i.horaExamen?.slice(0, 5)}</span>
                   </dd>
-                  <dt className="text-[#627A9B]">Intento</dt><dd className="text-right font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</dd>
-                  <dt className="text-[#627A9B]">Controló</dt><dd className="text-right text-[#011140]">{i.personalControl}</dd>
+                  <dt className="text-[#627A9B]">Intento</dt><dd className="min-w-0 break-words text-right font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</dd>
+                  <dt className="text-[#627A9B]">Controló</dt><dd className="min-w-0 break-words text-right text-[#011140]">{i.personalControl}</dd>
                 </dl>
               </li>
             ))}
@@ -180,6 +194,8 @@ export default function ReportesPage() {
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
+  // Resumen en vivo: total, hoy y ayer de cada tipo (también da los números de las pestañas).
+  const resumen = useResumenReportes(idExamen)
   // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
   const [buscar, setBuscar] = useState('')
   const [buscarIntentos, setBuscarIntentos] = useState('')
@@ -236,6 +252,9 @@ export default function ReportesPage() {
         <section aria-labelledby="reportes-titulo" className="px-3 py-4 sm:px-5">
           <div className="w-full">
             <h1 id="reportes-titulo" className="sr-only">Reportes</h1>
+            <div className="mb-3 sm:mb-4">
+              <ResumenReportes resumen={resumen} activa={pestana} onElegir={setPestana} />
+            </div>
 
             {/* BUG-G05: el filtro Examen va resaltado (es el principal); BUG-G04: buscador por estudiante o código SIS. */}
             <div className="flex flex-col gap-2 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm lg:flex-row lg:items-center lg:gap-3">
@@ -310,13 +329,18 @@ export default function ReportesPage() {
             )}
 
             <div role="tablist" aria-label="Tipo de reporte"
-              className="mt-4 grid grid-cols-4 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:flex sm:gap-6 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
+              className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-6 sm:overflow-visible sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
-                <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id} aria-label={p.texto} onClick={() => setPestana(p.id)}
-                  className={`min-h-11 rounded-lg px-1 text-[13px] transition-colors sm:min-h-0 sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
+                <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
+                  aria-label={resumen[p.id] ? `${p.texto} (${resumen[p.id]!.total})` : p.texto} onClick={() => setPestana(p.id)}
+                  className={`min-h-11 flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] transition-colors sm:min-h-0 sm:flex-none sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
                     ? 'bg-white font-semibold text-[#0439D9] shadow-sm sm:border-[#0439D9] sm:bg-transparent sm:shadow-none'
                     : 'font-medium text-[#627A9B] sm:border-transparent'}`}>
                   <span className="sm:hidden">{p.corto}</span><span className="hidden sm:inline">{p.texto}</span>
+                  {resumen[p.id] && (
+                    <span className={`ml-1.5 inline-grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ${
+                      pestana === p.id ? 'bg-[#0439D9] text-white' : 'bg-[#E1E8F5] text-[#45628D]'}`}>{resumen[p.id]!.total}</span>
+                  )}
                 </button>
               ))}
             </div>

@@ -12,34 +12,22 @@ const FILAS_PREVIA = 15
 interface Props {
   open: boolean
   titulo: string
-  /** Formatos que se pueden descargar, el primero se muestra al abrir (o {@code inicial}). */
   formatos: FormatoDescarga[]
   inicial?: FormatoDescarga
-  /** Pide el archivo al servidor en ese formato. */
   obtener: (formato: FormatoDescarga) => Promise<Archivo>
-  /** Para la vista previa de Excel: el mismo contenido en CSV (el navegador no muestra un .xlsx). */
   obtenerCsv?: () => Promise<Archivo>
   onClose: () => void
-  /** Mensaje para un error del servidor (p. ej. 409 si el examen no empezó). */
   mensajeError?: (err: unknown) => Promise<string> | string
-  /** Filtros para elegir qué se descarga (p. ej. facultad, carrera, materia y grupo); cambian la vista previa. */
   filtros?: ReactNode
 }
 
-/**
- * Vista previa antes de descargar: el PDF se ve tal cual (con Imprimir) y el Excel o CSV como tabla con sus
- * primeras filas. «Descargar» guarda el archivo del formato elegido con el nombre que manda el servidor.
- */
 export default function VistaPreviaDescarga(props: Props) {
-  // Se monta de nuevo al abrir: así empieza con el formato inicial y sin restos de la vez anterior.
   if (!props.open) return null
   return <Contenido {...props} />
 }
 
-/** Lo preparado para un formato: el archivo, la URL del PDF o la tabla del Excel/CSV, o el error. */
 interface Preparado {
   formato: FormatoDescarga
-  /** Con qué filtros se preparó (si cambian, se vuelve a pedir). */
   obtener: Props['obtener']
   archivo?: Archivo
   urlPdf?: string
@@ -137,6 +125,7 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
                     {filas.slice(0, FILAS_PREVIA).map((f, r) => (
                       <tr key={r}>
                         {f.map((c, i) => {
+                          // Mantenemos nuestros colores para todos los estados
                           let clasesColor = 'text-[#011140]';
                           if (c === 'Asistió') clasesColor = 'text-[#15803D] font-bold';
                           else if (c === 'Ausente') clasesColor = 'text-[#B45309] font-bold';
@@ -178,7 +167,6 @@ function Contenido({ titulo, formatos, inicial, obtener, obtenerCsv, onClose, me
   )
 }
 
-/** Imprime el PDF con un marco oculto; si el navegador no puede, lo abre en otra pestaña para imprimirlo desde ahí. */
 function imprimir(url: string | null) {
   if (!url) return
   const marco = document.createElement('iframe')

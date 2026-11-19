@@ -169,6 +169,13 @@ public class IntentoIngresoService {
     @Transactional(readOnly = true)
     public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
             Integer idExamen, int page, int size, Integer soloDe, String buscar) {
+        return reporte(idExamen, page, size, soloDe, buscar, null);
+    }
+
+    /** Con {@code desdeFecha}: solo los registrados después de esa hora (resumen «hoy» y «ayer» de Reportes). */
+    @Transactional(readOnly = true)
+    public com.nexacore.examenes.dto.PageResponse<com.nexacore.examenes.dto.IntentoReporteResponse> reporte(
+            Integer idExamen, int page, int size, Integer soloDe, String buscar, LocalDateTime desdeFecha) {
         if (page < 0) throw new IllegalArgumentException("La página no puede ser negativa");
         if (size < 1 || size > MAX_TAMANO_REPORTE) {
             throw new IllegalArgumentException("El tamaño de página debe estar entre 1 y " + MAX_TAMANO_REPORTE);
@@ -179,6 +186,9 @@ public class IntentoIngresoService {
                 throw new ControlIngresoException(HttpStatus.NOT_FOUND, "No se encontró el examen " + idExamen);
             }
             desde = sesionExamenService.ultimoCierre(idExamen);
+        }
+        if (desdeFecha != null && (desde == null || desdeFecha.isAfter(desde))) {
+            desde = desdeFecha;
         }
         String patron = buscar == null || buscar.isBlank() ? null
                 : "%" + buscar.strip().toLowerCase(java.util.Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";

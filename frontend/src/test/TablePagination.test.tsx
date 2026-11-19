@@ -18,7 +18,7 @@ describe('UserPagination', () => {
     expect(screen.getByText(/Mostrando/)).toHaveTextContent('Mostrando 1–10 de 25 usuarios')
     expect(screen.getByLabelText('Página 1 de 3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ir a la página 1' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Página anterior' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Ir a la página 3' }))
     expect(onPageChange).toHaveBeenCalledWith(2)
@@ -27,7 +27,7 @@ describe('UserPagination', () => {
     expect(onPageChange).toHaveBeenCalledWith(1)
   })
 
-  it('limita el último rango y deshabilita avanzar desde la última página', () => {
+  it('limita el último rango y en la última página no muestra «Siguiente»', () => {
     const onPageChange = vi.fn()
     render(
       <UserPagination
@@ -40,7 +40,7 @@ describe('UserPagination', () => {
     )
 
     expect(screen.getByText(/Mostrando/)).toHaveTextContent('Mostrando 21–25 de 25 usuarios')
-    expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Página siguiente' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Página anterior' }))
     expect(onPageChange).toHaveBeenCalledWith(1)
@@ -118,7 +118,7 @@ describe('UserPagination', () => {
     expect(onPageChange).toHaveBeenCalledWith(19)
   })
 
-  it('normaliza una página fuera de rango y deshabilita el límite correspondiente', () => {
+  it('normaliza una página fuera de rango y oculta el botón del límite correspondiente', () => {
     const { rerender } = render(
       <UserPagination
         page={-4}
@@ -130,7 +130,7 @@ describe('UserPagination', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Ir a la página 1' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: 'Página anterior' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Página anterior' })).not.toBeInTheDocument()
 
     rerender(
       <UserPagination
@@ -143,6 +143,20 @@ describe('UserPagination', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Ir a la página 3' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Página siguiente' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Anterior y Siguiente solo cuando hay a dónde ir', () => {
+  it('en la primera página no hay Anterior; en una del medio, los dos', () => {
+    const { rerender } = render(
+      <UserPagination page={0} pageSize={10} totalRecords={30} totalPages={3} onPageChange={vi.fn()} />,
+    )
+    expect(screen.queryByRole('button', { name: 'Página anterior' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeEnabled()
+
+    rerender(<UserPagination page={1} pageSize={10} totalRecords={30} totalPages={3} onPageChange={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Página anterior' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Página siguiente' })).toBeEnabled()
   })
 })

@@ -3,13 +3,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterUserModal from '../components/admin/RegisterUserModal'
 import api from '../services/api'
-import { buscarMaterias } from '../services/materiaService'
+import { buscarMaterias, gruposOcupados } from '../services/materiaService'
 import { ROLES_OPTIONS } from '../types/usuario.types'
 
 vi.mock('../services/api', () => ({ default: { post: vi.fn(), get: vi.fn() } }))
 vi.mock('../services/materiaService', async (original) => ({
   ...(await original<typeof import('../services/materiaService')>()),
   buscarMaterias: vi.fn(),
+  gruposOcupados: vi.fn(),
 }))
 vi.mock('../hooks/useRoles', () => ({ useRoles: () => ({ roles: ROLES_OPTIONS, cargando: false }) }))
 
@@ -21,13 +22,14 @@ function llenarDatos() {
   escribir('Ej. Roberto Carlos', 'Juan')
   escribir('Ej. Méndez Quispe', 'Pérez Quispe')
   escribir('8 dígitos', '5544332')
-  escribir('usuario@est.umss.edu', 'juan.perez@umss.edu')
+  escribir('usuario@umss.edu', 'juan.perez@umss.edu')
 }
 
 describe('Registrar usuario en 4 pasos (IMP-12)', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.mocked(api.post).mockReset().mockResolvedValue({ data: {} })
+    vi.mocked(gruposOcupados).mockReset().mockResolvedValue([])
     vi.mocked(buscarMaterias).mockReset().mockResolvedValue([
       { id: 11, sigla: 'SIS-301', nombre: 'Programación Web' },
       { id: 12, sigla: 'SIS-205', nombre: 'Taller de Programación' },
@@ -59,7 +61,7 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     await act(() => vi.advanceTimersByTimeAsync(300))
     const encontradas = await screen.findByRole('list', { name: 'Materias encontradas' })
     fireEvent.click(within(encontradas).getByRole('button', { name: /Programación Web/ }))
-    expect(within(screen.getByRole('list', { name: 'Materias elegidas' })).getByText('Programación Web')).toBeInTheDocument()
+    expect(within(await screen.findByRole('list', { name: 'Materias elegidas' })).getByText('Programación Web')).toBeInTheDocument()
     // Grupos de la materia: empieza con el G1; el ADMIN marca también el G2 y no puede dejarla sin grupos.
     const grupos = screen.getByRole('group', { name: 'Grupos de Programación Web' })
     expect(within(grupos).getByRole('button', { name: 'G1' })).toHaveAttribute('aria-pressed', 'true')
@@ -88,6 +90,25 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     expect(cuerpo).toMatchObject({ nombre: 'Juan', apellidos: 'Pérez Quispe', ci: '5544332', email: 'juan.perez@umss.edu', rol: 'DOCENTE', idMaterias: [11], grupos: { 11: ['G1', 'G2'] },
       docente: { titulo: 'Lic.', especialidad: 'Bases de datos', categoria: 'TITULAR' } })
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+  })
+
+  it('al asignar materia solo ofrece los grupos que no tienen docente', async () => {
+    vi.mocked(gruposOcupados).mockResolvedValue(['G1', 'G2'])
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: /Docente/i }))
+    siguiente()
+    llenarDatos()
+    siguiente()
+    fireEvent.change(screen.getByPlaceholderText(/Busca por nombre o sigla/), { target: { value: 'prog' } })
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    const encontradas = await screen.findByRole('list', { name: 'Materias encontradas' })
+    fireEvent.click(within(encontradas).getByRole('button', { name: /Programación Web/ }))
+    const grupos = await screen.findByRole('group', { name: 'Grupos de Programación Web' })
+    expect(vi.mocked(gruposOcupados).mock.calls[0][0]).toBe(11)
+    expect(within(grupos).queryByRole('button', { name: 'G1' })).not.toBeInTheDocument()
+    expect(within(grupos).queryByRole('button', { name: 'G2' })).not.toBeInTheDocument()
+    expect(within(grupos).getByRole('button', { name: 'G3' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/G1, G2 ya tienen docente/)).toBeInTheDocument()
   })
 
   it('el ADMIN confirma el acceso total y no se envían materias', async () => {
@@ -127,5 +148,14 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     siguiente()
     fireEvent.click(screen.getByRole('button', { name: /Registrar control/ }))
     await waitFor(() => expect(screen.getByText('Paso 2 de 4')).toBeInTheDocument())
+  })
+})
+
+describe('Correo del personal al registrar un usuario', () => {
+  it('sin @ pide completar el dominio; @umss.edu y un correo UMSS completo se aceptan', async () => {
+    const { validateEmail } = await import('../utils/validators')
+    expect(validateEmail('juan.perez')).toBe('Completa el dominio del correo (por ejemplo, @umss.edu)')
+    expect(validateEmail('juan.perez@umss.edu')).toBe('')
+    expect(validateEmail('armandofcyt@est.umss.edu')).toBe('')
   })
 })

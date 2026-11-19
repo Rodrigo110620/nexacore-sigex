@@ -62,9 +62,9 @@ export interface PaginaIntentos {
 }
 
 /** Todos los intentos (o los de un examen, en su sesión actual), del más reciente al más antiguo. */
-export async function reporteIntentos(idExamen: number | null, page = 0, size = 20, buscar = ''): Promise<PaginaIntentos> {
+export async function reporteIntentos(idExamen: number | null, page = 0, size = 20, buscar = '', desde?: string): Promise<PaginaIntentos> {
   const { data } = await api.get<PaginaIntentos>('/intentos-ingreso/reporte', {
-    params: { ...(idExamen ? { idExamen } : {}), page, size, ...(buscar.trim() ? { buscar: buscar.trim() } : {}) },
+    params: { ...(idExamen ? { idExamen } : {}), page, size, ...(buscar.trim() ? { buscar: buscar.trim() } : {}), ...(desde ? { desde } : {}) },
   })
   return data
 }

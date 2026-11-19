@@ -94,7 +94,13 @@ public class AsistenciaExportService {
             writer.write('\uFEFF'); 
             var printer = new CSVPrinter(writer, formato);
             for (AsistenciaExamen a : asistencias) {
-                
+                // Adoptamos la lógica del compañero para no habilitados
+                if (!Boolean.TRUE.equals(a.getHabilitado())) {
+                    printer.printRecord(a.getEstudiante().getCodigoSis(), a.getEstudiante().getNombre(), a.getEstudiante().getApellidos(),
+                            estadoSinHabilitar(a), "-", "-", "-"); // Agregamos el "-" extra para la columna Registro
+                    continue;
+                }
+
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
                 
@@ -104,16 +110,8 @@ public class AsistenciaExportService {
 
                 if (expulsion != null) {
                     estado = "Expulsado";
-                    horaSalida = "-";
+                    horaSalida = "-"; // Mantenemos el guion para evitar problemas de zona horaria
                     registro = obtenerNombreUsuario(expulsion.getIdUsuarioResponsable());
-                } else if (Boolean.FALSE.equals(a.getHabilitado())) {
-                    estado = "No habilitado";
-                    horaSalida = "-";
-                    registro = "-";
-                } else if (a.getHabilitado() == null) {
-                    estado = "Pendiente";
-                    horaSalida = "-";
-                    registro = "-";
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     estado = esAsistio ? "Asistió" : "Ausente";
@@ -162,6 +160,24 @@ public class AsistenciaExportService {
 
             int rowNum = 1;
             for (AsistenciaExamen a : asistencias) {
+                // Adoptamos la lógica del compañero para no habilitados
+                if (!Boolean.TRUE.equals(a.getHabilitado())) {
+                    Row fila = sheet.createRow(rowNum++);
+                    fila.createCell(0).setCellValue(a.getEstudiante().getCodigoSis());
+                    fila.createCell(1).setCellValue(a.getEstudiante().getNombre());
+                    fila.createCell(2).setCellValue(a.getEstudiante().getApellidos());
+                    
+                    Cell estado = fila.createCell(3);
+                    estado.setCellValue(estadoSinHabilitar(a));
+                    // Usamos nuestros estilos dependiendo del estado
+                    estado.setCellStyle(a.getHabilitado() == null ? estiloPendiente : estiloNoHabilitado);
+                    
+                    fila.createCell(4).setCellValue("-");
+                    fila.createCell(5).setCellValue("-");
+                    fila.createCell(6).setCellValue("-"); // Agregamos el "-" extra para la columna Registro
+                    continue;
+                }
+
                 Expulsion expulsion = expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
                         a.getEstudiante().getId(), idExamen, ExpulsionRepository.DESDE_SIEMPRE).orElse(null);
 
@@ -177,18 +193,8 @@ public class AsistenciaExportService {
                 if (expulsion != null) {
                     celdaEstado.setCellValue("Expulsado");
                     celdaEstado.setCellStyle(estiloExpulsado);
-                    celdaSalida.setCellValue("-");
+                    celdaSalida.setCellValue("-"); // Mantenemos el guion
                     celdaRegistro.setCellValue(obtenerNombreUsuario(expulsion.getIdUsuarioResponsable()));
-                } else if (Boolean.FALSE.equals(a.getHabilitado())) {
-                    celdaEstado.setCellValue("No habilitado");
-                    celdaEstado.setCellStyle(estiloNoHabilitado); 
-                    celdaSalida.setCellValue("-");
-                    celdaRegistro.setCellValue("-");
-                } else if (a.getHabilitado() == null) {
-                    celdaEstado.setCellValue("Pendiente");
-                    celdaEstado.setCellStyle(estiloPendiente); 
-                    celdaSalida.setCellValue("-");
-                    celdaRegistro.setCellValue("-");
                 } else {
                     boolean esAsistio = a.getFechaHoraIngreso() != null;
                     celdaEstado.setCellValue(esAsistio ? "Asistió" : "Ausente");
@@ -210,6 +216,11 @@ public class AsistenciaExportService {
         } catch (IOException e) {
             throw new UncheckedIOException("Error al generar Excel", e);
         }
+    }
+
+    /** habilitado = false: «No habilitado» (tiene motivo); null: «Pendiente» (nadie decidió su habilitación). */
+    private static String estadoSinHabilitar(AsistenciaExamen a) {
+        return a.getHabilitado() == null ? "Pendiente" : "No habilitado";
     }
 
     private String obtenerNombreUsuario(Integer idUsuario) {

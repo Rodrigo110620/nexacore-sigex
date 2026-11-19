@@ -60,6 +60,16 @@ public class MateriaController {
         return idDocente == null ? List.of() : docenteMateriaService.materiasDe(idDocente);
     }
 
+    @Operation(summary = "Grupos ocupados de una materia",
+            description = "Los grupos que ya tienen docente, para ofrecer solo los libres al asignar grupos a un docente. "
+                    + "exceptoDocente: el docente que se edita (sus grupos no cuentan).")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/{idMateria}/grupos-ocupados")
+    public List<String> gruposOcupados(@org.springframework.web.bind.annotation.PathVariable Integer idMateria,
+                                       @RequestParam(required = false) Integer exceptoDocente) {
+        return docenteMateriaService.gruposOcupados(idMateria, exceptoDocente);
+    }
+
     @Operation(summary = "Grupos de una materia",
             description = "Los grupos (G1, G2…) de la materia con un docente y cuántos inscritos tienen, para elegir el grupo "
                     + "del examen. El DOCENTE solo ve los suyos.")
