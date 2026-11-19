@@ -20,7 +20,7 @@ const ESTADO: Record<string, [string, string]> = {
  * Fotos reportadas en el control de ingreso, pendientes y resueltas, para que quede constancia en el examen. El ADMIN
  * ve todas; el DOCENTE y el CONTROL, las de sus exámenes, y pueden revisar las pendientes. Se actualiza en vivo.
  */
-export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }: { idExamen: number | null; examen?: string; buscar?: string }) {
+export default function FotosReportadasReporte({ idExamen, examen, buscar = '', desde }: { idExamen: number | null; examen?: string; buscar?: string; desde?: string }) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; filas?: FilaFotoReportada[]; error?: boolean }>()
@@ -37,7 +37,8 @@ export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }
 
   const actual = resultado?.clave === clave ? resultado : resultado?.filas ? resultado : undefined
   // BUG-G04: por nombre o código SIS del estudiante.
-  const filas = (actual?.filas ?? []).filter((f) => coincide(buscar, f.estudiante, f.codigoSis))
+  // Período de Reportes (Hoy, 7 días, Este mes): por la fecha del reporte.
+  const filas = (actual?.filas ?? []).filter((f) => coincide(buscar, f.estudiante, f.codigoSis) && (!desde || f.reportadoEn >= desde))
   // Las que llegan en vivo se resaltan unos segundos con «Nuevo».
   const nuevas = useFilasNuevas(actual?.filas?.map((f) => f.idReporte), `${idExamen ?? 'todos'}`)
   const totalPaginas = Math.ceil(filas.length / TAMANO_PAGINA)

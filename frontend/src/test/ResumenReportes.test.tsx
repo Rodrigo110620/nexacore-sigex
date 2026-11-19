@@ -2,12 +2,15 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest'
 import ResumenReportes from '../components/reportes/ResumenReportes'
 import useFilasNuevas from '../hooks/useFilasNuevas'
+import GraficoPorHora from '../components/reportes/GraficoPorHora'
 
+const H = Array<number>(24).fill(0)
+const C = { porHora: H, porHoraAyer: H, ultimoHoy: null, porMotivo: [] }
 const RESUMEN = {
-  intentos: { total: 12, hoy: 3, ayer: 5 },
-  expulsiones: { total: 2, hoy: 0, ayer: 1 },
+  intentos: { total: 12, hoy: 3, ayer: 5, ...C },
+  expulsiones: { total: 2, hoy: 0, ayer: 1, ...C },
   excepciones: null,
-  fotos: { total: 4, hoy: 1, ayer: 0 },
+  fotos: { total: 4, hoy: 1, ayer: 0, ...C },
 }
 
 describe('Resumen de Reportes', () => {
@@ -45,5 +48,29 @@ describe('useFilasNuevas', () => {
     act(() => { vi.advanceTimersByTime(10) })
     expect(result.current.size).toBe(0)
     vi.useRealTimers()
+  })
+})
+
+describe('GraficoPorHora', () => {
+  it('compara hoy con ayer, da la hora pico y el último registro, y muestra las cifras de cada hora', () => {
+    const porHora = Array<number>(24).fill(0)
+    porHora[8] = 2
+    porHora[10] = 5
+    const porHoraAyer = Array<number>(24).fill(0)
+    porHoraAyer[9] = 3
+    const { container } = render(<GraficoPorHora porHora={porHora} porHoraAyer={porHoraAyer} ultimoHoy="2026-11-18T10:42:00"
+      horaActual={11} titulo="Intentos" unidad={['intento', 'intentos']} />)
+    expect(screen.getByText('7')).toBeInTheDocument()
+    expect(screen.getByText(/4 más que ayer/)).toBeInTheDocument()
+    expect(screen.getAllByText('10:00').length).toBeGreaterThan(0)
+    expect(screen.getByText('10:42')).toBeInTheDocument()
+    expect(screen.getByText('Ahora')).toBeInTheDocument()
+    // Tabla accesible con hoy y ayer.
+    expect(screen.getByRole('row', { name: '09:00 0 3' })).toBeInTheDocument()
+    const columnas = [...container.querySelectorAll('button')]
+    const desde = Number(screen.getAllByRole('row')[1].querySelector('th')!.textContent!.slice(0, 2))
+    fireEvent.mouseEnter(columnas[10 - desde])
+    expect(screen.getByRole('status')).toHaveTextContent('Hoy: 5 intentos')
+    expect(screen.getByRole('status')).toHaveTextContent('Ayer: 0 intentos')
   })
 })

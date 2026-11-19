@@ -86,11 +86,13 @@ interface Props {
   nombresExamen?: Map<number, string>
   /** Por nombre o código SIS (BUG-G04). */
   buscar?: string
+  /** Período de Reportes: solo desde esta fecha y hora. */
+  desde?: string
 }
 
 const TAMANO_PAGINA = 10
 
-export default function ExpulsionesReporte({ idExamen, examen, controles, nombresExamen, buscar = '' }: Props) {
+export default function ExpulsionesReporte({ idExamen, examen, controles, nombresExamen, buscar = '', desde }: Props) {
   // Anulan los mismos que pueden expulsar: ADMIN o el docente del examen (el servidor lo verifica).
   const auth = useAuth()
   const puedeAnular = tienePermiso(auth, 'EXPULSAR_TODOS', 'EXPULSAR_PROPIOS')
@@ -128,7 +130,7 @@ export default function ExpulsionesReporte({ idExamen, examen, controles, nombre
     const sis = e.codigoSis?.trim() || r?.codigoSis?.trim()
     return `${nombre || `Estudiante #${e.idEstudiante}`}${sis ? ` · SIS ${sis}` : ''}`
   }
-  const filtrados = actual?.registros?.filter((e) => coincide(buscar, titulo(e)))
+  const filtrados = actual?.registros?.filter((e) => coincide(buscar, titulo(e)) && (!desde || e.fechaHora >= desde))
   const total = filtrados?.length ?? 0
   const totalPaginas = Math.ceil(total / TAMANO_PAGINA)
   const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))

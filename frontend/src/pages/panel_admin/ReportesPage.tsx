@@ -7,7 +7,8 @@ import FotosReportadasReporte from '../../components/control/FotosReportadasRepo
 import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
-import useResumenReportes from '../../hooks/useResumenReportes'
+import useResumenReportes, { desdePeriodo, type Periodo } from '../../hooks/useResumenReportes'
+import GraficoPorHora from '../../components/reportes/GraficoPorHora'
 import ResumenReportes from '../../components/reportes/ResumenReportes'
 import EtiquetaNuevo from '../../components/reportes/EtiquetaNuevo'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
@@ -28,6 +29,11 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
 ]
+const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
+const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas' }
+const UNIDAD: Record<Pestana, [string, string]> = {
+  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'],
+}
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
 
@@ -59,15 +65,15 @@ const examenDe = (i: IntentoReporte) =>
   `${i.examen ?? `Examen #${i.idExamen}`} · ${formatFecha(i.fechaExamen)} ${i.horaExamen?.slice(0, 5) ?? ''}`.trim()
 
 /** DASH-06 / HU#7: intentos de ingreso incorrectos de todos los exámenes o de uno, paginados. */
-function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null; examen?: string; buscar: string }) {
+function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number | null; examen?: string; buscar: string; desde?: string }) {
   const [pagina, setPagina] = useState(0)
   const [recarga, setRecarga] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; contexto: string; datos?: PaginaIntentos; error?: string }>()
   // Una recarga en vivo no vuelve a «Consultando…»: se sigue viendo la lista hasta tener la nueva. Si el examen
   // cambió (p. ej. se reprogramó), lo anterior es de otra sesión y se oculta mientras consulta.
   const [sesion, setSesion] = useState(0)
-  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}|${buscar}|${sesion}`
-  const contexto = `${idExamen ?? 'todos'}|${pagina}|${buscar}|${sesion}`
+  const clave = `${idExamen ?? 'todos'}|${pagina}|${recarga}|${buscar}|${sesion}|${desde ?? ''}`
+  const contexto = `${idExamen ?? 'todos'}|${pagina}|${buscar}|${sesion}|${desde ?? ''}`
   useEnVivo((cambio) => {
     const afecta = idExamen == null || cambio.idExamen === idExamen
     if (afecta && idExamen != null && cambio.tipo === 'EXAMEN') setSesion((n) => n + 1)
@@ -76,11 +82,11 @@ function ReporteIntentos({ idExamen, examen, buscar }: { idExamen: number | null
 
   useEffect(() => {
     let vigente = true
-    reporteIntentos(idExamen, pagina, TAMANO, buscar)
+    ;(desde ? reporteIntentos(idExamen, pagina, TAMANO, buscar, desde) : reporteIntentos(idExamen, pagina, TAMANO, buscar))
       .then((datos) => { if (vigente) setResultado({ clave, contexto, datos }) })
       .catch(() => { if (vigente) setResultado({ clave, contexto, error: 'No se pudo cargar el reporte de intentos.' }) })
     return () => { vigente = false }
-  }, [idExamen, pagina, clave, contexto, buscar])
+  }, [idExamen, pagina, clave, contexto, buscar, desde])
 
   const actual = resultado?.contexto === contexto ? resultado : undefined
   const datos = actual?.datos
@@ -195,7 +201,9 @@ export default function ReportesPage() {
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
   // Resumen en vivo: total, hoy y ayer de cada tipo (también da los números de las pestañas).
-  const resumen = useResumenReportes(idExamen)
+  const [periodo, setPeriodo] = useState<Periodo>('todo')
+  const desde = desdePeriodo(periodo)
+  const resumen = useResumenReportes(idExamen, desde)
   // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
   const [buscar, setBuscar] = useState('')
   const [buscarIntentos, setBuscarIntentos] = useState('')
@@ -284,6 +292,15 @@ export default function ReportesPage() {
                       className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
                   )}
                 </label>
+                {/* Período: en la misma barra que el examen y el buscador. */}
+                <div role="radiogroup" aria-label="Período" className="flex shrink-0 gap-0.5 overflow-x-auto rounded-lg bg-[#E9EFF8] p-1 [scrollbar-width:none]">
+                  {PERIODOS.map(([id, texto]) => (
+                    <button key={id} type="button" role="radio" aria-checked={periodo === id} onClick={() => setPeriodo(id)}
+                      className={`h-8 flex-1 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors sm:flex-none sm:text-[13px] ${periodo === id ? 'bg-white text-[#0439D9] shadow-sm' : 'text-[#627A9B] hover:text-[#011140]'}`}>
+                      {texto}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
                 {idExamen != null && puedeExportar && (
@@ -328,6 +345,14 @@ export default function ReportesPage() {
               </p>
             )}
 
+            {resumen[pestana] && (
+              <div className="mt-3">
+                <GraficoPorHora porHora={resumen[pestana]!.porHora} porHoraAyer={resumen[pestana]!.porHoraAyer} ultimoHoy={resumen[pestana]!.ultimoHoy}
+                  horaActual={new Date().getHours()} porMotivo={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]}
+                  titulo={`${TITULO_GRAFICO[pestana]} · hoy y ayer, por hora`} unidad={UNIDAD[pestana]} />
+              </div>
+            )}
+
             <div role="tablist" aria-label="Tipo de reporte"
               className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-6 sm:overflow-visible sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
               {PESTANAS.map((p) => (
@@ -346,12 +371,12 @@ export default function ReportesPage() {
             </div>
 
             <div className="mt-4">
-              {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} />}
-              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} />}
+              {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} desde={desde} />}
+              {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} desde={desde} />}
               {/* BUG-G02/G03: con «Todos los exámenes» también se ven las expulsiones y las excepciones de todos. */}
-              {pestana === 'expulsiones' && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta} nombresExamen={nombresExamen} buscar={buscar}
+              {pestana === 'expulsiones' && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta} nombresExamen={nombresExamen} buscar={buscar} desde={desde}
                 controles={idExamen != null && controles?.idExamen === idExamen ? controles.registros : []} />}
-              {pestana === 'excepciones' && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} nombresExamen={nombresExamen} buscar={buscar} />}
+              {pestana === 'excepciones' && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} nombresExamen={nombresExamen} buscar={buscar} desde={desde} />}
             </div>
           </div>
         </section>

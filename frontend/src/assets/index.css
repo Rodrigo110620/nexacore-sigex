@@ -159,3 +159,12 @@
 @media (prefers-reduced-motion: reduce) {
   .sigex-fila-nueva, .sigex-cifra-cambia { animation: none; }
 }
+/* Listas: cada fila aparece suave al cargar o cambiar de página. */
+@keyframes filaAparece {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.sigex-aparece { animation: filaAparece 0.28s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .sigex-aparece { animation: none; }
+}
