@@ -85,11 +85,12 @@ describe('EstudianteNoVinculadoModal (ACCS-05)', () => {
 
 it('BUG 9: limita el pegado, muestra el error debajo del motivo e impide enviarlo', () => {
   render(<EstudianteNoVinculadoModal estudiante={estudiante} idExamen={7} onCerrar={vi.fn()} />)
+  expect(screen.getByText('AP')).toBeInTheDocument()
   const campo = screen.getByLabelText('Motivo del intento')
   fireEvent.change(campo, { target: { value: 'R'.repeat(100) } })
   expect(campo).toHaveValue('R'.repeat(65))
   expect(campo).toHaveAttribute('maxLength', '65')
-  expect(screen.getByText('65/65 caracteres. Mínimo 10.')).toBeInTheDocument()
+  expect(screen.getByText('65/65')).toBeInTheDocument()
   expect(screen.getByRole('alert')).toHaveTextContent('inconsistente')
   expect(screen.getByRole('button', { name: 'Registrar intento' })).toBeDisabled()
 })
