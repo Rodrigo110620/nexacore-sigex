@@ -65,9 +65,10 @@ export default function UserListContent({
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
   const [exporting, setExporting] = useState(false)
   // En vivo: los usuarios que llegan o cambian (rol, estado, datos) se resaltan unos segundos.
-  const filasVivas = useMemo(() => users.map((u) => ({
+  // Mientras carga no hay lista: así la lista vacía de antes de cargar no cuenta como base (todo saldría «Nuevo»).
+  const filasVivas = useMemo(() => (loading ? undefined : users.map((u) => ({
     id: Number(u.id), firma: JSON.stringify([u.nombre, u.apellidos, u.email, u.ci, u.rol, u.estado, u.bloqueadoHasta, u.fotoUrl]),
-  })), [users])
+  }))), [users, loading])
   const vivas = useFilasVivas(filasVivas, JSON.stringify([page, debouncedSearch, draftFilters.rol, draftFilters.estado]))
   const [exportError, setExportError] = useState<string | null>(null)
 

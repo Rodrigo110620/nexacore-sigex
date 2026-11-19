@@ -69,7 +69,7 @@ export default function EstudianteTable({
                     className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}
                   />
                   <span className="min-w-0">
-                    <span title={`${e.nombre} ${e.apellidos}`} className="block truncate font-semibold">{e.nombre} {e.apellidos}<MarcaFilaViva estado={vivas.get(e.id)} /></span>
+                    <span className="flex min-w-0 items-center"><span title={`${e.nombre} ${e.apellidos}`} className="truncate font-semibold">{e.nombre} {e.apellidos}</span><MarcaFilaViva estado={vivas.get(e.id)} /></span>
                     <span className="mt-1 block text-xs text-gray-500">Cód: {e.codigoSis}</span>
                   </span>
                 </div>

@@ -10,7 +10,7 @@ export function FilasVivas({ marcadas, children }: { marcadas: ReadonlyMap<numbe
 export function MarcaFilaViva({ estado }: { estado: EstadoFilaViva | undefined }) {
   if (!estado) return null
   return (
-    <span className={`ml-2 inline-flex rounded-full px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-white ${
+    <span className={`ml-2 inline-flex shrink-0 rounded-full px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-white ${
       estado === 'nuevo' ? 'bg-[#F59E0B]' : 'bg-[#0EA5E9]'}`}>
       {estado === 'nuevo' ? 'Nuevo' : 'Actualizado'}
     </span>

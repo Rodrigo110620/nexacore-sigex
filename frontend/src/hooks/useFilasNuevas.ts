@@ -20,7 +20,8 @@ export function useFilasVivas<T extends string | number>(
   const [marcadas, setMarcadas] = useState<ReadonlyMap<T, EstadoFilaViva>>(() => new Map())
 
   useEffect(() => {
-    if (!filas) return
+    // Sin lista (cargando por un filtro, página o reintento): la próxima lista es la nueva base, no «nuevos».
+    if (!filas) { vistas.current = null; return }
     const anterior = vistas.current
     vistas.current = { contexto, firmas: new Map(filas.map((f) => [f.id, f.firma ?? ''])) }
     if (!anterior || anterior.contexto !== contexto) return

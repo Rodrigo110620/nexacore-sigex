@@ -78,10 +78,11 @@ export default function EstudiantesPage() {
   useEnVivo((c) => c.tipo === 'ESTUDIANTE' || c.tipo === 'FOTO', () => { recargarEnSilencio(); setEnVivo((n) => n + 1) })
 
   // En vivo: las filas que llegan o cambian (cuenta activada, foto, datos) se resaltan unos segundos.
-  const filasVivas = useMemo(() => estudiantes.map((e) => ({
+  // Mientras carga no hay lista: así la lista vacía de antes de cargar no cuenta como base (todo saldría «Nuevo»).
+  const filasVivas = useMemo(() => (loading ? undefined : estudiantes.map((e) => ({
     id: e.id,
     firma: JSON.stringify([e.nombre, e.apellidos, e.ci, e.codigoSis, e.telefono, e.estadoMatricula, e.tieneCuenta, e.fotoUrl, e.carreras?.map((c) => c.idCarrera)]),
-  })), [estudiantes])
+  }))), [estudiantes, loading])
   const vivas = useFilasVivas(filasVivas, JSON.stringify([data.pagina, debouncedSearch, draftFilters]))
 
   const handleViewClick = (estudiante: EstudianteListItem) => {

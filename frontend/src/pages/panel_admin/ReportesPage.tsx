@@ -292,6 +292,15 @@ export default function ReportesPage() {
                       className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
                   )}
                 </label>
+                {/* Período: en la misma barra que el examen y el buscador. */}
+                <div role="radiogroup" aria-label="Período" className="flex shrink-0 gap-0.5 overflow-x-auto rounded-lg bg-[#E9EFF8] p-1 [scrollbar-width:none]">
+                  {PERIODOS.map(([id, texto]) => (
+                    <button key={id} type="button" role="radio" aria-checked={periodo === id} onClick={() => setPeriodo(id)}
+                      className={`h-8 flex-1 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors sm:flex-none sm:text-[13px] ${periodo === id ? 'bg-white text-[#0439D9] shadow-sm' : 'text-[#627A9B] hover:text-[#011140]'}`}>
+                      {texto}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
                 {idExamen != null && puedeExportar && (
@@ -336,21 +345,11 @@ export default function ReportesPage() {
               </p>
             )}
 
-            <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch">
-              <div role="radiogroup" aria-label="Período" className="flex shrink-0 gap-1 self-start rounded-xl bg-[#E9EFF8] p-1">
-                {PERIODOS.map(([id, texto]) => (
-                  <button key={id} type="button" role="radio" aria-checked={periodo === id} onClick={() => setPeriodo(id)}
-                    className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors sm:text-[13px] ${periodo === id ? 'bg-white text-[#0439D9] shadow-sm' : 'text-[#627A9B] hover:text-[#011140]'}`}>
-                    {texto}
-                  </button>
-                ))}
+            {resumen[pestana] && (
+              <div className="mt-3">
+                <GraficoPorHora porHora={resumen[pestana]!.porHora} titulo={`${TITULO_GRAFICO[pestana]} de hoy, por hora`} unidad={UNIDAD[pestana]} />
               </div>
-              {resumen[pestana] && (
-                <div className="min-w-0 flex-1">
-                  <GraficoPorHora porHora={resumen[pestana]!.porHora} titulo={`${TITULO_GRAFICO[pestana]} de hoy, por hora`} unidad={UNIDAD[pestana]} />
-                </div>
-              )}
-            </div>
+            )}
 
             <div role="tablist" aria-label="Tipo de reporte"
               className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-6 sm:overflow-visible sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">

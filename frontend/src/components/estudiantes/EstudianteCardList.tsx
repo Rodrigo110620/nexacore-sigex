@@ -50,8 +50,8 @@ export default function EstudianteCardList({
             />
             <div className="min-w-0 flex-1">
                <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 truncate text-sm font-bold text-[#011140]">
-                  {e.nombre} {e.apellidos}<MarcaFilaViva estado={vivas.get(e.id)} />
+                <p className="flex min-w-0 items-center text-sm font-bold text-[#011140]">
+                  <span className="truncate">{e.nombre} {e.apellidos}</span><MarcaFilaViva estado={vivas.get(e.id)} />
                 </p>
                 <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
                   e.estadoMatricula === 'NO_MATRICULADO' 

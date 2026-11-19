@@ -89,7 +89,7 @@ export default function BuscadorGlobal() {
     const pantallas = navItemsFor(auth.roles, auth.permisos)
       .flatMap((n) => [{ label: n.label, to: n.to, icon: n.icon }, ...(n.hijos ?? []).map((h) => ({ label: h.titulo ?? h.label, to: h.to, icon: h.icon }))])
       .filter((p) => !consulta || contiene(p.label, consulta))
-      .map((p): Resultado => ({ clave: `p${p.to}`, grupo: 'Pantallas', Icono: p.icon, titulo: p.label, ir: p.to }))
+      .map((p): Resultado => ({ clave: `p${p.to}|${p.label}`, grupo: 'Pantallas', Icono: p.icon, titulo: p.label, ir: p.to }))
     const exs = !consulta ? [] : (examenes ?? [])
       .filter((e) => contiene(`${e.asignatura} ${e.sigla ?? ''} ${e.grupo ?? ''} ${e.ambienteNombre ?? ''}`, consulta))
       .slice(0, 5)

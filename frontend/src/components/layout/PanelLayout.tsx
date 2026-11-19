@@ -7,6 +7,7 @@ import GrupoMenu from '../navigation/GrupoMenu'
 import Footer from './Footer'
 import PanelTopBar from './PanelTopBar'
 import BuscadorGlobal from './BuscadorGlobal'
+import ZonaRecargable from './ZonaRecargable'
 import useEnVivo from '../../hooks/useEnVivo'
 import { contarPendientesAyuda } from '../../services/mesaAyudaService'
 
@@ -167,7 +168,7 @@ export default function PanelLayout({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-50">
         <PanelTopBar compactDesktop={compactDesktop} title={title} description={description} locationLabel={locationLabel} variant={topBarVariant} />
-        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <ZonaRecargable className="min-h-0 flex-1 overflow-auto">{children}</ZonaRecargable>
         <BuscadorGlobal />
         <div className={`hidden shrink-0 ${compactDesktop ? 'min-[960px]:block' : 'lg:block'}`}>
           <Footer />
