@@ -196,21 +196,27 @@ public class InicioAdminService {
      * BUG-A05: intentos incorrectos de los últimos 7 días por categoría, como en el mockup y con la misma clasificación
      * que el reporte (MotivoIntento): no inscrito en la materia, aula incorrecta, no habilitado (las excepciones) y QR
      * vencido o duplicado (los reportes de QR duplicado). Solo las que tienen alguno, de la más frecuente a la menos.
-     * «Fuera del horario» no se registra en el sistema (el ingreso se rechaza sin guardar nada), por eso no aparece.
+     * «Fuera del horario» (BUG-A04 del 2.º test run): los ingresos que el control denegó con la razón «Fuera de tiempo».
+     * Si además se registró la excepción del no habilitado, esa no se cuenta otra vez en «No habilitado».
      */
     private List<InicioAdminResponse.Motivo> motivos(MapSqlParameterSource p) {
         int[] c = jdbc.queryForObject("""
                 SELECT COALESCE(SUM(CASE WHEN observacion IS NULL OR (observacion NOT LIKE 'Ambiente incorrecto%' AND observacion NOT LIKE :marca) THEN 1 ELSE 0 END), 0),
                        COALESCE(SUM(CASE WHEN observacion LIKE 'Ambiente incorrecto%' THEN 1 ELSE 0 END), 0),
-                       COALESCE(SUM(CASE WHEN observacion LIKE :marca THEN 1 ELSE 0 END), 0)
+                       COALESCE(SUM(CASE WHEN observacion LIKE :marca AND observacion NOT LIKE '%Fuera de tiempo%' THEN 1 ELSE 0 END), 0)
                 FROM intento_ingreso WHERE fecha_hora >= :desdeHora
                 """, p, (rs, i2) -> new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+        Integer fuera = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM registro_control_ingreso
+                WHERE resultado_autorizacion = 'DENEGADO' AND motivo_denegacion LIKE 'Fuera de tiempo%' AND fecha_hora >= :desdeHora
+                """, p, Integer.class);
         Integer qr = jdbc.queryForObject("SELECT COUNT(*) FROM reporte_qr_duplicado WHERE fecha_hora_servidor >= :desdeHora", p, Integer.class);
         List<InicioAdminResponse.Motivo> lista = new ArrayList<>(List.of(
                 new InicioAdminResponse.Motivo("No inscrito en la materia", c[0], MotivoIntento.NO_INSCRITO),
                 new InicioAdminResponse.Motivo(AULA_INCORRECTA, c[1], MotivoIntento.AULA_INCORRECTA),
                 new InicioAdminResponse.Motivo("No habilitado", c[2], MotivoIntento.NO_HABILITADO),
-                new InicioAdminResponse.Motivo("QR vencido o duplicado", qr == null ? 0 : qr, "QR_DUPLICADO")));
+                new InicioAdminResponse.Motivo("QR vencido o duplicado", qr == null ? 0 : qr, "QR_DUPLICADO"),
+                new InicioAdminResponse.Motivo("Fuera del horario", fuera == null ? 0 : fuera, MotivoIntento.FUERA_HORARIO)));
         lista.removeIf(m -> m.cantidad() == 0);
         lista.sort(java.util.Comparator.comparingInt(InicioAdminResponse.Motivo::cantidad).reversed());
         return lista;

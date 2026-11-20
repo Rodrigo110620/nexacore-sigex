@@ -23,6 +23,8 @@ interface EstudiantesExamenSeccionProps {
   pagina?: PageResponse<EstudianteAsignado>
   error?: string
   cargando: boolean
+  /** Hay otra página en camino: la actual se muestra atenuada. */
+  cambiandoPagina?: boolean
   refetch?: () => void
   /** Estudiante a resaltar (desde «Incidencias de hoy»). */
   resaltar?: number | null
@@ -40,6 +42,7 @@ export default function EstudiantesExamenSeccion({
   pagina,
   error,
   cargando,
+  cambiandoPagina = false,
   refetch,
   resaltar,
 }: EstudiantesExamenSeccionProps) {
@@ -95,10 +98,13 @@ export default function EstudiantesExamenSeccion({
         </p>
       ) : (
         <>
-          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} />
+          {/* Mientras llega la otra página, la actual queda atenuada (no se vacía la lista). */}
+          <div aria-busy={cambiandoPagina || undefined} className={`transition-opacity ${cambiandoPagina ? 'pointer-events-none opacity-60' : ''}`}>
+            <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} />
+          </div>
           <div className="mt-3">
+            {/* La paginación estándar de las demás tablas (2.º test run). */}
             <UserPagination
-              compact
               page={pagina.pagina}
               totalPages={pagina.totalPaginas}
               totalRecords={pagina.totalRegistros}

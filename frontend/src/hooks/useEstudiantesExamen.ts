@@ -82,12 +82,17 @@ export default function useEstudiantesExamen(idExamen: number) {
     }
   }, [clave, idExamen, idValido, estado, page, pageSize, recarga])
 
-  const actual = resultado?.clave === clave ? resultado : undefined
+  // Al cambiar de página se sigue mostrando la anterior hasta tener la nueva (2.º test run: antes se vaciaba la lista
+  // y la pantalla saltaba como si se recargara entera). Con otro examen, filtro o tamaño, sí se espera.
+  const contexto = `${idExamen}|${estado}|${pageSize}`
+  const mismaVista = resultado != null && resultado.clave.split('|').filter((_, i) => i !== 2).join('|') === contexto
+  const actual = resultado?.clave === clave || (mismaVista && resultado?.pagina) ? resultado : undefined
   const cambiarEstado = (nuevo: FiltroEstado) => {
     setEstado(nuevo)
     setPage(0)
   }
 
   const refetch = () => setRecarga((n) => n + 1)
-  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, accesoDenegado: actual?.accesoDenegado, cargando: !actual, refetch }
+  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, accesoDenegado: actual?.accesoDenegado, cargando: !actual,
+    cambiandoPagina: actual != null && resultado?.clave !== clave, refetch }
 }

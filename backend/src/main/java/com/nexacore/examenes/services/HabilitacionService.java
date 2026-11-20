@@ -15,6 +15,7 @@ import com.nexacore.examenes.models.Ambiente;
 import com.nexacore.examenes.models.AsistenciaExamen;
 import com.nexacore.examenes.models.AsistenciaExamenId;
 import com.nexacore.examenes.models.Estudiante;
+import com.nexacore.examenes.models.EstadoMatricula;
 import com.nexacore.examenes.models.EstudianteCarrera;
 import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExamenId;
@@ -181,6 +182,10 @@ public class HabilitacionService {
             throw new EstudianteDuplicadoException(
                     fila.nombre() + " " + fila.apellidos() + " ya está asociado a este examen");
         }
+        if (!matriculado(fila.idEstudiante())) {
+            throw new IllegalArgumentException(fila.nombre() + " " + fila.apellidos()
+                    + " no está matriculado (inactivo): no se lo puede asociar a un examen");
+        }
         registrar(examen, List.of(fila.idEstudiante()));
         return listarSinVerificar(idExamen, idParalelo);
     }
@@ -210,19 +215,22 @@ public class HabilitacionService {
         Set<Integer> nuevos = new LinkedHashSet<>();
         List<String> yaAsociados = new ArrayList<>();
         List<String> noEncontrados = new ArrayList<>();
+        List<String> noMatriculados = new ArrayList<>();
         for (String buscado : buscados) {
             Estudiante estudiante = porCodigo.getOrDefault(buscado, porCi.get(buscado));
             if (estudiante == null) {
                 noEncontrados.add(buscado);
             } else if (yaEnExamen.contains(estudiante.getId())) {
                 yaAsociados.add(buscado);
+            } else if (EstadoMatricula.NO_MATRICULADO.equals(estudiante.getEstadoMatricula())) {
+                noMatriculados.add(buscado);
             } else {
                 nuevos.add(estudiante.getId());
             }
         }
         registrar(examen, nuevos);
         return new AsociacionLoteResponse(nuevos.size(), yaAsociados, noEncontrados,
-                listarSinVerificar(idExamen, idParalelo));
+                listarSinVerificar(idExamen, idParalelo), noMatriculados);
     }
 
     /** Asocia a todos los inscritos en el paralelo del examen que aún no estén asociados. */
@@ -233,6 +241,8 @@ public class HabilitacionService {
         Set<Integer> nuevos = new LinkedHashSet<>(inscripcionParaleloRepository.idsInscritos(
                 idParalelo, examen.getIdMateria(), examen.getIdDocente()));
         nuevos.removeAll(asistenciaExamenRepository.idsEstudiantesDelExamen(idExamen));
+        // Los no matriculados (inactivos) no rinden: quedan fuera aunque estén inscritos (2.º test run).
+        nuevos.removeIf(id -> !matriculado(id));
         registrar(examen, nuevos);
         return new AsociacionLoteResponse(nuevos.size(), List.of(), List.of(),
                 listarSinVerificar(idExamen, idParalelo));
@@ -283,6 +293,13 @@ public class HabilitacionService {
         detalles.put("estudiantes", cambios);
         auditoriaService.registrar("HABILITACION_ACTUALIZADA", detalles);
         return listarSinVerificar(idExamen, idParalelo);
+    }
+
+    /** Solo los matriculados (activos) se asocian a exámenes. */
+    private boolean matriculado(Integer idEstudiante) {
+        return estudianteRepository.findById(idEstudiante)
+                .map(e -> !EstadoMatricula.NO_MATRICULADO.equals(e.getEstadoMatricula()))
+                .orElse(false);
     }
 
     /**

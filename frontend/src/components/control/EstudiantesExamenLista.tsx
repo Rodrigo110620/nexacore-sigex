@@ -129,7 +129,7 @@ function Acciones({ idExamen, estudiante, onExpulsar,onReasignar, salida, onExit
           <Ban size={14} aria-hidden="true" /> Expulsar
         </button>
       )}
-      {estudiante.ingresado && !estudiante.expulsado && onReasignar && (
+      {estudiante.ingresado && !estudiante.expulsado && !estudiante.fechaHoraSalida && onReasignar && (
         <button
           type="button"
           onClick={onReasignar}
@@ -170,8 +170,10 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   const registra = registraControl(auth)
   const puedeSalida = (estudiante: EstudianteAsignado) =>
     registra && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida
+  // Quien ya registró su salida dejó el aula: no se lo expulsa ni se le reasigna aula (2.º test run).
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
-    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true ? () => setSeleccionado(estudiante) : undefined
+    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida
+      ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])

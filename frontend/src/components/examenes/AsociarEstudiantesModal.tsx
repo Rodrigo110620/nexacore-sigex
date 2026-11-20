@@ -143,7 +143,9 @@ export default function AsociarEstudiantesModal({
     setError('')
   }
 
-  const seleccionables = resultados.filter((e) => !asociados.has(e.id))
+  // Los no matriculados (inactivos) no se pueden asociar: se ven, pero no se marcan (2.º test run).
+  const inactivo = (e: { estadoMatricula?: string | null }) => e.estadoMatricula === 'NO_MATRICULADO'
+  const seleccionables = resultados.filter((e) => !asociados.has(e.id) && !inactivo(e))
   const todosSeleccionados = seleccionables.length > 0 && seleccionables.every((e) => seleccion.has(e.id))
   const alternarTodos = (marcar: boolean) => {
     setSeleccion((actual) => {
@@ -193,7 +195,7 @@ export default function AsociarEstudiantesModal({
           ? await asociarInscritos(idExamen, idParalelo)
           : await asociarEstudiantesLote(idExamen, idParalelo, identificadores)
       onAsociados(respuesta.estudiantes)
-      const sinPendientes = respuesta.yaAsociados.length === 0 && respuesta.noEncontrados.length === 0
+      const sinPendientes = respuesta.yaAsociados.length === 0 && respuesta.noEncontrados.length === 0 && !respuesta.noMatriculados?.length
       if (respuesta.asociados > 0 && sinPendientes) {
         setTexto('')
         setSeleccion(new Map())
@@ -207,7 +209,7 @@ export default function AsociarEstudiantesModal({
         return
       }
       setResumen(respuesta)
-      if (modo === 'codigos') setTexto([...respuesta.yaAsociados, ...respuesta.noEncontrados].join('\n'))
+      if (modo === 'codigos') setTexto([...respuesta.yaAsociados, ...respuesta.noEncontrados, ...(respuesta.noMatriculados ?? [])].join('\n'))
       if (modo === 'registro') setSeleccion(new Map())
     } catch (err) {
       // El lote es transaccional: si falla no queda nadie asociado y la selección se conserva.
@@ -367,7 +369,7 @@ export default function AsociarEstudiantesModal({
                             </tr>
                           )}
                           {resultados.map((e) => {
-                            const yaAsociado = asociados.has(e.id)
+                            const yaAsociado = asociados.has(e.id) || inactivo(e)
                             const marcado = yaAsociado || seleccion.has(e.id)
                             return (
                               <tr
@@ -396,8 +398,9 @@ export default function AsociarEstudiantesModal({
                                       {e.nombre} {e.apellidos}
                                     </span>
                                     {yaAsociado && (
-                                      <span className="shrink-0 rounded-full bg-[#EEF3FC] px-2 py-0.5 text-[11px] font-medium text-[#627A9B]">
-                                        Ya asociado
+                                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${inactivo(e) && !asociados.has(e.id)
+                                        ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#EEF3FC] text-[#627A9B]'}`}>
+                                        {inactivo(e) && !asociados.has(e.id) ? 'No matriculado' : 'Ya asociado'}
                                       </span>
                                     )}
                                   </span>
@@ -491,6 +494,9 @@ export default function AsociarEstudiantesModal({
                     : `Se asociaron ${resumen.asociados} estudiantes.`}
               </p>
               {resumen.yaAsociados.length > 0 && <p>Ya estaban asociados: {resumen.yaAsociados.join(', ')}</p>}
+              {!!resumen.noMatriculados?.length && (
+                <p className="text-red-700">No se asociaron por no estar matriculados (inactivos): {resumen.noMatriculados.join(', ')}</p>
+              )}
               {resumen.noEncontrados.length > 0 && (
                 <p className="text-red-700">No se encontraron: {resumen.noEncontrados.join(', ')}</p>
               )}

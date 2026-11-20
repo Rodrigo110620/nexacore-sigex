@@ -89,7 +89,7 @@ it('BUG 9: limita el pegado, muestra el error debajo del motivo e impide enviarl
   fireEvent.change(campo, { target: { value: 'R'.repeat(100) } })
   expect(campo).toHaveValue('R'.repeat(65))
   expect(campo).toHaveAttribute('maxLength', '65')
-  expect(screen.getByText('65/65 caracteres. Mínimo 10.')).toBeInTheDocument()
+  expect(screen.getByText('65/65')).toBeInTheDocument()
   expect(screen.getByRole('alert')).toHaveTextContent('inconsistente')
   expect(screen.getByRole('button', { name: 'Registrar intento' })).toBeDisabled()
 })

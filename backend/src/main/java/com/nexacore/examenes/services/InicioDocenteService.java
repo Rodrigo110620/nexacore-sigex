@@ -97,6 +97,13 @@ public class InicioDocenteService {
                     UNION ALL
                     SELECT fecha_hora, 'INTENTO', id_estudiante, id_examen, CAST(observacion AS VARCHAR) FROM intento_ingreso
                     WHERE fecha_hora >= :desde AND fecha_hora < :hasta
+                    UNION ALL
+                    -- BUG-A02 (2.º test run): también cuándo se asociaron estudiantes a sus exámenes (historial de operaciones).
+                    SELECT ao.fecha_hora, 'ASOCIACION', CAST(NULL AS INTEGER), xe.id_examen, CAST(ao.detalles AS VARCHAR)
+                    FROM auditoria_operacion ao
+                    JOIN (SELECT DISTINCT id_examen FROM examen WHERE id_docente = :yo) xe
+                      ON ao.detalles LIKE CONCAT('%"idExamen":', CAST(xe.id_examen AS VARCHAR), ',%')
+                    WHERE ao.accion = 'ESTUDIANTES_ASOCIADOS' AND ao.fecha_hora >= :desde AND ao.fecha_hora < :hasta
                 ) r
                 JOIN (SELECT DISTINCT x.id_examen, mt.nombre FROM examen x JOIN materia mt ON mt.id_materia = x.id_materia
                       WHERE x.id_docente = :yo) mx ON mx.id_examen = r.id_examen
@@ -107,7 +114,9 @@ public class InicioDocenteService {
             String nombre = rs.getString(3);
             String detalle = rs.getString(5);
             // BUG-A01: el detalle completo (sin recortar) y legible: «No habilitado: X · Acción tomada: Y», no el texto crudo.
-            if ("INTENTO".equals(rs.getString(2))) {
+            if ("ASOCIACION".equals(rs.getString(2))) {
+                detalle = asociados(detalle);
+            } else if ("INTENTO".equals(rs.getString(2))) {
                 MotivoIntento.Clasificacion c = MotivoIntento.de(detalle);
                 detalle = c.detalle() == null ? c.etiqueta() : c.etiqueta() + " · " + c.detalle();
             }
@@ -168,5 +177,15 @@ public class InicioDocenteService {
     private int contar(String sql, MapSqlParameterSource p) {
         Integer n = jdbc.queryForObject(sql, p, Integer.class);
         return n == null ? 0 : n;
+    }
+
+    private static final java.util.regex.Pattern ASOCIADOS = java.util.regex.Pattern.compile("\"asociados\":(\\d+)");
+
+    /** «3 estudiantes asociados» (y si fue con «Asociar inscritos», lo dice), a partir de lo que guardó el historial. */
+    static String asociados(String detalles) {
+        java.util.regex.Matcher m = ASOCIADOS.matcher(detalles == null ? "" : detalles);
+        int n = m.find() ? Integer.parseInt(m.group(1)) : 0;
+        String texto = n == 1 ? "1 estudiante asociado" : n + " estudiantes asociados";
+        return detalles != null && detalles.contains("\"inscritos\":true") ? texto + " · todos los inscritos del grupo" : texto;
     }
 }

@@ -6,6 +6,7 @@ import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import { listarIntentosIngreso, registrarIntentoIngreso, type IntentoIngreso } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
 
 interface EstudianteNoVinculadoModalProps {
   estudiante: EstudianteIdentificado
@@ -91,16 +92,19 @@ export default function EstudianteNoVinculadoModal({
             <h2 id="no-vinculado-title" className="text-base font-bold text-[#011140]">
               Estudiante no vinculado
             </h2>
+            <p id="no-vinculado-descripcion" className="mt-0.5 text-xs text-[#627A9B]">No está registrado en este examen.</p>
           </div>
         </div>
-            <p id="no-vinculado-descripcion" className="mt-1 text-sm text-gray-600">
-              <span className="font-semibold text-[#011140]">
-                {estudiante.nombre} {estudiante.apellidos}
-              </span>{' '}
-              no está registrado en este examen.
-            </p>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#FDE68A] bg-[#FFF8E7] p-3 text-xs">
+        {/* 2.º test run: la foto del estudiante, para confirmar que es él quien intenta ingresar. */}
+        <div className="mt-4 flex items-center gap-3">
+          <FotoEstudiante fotoUrl={estudiante.fotoUrl} nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+            iniciales={`${estudiante.nombre?.[0] ?? ''}${estudiante.apellidos?.[0] ?? ''}`} ampliable
+            className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E9F1FF] text-sm font-bold text-[#0439D9]" />
+          <p className="min-w-0 text-sm font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
+        </div>
+
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#FDE68A] bg-[#FFF8E7] p-3 text-xs">
           {datos
             .filter(([, valor]) => valor)
             .map(([label, valor]) => (
@@ -125,7 +129,13 @@ export default function EstudianteNoVinculadoModal({
           <label htmlFor="motivo-intento" className="text-xs font-semibold text-[#011140]">Motivo del intento</label>
           <textarea id="motivo-intento" value={motivo} aria-invalid={!!motivoError} aria-describedby="motivo-intento-ayuda motivo-intento-error" onChange={(e) => {setMotivo(e.target.value.slice(0, 65));setMensaje('')}} maxLength={65} minLength={10} rows={2}
             className="mt-1 w-full rounded-lg border border-[#C9D7EC] p-2 text-sm" />
-          <div className="mt-1 flex items-start justify-between gap-2"><div>{motivoError && <p id="motivo-intento-error" role="alert" className="text-xs text-red-700">{motivoError}</p>}</div><p id="motivo-intento-ayuda" className="shrink-0 text-right text-xs text-[#627A9B]">{motivo.length}/65 caracteres. Mínimo 10.</p></div>
+          <div className="mt-1 flex items-start justify-between gap-2">
+            {/* Estándar de los formularios: el mensaje a la izquierda y solo el contador a la derecha. */}
+            {motivoError
+              ? <p id="motivo-intento-error" role="alert" className="min-w-0 text-xs text-red-700">{motivoError}</p>
+              : <p id="motivo-intento-ayuda" className="min-w-0 text-xs text-[#627A9B]">Mínimo 10 caracteres.</p>}
+            <p className="shrink-0 text-right text-xs tabular-nums text-[#627A9B]" aria-hidden="true">{motivo.length}/65</p>
+          </div>
           {mensaje && <p role="status" className="mt-2 text-xs text-red-700">{mensaje}</p>}
           <div className="mt-3 flex items-center justify-between gap-2"><button type="button" autoFocus disabled={guardando} onClick={() => motivo !== MOTIVO_INTENTO_INICIAL ? setDescartar(true) : onCerrar()} className="min-h-10 rounded-lg border px-3 text-xs font-semibold">Cancelar</button><button type="button" disabled={guardando || !!motivoError} onClick={() => void registrar()}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">

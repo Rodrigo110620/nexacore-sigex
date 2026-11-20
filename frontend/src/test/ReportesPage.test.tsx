@@ -50,7 +50,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
       intento({}),
       intento({ idIntento: 2, idExamen: 21, examen: 'Cálculo I', estudiante: null, identificador: '9999999', codigoSis: null,
         motivo: 'Ambiente incorrecto: se presentó en el aula 691B; aula asignada: 692F', tipo: 'AULA_INCORRECTA', fechaHora: '2026-10-30T10:02:33',
-        etiqueta: 'Aula incorrecta (691B, debía 692F)', detalle: null }),
+        etiqueta: 'Aula incorrecta: se presentó en 691B · su aula es 692F', detalle: null }),
       intento({ idIntento: 3, motivo: 'Intento ingresar no habilitado ### Motivo: Deuda en biblioteca | Acción tomada: Se retiró', tipo: 'NO_HABILITADO',
         etiqueta: 'No habilitado: Deuda en biblioteca', detalle: 'Acción tomada: Se retiró' }),
     ], pagina: 0, tamano: 10, totalRegistros: 3, totalPaginas: 1 })
@@ -64,7 +64,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     expect(within(tabla).getAllByText('Luis Paz')).toHaveLength(3)
     expect(within(tabla).getByText('No identificado (9999999)')).toBeInTheDocument()
     // BUG-G01: cada tipo con su insignia; el texto crudo «### Motivo» no se muestra.
-    expect(within(tabla).getByText('Aula incorrecta (691B, debía 692F)')).toBeInTheDocument()
+    expect(within(tabla).getByText('Aula incorrecta: se presentó en 691B · su aula es 692F')).toBeInTheDocument()
     expect(within(tabla).getByText('No inscrito en la materia')).toBeInTheDocument()
     expect(within(tabla).getByText('No habilitado: Deuda en biblioteca')).toBeInTheDocument()
     expect(within(tabla).getByText('Acción tomada: Se retiró')).toBeInTheDocument()

@@ -11,7 +11,7 @@ class MotivoIntentoTests {
     void aulaIncorrectaConLasDosAulas() {
         var c = MotivoIntento.de("Ambiente incorrecto: se presentó en el aula 660; aula asignada: 607");
         assertThat(c.tipo()).isEqualTo(MotivoIntento.AULA_INCORRECTA);
-        assertThat(c.etiqueta()).isEqualTo("Aula incorrecta (660, debía 607)");
+        assertThat(c.etiqueta()).isEqualTo("Aula incorrecta: se presentó en 660 · su aula es 607");
         assertThat(c.detalle()).isNull();
     }
 
