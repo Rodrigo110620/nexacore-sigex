@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, CircleCheck, Info } from 'lucide-react'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import ErrorCarga from '../ui/ErrorCarga'
 import TablePagination from '../users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import { ingresosRecientes, type IngresoReciente } from '../../services/ingresosRecientesService'
@@ -10,6 +11,8 @@ import silueta from '../../assets/silueta-estudiante.svg'
 // Los mockups muestran seis ingresos tanto en escritorio como en celular.
 const CANTIDAD = 6
 type Vista = 'todos' | 'ausentes'
+type Solicitud = { vista: Vista; pagina: number }
+type Resultado = { solicitud: Solicitud } & ({ filas: Fila[]; total: number } | { error: true })
 
 interface Fila {
   clave: string
@@ -65,36 +68,51 @@ interface Props {
   onAlternarTabla?: () => void
 }
 
-export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, onAlternarTabla }: Props) {
-  const [vista, setVistaActual] = useState<Vista>('todos')
-  const [pagina, setPagina] = useState(0)
-  const [datos, setDatos] = useState<{ vista: Vista; pagina: number; filas: Fila[]; total: number } | null>(null)
-  const setVista = (v: Vista) => { setVistaActual(v); setPagina(0) }
-  const tamano = CANTIDAD
-  const [error, setError] = useState(false)
+export default function IngresosRecientesCard(props: Props) {
+  return <IngresosRecientesPorExamen key={props.idExamen} {...props} />
+}
+
+function IngresosRecientesPorExamen({ idExamen, tablaAbierta = false, onAlternarTabla }: Props) {
+  const [solicitud, setSolicitud] = useState<Solicitud>({ vista: 'todos', pagina: 0 })
+  const { vista, pagina } = solicitud
+  const [resultado, setResultado] = useState<Resultado>()
+  const [totalAusentes, setTotalAusentes] = useState<number>()
   const [recarga, setRecarga] = useState(0)
 
   useEnVivo((c) => c.idExamen == null || c.idExamen === idExamen, () => setRecarga((n) => n + 1))
 
   useEffect(() => {
+    if (vista !== 'todos') return
+    let vigente = true
+    listarEstudiantesExamen(idExamen, 'AUSENTES', 0, 1)
+      .then(({ totalRegistros }) => { if (vigente) setTotalAusentes(totalRegistros) })
+      .catch(() => { /* Conservar el último total confirmado por el servidor. */ })
+    return () => { vigente = false }
+  }, [idExamen, vista, recarga])
+
+  useEffect(() => {
     let vigente = true
     const pedir = vista === 'todos'
-      ? ingresosRecientes(idExamen, tamano, pagina).then((r) => ({ filas: r.ingresos.map(desdeIngreso), total: r.total }))
-      : listarEstudiantesExamen(idExamen, 'AUSENTES', pagina, tamano).then((p) => ({ filas: p.contenido.map(desdeAusente), total: p.totalRegistros }))
+      ? ingresosRecientes(idExamen, CANTIDAD, pagina).then((r) => ({ filas: r.ingresos.map(desdeIngreso), total: r.total }))
+      : listarEstudiantesExamen(idExamen, 'AUSENTES', pagina, CANTIDAD).then((p) => ({ filas: p.contenido.map(desdeAusente), total: p.totalRegistros }))
     pedir
       .then((r) => {
         if (!vigente) return
-        // Si la página quedó vacía (p. ej. ingresaron los ausentes de la última), vuelve a la última que tiene datos.
-        if (r.filas.length === 0 && pagina > 0) { setPagina(Math.max(0, Math.ceil(r.total / tamano) - 1)); return }
-        setDatos({ vista, pagina, ...r }); setError(false)
+        if (vista === 'ausentes') setTotalAusentes(r.total)
+        const ultimaPagina = Math.max(0, Math.ceil(r.total / CANTIDAD) - 1)
+        if (pagina > ultimaPagina) {
+          setSolicitud((actual) => actual === solicitud ? { vista, pagina: ultimaPagina } : actual)
+          return
+        }
+        setResultado({ solicitud, ...r })
       })
-      .catch(() => { if (vigente) setError(true) })
+      .catch(() => { if (vigente) setResultado({ solicitud, error: true }) })
     return () => { vigente = false }
-  }, [idExamen, vista, pagina, tamano, recarga])
+  }, [idExamen, vista, pagina, solicitud, recarga])
 
-  const cargando = datos?.vista !== vista || datos.pagina !== pagina
-  const filas = cargando ? [] : datos.filas
-  const total = cargando ? 0 : datos.total
+  const actual = resultado?.solicitud === solicitud ? resultado : undefined
+  const datos = actual && 'filas' in actual ? actual : undefined
+  const total = datos?.total ?? 0
 
   return (
     <section aria-labelledby="ingresos-recientes-titulo" className="flex flex-col gap-3.5 rounded-xl border border-[#D8E3F5] bg-white p-4 sm:p-5">
@@ -107,26 +125,27 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         </div>
         <div role="group" aria-label="Filtrar ingresos" className="flex gap-0.5 rounded-lg bg-[#EEF2F8] p-[3px]">
           {(['todos', 'ausentes'] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={vista === v} onClick={() => setVista(v)}
+            <button key={v} type="button" aria-pressed={vista === v}
+              onClick={() => setSolicitud((s) => s.vista === v && s.pagina === 0 ? s : { vista: v, pagina: 0 })}
               className={`rounded-md px-3 py-1.5 text-[13px] ${vista === v ? 'bg-white font-semibold text-[#011140] shadow-[0_1px_1px_rgba(0,0,0,0.08)]' : 'font-medium text-[#627A9B] hover:text-[#011140]'}`}>
-              {v === 'todos' ? 'Todos' : 'Solo ausentes'}
+              {v === 'todos' ? 'Todos' : `Solo ausentes${totalAusentes === undefined ? '' : ` (${totalAusentes})`}`}
             </button>
           ))}
         </div>
       </div>
 
-      {vista === 'ausentes' && !cargando && total > 0 && (
+      {vista === 'ausentes' && total > 0 && (
         <p className="flex items-start gap-2 rounded-lg bg-[#FFFBEB] px-3 py-2.5 text-xs text-[#92400E]">
           <Info size={15} className="mt-px shrink-0" aria-hidden="true" />
           {total === 1 ? 'Falta 1 estudiante habilitado por ingresar.' : `Faltan ${total} estudiantes habilitados por ingresar.`} La lista se actualiza sola cuando alguien ingresa.
         </p>
       )}
 
-      {error && !datos ? (
-        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">No se pudo cargar la lista. Volveremos a intentarlo.</p>
-      ) : cargando ? (
+      {actual && 'error' in actual ? (
+        <ErrorCarga mensaje="No se pudo cargar la lista." onReintentar={() => setSolicitud((s) => ({ ...s }))} />
+      ) : !datos ? (
         <p role="status" className="py-6 text-center text-sm text-[#627A9B]">Cargando…</p>
-      ) : filas.length === 0 ? (
+      ) : datos.filas.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <span className={`inline-flex h-14 w-14 items-center justify-center rounded-full ${vista === 'ausentes' ? 'bg-[#ECFDF3] text-[#15803D]' : 'bg-[#EEF2F8] text-[#627A9B]'}`}>
             <CircleCheck size={26} aria-hidden="true" />
@@ -137,7 +156,7 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
       ) : (
         <div>
           <ul aria-label={vista === 'todos' ? 'Ingresos recientes' : 'Estudiantes ausentes'}>
-            {filas.map((f) => (
+            {datos.filas.map((f) => (
               <li key={f.clave} className="flex items-center gap-2.5 border-b border-[#EDF1F7] py-2.5 sm:gap-3.5 sm:px-4">
                 <span className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3.5">
                   {f.fotoUrl
@@ -160,9 +179,9 @@ export default function IngresosRecientesCard({ idExamen, tablaAbierta = false, 
         </div>
       )}
 
-      {!cargando && total > 0 && (
-        <TablePagination compact page={pagina} totalPages={Math.ceil(total / tamano)} totalRecords={total} pageSize={tamano}
-          onPageChange={setPagina} itemLabel={vista === 'todos' ? 'estudiantes' : 'ausentes'} />
+      {total > 0 && (
+        <TablePagination compact page={pagina} totalPages={Math.ceil(total / CANTIDAD)} totalRecords={total} pageSize={CANTIDAD}
+          onPageChange={(nuevaPagina) => setSolicitud({ vista, pagina: nuevaPagina })} itemLabel={vista === 'todos' ? 'estudiantes' : 'ausentes'} />
       )}
       {onAlternarTabla && (
         <button type="button" onClick={onAlternarTabla} aria-expanded={tablaAbierta} aria-controls="estudiantes-examen-tabla"
