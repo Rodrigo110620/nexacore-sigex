@@ -1,5 +1,5 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LifeBuoy, LockKeyhole } from 'lucide-react';
-import MesaAyudaModal from '../../components/ayuda/MesaAyudaModal';
+import { abrirMesaAyuda } from '../../utils/mesaAyuda';
 import { validateLoginEmail, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ function tituloError(mensaje: string): string {
 }
 
 export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
-    const [ayuda, setAyuda] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
@@ -192,7 +191,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                     {/* En celular el encabezado no se muestra: este es el acceso a la mesa de ayuda. */}
                     <button
                         type="button"
-                        onClick={() => setAyuda(true)}
+                        onClick={() => abrirMesaAyuda()}
                         className="mt-2 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[#45628D] transition-colors hover:text-[#0439D9]"
                     >
                         <LifeBuoy size={14} aria-hidden="true" />
@@ -202,7 +201,6 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
             </div>
         </form>
         {/* Fuera del <form> de ingreso: un formulario dentro de otro enviaría el de ingreso. */}
-        <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} />
         </>
     );
 }
