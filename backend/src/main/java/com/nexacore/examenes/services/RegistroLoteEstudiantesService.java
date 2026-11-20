@@ -92,7 +92,7 @@ public class RegistroLoteEstudiantesService {
         if (r.idCarrera() == null || r.idFacultad() == null) {
             throw new IllegalArgumentException("La carrera seleccionada no pertenece a la facultad indicada.");
         }
-        return new Fila(indice, codigoSis, limpiar(r.nombre()), limpiar(r.apellidos()), ci,
+        return new Fila(indice, codigoSis, com.nexacore.examenes.utils.ValidacionNombre.normalizar(r.nombre()), com.nexacore.examenes.utils.ValidacionNombre.normalizar(r.apellidos()), ci,
                 EstadoMatricula.normalizarTelefono(r.telefono(), null),
                 ReglasEstudiante.correoDe(codigoSis).toLowerCase(Locale.ROOT),
                 CondicionEstudiante.normalizar(r.condicion(), CondicionEstudiante.REGULAR),

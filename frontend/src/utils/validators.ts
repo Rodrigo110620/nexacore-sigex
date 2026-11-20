@@ -63,6 +63,26 @@ export function esMismaLetraRepetida(value: string): boolean {
   return [...letters].every((c) => c === first)
 }
 
+const TECLADO = ['qwer', 'wert', 'erty', 'rtyu', 'tyui', 'yuio', 'uiop', 'asdf', 'sdfg', 'dfgh', 'fghj', 'ghjk', 'hjkl',
+  'zxcv', 'xcvb', 'cvbn', 'vbnm']
+
+/**
+ * Por qué un nombre no parece real («Aaaa», «Qwerty», «Bbbb Cccc», «Jajaja»), o '' si está bien. Acepta apellidos
+ * aimaras, quechuas o extranjeros («Kjarkas», «Q'uispe», «Schmidt»). Misma regla que el backend (ValidacionNombre).
+ */
+export function nombreSinSentido(valor: string): string {
+  // El apóstrofo es parte de la palabra (Q'uispe → quispe); se separa por espacios y guiones.
+  for (const palabra of valor.trim().toLowerCase().replace(/'/g, '').split(/[ \-]+/)) {
+    if (!palabra) continue
+    if (/(\p{L})\1\1/u.test(palabra)) return 'no repitas la misma letra tres veces seguidas'
+    if (!/[aeiouyáéíóúü]/.test(palabra)) return 'cada palabra debe tener al menos una vocal'
+    if (/[^aeiouyáéíóúü]{5}/.test(palabra)) return 'tiene demasiadas consonantes seguidas'
+    if (palabra.length >= 6 && /^(.{1,3})\1{2,}$/.test(palabra)) return 'no parece un nombre real'
+    if (TECLADO.some((fila) => palabra.includes(fila))) return 'no parece un nombre real (letras seguidas del teclado)'
+  }
+  return ''
+}
+
 function validateNombrePersona(
   value: string,
   etiqueta: 'nombre' | 'apellidos',
@@ -93,6 +113,8 @@ function validateNombrePersona(
       ? 'Ingresa un nombre válido (solo letras; cada palabra mínimo 2)'
       : 'Ingresa apellidos válidos (solo letras; cada palabra mínimo 2)'
   }
+  const sinSentido = nombreSinSentido(trimmed)
+  if (sinSentido) return `${etiqueta === 'nombre' ? 'El nombre' : 'Los apellidos'}: ${sinSentido}`
   return ''
 }
 
