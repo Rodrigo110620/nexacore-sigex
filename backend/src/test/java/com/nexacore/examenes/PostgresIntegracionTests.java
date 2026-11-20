@@ -1113,8 +1113,8 @@ class PostgresIntegracionTests {
         String csv = new String(asistenciaExportService.generarCsv(examen), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csv).contains("Hora de ingreso;Hora de salida");
         String horaSalida = salida.fechaHoraSalida().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
-        assertThat(csv.lines().filter(l -> l.startsWith("202499601;"))).singleElement().asString().endsWith(";" + horaSalida);
-        assertThat(csv.lines().filter(l -> l.startsWith("202499603;"))).singleElement().asString().endsWith(";-;-");
+        assertThat(csv.lines().filter(l -> l.startsWith("202499601;"))).singleElement().asString().endsWith(";" + horaSalida + ";-");
+        assertThat(csv.lines().filter(l -> l.startsWith("202499603;"))).singleElement().asString().endsWith(";-;-;-");
     }
 
     // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya

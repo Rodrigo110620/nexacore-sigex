@@ -7,6 +7,7 @@ import type { EstudianteIdentificado } from '../../services/identificacionServic
 import { listarIntentosIngreso, registrarIntentoIngreso, type IntentoIngreso } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
 import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { getUserInitials } from '../users/userAvatar.utils'
 
 interface EstudianteNoVinculadoModalProps {
   estudiante: EstudianteIdentificado
@@ -92,19 +93,27 @@ export default function EstudianteNoVinculadoModal({
             <h2 id="no-vinculado-title" className="text-base font-bold text-[#011140]">
               Estudiante no vinculado
             </h2>
-            <p id="no-vinculado-descripcion" className="mt-0.5 text-xs text-[#627A9B]">No está registrado en este examen.</p>
           </div>
         </div>
 
-        {/* 2.º test run: la foto del estudiante, para confirmar que es él quien intenta ingresar. */}
-        <div className="mt-4 flex items-center gap-3">
-          <FotoEstudiante fotoUrl={estudiante.fotoUrl} nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
-            iniciales={`${estudiante.nombre?.[0] ?? ''}${estudiante.apellidos?.[0] ?? ''}`} ampliable
-            className="inline-flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E9F1FF] text-sm font-bold text-[#0439D9]" />
-          <p className="min-w-0 text-sm font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+          <FotoEstudiante
+            fotoUrl={estudiante.fotoUrl}
+            nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+            iniciales={getUserInitials(estudiante)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0439D9] text-xs font-bold text-white"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
+            <p className="truncate text-xs text-[#627A9B]">{estudiante.carrera || 'Carrera no registrada'}</p>
+          </div>
         </div>
 
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#FDE68A] bg-[#FFF8E7] p-3 text-xs">
+        <p id="no-vinculado-descripcion" className="mt-2 text-xs text-amber-800">
+          Este estudiante no está registrado en este examen.
+        </p>
+
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#FDE68A] bg-[#FFF8E7] p-3 text-xs">
           {datos
             .filter(([, valor]) => valor)
             .map(([label, valor]) => (
@@ -130,11 +139,14 @@ export default function EstudianteNoVinculadoModal({
           <textarea id="motivo-intento" value={motivo} aria-invalid={!!motivoError} aria-describedby="motivo-intento-ayuda motivo-intento-error" onChange={(e) => {setMotivo(e.target.value.slice(0, 65));setMensaje('')}} maxLength={65} minLength={10} rows={2}
             className="mt-1 w-full rounded-lg border border-[#C9D7EC] p-2 text-sm" />
           <div className="mt-1 flex items-start justify-between gap-2">
-            {/* Estándar de los formularios: el mensaje a la izquierda y solo el contador a la derecha. */}
-            {motivoError
-              ? <p id="motivo-intento-error" role="alert" className="min-w-0 text-xs text-red-700">{motivoError}</p>
-              : <p id="motivo-intento-ayuda" className="min-w-0 text-xs text-[#627A9B]">Mínimo 10 caracteres.</p>}
-            <p className="shrink-0 text-right text-xs tabular-nums text-[#627A9B]" aria-hidden="true">{motivo.length}/65</p>
+            <div>
+              {motivoError ? (
+                <p id="motivo-intento-error" role="alert" className="text-xs text-red-700">{motivoError}</p>
+              ) : (
+                <p id="motivo-intento-ayuda" className="text-xs text-[#627A9B]">Mínimo 10 caracteres.</p>
+              )}
+            </div>
+            <p className="shrink-0 text-right text-xs text-[#627A9B]">{motivo.length}/65</p>
           </div>
           {mensaje && <p role="status" className="mt-2 text-xs text-red-700">{mensaje}</p>}
           <div className="mt-3 flex items-center justify-between gap-2"><button type="button" autoFocus disabled={guardando} onClick={() => motivo !== MOTIVO_INTENTO_INICIAL ? setDescartar(true) : onCerrar()} className="min-h-10 rounded-lg border px-3 text-xs font-semibold">Cancelar</button><button type="button" disabled={guardando || !!motivoError} onClick={() => void registrar()}

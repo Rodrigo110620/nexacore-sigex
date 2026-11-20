@@ -159,7 +159,7 @@ function EstadoIngresoBadge({ ingresado, expulsado, salida }: { ingresado: boole
 
 /** Tabla en escritorio y tarjetas en celular; los no habilitados se marcan en rojo. */
 /** resaltar: el estudiante al que se llega desde «Incidencias de hoy» (inicio del ADMIN). */
-export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, datosExamen, onExito, resaltar }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; datosExamen?: ExamenDto; onExito?: () => void; resaltar?: number | null }) {
+export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, datosExamen, onExito, resaltar, accionesVigentes = true }: { idExamen: number; estudiantes: EstudianteAsignado[]; examen?: string; datosExamen?: ExamenDto; onExito?: () => void; resaltar?: number | null; accionesVigentes?: boolean }) {
   const auth = useAuth()
   // INCI-01: expulsa el ADMIN o el docente del examen (el backend verifica que sea el suyo); el
   // personal de control reporta el incidente y la notificación les llega a ellos.
@@ -170,12 +170,16 @@ export default function EstudiantesExamenLista({ idExamen, estudiantes, examen, 
   const registra = registraControl(auth)
   const puedeSalida = (estudiante: EstudianteAsignado) =>
     registra && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida
-  // Quien ya registró su salida dejó el aula: no se lo expulsa ni se le reasigna aula (2.º test run).
   const accionExpulsar = (estudiante: EstudianteAsignado) =>
-    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida
-      ? () => setSeleccionado(estudiante) : undefined
+    puedeExpulsar && estudiante.ingresado === true && estudiante.expulsado !== true && !estudiante.fechaHoraSalida ? () => setSeleccionado(estudiante) : undefined
   const [modalReasignarAbierto, setModalReasignarAbierto] = useState(false)
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<EstudianteAsignado | null>(null)
+  // La vista previa conserva las filas. Descarta la selección antes de mostrarla y evita que reaparezca al volver.
+  if (!accionesVigentes && (seleccionado || estudianteSeleccionado)) {
+    setSeleccionado(null)
+    setEstudianteSeleccionado(null)
+    setModalReasignarAbierto(false)
+  }
   const [aulasExamen, setAulasExamen] = useState<AmbienteDto[]>([])
   /** Lista mostrada. Parte de lo que llega del servidor y se sobreecribe con los cambios de aula
    *  optimistas de la reasignación, para que el cambio se vea al instante sin esperar al refetch.

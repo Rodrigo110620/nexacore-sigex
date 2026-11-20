@@ -23,8 +23,6 @@ interface EstudiantesExamenSeccionProps {
   pagina?: PageResponse<EstudianteAsignado>
   error?: string
   cargando: boolean
-  /** Hay otra página en camino: la actual se muestra atenuada. */
-  cambiandoPagina?: boolean
   refetch?: () => void
   /** Estudiante a resaltar (desde «Incidencias de hoy»). */
   resaltar?: number | null
@@ -42,11 +40,11 @@ export default function EstudiantesExamenSeccion({
   pagina,
   error,
   cargando,
-  cambiandoPagina = false,
   refetch,
   resaltar,
 }: EstudiantesExamenSeccionProps) {
   const cuentas = resumen ? { ...resumen, ausentes: Math.max(0, resumen.habilitados - resumen.ingresados) } : undefined
+  const vistaPrevia = cargando && Boolean(pagina?.contenido.length)
   return (
     <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 md:mb-4">
@@ -86,24 +84,25 @@ export default function EstudiantesExamenSeccion({
         ))}
       </div>
 
+      <p aria-live="polite" className={cargando && !vistaPrevia ? 'py-10 text-center text-sm text-gray-500' : 'sr-only'}>
+        {cargando ? 'Cargando estudiantes…' : ''}
+      </p>
       {error ? (
         refetch ? <ErrorCarga mensaje={error} onReintentar={refetch} /> : (
           <p role="alert" className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>
         )
-      ) : cargando || !pagina ? (
-        <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
-      ) : pagina.contenido.length === 0 ? (
+      ) : !cargando && pagina && pagina.contenido.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
           {estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
         </p>
-      ) : (
-        <>
-          {/* Mientras llega la otra página, la actual queda atenuada (no se vacía la lista). */}
-          <div aria-busy={cambiandoPagina || undefined} className={`transition-opacity ${cambiandoPagina ? 'pointer-events-none opacity-60' : ''}`}>
-            <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} />
-          </div>
+      ) : pagina && pagina.contenido.length > 0 ? (
+        <div
+          aria-busy={cargando}
+          ref={(elemento) => { elemento?.toggleAttribute('inert', cargando) }}
+          className={cargando ? 'opacity-60 transition-opacity pointer-events-none' : 'transition-opacity'}
+        >
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} accionesVigentes={!cargando} />
           <div className="mt-3">
-            {/* La paginación estándar de las demás tablas (2.º test run). */}
             <UserPagination
               page={pagina.pagina}
               totalPages={pagina.totalPaginas}
@@ -113,8 +112,8 @@ export default function EstudiantesExamenSeccion({
               itemLabel="estudiantes asignados"
             />
           </div>
-        </>
-      )}
+        </div>
+      ) : null}
     </section>
   )
 }

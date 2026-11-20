@@ -11,7 +11,8 @@ import {
 import type { PageResponse } from '../types/userApi'
 
 interface Resultado {
-  clave: string
+  alcance: string
+  numeroPagina: number
   pagina?: PageResponse<EstudianteAsignado>
   error?: string
   accesoDenegado?: boolean
@@ -34,8 +35,9 @@ export default function useEstudiantesExamen(idExamen: number) {
   const [resultado, setResultado] = useState<Resultado>()
   /** Sube con cada cambio en vivo del examen: recarga resumen y lista sin volver a "cargando". */
   const [recarga, setRecarga] = useState(0)
+
   useEnVivo((c) => c.idExamen === idExamen || c.tipo === 'FOTO', () => setRecarga((n) => n + 1))
-  const clave = `${idExamen}|${estado}|${page}|${pageSize}`
+  const alcance = `${idExamen}|${estado}|${pageSize}`
   const idValido = Number.isInteger(idExamen) && idExamen > 0
 
   useEffect(() => {
@@ -72,27 +74,28 @@ export default function useEstudiantesExamen(idExamen: number) {
           setPage(ultimaPagina)
           return
         }
-        setResultado({ clave, pagina })
+        setResultado({ alcance, numeroPagina: page, pagina })
       })
       .catch((error) => {
-        if (vigente) setResultado({ clave, error: mensajeDeError(error), accesoDenegado: axios.isAxiosError(error) && error.response?.status === 403 })
+        if (vigente) setResultado({ alcance, numeroPagina: page, error: mensajeDeError(error), accesoDenegado: axios.isAxiosError(error) && error.response?.status === 403 })
       })
     return () => {
       vigente = false
     }
-  }, [clave, idExamen, idValido, estado, page, pageSize, recarga])
+  }, [alcance, idExamen, idValido, estado, page, pageSize, recarga])
 
-  // Al cambiar de página se sigue mostrando la anterior hasta tener la nueva (2.º test run: antes se vaciaba la lista
-  // y la pantalla saltaba como si se recargara entera). Con otro examen, filtro o tamaño, sí se espera.
-  const contexto = `${idExamen}|${estado}|${pageSize}`
-  const mismaVista = resultado != null && resultado.clave.split('|').filter((_, i) => i !== 2).join('|') === contexto
-  const actual = resultado?.clave === clave || (mismaVista && resultado?.pagina) ? resultado : undefined
+  // Solo la última respuesta del mismo examen, filtro y tamaño puede servir como vista previa.
+  const delListado = resultado?.alcance === alcance ? resultado : undefined
+  const actual = delListado?.numeroPagina === page ? delListado : undefined
   const cambiarEstado = (nuevo: FiltroEstado) => {
+    if (nuevo !== estado) setResultado(undefined)
     setEstado(nuevo)
     setPage(0)
   }
 
-  const refetch = () => setRecarga((n) => n + 1)
-  return { resumen, estado, cambiarEstado, setPage, pagina: actual?.pagina, error: actual?.error, accesoDenegado: actual?.accesoDenegado, cargando: !actual,
-    cambiandoPagina: actual != null && resultado?.clave !== clave, refetch }
+  const refetch = () => {
+    setResultado((previo) => previo?.error ? undefined : previo)
+    setRecarga((n) => n + 1)
+  }
+  return { resumen, estado, cambiarEstado, setPage, pagina: delListado?.pagina, error: actual?.error, accesoDenegado: actual?.accesoDenegado, cargando: !actual, refetch }
 }
