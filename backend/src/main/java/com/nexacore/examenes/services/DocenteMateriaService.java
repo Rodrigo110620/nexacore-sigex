@@ -189,6 +189,23 @@ public class DocenteMateriaService {
         return docenteMateriaRepository.existsByIdIdDocenteAndIdIdMateria(idDocente, idMateria);
     }
 
+    /** Grupos que ya pertenecen a otro docente en la materia; al editar se excluyen los del propio docente. */
+    @Transactional(readOnly = true)
+    public List<String> gruposOcupados(Integer idMateria, Integer idDocenteExcluido) {
+        var parametros = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("materia", idMateria)
+                .addValue("docente", idDocenteExcluido, java.sql.Types.INTEGER);
+        return jdbc.queryForList("""
+                SELECT DISTINCT CASE
+                    WHEN UPPER(TRIM(nombre_grupo)) LIKE 'G%' THEN UPPER(TRIM(nombre_grupo))
+                    ELSE 'G' || TRIM(nombre_grupo)
+                END AS grupo
+                FROM paralelo
+                WHERE id_materia = :materia
+                  AND (:docente IS NULL OR id_docente <> :docente)
+                ORDER BY grupo
+                """, parametros, String.class);
+    }
+
     /** El docente autenticado, si solo gestiona sus propios exámenes; si no (ADMIN), null. */
     /** Grupos para consultas directas; por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)

@@ -3,13 +3,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import RegisterUserModal from '../components/admin/RegisterUserModal'
 import api from '../services/api'
-import { buscarMaterias } from '../services/materiaService'
+import { buscarMaterias, gruposOcupadosDeMateria } from '../services/materiaService'
 import { ROLES_OPTIONS } from '../types/usuario.types'
 
 vi.mock('../services/api', () => ({ default: { post: vi.fn(), get: vi.fn() } }))
 vi.mock('../services/materiaService', async (original) => ({
   ...(await original<typeof import('../services/materiaService')>()),
   buscarMaterias: vi.fn(),
+  gruposOcupadosDeMateria: vi.fn(),
 }))
 vi.mock('../hooks/useRoles', () => ({ useRoles: () => ({ roles: ROLES_OPTIONS, cargando: false }) }))
 
@@ -32,6 +33,7 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
       { id: 11, sigla: 'SIS-301', nombre: 'Programación Web' },
       { id: 12, sigla: 'SIS-205', nombre: 'Taller de Programación' },
     ])
+    vi.mocked(gruposOcupadosDeMateria).mockReset().mockResolvedValue([])
   })
 
   it('el DOCENTE no avanza sin materias y se registra con las que eligió', async () => {
@@ -59,7 +61,8 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     await act(() => vi.advanceTimersByTimeAsync(300))
     const encontradas = await screen.findByRole('list', { name: 'Materias encontradas' })
     fireEvent.click(within(encontradas).getByRole('button', { name: /Programación Web/ }))
-    expect(within(screen.getByRole('list', { name: 'Materias elegidas' })).getByText('Programación Web')).toBeInTheDocument()
+    const elegidas = await screen.findByRole('list', { name: 'Materias elegidas' })
+    expect(within(elegidas).getByText('Programación Web')).toBeInTheDocument()
     // Grupos de la materia: empieza con el G1; el ADMIN marca también el G2 y no puede dejarla sin grupos.
     const grupos = screen.getByRole('group', { name: 'Grupos de Programación Web' })
     expect(within(grupos).getByRole('button', { name: 'G1' })).toHaveAttribute('aria-pressed', 'true')

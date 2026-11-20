@@ -1271,6 +1271,10 @@ class PostgresIntegracionTests {
                 .hasMessageContaining("El grupo G2 de Materia TST-GRP ya es de");
         docenteMateriaService.asignar(otro, List.of(idMateria), java.util.Map.of(idMateria, List.of("G3")));
         assertThat(docenteMateriaService.materiasConGrupos(otro).get(0).grupos()).containsExactly("G3");
+        // HU#1 BUG-A01: al registrar se marcan todos los ocupados; al editar no se bloquean los propios.
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, null)).containsExactly("G1", "G2", "G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).containsExactly("G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, otro)).containsExactly("G1", "G2");
 
         // No se quita un grupo con exámenes; uno sin uso, sí.
         examen(g1, "09:00", 60);

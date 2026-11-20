@@ -23,6 +23,14 @@ export async function buscarMaterias(search: string, signal?: AbortSignal): Prom
   return data
 }
 
+/** HU#1 BUG-A01: grupos que ya pertenecen a otro docente en esta materia. */
+export async function gruposOcupadosDeMateria(idMateria: number, excluirDocente?: number): Promise<string[]> {
+  const { data } = await api.get<string[]>(`/materias/${idMateria}/grupos-ocupados`, {
+    params: excluirDocente ? { excluirDocente } : undefined,
+  })
+  return data
+}
+
 /** IMP-12: las materias del docente que inició sesión. */
 export async function misMaterias(): Promise<MateriaDto[]> {
   const { data } = await api.get<MateriaDto[]>('/materias/mias')

@@ -315,7 +315,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
                 </div>
                 {materias === null && user?.rol === 'DOCENTE'
                   ? <p className="text-xs text-[#627A9B]">Cargando sus materias…</p>
-                  : <SelectorMaterias value={listaMaterias} onChange={(l) => { setMaterias(l); if (generalError) setGeneralError(''); }} error={errors.materias} />}
+                  : <SelectorMaterias value={listaMaterias} idDocente={Number(user?.id)} onChange={(l) => { setMaterias(l); if (generalError) setGeneralError(''); }} error={errors.materias} />}
               </section>
               </>
             )}

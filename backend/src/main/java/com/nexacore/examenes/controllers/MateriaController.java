@@ -72,4 +72,14 @@ public class MateriaController {
         if (docente == null) return List.of();
         return docenteMateriaService.gruposDe(docente, idMateria);
     }
+
+    @Operation(summary = "Grupos ocupados al asignar una materia a un docente",
+            description = "HU#1 BUG-A01: grupos que ya pertenecen a otro docente y no se pueden seleccionar.")
+    @PreAuthorize("@permisos.tiene(authentication, 'EXAMENES_GESTIONAR_TODOS')")
+    @GetMapping("/{idMateria}/grupos-ocupados")
+    public List<String> gruposOcupados(
+            @org.springframework.web.bind.annotation.PathVariable Integer idMateria,
+            @RequestParam(required = false) Integer excluirDocente) {
+        return docenteMateriaService.gruposOcupados(idMateria, excluirDocente);
+    }
 }
