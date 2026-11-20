@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -65,6 +66,25 @@ class EstudiantesAusentesApiTests {
     @CsvSource({"TODOS,6", "HABILITADOS,4", "NO_HABILITADOS,2", "ausentes,3"})
     void conservaLosFiltrosYNormalizaElParametro(String estado, int total) throws Exception {
         consultar(estado, 0).andExpect(jsonPath("$.totalRegistros").value(total));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ADMIN,admin@sigex.test", "CONTROL,control@sigex.test", "DOCENTE,ausentes@sigex.test"})
+    void perfilesAutorizadosPuedenConsultarElTotal(String rol, String email) throws Exception {
+        mvc.perform(get("/examenes/{id}/estudiantes", ID).param("estado", "AUSENTES").param("size", "1")
+                        .with(user(email).roles(rol)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRegistros").value(3))
+                .andExpect(jsonPath("$.contenido.length()").value(1));
+    }
+
+    @Test
+    void docenteAjenoNoPuedeConsultarAusentes() throws Exception {
+        int idAjeno = ID + 10;
+        jdbc.update("INSERT INTO usuario(id_usuario,nombre,apellidos,ci,email,password) VALUES (?,'Eva','Ajena','AJENO','ajeno@sigex.test','x')", idAjeno);
+        jdbc.update("INSERT INTO docente(id_usuario,categoria) VALUES (?,'INTERINO')", idAjeno);
+        mvc.perform(get("/examenes/{id}/estudiantes", ID).param("estado", "AUSENTES").param("size", "1")
+                        .with(user("ajeno@sigex.test").roles("DOCENTE")))
+                .andExpect(status().isForbidden());
     }
 
     @Test

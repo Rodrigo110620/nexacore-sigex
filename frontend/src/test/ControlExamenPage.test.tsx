@@ -11,6 +11,7 @@ import {
 } from '../services/controlExamenService'
 
 vi.mock('../services/controlExamenService')
+vi.mock('../services/ingresosRecientesService', () => ({ ingresosRecientes: vi.fn().mockResolvedValue({ total: 0, ingresos: [] }) }))
 vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue([]) }))
 vi.mock('../services/ambienteService', () => ({ listarAmbientes: vi.fn().mockResolvedValue([]) }))
 
