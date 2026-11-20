@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import PuntoVivo from '../../components/ui/PuntoVivo'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Ban, BookCheck, CalendarDays, Clock, Eye, History, LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -17,6 +18,7 @@ import { offsetServidorMinutos } from '../../services/tiempoService'
 import useReloj from '../../hooks/useReloj'
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import CuentaRegresiva from '../../components/ui/CuentaRegresiva'
 import FiltroSelect from '../../components/ui/FiltroSelect'
 import { contiene } from '../../utils/textoBusqueda'
 
@@ -218,6 +220,9 @@ export default function ExamenesPage() {
     </>
   )
 
+  // Los que están en curso en este momento, arriba y con su tiempo restante.
+  const enCursoAhora = porVista.activos.filter((e) => tiempoExamen(e, ahora, offsetServidorMinutos()).fase === 'en_curso')
+
   return (
     <PanelLayout
       compactDesktop
@@ -342,6 +347,28 @@ export default function ExamenesPage() {
               <ErrorCarga className="mb-4" mensaje={error} onReintentar={() => void load()} />
             )}
 
+            {vista === 'activos' && !loading && enCursoAhora.length > 0 && (
+              <section aria-label="Exámenes en curso ahora" className="mb-3 rounded-xl border border-[#BBF7D0] bg-gradient-to-r from-[#F0FDF4] to-white p-3">
+                <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#15803D]">
+                  <PuntoVivo /> En curso ahora ({enCursoAhora.length})
+                </h2>
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {enCursoAhora.map((e) => (
+                    <li key={`${e.idExamen}-${e.idParalelo}`}>
+                      <button type="button" onClick={() => navigate(`/dashboard/examenes/${e.idExamen}/${e.idParalelo}`)}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#D1FAE5] bg-white px-3 py-2 text-left hover:border-[#22C55E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E]/40">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold text-[#011140]">{e.asignatura}{e.grupo ? ` · ${e.grupo}` : ''}</span>
+                          <span className="block truncate text-[11px] text-[#627A9B]">{horaCorta(e.horaInicio)} – {addMinutes(e.horaInicio, e.duracionMinutos)} · {e.ambienteNombre}</span>
+                        </span>
+                        <Cuenta examen={e} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             <div>
             {loading ? (
               <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
@@ -386,7 +413,10 @@ export default function ExamenesPage() {
                                 <GrupoBadge grupo={e.grupo} /> Cód: {e.sigla || '—'}
                               </p>
                             </div>
-                            <EstadoExamenBadge examen={e} />
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              <EstadoExamenBadge examen={e} />
+                              <Cuenta examen={e} />
+                            </div>
                           </div>
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-600">
                             <span className="inline-flex items-center gap-1">
@@ -459,7 +489,10 @@ export default function ExamenesPage() {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-gray-600">{e.ambienteNombre}</td>
                           <td className="whitespace-nowrap px-4 py-3">
-                            <EstadoExamenBadge examen={e} className="text-sm" />
+                            <div className="flex flex-col items-start gap-1">
+                              <EstadoExamenBadge examen={e} className="text-sm" />
+                              <Cuenta examen={e} />
+                            </div>
                           </td>
                           <td className="py-3 pl-4 pr-5">
                             <div className="flex items-center justify-end gap-2">
@@ -512,3 +545,10 @@ function GrupoBadge({ grupo }: { grupo?: string | null }) {
     : <span className="text-xs text-gray-400">—</span>
 }
 
+
+/** Cuenta regresiva de un examen de la lista (solo si empieza en menos de un día o está en curso). */
+function Cuenta({ examen }: { examen: ExamenDto }) {
+  if ((examen.estado ?? '').toLowerCase() === 'cancelado') return null
+  const t = tiempoExamen(examen, 0, offsetServidorMinutos())
+  return <CuentaRegresiva inicioMs={t.inicioMs} finMs={t.finMs} />
+}

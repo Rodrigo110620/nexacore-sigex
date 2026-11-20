@@ -36,6 +36,14 @@ import java.util.stream.Collectors;
 @Service
 public class ImportacionUsuariosService {
 
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
+
     static final List<String> COLUMNAS = List.of("nombre", "apellidos", "ci", "email", "rol");
     static final int MAX_FILAS = 500;
 
@@ -85,6 +93,7 @@ public class ImportacionUsuariosService {
             throw new IllegalArgumentException("El archivo CSV tiene un formato inválido.");
         }
 
+        if (insertados > 0) avisarEnVivo(NotificacionService.CAMBIO_USUARIO, null);
         return new ImportarUsuariosResponse(insertados, ignorados, errores);
     }
 

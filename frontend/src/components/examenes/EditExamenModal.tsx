@@ -76,7 +76,7 @@ function filtrarHabilitables(lista: EstudianteHabilitacionDto[], criterio: strin
     .map((e) => ({
       id: e.idEstudiante,
       nombre: `${e.nombre} ${e.apellidos}`,
-      detalle: `CI ${e.ci} · Cód. ${e.codigoSis} · ${e.estadoHabilitacion === 'HABILITADO' ? 'Habilitado' : 'Pendiente'}`,
+      detalle: `CI ${e.ci || '—'} · Cód. ${e.codigoSis} · ${e.estadoHabilitacion === 'HABILITADO' ? 'Habilitado' : 'Pendiente'}`,
     }))
 }
 

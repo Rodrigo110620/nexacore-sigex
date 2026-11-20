@@ -41,7 +41,7 @@ export default function ResultadoEstudianteCard({ estudiante }: ResultadoEstudia
         <div className="flex items-center gap-1.5">
           <IdCard size={13} aria-hidden="true" />
           <dt>CI:</dt>
-          <dd className="font-semibold text-[#011140]">{estudiante.ci}</dd>
+          <dd className="font-semibold text-[#011140]">{estudiante.ci || '—'}</dd>
         </div>
         {estudiante.carrera && (
           <div className="flex items-center gap-1.5">

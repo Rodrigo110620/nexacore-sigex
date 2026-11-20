@@ -1,6 +1,5 @@
 package com.nexacore.examenes.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -19,18 +18,15 @@ public record RegistrarEstudianteRequest(
         @Pattern(regexp = ReglasEstudiante.NOMBRE, message = ReglasEstudiante.MSG_APELLIDOS)
         String apellidos,
         
-        @NotBlank(message = "El CI es obligatorio")
-        @Pattern(regexp = ReglasEstudiante.CI, message = ReglasEstudiante.MSG_CI)
+        /** Opcional: si no se envía, el estudiante lo escribe al activar su cuenta. */
+        @Pattern(regexp = ReglasEstudiante.CI_OPCIONAL, message = ReglasEstudiante.MSG_CI)
         String ci,
 
         @Size(max = 8, message = "El teléfono no puede tener más de 8 caracteres")
         @Pattern(regexp = ReglasEstudiante.TELEFONO, message = ReglasEstudiante.MSG_TELEFONO)
         String telefono,
 
-        @NotBlank(message = "El correo electrónico es obligatorio")
-        @Email(message = "El formato del correo electronico no es valido")
-        @Pattern(regexp = ReglasEstudiante.EMAIL, message = ReglasEstudiante.MSG_EMAIL)
-        @Size(max = ReglasEstudiante.EMAIL_MAX, message = "El correo no puede superar 100 caracteres")
+        /** Ya no se pide: es siempre el código SIS @est.umss.edu (lo que llegue aquí se ignora). */
         String email,
         
         @NotBlank(message = "El código SIS es obligatorio")
@@ -49,12 +45,4 @@ public record RegistrarEstudianteRequest(
         @Pattern(regexp = EstadoMatricula.PATRON, message = "El estado de matrícula debe ser Matriculado o No matriculado")
         String estadoMatricula
 ) {
-
-    /** El correo debe ser el código SIS @est.umss.edu (se informa en la columna Correo). */
-    @jakarta.validation.constraints.AssertTrue(message = ReglasEstudiante.MSG_EMAIL_SIS)
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    @io.swagger.v3.oas.annotations.Hidden
-    public boolean isEmailDelCodigoSis() {
-        return ReglasEstudiante.correoDelCodigoSis(email, codigoSis);
-    }
 }

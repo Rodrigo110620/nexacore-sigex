@@ -113,6 +113,9 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
     setRetryCount((c) => c + 1)
   }, [])
 
+  /** Recarga en vivo: sin poner la tabla en «cargando», para que no parpadee. */
+  const recargarEnSilencio = useCallback(() => setRetryCount((c) => c + 1), [])
+
   return {
     data,
     estudiantes: data.contenido,
@@ -124,5 +127,6 @@ export default function useEstudiantes(options: UseEstudiantesOptions = {}) {
     updateFilters,
     changePage,
     retry,
+    recargarEnSilencio,
   }
 }

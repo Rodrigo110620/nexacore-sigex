@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AvisosEnVivo from '../../components/estudiantes/AvisosEnVivo'
 import { CalendarDays, CircleCheck, Clock, Info, LoaderCircle, MapPin, QrCode, RotateCw, ScrollText, ShieldCheck, ShieldX, TriangleAlert, WifiOff } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
@@ -187,6 +188,7 @@ export default function InicioEstudiantePage() {
 
   return (
     <PortalEstudianteLayout fotoUrl={perfil?.fotoUrl}>
+      <AvisosEnVivo examenes={examenes} perfil={perfil} />
       <div className="mx-auto max-w-6xl px-4 py-5 sm:px-8 sm:py-8">
         <p className="text-xs text-[#627A9B]">Inicio · {hoy.charAt(0).toUpperCase() + hoy.slice(1)}</p>
         {cargando ? (

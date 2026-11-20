@@ -47,6 +47,29 @@ it.each([
   }
 })
 
+it('un estudiante que ya marcó salida no muestra los botones de expulsar ni reasignar', () => {
+  localStorage.setItem('token', 'test')
+  localStorage.setItem('roles', JSON.stringify(['ADMIN']))
+  const { container } = render(
+    <AuthProvider>
+      <MemoryRouter>
+        <EstudiantesExamenLista
+          idExamen={20}
+          examen="Ingeniería · Aula 201"
+          datosExamen={examen}
+          estudiantes={[{ ...estudiante, ingresado: true, expulsado: false, fechaHoraSalida: '2026-11-14T15:58:00' }]}
+        />
+      </MemoryRouter>
+    </AuthProvider>,
+  )
+  for (const selector of ['table', 'ul']) {
+    const vista = within(container.querySelector(selector)!)
+    expect(vista.queryByRole('button', { name: 'Expulsar' })).not.toBeInTheDocument()
+    expect(vista.queryByRole('button', { name: 'Reasignar' })).not.toBeInTheDocument()
+    expect(vista.getByText('SALIÓ 15:58')).toBeInTheDocument()
+  }
+})
+
 it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', (indice) => {
   montar()
   fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])

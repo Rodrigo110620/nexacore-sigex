@@ -32,94 +32,42 @@ describe('RegistrarEstudianteModal', () => {
     // Cierra el modal
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }))
 
-    // 3) Rellena apellidos y reintenta → modal con el error del CI
+    // 3) Rellena apellidos: el CI es opcional y el correo ya no se pide → pasa al paso 2
     fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
     fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
-    expect(screen.getByText(/Error en el CI/i)).toBeInTheDocument()
-    expect(screen.getByText('El documento es obligatorio')).toBeInTheDocument()
+    expect(screen.getByText('Paso 2 de 2')).toBeInTheDocument()
   })
 
-  it('aplica las mismas restricciones de usuario a CI y correo institucional', () => {
+  it('ya no pide el correo y el CI es opcional, pero si lo escriben debe ser válido', () => {
     render(<RegistrarEstudianteModal open onClose={vi.fn()} onRegistered={vi.fn()} />)
-
-    // Rellena nombre y apellidos válidos
+    expect(screen.queryByPlaceholderText('Ej: 201904725@est.umss.edu')).not.toBeInTheDocument()
     fireEvent.change(screen.getByPlaceholderText('Ej: María José'), { target: { value: 'María' } })
     fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
 
     // CI inválido: filtra las letras y deja solo "12"
-    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '12ab' } })
-    expect(screen.getByPlaceholderText('Ej: 74892104')).toHaveValue('12')
-
-    // Email no institucional
-    fireEvent.change(screen.getByPlaceholderText('Ej: 201904725@est.umss.edu'), { target: { value: 'maria@gmail.com' } })
-
-    // Primer intento → modal con el error del CI (es el primero en el orden de validación)
+    fireEvent.change(screen.getByPlaceholderText('Opcional (Ej: 74892104)'), { target: { value: '12ab' } })
+    expect(screen.getByPlaceholderText('Opcional (Ej: 74892104)')).toHaveValue('12')
     fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
     expect(screen.getByText(/Error en el CI/i)).toBeInTheDocument()
     expect(screen.getByText('Debe tener 7 u 8 dígitos')).toBeInTheDocument()
-
-    // Cierra el modal y corrige el CI
-    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }))
-    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '74892104' } })
-
-    // Segundo intento → ahora el error es del correo
-    fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
-    expect(screen.getByText(/Error en el Correo/i)).toBeInTheDocument()
-    expect(screen.getByText('El correo debe ser el código SIS del estudiante @est.umss.edu (por ejemplo, 201904725@est.umss.edu)')).toBeInTheDocument()
   })
 
-  // El correo del estudiante es su código SIS @est.umss.edu: con nombre, con otro dominio o sin 9 dígitos, no.
-  it.each([
-    ['maria.gonzalez@est.umss.edu', 'El correo debe ser el código SIS del estudiante @est.umss.edu (por ejemplo, 201904725@est.umss.edu)'],
-    ['20190472@est.umss.edu', 'El correo debe ser el código SIS del estudiante @est.umss.edu (por ejemplo, 201904725@est.umss.edu)'],
-    ['201904725@umss.edu.bo', 'El correo debe ser el código SIS del estudiante @est.umss.edu (por ejemplo, 201904725@est.umss.edu)'],
-  ])('rechaza el correo %s: debe ser el código SIS @est.umss.edu', (email, error) => {
-    render(<RegistrarEstudianteModal open onClose={vi.fn()} onRegistered={vi.fn()} />)
-    fireEvent.change(screen.getByPlaceholderText('Ej: María José'), { target: { value: 'María' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '74892104' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 201904725@est.umss.edu'), { target: { value: email } })
-    fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
-
-    expect(screen.getByText(error)).toBeInTheDocument()
-    expect(screen.queryByText('Paso 2 de 2')).not.toBeInTheDocument()
-  })
-
-  it('registra los datos personales y académicos', async () => {
-    vi.mocked(service.registrarEstudiante).mockResolvedValue({ id: 5, nombre: 'María', apellidos: 'González', ci: '74892104', email: '202404012@est.umss.edu', codigoSis: '202404012', carreras: [] })
+  it('registra sin CI y con el correo generado del código SIS', async () => {
+    vi.mocked(service.registrarEstudiante).mockResolvedValue({ id: 5, nombre: 'María', apellidos: 'González', ci: null, email: '202404012@est.umss.edu', codigoSis: '202404012', carreras: [] })
     const onRegistered = vi.fn()
     render(<RegistrarEstudianteModal open onClose={vi.fn()} onRegistered={onRegistered} />)
     fireEvent.change(screen.getByPlaceholderText('Ej: María José'), { target: { value: 'María' } })
     fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '74892104' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 201904725@est.umss.edu'), { target: { value: '202404012@est.umss.edu' } })
     fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
-    // El código SIS sale del correo.
-    expect(screen.getByPlaceholderText('Ej: 202404012')).toHaveValue('202404012')
+    fireEvent.change(screen.getByPlaceholderText('Ej: 202404012'), { target: { value: '202404012' } })
+    expect(screen.getByTestId('correo-generado')).toHaveTextContent('202404012@est.umss.edu')
     await waitFor(() => expect(screen.getByRole('option', { name: 'Tecnología' })).toBeInTheDocument())
     fireEvent.change(screen.getByLabelText(/facultad académica/i), { target: { value: '1' } })
     await waitFor(() => expect(screen.getByRole('option', { name: 'Sistemas' })).toBeInTheDocument())
     fireEvent.change(screen.getByLabelText(/carrera profesional/i), { target: { value: '10' } })
     fireEvent.click(screen.getByRole('button', { name: /^registrar estudiante$/i }))
-    await waitFor(() => expect(service.registrarEstudiante).toHaveBeenCalledWith(expect.objectContaining({ codigoSis: '202404012', email: '202404012@est.umss.edu', idFacultad: 1, idCarrera: 10 })))
+    await waitFor(() => expect(service.registrarEstudiante).toHaveBeenCalledWith(expect.objectContaining({
+      codigoSis: '202404012', email: '202404012@est.umss.edu', ci: undefined, idFacultad: 1, idCarrera: 10 })))
     expect(onRegistered).toHaveBeenCalledWith('María González')
-  })
-
-  it('si cambian el código SIS, el correo tiene que ser ese mismo código', async () => {
-    vi.mocked(service.registrarEstudiante).mockClear()
-    render(<RegistrarEstudianteModal open onClose={vi.fn()} onRegistered={vi.fn()} />)
-    fireEvent.change(screen.getByPlaceholderText('Ej: María José'), { target: { value: 'María' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: González Flores'), { target: { value: 'González' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 74892104'), { target: { value: '74892104' } })
-    fireEvent.change(screen.getByPlaceholderText('Ej: 201904725@est.umss.edu'), { target: { value: '202404012@est.umss.edu' } })
-    fireEvent.click(screen.getByRole('button', { name: /siguiente paso/i }))
-    fireEvent.change(screen.getByPlaceholderText('Ej: 202404012'), { target: { value: '202404013' } })
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Tecnología' })).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText(/facultad académica/i), { target: { value: '1' } })
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Sistemas' })).toBeInTheDocument())
-    fireEvent.change(screen.getByLabelText(/carrera profesional/i), { target: { value: '10' } })
-    fireEvent.click(screen.getByRole('button', { name: /^registrar estudiante$/i }))
-    expect(await screen.findByText('El correo debe ser 202404013@est.umss.edu, con el mismo código SIS')).toBeInTheDocument()
-    expect(service.registrarEstudiante).not.toHaveBeenCalled()
   })
 })

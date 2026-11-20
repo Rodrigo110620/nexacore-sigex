@@ -31,8 +31,8 @@ import java.util.Optional;
 
 /**
  * Activación de la cuenta del estudiante (CTA-01). El estudiante ya está registrado por la
- * administración; aquí solo demuestra que es él (código SIS + CI + correo institucional y un código
- * enviado a ese correo) y elige su contraseña. Con eso se crea su usuario con el rol ESTUDIANTE.
+ * administración; aquí demuestra que es él (su código SIS y un código enviado a su correo
+ * institucional), completa su C.I. si la administración no lo registró y elige su contraseña. Con eso se crea su usuario con el rol ESTUDIANTE.
  */
 @Service
 public class CuentaEstudianteService {
@@ -56,6 +56,9 @@ public class CuentaEstudianteService {
     /** Historial de operaciones; por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private AuditoriaService auditoriaService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
 
     public CuentaEstudianteService(EstudianteRepository estudianteRepository,
                                    EstudianteActivacionRepository activacionRepository,
@@ -90,12 +93,17 @@ public class CuentaEstudianteService {
     public void solicitarActivacion(SolicitarActivacionRequest request) {
         // BUG-E01/E02 de HU#5: un código SIS o C.I. ficticio (444444444, 123456789) no pasa al paso 2.
         // Solo mira el formato, así que no revela qué estudiantes existen.
-        ValidacionIdentificador.validarCodigoUniversitario(request.codigoSis().strip());
-        ValidacionIdentificador.validarCiNoFicticio(request.ci().strip());
-        String email = request.email().strip().toLowerCase(Locale.ROOT);
-        Optional<Estudiante> encontrado = estudianteRepository.findByCodigoSis(request.codigoSis().strip())
+        String codigoSis = request.codigoSis().strip();
+        ValidacionIdentificador.validarCodigoUniversitario(codigoSis);
+        // C.I. y correo son opcionales: el código llega al correo institucional, que solo el estudiante lee.
+        String ci = com.nexacore.examenes.dto.ReglasEstudiante.ciOpcional(request.ci());
+        ValidacionIdentificador.validarCiNoFicticio(ci);
+        String email = request.email() == null || request.email().isBlank()
+                ? com.nexacore.examenes.dto.ReglasEstudiante.correoDe(codigoSis).toLowerCase(Locale.ROOT)
+                : request.email().strip().toLowerCase(Locale.ROOT);
+        Optional<Estudiante> encontrado = estudianteRepository.findByCodigoSis(codigoSis)
                 .filter(e -> e.getIdUsuario() == null)
-                .filter(e -> e.getCi().equals(request.ci().strip()))
+                .filter(e -> ci == null || e.getCi() == null || e.getCi().equals(ci))
                 .filter(e -> e.getEmail() != null && e.getEmail().equalsIgnoreCase(email))
                 .filter(e -> usuarioRepository.findByEmail(email).isEmpty());
         if (encontrado.isEmpty()) {
@@ -139,6 +147,10 @@ public class CuentaEstudianteService {
                 .orElseThrow(CodigoActivacionInvalidoException::new);
         EstudianteActivacion activacion = comprobarCodigo(estudiante, request.codigo());
 
+        // Si la administración no registró su C.I., el estudiante lo escribe ahora (V58).
+        if (estudiante.getCi() == null) {
+            estudiante.setCi(ciNuevo(estudiante, request.ci()));
+        }
         PasswordPolicy.validarSinDatosDelEstudiante(password, estudiante.getCodigoSis(), estudiante.getCi(), estudiante.getNombre());
         // El correo del usuario se guarda en minúsculas (V25).
         if (usuarioRepository.findByEmail(estudiante.getEmail().toLowerCase(Locale.ROOT)).isPresent()
@@ -173,6 +185,10 @@ public class CuentaEstudianteService {
         usuarioRolRepository.save(usuarioRol);
 
         activacionRepository.delete(activacion);
+        // Pasa a «Cuenta activada» en la lista de estudiantes abierta.
+        if (notificacionEnVivo != null) {
+            notificacionEnVivo.emitirCambio(NotificacionService.CAMBIO_ESTUDIANTE, null, estudiante.getId());
+        }
 
         // El QR se envía al activar la cuenta (no al registrarlo): recién ahí el estudiante está activo.
         // Si ya tenía uno (registrado antes de este cambio), ya le llegó y no se reenvía.
@@ -194,11 +210,33 @@ public class CuentaEstudianteService {
      * código falso. Cada código fallido cuenta igual que al confirmar (mismo límite de intentos).
      */
     @Transactional(noRollbackFor = CodigoActivacionInvalidoException.class)
-    public void verificarCodigo(VerificarCodigoActivacionRequest request) {
+    public com.nexacore.examenes.dto.EstadoActivacionResponse verificarCodigo(VerificarCodigoActivacionRequest request) {
         Estudiante estudiante = estudianteRepository.findByCodigoSis(request.codigoSis().strip())
                 .filter(e -> e.getIdUsuario() == null)
                 .orElseThrow(CodigoActivacionInvalidoException::new);
         comprobarCodigo(estudiante, request.codigo());
+        // Recién con el código correcto se dice si falta su C.I. (no revela nada a quien no lee ese correo).
+        boolean registrado = estudiante.getCi() != null;
+        return new com.nexacore.examenes.dto.EstadoActivacionResponse(
+                registrado ? "Código correcto. Crea tu contraseña." : "Código correcto. Escribe tu C.I. y crea tu contraseña.",
+                registrado, registrado ? PanelEstudianteService.enmascarar(estudiante.getCi()) : null);
+    }
+
+    /** El C.I. que escribe el estudiante al activar: 7 u 8 dígitos, no ficticio, distinto del SIS y no usado por nadie. */
+    private String ciNuevo(Estudiante estudiante, String valor) {
+        String ci = com.nexacore.examenes.dto.ReglasEstudiante.ciOpcional(valor);
+        if (ci == null) {
+            throw new IllegalArgumentException("Escribe tu C.I. para activar tu cuenta.");
+        }
+        if (!ci.matches(com.nexacore.examenes.dto.ReglasEstudiante.CI)) {
+            throw new IllegalArgumentException(com.nexacore.examenes.dto.ReglasEstudiante.MSG_CI);
+        }
+        ValidacionIdentificador.validarCiNoFicticio(ci);
+        com.nexacore.examenes.dto.ReglasEstudiante.validarSisDistintoDeCi(estudiante.getCodigoSis(), ci);
+        if (estudianteRepository.existsByCiIgnoreCase(ci) || usuarioRepository.existsByCiIgnoreCase(ci)) {
+            throw new IllegalArgumentException("Ese C.I. ya está registrado. Comunícate con la administración.");
+        }
+        return ci;
     }
 
     /** El registro de activación si el código es correcto y vigente; si no, suma un intento y lanza. */

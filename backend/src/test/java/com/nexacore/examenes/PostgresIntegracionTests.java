@@ -817,6 +817,9 @@ class PostgresIntegracionTests {
         assertThat(vigente.totalRegistros()).isEqualTo(1);
         assertThat(intentoIngresoService.reporte(null, 0, 20).contenido())
                 .filteredOn(i -> i.idExamen() == examen1).hasSize(2);
+        // Resumen de Reportes («hoy», «ayer»): solo los registrados después de la hora indicada.
+        assertThat(intentoIngresoService.reporte(null, 0, 20, null, null, java.time.LocalDateTime.of(2026, 10, 28, 8, 8)).contenido())
+                .filteredOn(i -> i.idExamen() == examen1).extracting(i -> i.fechaHora().toLocalTime().toString()).containsExactly("08:09");
     }
 
     @Test
@@ -930,6 +933,46 @@ class PostgresIntegracionTests {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // Al asignar grupos: se ofrecen solo los libres; los del propio docente no cuentan como ocupados.
+    @Test
+    void losGruposOcupadosSonLosDeOtroDocente() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-OCU"));
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'g3')", idMateria, idDocente);
+
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, null)).containsExactly("G1", "G3");
+        assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).isEmpty();
+    }
+
+    // Cada grupo de una materia tiene un solo docente: si al crear el examen hay que crearle el grupo al docente y
+    // el G1 ya es de otro, toma el primero libre (antes creaba otro «G1» con un segundo docente).
+    @Test
+    void alCrearElGrupoDelDocenteNoRepiteElDeOtro() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-GLIB"));
+        jdbc.update("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES ('Rosa', 'Vargas', '6666666', 'rosa.vargas@umss.edu', 'x', 'activo')");
+        Integer rosa = jdbc.queryForObject("SELECT id_usuario FROM usuario WHERE email = 'rosa.vargas@umss.edu'", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", rosa);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)", rosa, idMateria);
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(6);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            var creado = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia", "Rosa Vargas", fecha,
+                    java.time.LocalTime.of(9, 0), 60, idAmbiente, List.of(), List.of(), idMateria, rosa));
+            assertThat(jdbc.queryForObject("SELECT nombre_grupo FROM paralelo WHERE id_paralelo = ?", String.class, creado.idParalelo()))
+                    .isEqualTo("G2");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM paralelo WHERE id_materia = ?
+                GROUP BY UPPER(REGEXP_REPLACE(TRIM(nombre_grupo), '^([0-9]+)$', 'G\\1')) ORDER BY 1 DESC LIMIT 1
+                """, Integer.class, idMateria)).isEqualTo(1);
     }
 
     @Test
@@ -1099,8 +1142,8 @@ class PostgresIntegracionTests {
         String csv = new String(asistenciaExportService.generarCsv(examen), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csv).contains("Hora de ingreso;Hora de salida");
         String horaSalida = salida.fechaHoraSalida().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
-        assertThat(csv.lines().filter(l -> l.startsWith("202499601;"))).singleElement().asString().endsWith(";" + horaSalida);
-        assertThat(csv.lines().filter(l -> l.startsWith("202499603;"))).singleElement().asString().endsWith(";-;-");
+        assertThat(csv.lines().filter(l -> l.startsWith("202499601;"))).singleElement().asString().endsWith(";" + horaSalida + ";-");
+        assertThat(csv.lines().filter(l -> l.startsWith("202499603;"))).singleElement().asString().endsWith(";-;-;-");
     }
 
     // DASH-03 (alerta de aforo): ocupación de cada aula. Con capacidad 3, al tercer ingreso queda llena; el expulsado ya

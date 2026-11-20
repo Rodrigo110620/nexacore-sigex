@@ -6,6 +6,8 @@ import { CheckCircle2, TriangleAlert, X } from 'lucide-react'
 import type { EstudianteIdentificado } from '../../services/identificacionService'
 import { listarIntentosIngreso, registrarIntentoIngreso, type IntentoIngreso } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica } from '../../utils/examenFormat'
+import FotoEstudiante from '../estudiantes/FotoEstudiante'
+import { getUserInitials } from '../users/userAvatar.utils'
 
 interface EstudianteNoVinculadoModalProps {
   estudiante: EstudianteIdentificado
@@ -68,7 +70,7 @@ export default function EstudianteNoVinculadoModal({
 
   const datos: [string, string | undefined][] = [
     ['Código', estudiante.codigoSis],
-    ['CI', estudiante.ci],
+    ['CI', estudiante.ci || '—'],
     ['Materia', materia],
     ['Aula', aula],
   ]
@@ -93,12 +95,23 @@ export default function EstudianteNoVinculadoModal({
             </h2>
           </div>
         </div>
-            <p id="no-vinculado-descripcion" className="mt-1 text-sm text-gray-600">
-              <span className="font-semibold text-[#011140]">
-                {estudiante.nombre} {estudiante.apellidos}
-              </span>{' '}
-              no está registrado en este examen.
-            </p>
+
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+          <FotoEstudiante
+            fotoUrl={estudiante.fotoUrl}
+            nombre={`${estudiante.nombre} ${estudiante.apellidos}`}
+            iniciales={getUserInitials(estudiante)}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0439D9] text-xs font-bold text-white"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-[#011140]">{estudiante.nombre} {estudiante.apellidos}</p>
+            <p className="truncate text-xs text-[#627A9B]">{estudiante.carrera || 'Carrera no registrada'}</p>
+          </div>
+        </div>
+
+        <p id="no-vinculado-descripcion" className="mt-2 text-xs text-amber-800">
+          Este estudiante no está registrado en este examen.
+        </p>
 
         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#FDE68A] bg-[#FFF8E7] p-3 text-xs">
           {datos
@@ -125,7 +138,16 @@ export default function EstudianteNoVinculadoModal({
           <label htmlFor="motivo-intento" className="text-xs font-semibold text-[#011140]">Motivo del intento</label>
           <textarea id="motivo-intento" value={motivo} aria-invalid={!!motivoError} aria-describedby="motivo-intento-ayuda motivo-intento-error" onChange={(e) => {setMotivo(e.target.value.slice(0, 65));setMensaje('')}} maxLength={65} minLength={10} rows={2}
             className="mt-1 w-full rounded-lg border border-[#C9D7EC] p-2 text-sm" />
-          <div className="mt-1 flex items-start justify-between gap-2"><div>{motivoError && <p id="motivo-intento-error" role="alert" className="text-xs text-red-700">{motivoError}</p>}</div><p id="motivo-intento-ayuda" className="shrink-0 text-right text-xs text-[#627A9B]">{motivo.length}/65 caracteres. Mínimo 10.</p></div>
+          <div className="mt-1 flex items-start justify-between gap-2">
+            <div>
+              {motivoError ? (
+                <p id="motivo-intento-error" role="alert" className="text-xs text-red-700">{motivoError}</p>
+              ) : (
+                <p id="motivo-intento-ayuda" className="text-xs text-[#627A9B]">Mínimo 10 caracteres.</p>
+              )}
+            </div>
+            <p className="shrink-0 text-right text-xs text-[#627A9B]">{motivo.length}/65</p>
+          </div>
           {mensaje && <p role="status" className="mt-2 text-xs text-red-700">{mensaje}</p>}
           <div className="mt-3 flex items-center justify-between gap-2"><button type="button" autoFocus disabled={guardando} onClick={() => motivo !== MOTIVO_INTENTO_INICIAL ? setDescartar(true) : onCerrar()} className="min-h-10 rounded-lg border px-3 text-xs font-semibold">Cancelar</button><button type="button" disabled={guardando || !!motivoError} onClick={() => void registrar()}
             className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">

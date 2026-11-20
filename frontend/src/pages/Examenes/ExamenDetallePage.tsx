@@ -144,7 +144,7 @@ export default function ExamenDetallePage() {
       if (controller.signal.aborted) return
       const datos = new Map<number, { codigoSis: string; ci: string }>()
       respuestas.forEach((r) => {
-        if (r.status === 'fulfilled') datos.set(r.value.id, { codigoSis: r.value.codigoSis, ci: r.value.ci })
+        if (r.status === 'fulfilled') datos.set(r.value.id, { codigoSis: r.value.codigoSis, ci: r.value.ci ?? "" })
       })
       setDatosNormas(datos)
     })
@@ -172,7 +172,10 @@ export default function ExamenDetallePage() {
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
       ? 'El examen fue cancelado: la lista de estudiantes es de solo lectura.'
-      : undefined
+      // Regla de negocio (2.º test run): la lista y la habilitación se definen antes del inicio.
+      : faseExamen === 'en_curso'
+        ? 'El examen ya empezó: la lista y la habilitación se definen antes del inicio. Si llega alguien no habilitado, regístralo como excepción en el control de ingreso.'
+        : undefined
 
   return (
     <PanelLayout compactDesktop>
@@ -496,7 +499,7 @@ export default function ExamenDetallePage() {
                                   <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-[#627A9B]">
                                     <span className="rounded bg-[#EEF2F7] px-1.5 py-0.5 font-mono text-[#344054]">Cód: {datos.codigoSis}</span>
                                     <span aria-hidden="true">•</span>
-                                    <span>CI: {datos.ci}</span>
+                                    <span>CI: {datos.ci || "—"}</span>
                                   </p>
                                 )}
                               </div>

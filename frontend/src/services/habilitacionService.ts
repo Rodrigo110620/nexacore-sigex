@@ -22,6 +22,8 @@ export interface EstudianteHabilitacionDto {
   estadoMatricula?: string 
   /** false si no tiene foto: el control no podrá autorizar su ingreso. */
   tieneFoto?: boolean
+  /** Carreras del estudiante, separadas por coma. */
+  carrera?: string | null
 }
 
 export interface OcupacionAulaDto {
@@ -81,6 +83,8 @@ export interface AsociacionLoteDto {
   yaAsociados: string[]
   noEncontrados: string[]
   estudiantes: EstudianteHabilitacionDto[]
+  /** No matriculados (inactivos): no se asocian (2.º test run). */
+  noMatriculados?: string[]
 }
 
 /** identificadores: códigos universitarios o CI, mezclados. Los ya asociados o inexistentes vuelven en el resumen. */

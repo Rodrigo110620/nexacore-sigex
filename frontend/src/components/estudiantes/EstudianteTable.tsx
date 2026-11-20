@@ -1,4 +1,6 @@
 import MateriasDocente from './MateriasDocente'
+import { claseFilaViva, useFilasVivasActuales } from '../../hooks/useFilaViva'
+import { MarcaFilaViva } from '../ui/FilaViva'
 import { Eye, Pencil } from 'lucide-react'
 import type { EstudianteListItem } from '../../types/estudiante'
 import { getAvatarColorById, getInitials } from './avatarColors'
@@ -31,6 +33,7 @@ export default function EstudianteTable({
   puedeEditar = true,
   ocultarMaterias = false,
 }: EstudianteTableProps) {
+  const vivas = useFilasVivasActuales()
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
       {/* Entra completa desde 1280 px con el menú lateral: «Acciones» con su ancho justo y el resto repartido. */}
@@ -56,7 +59,7 @@ export default function EstudianteTable({
         </thead>
         <tbody className="divide-y divide-[#EDF1F7] bg-white text-sm text-[#011140]">
           {estudiantes.map((e) => (
-            <tr key={e.id} className="h-24">
+            <tr key={e.id} className={`h-24 transition-colors hover:bg-[#F8FAFF] ${claseFilaViva(vivas.get(e.id))}`}>
               <th scope="row" className="px-3 py-3 font-normal">
                 <div className="flex items-center gap-3">
                   <FotoEstudiante
@@ -66,12 +69,12 @@ export default function EstudianteTable({
                     className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColorById(e.id)}`}
                   />
                   <span className="min-w-0">
-                    <span title={`${e.nombre} ${e.apellidos}`} className="block truncate font-semibold">{e.nombre} {e.apellidos}</span>
+                    <span className="flex min-w-0 items-center"><span title={`${e.nombre} ${e.apellidos}`} className="truncate font-semibold">{e.nombre} {e.apellidos}</span><MarcaFilaViva estado={vivas.get(e.id)} /></span>
                     <span className="mt-1 block text-xs text-gray-500">Cód: {e.codigoSis}</span>
                   </span>
                 </div>
               </th>
-              <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci}</td>
+              <td className="whitespace-nowrap px-3 py-3 text-gray-600">{e.ci || '—'}</td>
               <td className="px-3 py-3">
                 {(!ocultarMaterias && e.materiasDocente != null) ? <MateriasDocente materias={e.materiasDocente!} compacto /> : <>
                 <span className="block font-semibold text-[#011140]">{formatCarreras(e.carreras)}</span>

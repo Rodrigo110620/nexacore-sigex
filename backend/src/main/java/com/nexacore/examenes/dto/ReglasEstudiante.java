@@ -20,6 +20,13 @@ public final class ReglasEstudiante {
 
     public static final String CI = "^\\d{7,8}$";
     public static final String MSG_CI = "El CI debe tener 7 u 8 dígitos";
+    /** El C.I. del estudiante es opcional (V58): vacío o 7 u 8 dígitos. */
+    public static final String CI_OPCIONAL = "^(\\s*|\\s*\\d{7,8}\\s*)$";
+
+    /** C.I. limpio, o null si viene vacío. */
+    public static String ciOpcional(String ci) {
+        return ci == null || ci.isBlank() ? null : ci.strip();
+    }
 
     public static final String CODIGO_SIS = "^\\d{9}$";
     public static final String MSG_CODIGO_SIS = "El código SIS debe tener 9 dígitos";

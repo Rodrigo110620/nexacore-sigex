@@ -139,6 +139,9 @@ export default function useUsers(options: UseUsersOptions = {}) {
     setRetryCount((currentCount) => currentCount + 1)
   }, [])
 
+  /** Recarga en vivo: sin poner la tabla en «cargando», para que no parpadee. */
+  const recargarEnSilencio = useCallback(() => setRetryCount((c) => c + 1), [])
+
   return {
     data,
     users: data.contenido,
@@ -150,5 +153,6 @@ export default function useUsers(options: UseUsersOptions = {}) {
     updateFilters,
     changePage,
     retry,
+    recargarEnSilencio,
   }
 }

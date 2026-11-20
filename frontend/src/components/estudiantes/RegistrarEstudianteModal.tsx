@@ -3,22 +3,22 @@ import { Check, ChevronDown, UserPlus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { getCarreras, getFacultades, registrarEstudiante } from '../../services/estudianteService'
 import type { CarreraOption, FacultadOption, RegistrarEstudiantePayload } from '../../types/estudiante'
-import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateStudentEmail, validateNombre, validateTelefono, codigoSisDelCorreo } from '../../utils/validators'
+import { FIELD_LIMITS, sanitizeNombreInput, validateApellidos, validateCodigoSis, validateDocumento, validateSisDistintoDeCi, validateNombre, validateTelefono, correoDelCodigoSis } from '../../utils/validators'
 import FieldErrorModal from '../ui/FieldErrorModal'
 import { ConfirmDiscardDialog } from '../examenes/ExamFormDialogs'
 import ResultadoModal, { type Resultado } from '../ui/ResultadoModal'
 
 interface Props { open: boolean; onClose: () => void; onRegistered: (nombre: string) => void }
 
-type FormState = Omit<RegistrarEstudiantePayload, 'idFacultad' | 'idCarrera'> & { idFacultad: string; idCarrera: string }
+type FormState = Omit<RegistrarEstudiantePayload, 'idFacultad' | 'idCarrera' | 'ci' | 'email'> & { ci: string; idFacultad: string; idCarrera: string }
 
 const initialForm: FormState = { 
-  nombre: '', apellidos: '', ci: '', telefono: '', email: '', codigoSis: '', 
+  nombre: '', apellidos: '', ci: '', telefono: '', codigoSis: '', 
   idFacultad: '', idCarrera: '', condicion: 'REGULAR', estadoMatricula: 'MATRICULADO' 
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  nombre: 'el Nombre', apellidos: 'los Apellidos', ci: 'el CI', telefono: 'el Teléfono', email: 'el Correo',
+  nombre: 'el Nombre', apellidos: 'los Apellidos', ci: 'el CI', telefono: 'el Teléfono', email: 'el Código SIS',
   codigoSis: 'el Código SIS', idFacultad: 'la Facultad', idCarrera: 'la Carrera',
 }
 
@@ -96,7 +96,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     if (field === 'nombre') return validateNombre(value)
     if (field === 'apellidos') return validateApellidos(value)
     if (field === 'ci') return validateDocumento(value)
-    if (field === 'email') return validateStudentEmail(value, form.codigoSis)
     if (field === 'codigoSis') return validateCodigoSis(value)
     return ''
   }
@@ -109,8 +108,9 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
   const validateStep1 = () => {
     const next: Record<string, string> = {}
     const n = validateNombre(form.nombre); const a = validateApellidos(form.apellidos)
-    const c = validateDocumento(form.ci); const t = validateTelefono(form.telefono ?? ''); const e = validateStudentEmail(form.email)
-    if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (t) next.telefono = t; if (e) next.email = e
+    // El C.I. es opcional: si no lo tienen, el estudiante lo escribe al activar su cuenta.
+    const c = form.ci.trim() ? validateDocumento(form.ci) : ''; const t = validateTelefono(form.telefono ?? '')
+    if (n) next.nombre = n; if (a) next.apellidos = a; if (c) next.ci = c; if (t) next.telefono = t
     if (Object.keys(next).length > 0) { showFirstError(next); return false }
     return true
   }
@@ -119,9 +119,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     const next: Record<string, string> = {}
     const sisErr = validateCodigoSis(form.codigoSis) || validateSisDistintoDeCi(form.codigoSis, form.ci)
     if (sisErr) next.codigoSis = sisErr
-    // El correo (paso 1) debe ser este mismo código SIS @est.umss.edu.
-    const correoErr = sisErr ? '' : validateStudentEmail(form.email, form.codigoSis)
-    if (correoErr) { setStep(1); showFirstError({ email: correoErr }); return }
     if (!form.idFacultad) next.idFacultad = 'Selecciona una facultad.'
     if (!form.idCarrera) next.idCarrera = 'Selecciona una carrera.'
     if (Object.keys(next).length) { showFirstError(next); return }
@@ -129,9 +126,10 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
     setSaving(true); setResultado(null)
     try {
       const created = await registrarEstudiante({
-        nombre: form.nombre.trim(), apellidos: form.apellidos.trim(), ci: form.ci.trim(),
+        nombre: form.nombre.trim(), apellidos: form.apellidos.trim(), ci: form.ci.trim() || undefined,
         telefono: form.telefono?.trim() || undefined,
-        email: form.email.trim(), codigoSis: form.codigoSis.trim(),
+        // El correo no se pide: es el código SIS @est.umss.edu.
+        email: correoDelCodigoSis(form.codigoSis), codigoSis: form.codigoSis.trim(),
         idFacultad: Number(form.idFacultad), idCarrera: Number(form.idCarrera),
         condicion: form.condicion ?? 'REGULAR',
         estadoMatricula: form.estadoMatricula ?? 'MATRICULADO',
@@ -177,39 +175,18 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
             <label className="block text-xs font-semibold text-[#011140]">Apellidos completos <b className="text-red-500">*</b><input name="apellidos" value={form.apellidos} maxLength={FIELD_LIMITS.apellidos.max} onChange={(e) => update('apellidos', sanitizeNombreInput(e.target.value))} onBlur={() => { update('apellidos', sanitizeNombreInput(form.apellidos, { trimEnds: true })); handleBlur('apellidos') }} placeholder="Ej: González Flores" className={inputClass} /></label>
             
             <div className="grid grid-cols-2 gap-3">
-              <label className="block text-xs font-semibold text-[#011140]">CI <b className="text-red-500">*</b><input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Ej: 74892104" className={inputClass} /></label>
+              <label className="block text-xs font-semibold text-[#011140]">CI <input name="ci" inputMode="numeric" value={form.ci} maxLength={FIELD_LIMITS.documento.max} onChange={(e) => update('ci', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('ci')} placeholder="Opcional (Ej: 74892104)" className={inputClass} /></label>
               <label className="block text-xs font-semibold text-[#011140]">Teléfono/Celular <input name="telefono" type="tel" inputMode="numeric" value={form.telefono ?? ''} maxLength={FIELD_LIMITS.telefono.max} onChange={(e) => update('telefono', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('telefono')} placeholder="Opcional (Ej: 71234567)" className={inputClass} /></label>
             </div>
 
-                        <label className="block text-xs font-semibold text-[#011140]">
-              Correo electrónico <b className="text-red-500">*</b>
-              <div className="relative">
-                <input
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  maxLength={FIELD_LIMITS.email.max}
-                  onChange={(e) => update('email', e.target.value)}
-                  onBlur={() => handleBlur('email')}
-                  placeholder="Ej: 201904725@est.umss.edu"
-                  className={`${inputClass} pr-32`}
-                />
-                {!form.email.includes('@') && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      update('email', `${form.email}@est.umss.edu`);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#E1ECFF] px-2 py-1 text-[10px] font-bold text-[#0439D9] hover:bg-[#D0E2FF]"
-                  >
-                    @est.umss.edu
-                  </button>
-                )}
-              </div>
-            </label>
+            <p className="rounded-md border border-[#D8E3F5] bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#627A9B]">
+              Si no tienes su CI, déjalo vacío: el estudiante lo escribe al activar su cuenta.
+            </p>
           </> : <>
             <label className="block text-xs font-semibold text-[#011140]">Código SIS <b className="text-red-500">*</b><div className="relative"><input name="codigoSis" autoFocus inputMode="numeric" maxLength={9} value={form.codigoSis} onChange={(e) => update('codigoSis', e.target.value.replace(/\D/g, ''))} onBlur={() => handleBlur('codigoSis')} placeholder="Ej: 202404012" className={`${inputClass} bg-[#F8FAFC] pr-16 font-mono`} /><span className="pointer-events-none absolute right-2 top-3 rounded bg-[#E1ECFF] px-1.5 py-0.5 text-[9px] font-bold text-[#0439D9]">ÚNICO</span></div></label>
+            <p className="-mt-2 text-[11px] text-[#627A9B]" data-testid="correo-generado">
+              Correo institucional: <strong className="font-mono text-[#011140]">{form.codigoSis.length === 9 ? correoDelCodigoSis(form.codigoSis) : 'código SIS@est.umss.edu'}</strong> (se genera automáticamente)
+            </p>
             <label className="block text-xs font-semibold text-[#011140]">Facultad académica <b className="text-red-500">*</b><div className="relative"><select name="idFacultad" value={form.idFacultad} onChange={(e) => { setCarreras([]); update('idFacultad', e.target.value); update('idCarrera', '') }} className={`${inputClass} appearance-none pr-10`}><option value="">Seleccione facultad...</option>{facultades.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div></label>
             <label className="block text-xs font-semibold text-[#011140]">Carrera profesional <b className="text-red-500">*</b><div className="relative"><select name="idCarrera" value={form.idCarrera} disabled={!form.idFacultad} onChange={(e) => update('idCarrera', e.target.value)} className={`${inputClass} appearance-none pr-10 disabled:bg-gray-100`}><option value="">Seleccione carrera...</option>{carreras.map((c) => <option key={`${c.idFacultad}-${c.idCarrera}`} value={c.idCarrera}>{c.nombre}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-4" size={16} /></div>{selectedCareer && <p className="mt-1 text-xs text-[#627A9B]">{selectedCareer.nombreFacultad}</p>}</label>
             
@@ -230,8 +207,6 @@ export default function RegistrarEstudianteModal({ open, onClose, onRegistered }
           <button type="button" onClick={step === 1 ? pedirCerrar : () => setStep(1)} onMouseDown={(e) => e.preventDefault()} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">{step === 1 ? 'Cancelar' : '← Atrás'}</button>
           {step === 1 ? <button type="button" onClick={() => {
             if (!validateStep1()) return
-            // El código SIS sale del correo (201904725@est.umss.edu → 201904725) si aún no lo escribió.
-            if (!form.codigoSis.trim()) update('codigoSis', codigoSisDelCorreo(form.email))
             setStep(2)
           }}  className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md">Siguiente paso →</button> : <button type="button" disabled={saving} onClick={submit} className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">{saving ? 'Registrando...' : 'Registrar Estudiante'}</button>}
         </footer>

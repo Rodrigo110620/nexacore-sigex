@@ -161,6 +161,10 @@ public class ControlIngresoService {
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
         AsistenciaExamen asistencia = asistenciaRepository.bloquearParaExpulsar(request.idEstudiante(), request.idExamen()).orElse(null);
         ExpulsionValidaciones.asistencia(request, asistencia);
+        // Quien ya registró su salida dejó el aula: no se lo puede expulsar (2.º test run).
+        if (asistencia != null && asistencia.getFechaHoraSalida() != null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El estudiante ya registró su salida: no se lo puede expulsar");
+        }
         LocalDateTime cierre = sesionExamenService.ultimoCierre(request.idExamen());
         if (expulsionRepository.expulsadoEnSesionActual(request.idEstudiante(), request.idExamen(), cierre)) {
             throw new ControlIngresoException(HttpStatus.CONFLICT, "La expulsión del estudiante ya está registrada");
@@ -974,6 +978,9 @@ public class ControlIngresoService {
         // 2. Solo reasignar a quien ya ingresó (Debe responder 409 con el mensaje exacto)
         if (asistencia.getFechaHoraIngreso() == null) {
             throw new ControlIngresoException(HttpStatus.CONFLICT, "El estudiante aún no ingresó");
+        }
+        if (asistencia.getFechaHoraSalida() != null) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "El estudiante ya registró su salida: no se le reasigna aula");
         }
 
         Integer ambienteOrigenId = asistencia.getIdAmbienteIngreso();

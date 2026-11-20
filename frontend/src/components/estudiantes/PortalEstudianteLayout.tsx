@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import ZonaRecargable from '../layout/ZonaRecargable'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { ChevronDown, GraduationCap, House, LifeBuoy, LogOut, QrCode, UserRound, X } from 'lucide-react'
 import MesaAyudaModal from '../ayuda/MesaAyudaModal'
@@ -179,9 +180,9 @@ export default function PortalEstudianteLayout({ children, fotoUrl }: Props) {
           </div>
         </header>
         <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} nombreInicial={nombre ?? ''} />
-        <main className="min-h-0 flex-1 overflow-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0">
+        <ZonaRecargable className="min-h-0 flex-1 overflow-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] min-[960px]:pb-0">
           {children}
-        </main>
+        </ZonaRecargable>
         <div className="hidden shrink-0 min-[960px]:block">
           <Footer />
         </div>

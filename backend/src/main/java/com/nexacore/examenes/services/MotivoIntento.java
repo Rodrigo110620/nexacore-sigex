@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
  * Clasifica el motivo guardado de un intento de ingreso incorrecto y lo deja legible. Lo usan el reporte de intentos y
  * el inicio del ADMIN, para que ambos hablen igual:
  * <ul>
- *   <li>«Ambiente incorrecto: se presentó en el aula 660; aula asignada: 607» → Aula incorrecta (660, debía 607).</li>
+ *   <li>«Ambiente incorrecto: se presentó en el aula 660; aula asignada: 607» → Aula incorrecta: se presentó en 660 · su aula es 607.</li>
  *   <li>«Intento ingresar no habilitado ### Motivo: X | Acción tomada: Y | Observaciones: Z» (excepción) →
  *       No habilitado: X, con la acción y las observaciones como detalle.</li>
  *   <li>Cualquier otro (lo escribe el control al identificar a alguien que no está en el examen) → No inscrito en la
@@ -22,6 +22,8 @@ public final class MotivoIntento {
     public static final String NO_INSCRITO = "NO_CORRESPONDE";
     public static final String AULA_INCORRECTA = "AULA_INCORRECTA";
     public static final String NO_HABILITADO = "NO_HABILITADO";
+    /** Ingreso denegado por llegar fuera del horario (razón «Fuera de tiempo» del control). */
+    public static final String FUERA_HORARIO = "FUERA_HORARIO";
 
     static final String MARCA_AULA = "Ambiente incorrecto";
     static final String MARCA_NO_HABILITADO = "Intento ingresar no habilitado ###";
@@ -35,7 +37,7 @@ public final class MotivoIntento {
         if (m.startsWith(MARCA_AULA)) {
             Matcher a = AULAS.matcher(m);
             return new Clasificacion(AULA_INCORRECTA,
-                    a.find() ? "Aula incorrecta (" + a.group(1).strip() + ", debía " + a.group(2).strip() + ")" : "Aula incorrecta", null);
+                    a.find() ? "Aula incorrecta: se presentó en " + a.group(1).strip() + " · su aula es " + a.group(2).strip() : "Aula incorrecta", null);
         }
         if (m.startsWith(MARCA_NO_HABILITADO)) {
             Map<String, String> partes = partes(m.substring(MARCA_NO_HABILITADO.length()));

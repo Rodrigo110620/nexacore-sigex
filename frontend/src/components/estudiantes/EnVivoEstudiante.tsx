@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { emitirCambioLocal, escucharEventos } from '../../services/notificacionService'
+import { EVENTO_NOTIFICACION, emitirCambioLocal, escucharEventos } from '../../services/notificacionService'
 
 /**
  * Conexión en vivo del estudiante (GET /mi/eventos): avisa a su panel cuando cambia algo suyo
@@ -10,6 +10,8 @@ export default function EnVivoEstudiante() {
     () =>
       escucharEventos('/mi/eventos', {
         onCambio: emitirCambioLocal,
+        // Avisos solo para él (p. ej. la mesa de ayuda respondió): su portal los muestra en pantalla.
+        onNotificacion: (n) => window.dispatchEvent(new CustomEvent(EVENTO_NOTIFICACION, { detail: n })),
         onReconectado: () => emitirCambioLocal({ tipo: 'RECONECTADO', idExamen: null, idEstudiante: null }),
       }),
     [],
