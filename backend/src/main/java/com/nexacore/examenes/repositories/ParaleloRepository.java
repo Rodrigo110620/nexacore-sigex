@@ -22,4 +22,7 @@ public interface ParaleloRepository extends JpaRepository<Paralelo, ParaleloId> 
     java.util.List<Paralelo> deMateriaYDocente(
             @Param("idMateria") Integer idMateria,
             @Param("idDocente") Integer idDocente);
+
+    /** Todos los grupos de la materia (de cualquier docente). */
+    java.util.List<Paralelo> findByIdIdMateria(Integer idMateria);
 }

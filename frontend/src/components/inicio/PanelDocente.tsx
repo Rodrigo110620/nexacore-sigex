@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PuntoVivo from '../ui/PuntoVivo'
 import CuentaRegresiva from '../ui/CuentaRegresiva'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UsersRound, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UserPlus, UserX, UsersRound, type LucideIcon } from 'lucide-react'
 import { Anillo, Sparkline } from './Graficas'
 import { EnVivo } from './Comun'
 import { TARJETA, formatoPct, horasDelDia, porcentaje } from '../../utils/inicio'
@@ -156,8 +156,11 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
 
 const TIPO: Record<InicioDocente['recientes'][number]['tipo'], { texto: string; icono: LucideIcon; clase: string }> = {
   INGRESO: { texto: 'Ingreso', icono: CircleCheck, clase: 'bg-[#DCFCE7] text-[#15803D]' },
-  EXPULSION: { texto: 'Expulsión', icono: Ban, clase: 'bg-[#FFE4E6] text-[#E11D48]' },
+  // El mismo ícono que «Expulsar estudiante» (persona con una X), el estándar de expulsión en SIGEX.
+  EXPULSION: { texto: 'Expulsión', icono: UserX, clase: 'bg-[#FFE4E6] text-[#E11D48]' },
   INTENTO: { texto: 'Intento incorrecto', icono: TriangleAlert, clase: 'bg-[#FEF3C7] text-[#B45309]' },
+  // BUG-A02 (2.º test run): cuándo se asociaron estudiantes a sus exámenes.
+  ASOCIACION: { texto: 'Estudiantes asociados', icono: UserPlus, clase: 'bg-[#CCFBF1] text-[#0F766E]' },
 }
 
 /** Cuántos registros manda el servidor (InicioDocenteService.RECIENTES). */
@@ -192,14 +195,14 @@ function FilaRegistro({ r }: { r: InicioDocente['recientes'][number] }) {
 }
 
 /**
- * Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones e intentos). Solo los
+ * Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones, intentos y estudiantes asociados). Solo los
  * MAX_REGISTROS_DOCENTE más recientes, y lo dice (BUG-A02).
  */
 export function RegistrosDocente({ registros }: { registros: InicioDocente['recientes'] }) {
   return (
     <section aria-labelledby="registros-docente" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
       <h2 id="registros-docente" className="text-[15px] font-bold text-[#011140]">Registros de mis exámenes</h2>
-      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias · las {MAX_REGISTROS_DOCENTE} actividades de ingreso más recientes de hoy</p>
+      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias · las {MAX_REGISTROS_DOCENTE} actividades más recientes de hoy</p>
       {registros.length === 0 ? (
         <p className="mt-4 rounded-lg bg-[#F8FAFF] p-3 text-sm text-[#627A9B]">Aún no hay registros hoy en tus exámenes.</p>
       ) : (

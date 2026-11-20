@@ -55,4 +55,12 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
             @Param("fecha") LocalDate fecha);
 
     java.util.Optional<Examen> findFirstByIdIdExamen(Integer idExamen);
+
+    /** Exámenes vigentes (no cancelados) del grupo en la fecha: un grupo no rinde dos exámenes a la vez. */
+    @Query("""
+            SELECT e FROM Examen e
+            WHERE e.fecha = :fecha AND e.id.idParalelo = :idParalelo
+              AND COALESCE(e.estado, 'programado') <> 'cancelado'
+            """)
+    List<Examen> delParaleloEnFecha(@Param("idParalelo") Integer idParalelo, @Param("fecha") LocalDate fecha);
 }

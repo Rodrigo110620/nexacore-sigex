@@ -946,6 +946,35 @@ class PostgresIntegracionTests {
         assertThat(docenteMateriaService.gruposOcupados(idMateria, idDocente)).isEmpty();
     }
 
+    // Cada grupo de una materia tiene un solo docente: si al crear el examen hay que crearle el grupo al docente y
+    // el G1 ya es de otro, toma el primero libre (antes creaba otro «G1» con un segundo docente).
+    @Test
+    void alCrearElGrupoDelDocenteNoRepiteElDeOtro() {
+        prepararCatalogo();
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, materiaYParalelo("TST-GLIB"));
+        jdbc.update("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES ('Rosa', 'Vargas', '6666666', 'rosa.vargas@umss.edu', 'x', 'activo')");
+        Integer rosa = jdbc.queryForObject("SELECT id_usuario FROM usuario WHERE email = 'rosa.vargas@umss.edu'", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", rosa);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)", rosa, idMateria);
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(6);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+        try {
+            var creado = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia", "Rosa Vargas", fecha,
+                    java.time.LocalTime.of(9, 0), 60, idAmbiente, List.of(), List.of(), idMateria, rosa));
+            assertThat(jdbc.queryForObject("SELECT nombre_grupo FROM paralelo WHERE id_paralelo = ?", String.class, creado.idParalelo()))
+                    .isEqualTo("G2");
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM paralelo WHERE id_materia = ?
+                GROUP BY UPPER(REGEXP_REPLACE(TRIM(nombre_grupo), '^([0-9]+)$', 'G\\1')) ORDER BY 1 DESC LIMIT 1
+                """, Integer.class, idMateria)).isEqualTo(1);
+    }
+
     @Test
     void elDocenteSeRegistraConAlMenosUnaMateria() {
         prepararCatalogo();

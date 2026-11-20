@@ -21,8 +21,18 @@ public record EstudianteHabilitacionResponse(
         String conflictoHorario,
         String estadoMatricula,
         /** false si no tiene foto registrada: el control no podrá autorizar su ingreso. */
-        boolean tieneFoto
+        boolean tieneFoto,
+        /** Carreras del estudiante (separadas por coma), para advertir al asociar alguien de otra carrera. */
+        String carrera
 ) {
+    public EstudianteHabilitacionResponse(Integer idEstudiante, String nombre, String apellidos, String codigoSis,
+                                          String ci, String facultad, EstadoHabilitacion estadoHabilitacion, String motivo,
+                                          String aula, boolean ingresado, String conflictoHorario, String estadoMatricula,
+                                          boolean tieneFoto) {
+        this(idEstudiante, nombre, apellidos, codigoSis, ci, facultad, estadoHabilitacion, motivo, aula, ingresado,
+                conflictoHorario, estadoMatricula, tieneFoto, null);
+    }
+
     public EstudianteHabilitacionResponse(Integer idEstudiante, String nombre, String apellidos, String codigoSis,
                                           String ci, String facultad, EstadoHabilitacion estadoHabilitacion,
                                           String motivo, String aula, String estadoMatricula) {

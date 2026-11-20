@@ -4,6 +4,7 @@ import {
   ArrowRight, Ban, BarChart3, BookCheck, CalendarDays, CircleCheck, ClipboardCheck, Clock3, GraduationCap, Hourglass, ImageIcon,
   MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon,
 } from 'lucide-react'
+import { iconoAviso, iconoOperacion } from '../../utils/iconosActividad'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import { Anillo, BarraDegradado, GraficaAsistenciaDias, GraficaIngresosHora, Sparkline } from '../../components/inicio/Graficas'
@@ -29,6 +30,7 @@ const ESTILO_MOTIVO: Record<string, [string, string, string, string, LucideIcon]
   AULA_INCORRECTA: ['#FB923C', '#EA580C', '#FFEDD5', 'text-[#EA580C]', MapPin],
   NO_HABILITADO: ['#FBBF24', '#D97706', '#FEF3C7', 'text-[#D97706]', Ban],
   QR_DUPLICADO: ['#A78BFA', '#7C3AED', '#EDE9FE', 'text-[#7C3AED]', QrCode],
+  FUERA_HORARIO: ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3],
 }
 const ESTILO_OTRO: [string, string, string, string, LucideIcon] = ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3]
 
@@ -529,27 +531,6 @@ function Pendientes({ datos }: { datos: InicioAdmin }) {
   )
 }
 
-const ICONOS_AVISO: Record<string, [LucideIcon, string]> = {
-  FOTO_REPORTADA: [ImageIcon, 'bg-[#FEE2E2] text-[#DC2626]'],
-  QR_DUPLICADO: [QrCode, 'bg-[#FFF1D6] text-[#D97706]'],
-  INTENTO_INGRESO: [UserX, 'bg-[#FEE2E2] text-[#DC2626]'],
-  AULA_INCORRECTA: [MapPin, 'bg-[#FFEDD5] text-[#EA580C]'],
-  EXPULSION: [UserX, 'bg-[#FEE2E2] text-[#DC2626]'],
-  INGRESO_MANUAL: [CircleCheck, 'bg-[#DCFCE7] text-[#16A34A]'],
-  TRASLADO_AMBIENTE: [MapPin, 'bg-[#E0E9FF] text-[#0439D9]'],
-}
-
-/** Ícono y color de cada módulo del historial, para la actividad reciente. */
-const ICONOS_MODULO: Record<string, [LucideIcon, string]> = {
-  Exámenes: [BookCheck, 'bg-[#E0E9FF] text-[#0439D9]'],
-  Control: [ClipboardCheck, 'bg-[#DCFCE7] text-[#16A34A]'],
-  Estudiantes: [GraduationCap, 'bg-[#FFEDD5] text-[#EA580C]'],
-  Usuarios: [UserRound, 'bg-[#EDE9FE] text-[#7C3AED]'],
-  Roles: [Settings, 'bg-[#F1F5F9] text-[#45628D]'],
-  Configuración: [Settings, 'bg-[#F1F5F9] text-[#45628D]'],
-  Ambientes: [MapPin, 'bg-[#E0F2FE] text-[#0284C7]'],
-}
-
 /** «14:35» si fue hoy; si no, «10/11 14:35». */
 function cuando(iso: string) {
   const f = fechaHoraNumerica(iso)
@@ -571,7 +552,7 @@ function ActividadReciente({ operaciones, actividad }: { operaciones: OperacionA
       ) : (
         <ul className="mt-2 flex-1 divide-y divide-[#EEF2F7]">
           {recientes.map((o) => {
-            const [Icono, clase] = ICONOS_MODULO[o.modulo] ?? [CircleCheck, 'bg-[#F1F5F9] text-[#45628D]']
+            const [Icono, clase] = iconoOperacion(o.accion, o.modulo)
             return (
               <li key={o.id} className="flex items-center gap-3 py-2.5">
                 <span className={`inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full ${clase}`}><Icono size={15} aria-hidden="true" /></span>
@@ -604,7 +585,7 @@ function ActividadDeAvisos({ actividad }: { actividad: Notificacion[] }) {
       ) : (
         <ul className="mt-2 flex-1 divide-y divide-[#EEF2F7]">
           {recientes.map((n) => {
-            const [Icono, clase] = ICONOS_AVISO[n.tipo] ?? [TriangleAlert, 'bg-[#FFF1D6] text-[#D97706]']
+            const [Icono, clase] = iconoAviso(n.tipo)
             return (
               <li key={n.id} className="flex items-center gap-3 py-3">
                 <span className={`inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full ${clase}`}><Icono size={15} aria-hidden="true" /></span>

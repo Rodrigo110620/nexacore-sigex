@@ -191,6 +191,7 @@ public class ExamenService {
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
+        validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
 
         Integer idExamen = ((Number) entityManager
                 .createNativeQuery("SELECT nextval('examen_id_examen_seq')")
@@ -275,6 +276,7 @@ public class ExamenService {
         if (cambiaParalelo) {
             examen = moverAParalelo(examen, resolverParalelo(materia, docente, request.idParalelo()));
         }
+        validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         examen.setFecha(request.fecha());
         examen.setHoraInicio(request.horaInicio());
@@ -382,6 +384,7 @@ public class ExamenService {
         Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
         validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         List<Integer> idsAdicionales = examenAulaRepository.adicionalesDe(idExamen).stream()
                 .map(ea -> ea.getId().getIdAmbiente()).toList();
         validarAulasAdicionales(ambiente, idsAdicionales, request.fecha(), request.horaInicio(),
@@ -417,6 +420,19 @@ public class ExamenService {
                     "El ambiente " + nombre + " ya tiene un examen el " + fecha
                             + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
                             + ". Elige otro horario o ambiente.");
+        }
+    }
+
+    /**
+     * Regla de negocio (2.º test run): un mismo grupo no tiene dos exámenes que se crucen, aunque sea en aulas
+     * distintas. Para más aulas, se agregan como aulas adicionales del mismo examen.
+     */
+    private void validarGrupoSinCruce(Integer idParalelo, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+                                      Integer idExamenExcluido) {
+        Examen otro = primerSolapado(examenRepository.delParaleloEnFecha(idParalelo, fecha), inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null) {
+            throw new ConflictoExamenException("Este grupo ya tiene un examen el " + fecha + " entre " + otro.getHoraInicio()
+                    + " y " + finDe(otro) + ". Si necesitas más aulas, agrégalas como aulas adicionales de ese examen.");
         }
     }
 
@@ -666,9 +682,25 @@ public class ExamenService {
                     p.setId(pid);
                     p.setMateria(materia);
                     p.setDocente(docente);
-                    p.setNombreGrupo("G1");
+                    // Cada grupo de una materia tiene un solo docente: si el G1 ya es de otro, toma el primero libre.
+                    p.setNombreGrupo(primerGrupoLibre(materia.getId()));
                     return paraleloRepository.save(p);
                 });
+    }
+
+    /** El primer grupo (G1…G20) de la materia que todavía no tiene docente. */
+    private String primerGrupoLibre(Integer idMateria) {
+        java.util.Set<String> ocupados = new java.util.HashSet<>();
+        for (Paralelo otro : paraleloRepository.findByIdIdMateria(idMateria)) {
+            if (otro.getNombreGrupo() != null) {
+                String g = otro.getNombreGrupo().trim().toUpperCase(java.util.Locale.ROOT);
+                ocupados.add(g.matches("\\d{1,2}") ? "G" + g : g);
+            }
+        }
+        for (int i = 1; i <= 20; i++) {
+            if (!ocupados.contains("G" + i)) return "G" + i;
+        }
+        throw new IllegalArgumentException("La materia ya tiene sus 20 grupos con docente: asigna el grupo al docente desde Usuarios.");
     }
 
     private static <T> List<T> listaSegura(List<T> lista) {

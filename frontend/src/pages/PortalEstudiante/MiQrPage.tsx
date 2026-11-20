@@ -5,6 +5,8 @@ import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import PortalEstudianteLayout from '../../components/estudiantes/PortalEstudianteLayout'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
 import useMiPerfil from '../../hooks/useMiPerfil'
+import useReloj from '../../hooks/useReloj'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import {
   obtenerMisExamenes,
   obtenerMiQr,
@@ -30,7 +32,10 @@ export default function MiQrPage() {
   const [qr, setQr] = useState<MiQr | null>(null)
   const [sinConexion, setSinConexion] = useState(false)
   const [errorQr, setErrorQr] = useState('')
-  const [ahora, setAhora] = useState(() => new Date())
+  // Hora del servidor (no la del celular): si el celular está adelantado o atrasado, el QR se renovaba antes de
+  // tiempo (2.º test run: «cada 40 s» en vez de 60 s).
+  const ahoraMs = useReloj(1000)
+  const ahora = new Date(ahoraMs)
   const [proximo, setProximo] = useState<MiExamen | null | undefined>(undefined)
 
   const pedirQr = useCallback(async () => {
@@ -59,16 +64,10 @@ export default function MiQrPage() {
     return () => window.clearTimeout(handle)
   }, [pedirQr])
 
-  // Reloj de la marca de hora y la cuenta regresiva.
-  useEffect(() => {
-    const id = window.setInterval(() => setAhora(new Date()), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-
   // Renovación: un poco antes de que venza, se pide el siguiente.
   useEffect(() => {
     if (!qr) return
-    const restante = new Date(qr.expiraEn).getTime() - Date.now() - MARGEN_RENOVACION * 1000
+    const restante = new Date(qr.expiraEn).getTime() - ahoraServidorMs() - MARGEN_RENOVACION * 1000
     const handle = window.setTimeout(() => { void pedirQr() }, Math.max(0, restante))
     return () => window.clearTimeout(handle)
   }, [qr, pedirQr])
