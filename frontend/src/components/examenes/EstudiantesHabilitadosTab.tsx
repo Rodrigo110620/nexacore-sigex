@@ -667,6 +667,7 @@ export default function EstudiantesHabilitadosTab({
           idParalelo={idParalelo}
           examenResumen={examenResumen}
           asociados={asociadosIds}
+          carrerasAsociados={new Set(estudiantes.flatMap((e) => (e.carrera ? e.carrera.split(', ') : [])))}
           onAsociados={(lista) => {
             setEstudiantes(lista)
             onCountChange?.(lista.length)

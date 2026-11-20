@@ -265,7 +265,13 @@ public class HabilitacionService {
             validarRazon(request.motivo());
             motivo = request.motivo();
         }
-        buscarExamenEditable(idExamen, idParalelo);
+        Examen examen = buscarExamenEditable(idExamen, idParalelo);
+        // Regla de negocio (2.º test run): la habilitación se decide antes del inicio. Con el examen en curso, quien no
+        // está habilitado y llega se registra como excepción en el control de ingreso.
+        if (EstadoExamen.EN_CURSO.equals(EstadoExamen.de(examen, java.time.LocalDateTime.now()))) {
+            throw new ControlIngresoException(HttpStatus.CONFLICT,
+                    "El examen ya empezó: la habilitación se cambia solo antes del inicio. Si llega alguien no habilitado, regístralo como excepción en el control de ingreso.");
+        }
         Set<Integer> ids = new HashSet<>(request.idsEstudiante());
         List<AsistenciaExamen> asistencias = asistenciaExamenRepository.buscarDelExamen(idExamen, idParalelo, ids);
         if (asistencias.size() != ids.size()) {
@@ -447,6 +453,12 @@ public class HabilitacionService {
                         Collectors.mapping(this::nombreFacultad,
                                 Collectors.collectingAndThen(Collectors.toCollection(TreeSet::new),
                                         nombres -> String.join(", ", nombres)))));
+        Map<Integer, String> carreras = estudianteCarreraRepository.findByEstudianteIds(ids).stream()
+                .collect(Collectors.groupingBy(
+                        ec -> ec.getId().getIdEstudiante(),
+                        Collectors.mapping(ec -> ec.getCarrera().getNombre(),
+                                Collectors.collectingAndThen(Collectors.toCollection(TreeSet::new),
+                                        nombres -> String.join(", ", nombres)))));
         // Nombres de ambiente por id, para mostrar el aula real de quien ya ingresó/fue reasignado,
         // en lugar del cálculo alfabético del reparto (que ignora idAmbienteIngreso en modo alfabético).
         Set<Integer> ambientesIngreso = asistencias.stream()
@@ -473,7 +485,7 @@ public class HabilitacionService {
             return new EstudianteHabilitacionResponse(e.getId(), e.getNombre(), e.getApellidos(), e.getCodigoSis(),
                     e.getCi(), facultades.getOrDefault(e.getId(), SIN_FACULTAD), estado, a.getMotivoInhabilitacion(),
                     aulaNombre, a.getFechaHoraIngreso() != null, cruces.get(e.getId()),
-                    e.getEstadoMatricula(), conFoto.contains(e.getId()));
+                    e.getEstadoMatricula(), conFoto.contains(e.getId()), carreras.get(e.getId()));
         }).toList();
     }
 

@@ -172,7 +172,10 @@ export default function ExamenDetallePage() {
     ? 'El examen finalizó: ya no se pueden asociar, quitar ni cambiar la habilitación de estudiantes.'
     : faseExamen === 'cancelado' || cancelado
       ? 'El examen fue cancelado: la lista de estudiantes es de solo lectura.'
-      : undefined
+      // Regla de negocio (2.º test run): la lista y la habilitación se definen antes del inicio.
+      : faseExamen === 'en_curso'
+        ? 'El examen ya empezó: la lista y la habilitación se definen antes del inicio. Si llega alguien no habilitado, regístralo como excepción en el control de ingreso.'
+        : undefined
 
   return (
     <PanelLayout compactDesktop>

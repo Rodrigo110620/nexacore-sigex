@@ -22,6 +22,8 @@ export interface EstudianteHabilitacionDto {
   estadoMatricula?: string 
   /** false si no tiene foto: el control no podrá autorizar su ingreso. */
   tieneFoto?: boolean
+  /** Carreras del estudiante, separadas por coma. */
+  carrera?: string | null
 }
 
 export interface OcupacionAulaDto {

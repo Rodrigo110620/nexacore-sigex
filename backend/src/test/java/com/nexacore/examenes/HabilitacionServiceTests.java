@@ -275,6 +275,11 @@ class HabilitacionServiceTests {
 
         habilitacionService.asociarLote(EXAMEN, PARALELO,
                 List.of(carla.getCodigoSis(), ana.getCodigoSis(), beto.getCodigoSis()));
+        // Regla de negocio (2.º test run): el aforo se llena solo con los habilitados; los pendientes no ocupan lugar.
+        assertThat(habilitacionService.reparto(EXAMEN, PARALELO).aulas())
+                .extracting(RepartoAulasResponse.OcupacionAula::asignados).containsExactly(0, 0);
+        habilitacionService.actualizar(EXAMEN, PARALELO, new com.nexacore.examenes.dto.ActualizarHabilitacionRequest(
+                List.of(carla.getId(), ana.getId(), beto.getId()), EstudianteHabilitacionResponse.EstadoHabilitacion.HABILITADO, null));
         List<EstudianteHabilitacionResponse> lista = habilitacionService.listar(EXAMEN, PARALELO);
 
         // Mismos apellidos: decide el nombre. Ana → 692A, Beto → 691A, Carla no entra.

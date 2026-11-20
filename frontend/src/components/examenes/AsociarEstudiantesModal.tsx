@@ -51,6 +51,8 @@ interface AsociarEstudiantesModalProps {
   examenResumen?: string
   /** Ids ya asociados al examen: en "Del registro" aparecen marcados y bloqueados. */
   asociados: Set<number>
+  /** Carreras de los ya asociados: si se marca a alguien de otra carrera, se pide confirmar (2.º test run). */
+  carrerasAsociados?: Set<string>
   onAsociados: (lista: EstudianteHabilitacionDto[]) => void
   onClose: () => void
 }
@@ -60,9 +62,14 @@ export default function AsociarEstudiantesModal({
   idParalelo,
   examenResumen,
   asociados,
+  carrerasAsociados,
   onAsociados,
   onClose,
 }: AsociarEstudiantesModalProps) {
+  // Otra carrera: ninguna de sus carreras coincide con las de los ya asociados (solo avisa, no bloquea).
+  const otraCarrera = (e: EstudianteListItem) =>
+    !!carrerasAsociados?.size && !(e.carreras ?? []).some((c) => carrerasAsociados.has(c.nombreCarrera))
+  const [confirmarCarrera, setConfirmarCarrera] = useState<EstudianteListItem[] | null>(null)
   const [modo, setModo] = useState<Modo>('registro')
   const [texto, setTexto] = useState('')
   const [filtros, setFiltros] = useState<EstudianteFilterParams>({ search: '', idFacultad: '', idCarrera: '' })
@@ -170,7 +177,12 @@ export default function AsociarEstudiantesModal({
     onClose()
   }
 
-  const enviar = async () => {
+  const enviar = async (confirmado = false) => {
+    if (modo === 'registro' && !confirmado) {
+      const distintos = seleccionados.filter(otraCarrera)
+      if (distintos.length > 0) { setConfirmarCarrera(distintos); return }
+    }
+    setConfirmarCarrera(null)
     if (modo !== 'inscritos' && identificadores.length === 0) {
       setError(modo === 'codigos'
         ? 'Ingresa al menos un código universitario o CI para asociar.'
@@ -397,6 +409,12 @@ export default function AsociarEstudiantesModal({
                                     <span className="truncate text-[15px] font-semibold text-[#101828]">
                                       {e.nombre} {e.apellidos}
                                     </span>
+                                    {!yaAsociado && otraCarrera(e) && (
+                                      <span title={`No coincide con la carrera de los ya asociados: ${[...(carrerasAsociados ?? [])].join(', ')}`}
+                                        className="shrink-0 rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-medium text-[#92400E]">
+                                        Otra carrera
+                                      </span>
+                                    )}
                                     {yaAsociado && (
                                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${inactivo(e) && !asociados.has(e.id)
                                         ? 'bg-[#FEF2F2] text-[#B91C1C]' : 'bg-[#EEF3FC] text-[#627A9B]'}`}>
@@ -480,6 +498,26 @@ export default function AsociarEstudiantesModal({
               Se asociarán, pendientes de habilitación, todos los estudiantes inscritos en el paralelo de este examen
               (misma materia y docente) que todavía no estén asociados.
             </p>
+          )}
+
+          {confirmarCarrera && (
+            <div role="alertdialog" aria-label="Estudiantes de otra carrera" className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-xs text-[#92400E]">
+              <p className="font-bold">
+                {confirmarCarrera.length === 1 ? '1 estudiante es' : `${confirmarCarrera.length} estudiantes son`} de una carrera distinta a la de los ya asociados
+                ({[...(carrerasAsociados ?? [])].join(', ')}).
+              </p>
+              <ul className="mt-1 list-inside list-disc">
+                {confirmarCarrera.slice(0, 5).map((e) => <li key={e.id}>{e.nombre} {e.apellidos} · {carrerasDe(e)}</li>)}
+                {confirmarCarrera.length > 5 && <li>y {confirmarCarrera.length - 5} más</li>}
+              </ul>
+              <p className="mt-1">¿Seguro que rinden este examen?</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => setConfirmarCarrera(null)}
+                  className="min-h-9 rounded-lg border border-[#FCD34D] bg-white px-3 font-semibold text-[#92400E] hover:bg-[#FEF3C7]">Revisar la selección</button>
+                <button type="button" onClick={() => void enviar(true)}
+                  className="min-h-9 rounded-lg bg-[#B45309] px-3 font-semibold text-white hover:bg-[#92400E]">Asociar igual</button>
+              </div>
+            </div>
           )}
 
           {resumen && (
