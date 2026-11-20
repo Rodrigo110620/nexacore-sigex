@@ -65,9 +65,12 @@ public class ActaExamenService {
     private static final Color FONDO = new Color(0xF8, 0xFA, 0xFC);
 
     /** Colores para diferenciar visualmente cada estado en el acta (BUG-D01). */
+    private static final Color ESTADO_HABILITADO = new Color(0x04, 0x39, 0xD9);
     private static final Color ESTADO_ASISTIO = new Color(0x16, 0x65, 0x34);
-    private static final Color ESTADO_EXPULSADO = new Color(0xB9, 0x1C, 0x1C);
+    private static final Color ESTADO_EXPULSADO = new Color(0x7F, 0x1D, 0x1D);
     private static final Color ESTADO_AUSENTE = new Color(0x92, 0x40, 0x0E);
+    private static final Color ESTADO_PENDIENTE = new Color(0xB4, 0x53, 0x09);
+    private static final Color ESTADO_NO_HABILITADO = new Color(0xB9, 0x1C, 0x1C);
 
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
     /** Marca de la hora de salida de un expulsado (como «(al cierre)» para quien salió al terminar). */
@@ -437,8 +440,9 @@ public class ActaExamenService {
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
         tabla.setSpacingAfter(12);
-        var fuente = new Font(negrita, 8.5f, Font.NORMAL, PRIMARIO);
         for (String etiqueta : etiquetas) {
+            Color colorEtiqueta = colorDeEtiqueta(etiqueta);
+            var fuente = new Font(negrita, 8.5f, Font.NORMAL, colorEtiqueta);
             var celda = new PdfPCell(new Phrase(etiqueta, fuente));
             celda.setBackgroundColor(new Color(0xED, 0xF2, 0xFE));
             celda.setBorderColor(Color.WHITE);
@@ -453,6 +457,29 @@ public class ActaExamenService {
         return tabla;
     }
 
+    /** Devuelve el color corporativo del estado que menciona la etiqueta del resumen (BUG-D01). */
+    private static Color colorDeEtiqueta(String etiqueta) {
+        if (etiqueta.startsWith("Habilitados:")) {
+            return ESTADO_HABILITADO;
+        }
+        if (etiqueta.startsWith("Asistieron:")) {
+            return ESTADO_ASISTIO;
+        }
+        if (etiqueta.startsWith("Ausentes:")) {
+            return ESTADO_AUSENTE;
+        }
+        if (etiqueta.startsWith("No habilitados:")) {
+            return ESTADO_NO_HABILITADO;
+        }
+        if (etiqueta.startsWith("Expulsados:")) {
+            return ESTADO_EXPULSADO;
+        }
+        if (etiqueta.startsWith("Pendientes:")) {
+            return ESTADO_PENDIENTE;
+        }
+        return TINTA;
+    }
+
     /** Devuelve la fuente con el color correspondiente al estado del estudiante (BUG-D01). */
     private static Font fuenteEstado(String estado, BaseFont base) {
         if ("Asistió".equals(estado)) {
@@ -463,6 +490,12 @@ public class ActaExamenService {
         }
         if ("Ausente".equals(estado)) {
             return new Font(base, 8, Font.NORMAL, ESTADO_AUSENTE);
+        }
+        if ("Pendiente".equals(estado)) {
+            return new Font(base, 8, Font.NORMAL, ESTADO_PENDIENTE);
+        }
+        if ("No habilitado".equals(estado)) {
+            return new Font(base, 8, Font.NORMAL, ESTADO_NO_HABILITADO);
         }
         return new Font(base, 8, Font.NORMAL, TINTA);
     }
