@@ -38,7 +38,7 @@ export default function LoginEmailField({ value, error, onChange, onBlur }: Logi
           aria-describedby={showDomain ? DOMAIN_HINT_ID : undefined}
           className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${
             error
-              ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
+              ? 'border-[#e5baba] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
           }`} />
         
@@ -64,8 +64,8 @@ export default function LoginEmailField({ value, error, onChange, onBlur }: Logi
         </div>
       )}
       {error && (
-        <p className="text-[#B91C1C] text-[0.70rem] flex items-center gap-1">
-          <CircleAlert size={12} /> {error}
+        <p className="text-[0.8rem] font-bold text-[#7F1D1D] flex items-center gap-1">
+          <CircleAlert size={12} className='text-[#7F1D1D]' strokeWidth={3} /> {error}
         </p>
       )}
     </div>
