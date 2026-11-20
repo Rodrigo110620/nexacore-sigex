@@ -44,6 +44,7 @@ export default function EstudiantesExamenSeccion({
   resaltar,
 }: EstudiantesExamenSeccionProps) {
   const cuentas = resumen ? { ...resumen, ausentes: Math.max(0, resumen.habilitados - resumen.ingresados) } : undefined
+  const vistaPrevia = cargando && Boolean(pagina?.contenido.length)
   return (
     <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 md:mb-4">
@@ -83,22 +84,26 @@ export default function EstudiantesExamenSeccion({
         ))}
       </div>
 
+      <p aria-live="polite" className={cargando && !vistaPrevia ? 'py-10 text-center text-sm text-gray-500' : 'sr-only'}>
+        {cargando ? 'Cargando estudiantes…' : ''}
+      </p>
       {error ? (
         refetch ? <ErrorCarga mensaje={error} onReintentar={refetch} /> : (
           <p role="alert" className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#B91C1C]">{error}</p>
         )
-      ) : cargando || !pagina ? (
-        <p className="py-10 text-center text-sm text-gray-500">Cargando estudiantes…</p>
-      ) : pagina.contenido.length === 0 ? (
+      ) : !cargando && pagina && pagina.contenido.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500">
           {estado === 'TODOS' ? 'No hay estudiantes asignados a este examen' : 'No hay estudiantes con este estado.'}
         </p>
-      ) : (
-        <>
-          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} />
+      ) : pagina && pagina.contenido.length > 0 ? (
+        <div
+          aria-busy={cargando}
+          ref={(elemento) => { elemento?.toggleAttribute('inert', cargando) }}
+          className={cargando ? 'opacity-60 transition-opacity pointer-events-none' : 'transition-opacity'}
+        >
+          <EstudiantesExamenLista idExamen={idExamen} examen={examen} datosExamen={datosExamen} estudiantes={pagina.contenido} onExito={refetch} resaltar={resaltar} accionesVigentes={!cargando} />
           <div className="mt-3">
             <UserPagination
-              compact
               page={pagina.pagina}
               totalPages={pagina.totalPaginas}
               totalRecords={pagina.totalRegistros}
@@ -107,8 +112,8 @@ export default function EstudiantesExamenSeccion({
               itemLabel="estudiantes asignados"
             />
           </div>
-        </>
-      )}
+        </div>
+      ) : null}
     </section>
   )
 }
