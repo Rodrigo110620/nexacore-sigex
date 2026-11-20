@@ -1,16 +1,26 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, Check, LoaderCircle, Search, X } from 'lucide-react'
-import { buscarMaterias, gruposOcupadosDeMateria, type MateriaDto } from '../../services/materiaService'
+import { buscarMaterias, gruposOcupados, type MateriaDto } from '../../services/materiaService'
 
 interface SelectorMateriasProps {
   value: MateriaDto[]
   onChange: (materias: MateriaDto[]) => void
   error?: string
-  idDocente?: number
+  /** El docente que se edita (sus grupos no cuentan como ocupados); sin él, es un docente nuevo. */
+  idDocente?: number | null
 }
 
-/** Grupos que se ofrecen para marcar; el backend acepta hasta G20. */
-const GRUPOS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6']
+/** Cuántos grupos libres se ofrecen por materia; el backend acepta hasta G20. */
+const GRUPOS_OFRECIDOS = 6
+const numero = (g: string) => Number(g.slice(1))
+
+/** Los primeros grupos libres (sin docente) de G1 a G20, más los que ya tiene marcados este docente. */
+function gruposLibres(ocupados: string[] | undefined, marcados: string[] = []) {
+  const ocupado = new Set(ocupados ?? [])
+  const libres: string[] = []
+  for (let n = 1; n <= 20 && libres.length < GRUPOS_OFRECIDOS; n++) if (!ocupado.has(`G${n}`)) libres.push(`G${n}`)
+  return [...new Set([...libres, ...marcados])].sort((a, b) => numero(a) - numero(b))
+}
 
 /**
  * IMP-12: elige las materias del docente y los grupos (G1, G2…) que da en cada una. Busca en el catálogo (mínimo 3 letras) y muestra las elegidas
@@ -20,8 +30,21 @@ export default function SelectorMaterias({ value, onChange, error, idDocente }: 
   const [busqueda, setBusqueda] = useState('')
   const [resultados, setResultados] = useState<MateriaDto[]>([])
   const [buscando, setBuscando] = useState(false)
-  const [ocupados, setOcupados] = useState<Record<number, string[]>>({})
   const elegidas = new Set(value.map((m) => m.id))
+  // Grupos que ya tienen otro docente, por materia: no se ofrecen (cada grupo de una materia tiene un solo docente).
+  const [ocupados, setOcupados] = useState<Record<number, string[]>>({})
+  const clave = value.map((m) => m.id).join(',')
+  useEffect(() => {
+    const faltan = clave ? clave.split(',').map(Number).filter((id) => !(id in ocupados)) : []
+    if (!faltan.length) return
+    const control = new AbortController()
+    void Promise.all(faltan.map((id) => gruposOcupados(id, idDocente, control.signal).then((g) => [id, g] as const).catch(() => null)))
+      .then((filas) => {
+        const nuevos = Object.fromEntries(filas.filter((f) => f != null))
+        if (Object.keys(nuevos).length) setOcupados((o) => ({ ...o, ...nuevos }))
+      })
+    return () => control.abort()
+  }, [clave, idDocente, ocupados])
 
   useEffect(() => {
     const q = busqueda.trim()
@@ -40,35 +63,22 @@ export default function SelectorMaterias({ value, onChange, error, idDocente }: 
     }
   }, [busqueda])
 
-  // Al editar un docente, las materias ya llegan elegidas: carga también qué grupos pertenecen a otros.
-  useEffect(() => {
-    let activo = true
-    Promise.all(value.map(async (materia) => [materia.id, await gruposOcupadosDeMateria(materia.id, idDocente)] as const))
-      .then((filas) => {
-        if (activo) setOcupados((actuales) => ({ ...actuales, ...Object.fromEntries(filas) }))
-      })
-      .catch(() => undefined)
-    return () => { activo = false }
-  }, [value, idDocente])
-
   // Con menos de 3 letras no se muestran resultados (los de una búsqueda anterior se ignoran).
   const visibles = busqueda.trim().length >= 3 ? resultados : []
 
-  // Una materia nueva empieza con el G1; el ADMIN marca los demás grupos que da el docente.
-  const alternar = (m: MateriaDto) => {
-    if (elegidas.has(m.id)) {
-      onChange(value.filter((x) => x.id !== m.id))
-      return
+  // Una materia nueva empieza con su primer grupo libre; el ADMIN marca los demás grupos que da el docente.
+  const alternar = async (m: MateriaDto) => {
+    if (elegidas.has(m.id)) { onChange(value.filter((x) => x.id !== m.id)); return }
+    let tomados = ocupados[m.id]
+    if (!tomados) {
+      tomados = await gruposOcupados(m.id, idDocente).catch(() => [])
+      setOcupados((o) => ({ ...o, [m.id]: tomados! }))
     }
-    gruposOcupadosDeMateria(m.id, idDocente).then((lista) => {
-      setOcupados((actuales) => ({ ...actuales, [m.id]: lista }))
-      const primeroLibre = GRUPOS.find((grupo) => !lista.includes(grupo))
-      onChange([...value, { ...m, grupos: primeroLibre ? [primeroLibre] : [] }])
-    }).catch(() => onChange([...value, { ...m, grupos: [] }]))
+    const primero = gruposLibres(tomados)[0]
+    onChange([...value, { ...m, grupos: m.grupos?.length ? m.grupos : primero ? [primero] : [] }])
   }
 
   const alternarGrupo = (m: MateriaDto, g: string) => {
-    if ((ocupados[m.id] ?? []).includes(g)) return
     const actuales = m.grupos ?? []
     const grupos = actuales.includes(g) ? actuales.filter((x) => x !== g) : [...actuales, g]
     if (!grupos.length) return // al menos un grupo por materia
@@ -81,7 +91,8 @@ export default function SelectorMaterias({ value, onChange, error, idDocente }: 
       {value.length > 0 && (
         <ul aria-label="Materias elegidas" className="flex flex-col gap-2">
           {value.map((m) => {
-            const opciones = [...new Set([...GRUPOS, ...(m.grupos ?? [])])].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+            const opciones = gruposLibres(ocupados[m.id], m.grupos)
+            const nOcupados = ocupados[m.id]?.length ?? 0
             return (
               <li key={m.id} className="rounded-lg border border-[#C7D7F5] bg-[#F5F8FF] p-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#011140]">
@@ -96,17 +107,20 @@ export default function SelectorMaterias({ value, onChange, error, idDocente }: 
                   <span className="mr-1 text-[11px] text-[#45628D]">Grupos:</span>
                   {opciones.map((g) => {
                     const on = (m.grupos ?? []).includes(g)
-                    const ocupado = (ocupados[m.id] ?? []).includes(g)
                     return (
-                      <button key={g} type="button" aria-pressed={on} disabled={ocupado} onClick={() => alternarGrupo(m, g)}
-                        title={ocupado ? `${g} ya está asignado a otro docente` : undefined}
-                        className={`min-w-9 rounded-md border px-2 py-1 text-[11px] font-semibold ${ocupado ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 line-through' : on ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#C7D7F5] bg-white text-[#45628D] hover:bg-[#EEF3FF]'}`}>
-                        {g}{ocupado && <span className="sr-only"> ocupado</span>}
+                      <button key={g} type="button" aria-pressed={on} onClick={() => alternarGrupo(m, g)}
+                        className={`min-w-9 rounded-md border px-2 py-1 text-[11px] font-semibold ${on ? 'border-[#0439D9] bg-[#0439D9] text-white' : 'border-[#C7D7F5] bg-white text-[#45628D] hover:bg-[#EEF3FF]'}`}>
+                        {g}
                       </button>
                     )
                   })}
                 </div>
-                {!m.grupos?.length && <p className="mt-1.5 text-[11px] text-[#B45309]">No hay un grupo disponible seleccionado.</p>}
+                {nOcupados > 0 && (
+                  <p className="mt-1.5 text-[11px] text-[#627A9B]">
+                    Solo se muestran los grupos libres: {ocupados[m.id]!.join(', ')} {nOcupados === 1 ? 'ya tiene' : 'ya tienen'} docente.
+                  </p>
+                )}
+                {!m.grupos?.length && <p className="mt-1.5 text-[11px] text-[#627A9B]">Sin grupos: elige al menos uno (si no, se crea el G1 al programar su primer examen).</p>}
               </li>
             )
           })}

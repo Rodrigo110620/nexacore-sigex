@@ -1,6 +1,6 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LifeBuoy, LockKeyhole } from 'lucide-react';
 import MesaAyudaModal from '../../components/ayuda/MesaAyudaModal';
-import { validateEmailFormat, buildLoginEmail } from '../../utils/validators';
+import { validateLoginEmail, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../services/authService';
@@ -43,7 +43,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
 
     const handleEmailBlur = () => {
         if (email.trim()) {
-            setEmailError(validateEmailFormat(buildLoginEmail(email)));
+            setEmailError(validateLoginEmail(email));
         }
     };
 
@@ -64,7 +64,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
             return;
         }
 
-        const emailErr = validateEmailFormat(buildLoginEmail(email));
+        const emailErr = validateLoginEmail(email);
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
         setPasswordError(passwordErr);
@@ -78,7 +78,13 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
             navigate('/dashboard', { replace: true });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error inesperado. Intenta más tarde.';
-            setGeneralError(message);
+            if (message.includes('correo')) {
+                setEmailError(message);
+            } else if (message.includes('contraseña')) {
+                setPasswordError(message);
+            } else {
+                setGeneralError(message);
+            }
         } finally {
             setLoading(false);
         }
@@ -90,119 +96,118 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
 
     return (
         <>
-        <form onSubmit={handleSubmit} noValidate className={formClass}>
-            <div className={`mb-2 flex flex-col gap-1 ${isMobile ? 'text-center' : 'text-left'}`}>
-                <h1 className="mt-1 text-2xl font-extrabold text-[#092068]">INICIAR SESIÓN</h1>
-                <p className={`text-sm text-gray-500 ${isMobile ? 'mb-8' : 'mb-10'}`}>
-                    Ingresa con tus credenciales para acceder a la plataforma.
-                </p>
-            </div>
+            <form onSubmit={handleSubmit} noValidate className={formClass}>
+                <div className={`mb-2 flex flex-col gap-1 ${isMobile ? 'text-center' : 'text-left'}`}>
+                    <h1 className="mt-1 text-2xl font-extrabold text-[#092068]">INICIAR SESIÓN</h1>
+                    <p className={`text-sm text-gray-500 ${isMobile ? 'mb-8' : 'mb-10'}`}>
+                        Ingresa con tus credenciales para acceder a la plataforma.
+                    </p>
+                </div>
 
-            <div className="flex flex-col gap-4">
-                <LoginEmailField
-                    value={email}
-                    error={emailError}
-                    onChange={(value) => {
-                        setEmail(value);
-                        if (emailError) setEmailError('');
-                        if (generalError) setGeneralError('');
-                    }}
-                    onBlur={handleEmailBlur}
-                />
+                <div className="flex flex-col gap-4">
+                    <LoginEmailField
+                        value={email}
+                        error={emailError}
+                        onChange={(value) => {
+                            setEmail(value);
+                            if (emailError) setEmailError('');
+                            if (generalError) setGeneralError('');
+                        }}
+                        onBlur={handleEmailBlur}
+                    />
 
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-[0.70rem] font-medium">
-                        <label className="text-[#011140]">CONTRASEÑA</label>
-                        <Link
-                            to="/forgot-password"
-                            className="text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
-                        >
-                            ¿Olvidaste tu contraseña?
-                        </Link>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-[0.70rem] font-medium">
+                            <label className="text-[#011140]">CONTRASEÑA</label>
+                            <Link
+                                to="/forgot-password"
+                                className="text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </Link>
+                        </div>
+                        <div className="relative">
+                            <LockKeyhole
+                                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]"
+                                size={17}
+                                aria-hidden="true"
+                            />
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    if (passwordError) setPasswordError('');
+                                    if (generalError) setGeneralError('');
+                                }}
+                                onBlur={handlePasswordBlur}
+                                placeholder="••••••••"
+                                className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${passwordError
+                                        ? 'border-[#e5baba] bg-[#FEF2F2] focus:ring-[#FECACA]'
+                                        : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
+                                    }`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((visible) => !visible)}
+                                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748B]"
+                            >
+                                {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+                            </button>
+                        </div>
+                        {passwordError && (
+                            <p className="text-[0.80rem] font-bold text-[#7F1D1D] flex items-center gap-1">
+                                <CircleAlert size={12} className="text-[#7F1D1D]" strokeWidth={3} /> {passwordError}
+                            </p>
+                        )}
                     </div>
-                    <div className="relative">
-                        <LockKeyhole
-                            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]"
-                            size={17}
-                            aria-hidden="true"
-                        />
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value);
-                                if (passwordError) setPasswordError('');
-                                if (generalError) setGeneralError('');
-                            }}
-                            onBlur={handlePasswordBlur}
-                            placeholder="••••••••"
-                            className={`w-full rounded-xl border py-3 pl-11 pr-11 text-sm transition-colors focus:outline-none focus:ring-1 ${
-                                passwordError
-                                    ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
-                                    : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
-                            }`}
-                        />
+
+                    {generalError && (
+                        <div className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
+                            <CircleAlert className="mr-2 text-[#B91C1C]" size={20} />
+                            <div className="flex flex-col gap-0">
+                                <p className="text-xs font-bold text-[#7F1D1D]">
+                                    {tituloError(generalError)}
+                                </p>
+                                <p className="text-xs text-[#B91C1C]">{generalError}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-9 flex justify-center">
                         <button
-                            type="button"
-                            onClick={() => setShowPassword((visible) => !visible)}
-                            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[#64748B]"
+                            type="submit"
+                            disabled={loading}
+                            className="flex w-full max-w-md items-center justify-center rounded-xl border bg-[#0439D9] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            {showPassword ? <EyeOff size={17} aria-hidden="true" /> : <Eye size={17} aria-hidden="true" />}
+                            {loading ? 'INGRESANDO...' : 'INGRESAR'}
+                            {!loading && <ArrowRight className="ml-3" size={16} />}
                         </button>
                     </div>
-                    {passwordError && (
-                        <p className="flex items-center gap-1 text-[0.70rem] text-[#B91C1C]">
-                            <CircleAlert size={12} /> {passwordError}
-                        </p>
-                    )}
-                </div>
 
-                {generalError && (
-                    <div className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
-                        <CircleAlert className="mr-2 text-[#B91C1C]" size={20} />
-                        <div className="flex flex-col gap-0">
-                            <p className="text-xs font-bold text-[#7F1D1D]">
-                                {tituloError(generalError)}
-                            </p>
-                            <p className="text-xs text-[#B91C1C]">{generalError}</p>
-                        </div>
+                    <div className="mt-2 flex flex-col items-center gap-1 border-t border-[#E4E9F2] pt-5 text-center text-xs">
+                        <span className="text-gray-500">¿Eres estudiante y es tu primer ingreso?</span>
+                        <Link
+                            to="/activar-cuenta"
+                            className="font-semibold text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
+                        >
+                            Activar mi cuenta
+                        </Link>
+                        {/* En celular el encabezado no se muestra: este es el acceso a la mesa de ayuda. */}
+                        <button
+                            type="button"
+                            onClick={() => setAyuda(true)}
+                            className="mt-2 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[#45628D] transition-colors hover:text-[#0439D9]"
+                        >
+                            <LifeBuoy size={14} aria-hidden="true" />
+                            ¿Necesitas ayuda? Mesa de ayuda
+                        </button>
                     </div>
-                )}
-
-                <div className="mt-9 flex justify-center">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="flex w-full max-w-md items-center justify-center rounded-xl border bg-[#0439D9] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        {loading ? 'INGRESANDO...' : 'INGRESAR'}
-                        {!loading && <ArrowRight className="ml-3" size={16} />}
-                    </button>
                 </div>
-
-                <div className="mt-2 flex flex-col items-center gap-1 border-t border-[#E4E9F2] pt-5 text-center text-xs">
-                    <span className="text-gray-500">¿Eres estudiante y es tu primer ingreso?</span>
-                    <Link
-                        to="/activar-cuenta"
-                        className="font-semibold text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
-                    >
-                        Activar mi cuenta
-                    </Link>
-                    {/* En celular el encabezado no se muestra: este es el acceso a la mesa de ayuda. */}
-                    <button
-                        type="button"
-                        onClick={() => setAyuda(true)}
-                        className="mt-2 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[#45628D] transition-colors hover:text-[#0439D9]"
-                    >
-                        <LifeBuoy size={14} aria-hidden="true" />
-                        ¿Necesitas ayuda? Mesa de ayuda
-                    </button>
-                </div>
-            </div>
-        </form>
-        {/* Fuera del <form> de ingreso: un formulario dentro de otro enviaría el de ingreso. */}
-        <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} />
+            </form>
+            {/* Fuera del <form> de ingreso: un formulario dentro de otro enviaría el de ingreso. */}
+            <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} />
         </>
     );
 }

@@ -189,23 +189,6 @@ public class DocenteMateriaService {
         return docenteMateriaRepository.existsByIdIdDocenteAndIdIdMateria(idDocente, idMateria);
     }
 
-    /** Grupos que ya pertenecen a otro docente en la materia; al editar se excluyen los del propio docente. */
-    @Transactional(readOnly = true)
-    public List<String> gruposOcupados(Integer idMateria, Integer idDocenteExcluido) {
-        var parametros = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("materia", idMateria)
-                .addValue("docente", idDocenteExcluido, java.sql.Types.INTEGER);
-        return jdbc.queryForList("""
-                SELECT DISTINCT CASE
-                    WHEN UPPER(TRIM(nombre_grupo)) LIKE 'G%' THEN UPPER(TRIM(nombre_grupo))
-                    ELSE 'G' || TRIM(nombre_grupo)
-                END AS grupo
-                FROM paralelo
-                WHERE id_materia = :materia
-                  AND (:docente IS NULL OR id_docente <> :docente)
-                ORDER BY grupo
-                """, parametros, String.class);
-    }
-
     /** El docente autenticado, si solo gestiona sus propios exámenes; si no (ADMIN), null. */
     /** Grupos para consultas directas; por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -213,6 +196,25 @@ public class DocenteMateriaService {
 
     /** Los grupos (G1, G2…) del docente en la materia, con cuántos estudiantes inscritos tiene cada uno. */
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    /**
+     * Grupos de la materia que ya tienen otro docente (cada grupo de una materia tiene uno solo), para no ofrecerlos al
+     * asignar grupos. {@code exceptoDocente}: el docente que se está editando (sus grupos no cuentan como ocupados).
+     */
+    public List<String> gruposOcupados(Integer idMateria, Integer exceptoDocente) {
+        return jdbc.query("""
+                SELECT DISTINCT UPPER(TRIM(p.nombre_grupo)) FROM paralelo p
+                WHERE p.id_materia = :materia AND p.id_docente IS NOT NULL
+                  AND (:docente IS NULL OR p.id_docente <> :docente)
+                """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("materia", idMateria)
+                .addValue("docente", exceptoDocente, java.sql.Types.INTEGER), (rs, i) -> rs.getString(1))
+                .stream().filter(java.util.Objects::nonNull)
+                .map(g -> g.matches("\\d{1,2}") ? "G" + g : g)
+                .filter(g -> g.matches("G\\d{1,2}"))
+                .distinct()
+                .sorted(Comparator.comparingInt((String g) -> Integer.parseInt(g.substring(1))))
+                .toList();
+    }
+
     public List<com.nexacore.examenes.dto.GrupoResponse> gruposDe(Integer idDocente, Integer idMateria) {
         return jdbc.query("""
                 SELECT p.id_paralelo, p.nombre_grupo,

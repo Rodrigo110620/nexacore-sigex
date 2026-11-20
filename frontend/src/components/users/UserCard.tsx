@@ -1,4 +1,6 @@
 import { Ban, LockOpen, Mail, Pencil } from 'lucide-react'
+import { claseFilaViva, useFilasVivasActuales } from '../../hooks/useFilaViva'
+import { MarcaFilaViva } from '../ui/FilaViva'
 import RoleBadge from './RoleBadge'
 import StatusBadge from './StatusBadge'
 import UserAvatar from './UserAvatar'
@@ -16,15 +18,16 @@ export default function UserCard({ user, onEditClick, onToggleBlockClick }: User
   const canEdit = Boolean(onEditClick)
   const bloquear = puedeBloquear(user)
   const accion = bloquear ? 'Bloquear' : 'Desbloquear'
+  const viva = useFilasVivasActuales().get(Number(user.id))
 
   return (
     <li>
-      <article aria-labelledby={`user-card-${user.id}`} className="rounded-xl border border-[#D8E3F5] bg-white p-3 text-[#011140] shadow-sm sm:p-4">
+      <article aria-labelledby={`user-card-${user.id}`} className={`rounded-xl border border-[#D8E3F5] bg-white p-3 text-[#011140] shadow-sm transition-shadow hover:shadow-md sm:p-4 ${claseFilaViva(viva)}`}>
         <div className="flex items-start justify-between gap-2 sm:gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
             <UserAvatar user={user} size="card" />
             <div className="min-w-0">
-              <h3 id={`user-card-${user.id}`} className="break-words text-sm font-semibold leading-snug sm:text-base">{fullName}</h3>
+              <h3 id={`user-card-${user.id}`} className="break-words text-sm font-semibold leading-snug sm:text-base">{fullName}<MarcaFilaViva estado={viva} /></h3>
               <p className="mt-0.5 text-[11px] text-gray-500 sm:mt-1 sm:text-xs">ID: {user.id}</p>
             </div>
           </div>

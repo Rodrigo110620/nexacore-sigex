@@ -4,7 +4,13 @@ import ReasignarAmbienteModal from '../components/control/ReasignarAmbienteModal
 import { reasignarAmbiente } from '../services/controlExamenService'
 
 vi.mock('../services/ambienteService', () => ({ listarAmbientes: vi.fn().mockResolvedValue([]) }))
-vi.mock('../services/controlExamenService', () => ({ reasignarAmbiente: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../services/controlExamenService', () => ({
+  reasignarAmbiente: vi.fn().mockResolvedValue(undefined),
+  obtenerResumenExamen: vi.fn().mockResolvedValue({ aulas: [
+    { idAmbiente: 1, nombre: '690A', capacidad: 30, ocupados: 30, estado: 'LLENA' },
+    { idAmbiente: 2, nombre: '690B', capacidad: 30, ocupados: 18, estado: 'LIBRE' },
+  ] }),
+}))
 
 const estudiante = {
   idEstudiante: 10, nombre: 'Lucía', apellidos: 'Aguilar', codigoSis: '202600123', ci: '9000101', carrera: 'Sistemas',
@@ -68,4 +74,9 @@ it('IMP-14 y sección 24: el motivo del traslado sigue la regla de la expulsión
   expect(within(frecuentes).getAllByRole('button').map((b) => b.textContent)).toEqual(['Aula llena', 'Aula incorrecta', 'Problema en el aula', 'Necesidad especial'])
   fireEvent.click(within(frecuentes).getByRole('button', { name: 'Aula llena' }))
   expect(motivo).toHaveValue('Aula llena')
+})
+
+it('sección 24: cada aula destino dice cuántos lugares libres le quedan', async () => {
+  render(<ReasignarAmbienteModal idExamen={20} estudiante={estudiante} aulas={aulas} aulaActualId={1} onClose={vi.fn()} onSuccess={vi.fn()} />)
+  expect(await screen.findByRole('option', { name: '690B · 12 lugares libres' })).toBeInTheDocument()
 })

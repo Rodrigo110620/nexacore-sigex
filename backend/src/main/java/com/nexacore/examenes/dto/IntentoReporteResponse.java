@@ -9,7 +9,7 @@ import java.time.LocalTime;
  *
  * @param tipo NO_CORRESPONDE (no inscrito en la materia), AULA_INCORRECTA (se presentó en otra aula) o NO_HABILITADO
  *             (excepción de no habilitado). Lo calcula {@link com.nexacore.examenes.services.MotivoIntento}.
- * @param etiqueta lo que se muestra en la insignia: «Aula incorrecta (660, debía 607)», «No habilitado: matrícula».
+ * @param etiqueta lo que se muestra en la insignia: «Aula incorrecta: se presentó en 660 · su aula es 607», «No habilitado: matrícula».
  * @param detalle el resto, legible (texto del control, acción tomada, observaciones); puede ser null.
  */
 public record IntentoReporteResponse(

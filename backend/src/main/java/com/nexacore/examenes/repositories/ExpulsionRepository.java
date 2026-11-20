@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Expulsiones (INCI-01). Un examen reprogramado conserva su id: lo que cuenta es la sesión actual,
@@ -27,7 +28,7 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
     boolean existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(Integer idEstudiante, Integer idExamen, LocalDateTime desde);
 
     /** Exámenes con alguna expulsión (para el reporte de «Todos los exámenes»). */
-    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT e.idExamen FROM Expulsion e")
+    @Query("SELECT DISTINCT e.idExamen FROM Expulsion e")
     List<Integer> examenesConExpulsiones();
 
     /** Expulsiones de la sesión actual del examen, de la más reciente a la más antigua. */
@@ -37,14 +38,15 @@ public interface ExpulsionRepository extends JpaRepository<Expulsion, Integer> {
     }
 
     /** El estudiante ya fue expulsado en la sesión actual (para no expulsarlo dos veces y mostrarlo en rojo). */
-    java.util.Optional<Expulsion> findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
+    Optional<Expulsion> findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
             Integer idEstudiante, Integer idExamen, LocalDateTime desde);
 
     /** Hora oficial de la expulsión del estudiante en la sesión actual (su cronómetro se detiene ahí). */
-    default java.util.Optional<LocalDateTime> horaExpulsionEnSesionActual(Integer idEstudiante, Integer idExamen,
-                                                                          LocalDateTime ultimoCierre) {
+    default Optional<LocalDateTime> horaExpulsionEnSesionActual(Integer idEstudiante, Integer idExamen,
+                                                                LocalDateTime ultimoCierre) {
         return findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(idEstudiante, idExamen,
-                ultimoCierre == null ? DESDE_SIEMPRE : ultimoCierre).map(Expulsion::getFechaHora);
+                ultimoCierre == null ? DESDE_SIEMPRE : ultimoCierre)
+                .map(e -> e.getFechaHora());
     }
 
     default boolean expulsadoEnSesionActual(Integer idEstudiante, Integer idExamen, LocalDateTime ultimoCierre) {

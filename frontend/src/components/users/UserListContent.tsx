@@ -1,5 +1,7 @@
 import { CircleAlert, LoaderCircle, UserPlus } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useFilasVivas } from '../../hooks/useFilasNuevas'
+import { FilasVivas } from '../ui/FilaViva'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import EmptyState from './EmptyState'
 import UserCardList from './UserCardList'
 import MenuImportarExportar from '../ui/MenuImportarExportar'
@@ -52,12 +54,22 @@ export default function UserListContent({
   onExportClick,
   onImportClick,
 }: UserListContentProps) {
-  const [draftFilters, setDraftFilters] = useState<UserFilterParams>(initialFilters)
+  // Con ?buscar=<correo> en la dirección (p. ej. desde un enlace), la lista abre ya filtrada.
+  const [draftFilters, setDraftFilters] = useState<UserFilterParams>(() => {
+    const buscar = new URLSearchParams(window.location.search).get('buscar')
+    return buscar ? { ...initialFilters, search: buscar } : initialFilters
+  })
   const debouncedSearch = useDebouncedValue(draftFilters.search, 300)
   const lastEmittedRef = useRef<UserFilterParams>(initialFilters)
   const hasActiveFilters = Boolean(draftFilters.search.trim() || draftFilters.rol || draftFilters.estado)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
   const [exporting, setExporting] = useState(false)
+  // En vivo: los usuarios que llegan o cambian (rol, estado, datos) se resaltan unos segundos.
+  // Mientras carga no hay lista: así la lista vacía de antes de cargar no cuenta como base (todo saldría «Nuevo»).
+  const filasVivas = useMemo(() => (loading ? undefined : users.map((u) => ({
+    id: Number(u.id), firma: JSON.stringify([u.nombre, u.apellidos, u.email, u.ci, u.rol, u.estado, u.bloqueadoHasta, u.fotoUrl]),
+  }))), [users, loading])
+  const vivas = useFilasVivas(filasVivas, JSON.stringify([page, debouncedSearch, draftFilters.rol, draftFilters.estado]))
   const [exportError, setExportError] = useState<string | null>(null)
 
   const handleExport = async () => {
@@ -165,6 +177,7 @@ export default function UserListContent({
                 ) : null}
               </div>
             ) : users.length > 0 ? (
+              <FilasVivas marcadas={vivas}>
               <div className="min-[960px]:rounded-none">
                 <div className="min-[960px]:hidden">
                   <UserCardList users={users} onEditClick={onEditClick} onToggleBlockClick={onToggleBlockClick} />
@@ -182,6 +195,7 @@ export default function UserListContent({
                   />
                 ) : null}
               </div>
+              </FilasVivas>
             ) : (
               <EmptyState message={hasActiveFilters ? 'No se encontraron usuarios con los filtros seleccionados.' : undefined} />
             )}

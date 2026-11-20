@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import useEnVivo from '../../hooks/useEnVivo'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RegisterUserModal from '../../components/admin/RegisterUserModal'
@@ -40,8 +41,11 @@ export default function UsuariosPage() {
     updateFilters,
     changePage,
     retry,
+    recargarEnSilencio,
   } = useUsers()
-  const { stats, retry: retryStats } = useUserStats()
+  const { stats, retry: retryStats, recargarEnSilencio: recargarStats } = useUserStats()
+  // En vivo: si otro administrador crea, edita, bloquea o importa usuarios, la lista se actualiza sola.
+  useEnVivo((c) => c.tipo === 'USUARIO', () => { recargarEnSilencio(); recargarStats() })
 
   const refreshUsers = () => {
     retry()

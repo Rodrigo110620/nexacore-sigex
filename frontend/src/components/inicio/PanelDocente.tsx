@@ -1,12 +1,15 @@
 import { useState } from 'react'
+import PuntoVivo from '../ui/PuntoVivo'
+import CuentaRegresiva from '../ui/CuentaRegresiva'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UsersRound, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Ban, BookOpen, CalendarDays, CircleCheck, Clock3, MapPin, Plus, TriangleAlert, UserPlus, UserX, UsersRound, type LucideIcon } from 'lucide-react'
 import { Anillo, Sparkline } from './Graficas'
 import { EnVivo } from './Comun'
 import { TARJETA, formatoPct, horasDelDia, porcentaje } from '../../utils/inicio'
 import type { InicioDocente } from '../../services/inicioService'
 import { addMinutes, etiquetaAulas, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
-import { aperturaControl, controlSinAbrir, type TiempoExamen } from '../../utils/tiempoExamen'
+import { aperturaControl, controlSinAbrir, instanteServidor, type TiempoExamen } from '../../utils/tiempoExamen'
+import { offsetServidorMinutos } from '../../services/tiempoService'
 import type { ExamenDto } from '../../services/examenService'
 import type { ResumenEstudiantes } from '../../services/controlExamenService'
 
@@ -153,8 +156,11 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
 
 const TIPO: Record<InicioDocente['recientes'][number]['tipo'], { texto: string; icono: LucideIcon; clase: string }> = {
   INGRESO: { texto: 'Ingreso', icono: CircleCheck, clase: 'bg-[#DCFCE7] text-[#15803D]' },
-  EXPULSION: { texto: 'Expulsión', icono: Ban, clase: 'bg-[#FFE4E6] text-[#E11D48]' },
+  // El mismo ícono que «Expulsar estudiante» (persona con una X), el estándar de expulsión en SIGEX.
+  EXPULSION: { texto: 'Expulsión', icono: UserX, clase: 'bg-[#FFE4E6] text-[#E11D48]' },
   INTENTO: { texto: 'Intento incorrecto', icono: TriangleAlert, clase: 'bg-[#FEF3C7] text-[#B45309]' },
+  // BUG-A02 (2.º test run): cuándo se asociaron estudiantes a sus exámenes.
+  ASOCIACION: { texto: 'Estudiantes asociados', icono: UserPlus, clase: 'bg-[#CCFBF1] text-[#0F766E]' },
 }
 
 /** Cuántos registros manda el servidor (InicioDocenteService.RECIENTES). */
@@ -189,14 +195,14 @@ function FilaRegistro({ r }: { r: InicioDocente['recientes'][number] }) {
 }
 
 /**
- * Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones e intentos). Solo los
+ * Sección 18: los últimos registros de sus exámenes de hoy (ingresos, expulsiones, intentos y estudiantes asociados). Solo los
  * MAX_REGISTROS_DOCENTE más recientes, y lo dice (BUG-A02).
  */
 export function RegistrosDocente({ registros }: { registros: InicioDocente['recientes'] }) {
   return (
     <section aria-labelledby="registros-docente" className={`${TARJETA} min-w-0 p-4 sm:p-5`}>
       <h2 id="registros-docente" className="text-[15px] font-bold text-[#011140]">Registros de mis exámenes</h2>
-      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias · las {MAX_REGISTROS_DOCENTE} actividades de ingreso más recientes de hoy</p>
+      <p className="mt-0.5 text-xs text-[#627A9B]">Solo de tus materias · las {MAX_REGISTROS_DOCENTE} actividades más recientes de hoy</p>
       {registros.length === 0 ? (
         <p className="mt-4 rounded-lg bg-[#F8FAFF] p-3 text-sm text-[#627A9B]">Aún no hay registros hoy en tus exámenes.</p>
       ) : (
@@ -244,6 +250,11 @@ export function ExamenesHoyDocente({ examenes, resumenes, proximo }: {
                 ? `Tu próximo examen: ${materiaYGrupo(proximo)} · ${formatFecha(proximo.fecha)} · ${horaCorta(proximo.horaInicio)}, ${etiquetaAulas(proximo)}.`
                 : 'Por ahora no tienes próximos exámenes programados.'}
             </p>
+            {proximo && (
+              <CuentaRegresiva className="mt-1.5" desdeMs={Number.POSITIVE_INFINITY}
+                inicioMs={instanteServidor(proximo.fecha, proximo.horaInicio, offsetServidorMinutos())}
+                finMs={instanteServidor(proximo.fecha, proximo.horaInicio, offsetServidorMinutos()) + proximo.duracionMinutos * 60_000} />
+            )}
           </div>
         </div>
       ) : (
@@ -272,7 +283,7 @@ export function ExamenesHoyDocente({ examenes, resumenes, proximo }: {
                     <h3 className="min-w-0 truncate text-sm font-bold text-[#011140]">{materiaYGrupo(examen)}</h3>
                     {fase === 'en_curso' ? (
                       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#DCFCE7] px-2.5 py-1 text-[11px] font-semibold text-[#15803D]">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#22C55E]" aria-hidden="true" /> {ESTADO_FILA.en_curso}
+                        <PuntoVivo /> {ESTADO_FILA.en_curso}
                       </span>
                     ) : (
                       <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${fase === 'programado' ? 'bg-[#E0E9FF] text-[#0439D9]' : 'bg-[#EAF0F4] text-[#435166]'}`}>{ESTADO_FILA[fase]}</span>
@@ -281,6 +292,7 @@ export function ExamenesHoyDocente({ examenes, resumenes, proximo }: {
                   <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#45628D]">
                     <span className="inline-flex items-center gap-1"><Clock3 size={13} aria-hidden="true" />{horaCorta(examen.horaInicio)} – {addMinutes(examen.horaInicio, examen.duracionMinutos)}</span>
                     <span className="inline-flex items-center gap-1"><MapPin size={13} aria-hidden="true" />{etiquetaAulas(examen)}</span>
+                    {(fase === 'programado' || fase === 'en_curso') && <CuentaRegresiva inicioMs={tiempo.inicioMs} finMs={tiempo.finMs} />}
                   </span>
                   <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#627A9B]">
                     {cifras.map(({ punto, valor, texto }) => (

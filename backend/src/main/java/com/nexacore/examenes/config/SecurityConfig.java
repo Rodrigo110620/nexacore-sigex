@@ -37,6 +37,7 @@ public class SecurityConfig {
         "/auth/login",
         "/auth/forgot-password",
         "/auth/reset-password",
+        "/auth/reset-password/estado",
         "/auth/estudiante/activacion/solicitar",
         "/auth/estudiante/activacion/verificar",
         "/auth/estudiante/activacion/confirmar",

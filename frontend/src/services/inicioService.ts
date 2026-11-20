@@ -84,7 +84,7 @@ export interface InicioDocente {
   expulsionesHoy: number
   ingresosPorHora: number[]
   expulsionesPorHora: number[]
-  recientes: { fecha: string; tipo: 'INGRESO' | 'EXPULSION' | 'INTENTO'; estudiante: string | null; materia: string | null; detalle: string | null }[]
+  recientes: { fecha: string; tipo: 'INGRESO' | 'EXPULSION' | 'INTENTO' | 'ASOCIACION'; estudiante: string | null; materia: string | null; detalle: string | null }[]
 }
 
 export async function obtenerInicioDocente(): Promise<InicioDocente> {

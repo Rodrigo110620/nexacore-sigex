@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -99,6 +100,12 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada correctamente. Ya puedes iniciar sesión."));
+    }
+
+    /** «Enlace no válido» (sección 3 del diseño): la pantalla lo consulta al abrir el enlace del correo. */
+    @GetMapping("/reset-password/estado")
+    public Map<String, Boolean> estadoEnlaceReset(@RequestParam(required = false) String token) {
+        return Map.of("valido", authService.enlaceResetVigente(token));
     }
 
     @GetMapping("/me")

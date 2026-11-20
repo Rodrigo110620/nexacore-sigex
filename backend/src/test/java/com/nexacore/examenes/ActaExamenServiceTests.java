@@ -232,10 +232,41 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // Sección 12: el acta lista solo a los habilitados; el no habilitado no figura ni cuenta como ausente.
-        assertFalse(texto.contains("NoHabilitada"), texto);
+        // El no habilitado figura en el acta con su estado y no cuenta como ausente.
+        assertTrue(texto.contains("NoHabilitada"), texto);
+        assertTrue(texto.contains("No habilitado"), texto);
         assertTrue(texto.contains("Habilitados: 0"), texto);
         assertTrue(texto.contains("Ausentes: 0"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
+    }
+
+    @Test
+    void pendienteNoEsNoHabilitadoYElResumenAguantaSeisEtiquetas() throws Exception {
+        mockExamenValido(examenFinalizado());
+
+        var pendiente = estudiante(7, "20240007", "Pia", "Pendiente");
+        var expulsado = estudiante(8, "20240008", "Raul", "Expulsado");
+        var noHabilitado = estudiante(9, "20240009", "Sara", "SinDerecho");
+        when(asistenciaRepository.buscarPorIdExamen(20)).thenReturn(List.of(
+                asistencia(pendiente, null, null),
+                asistencia(expulsado, true, LocalDateTime.of(LocalDate.now().minusDays(1), java.time.LocalTime.of(9, 5))),
+                asistencia(noHabilitado, false, null)
+        ));
+        when(expulsionRepository.existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(
+                anyInt(), anyInt(), any())).thenAnswer(inv -> Integer.valueOf(8).equals(inv.getArgument(0)));
+        when(trasladoRepository.findByIdExamenAndIdEstudianteAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(
+                anyInt(), anyInt(), any())).thenReturn(List.of());
+
+        byte[] pdf = service.generarActa(20);
+        String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
+
+        // habilitado = null es «Pendiente» (nadie decidió), distinto de «No habilitado» (false, con motivo).
+        assertTrue(texto.matches(".*Pendiente, Pia\\s*Pendiente.*"), texto);
+        assertTrue(texto.matches(".*SinDerecho, Sara\\s*No habilitado.*"), texto);
+        assertTrue(texto.contains("Pendientes: 1"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
+        assertTrue(texto.contains("Expulsados: 1"), texto);
+        assertTrue(texto.contains("Habilitados: 1"), texto);
     }
 
     @Test
@@ -257,6 +288,32 @@ class ActaExamenServiceTests {
         // El expulsado muestra "Expulsado", no "Asistió"
         assertTrue(texto.contains("Expulsado"), texto);
         assertTrue(texto.contains("Asistieron: 0"), texto);
+    }
+
+    @Test
+    void elExpulsadoDiceLaHoraYElMotivoDeLaExpulsion() throws Exception {
+        mockExamenValido(examenFinalizado());
+
+        var expulsado = estudiante(7, "20240007", "Pedro", "Expulsado");
+        when(asistenciaRepository.buscarPorIdExamen(20)).thenReturn(List.of(
+                asistencia(expulsado, true, LocalDateTime.parse("2026-10-01T10:00:00"))
+        ));
+        when(expulsionRepository.existsByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNull(
+                7, 20, ExpulsionRepository.DESDE_SIEMPRE)).thenReturn(true);
+        var expulsion = new com.nexacore.examenes.models.Expulsion();
+        expulsion.setFechaHora(LocalDateTime.parse("2026-10-01T10:42:13"));
+        expulsion.setMotivo("Copia o plagio");
+        when(expulsionRepository.findFirstByIdEstudianteAndIdExamenAndFechaHoraAfterAndAnuladaEnIsNullOrderByFechaHoraAsc(
+                7, 20, ExpulsionRepository.DESDE_SIEMPRE)).thenReturn(java.util.Optional.of(expulsion));
+        when(trasladoRepository.findByIdExamenAndIdEstudianteAndFechaHoraTrasladoAfterOrderByFechaHoraTrasladoAsc(
+                anyInt(), anyInt(), any())).thenReturn(List.of());
+
+        byte[] pdf = service.generarActa(20);
+        String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
+
+        // La salida dice que es la hora de la expulsión, y bajo el nombre van la hora y el motivo.
+        assertTrue(texto.contains("10:42:13 (expulsado)"), texto);
+        assertTrue(texto.contains("Expulsado a las 10:42 · Motivo: Copia o plagio"), texto);
     }
 
     @Test
@@ -360,8 +417,9 @@ class ActaExamenServiceTests {
         byte[] pdf = service.generarActa(20);
         String texto = new PdfTextExtractor(new PdfReader(pdf)).getTextFromPage(1).replaceAll("\\s+", " ");
 
-        // Resumen antes de la tabla (el no habilitado no cuenta), columnas, firmas y pie de la sección 12.
+        // Resumen antes de la tabla (el no habilitado cuenta como no habilitado), columnas, firmas y pie de la sección 12.
         assertTrue(texto.contains("Habilitados: 3"), texto);
+        assertTrue(texto.contains("No habilitados: 1"), texto);
         assertTrue(texto.contains("Asistieron: 1"), texto);
         assertTrue(texto.contains("Ausentes: 1"), texto);
         assertTrue(texto.contains("Expulsados: 1"), texto);
@@ -372,6 +430,9 @@ class ActaExamenServiceTests {
         assertFalse(texto.contains("Observación"), texto);
         assertTrue(texto.contains("Firma del docente"), texto);
         assertTrue(texto.contains("Firma del responsable de control"), texto);
+        // Quién hizo el control: la línea Control en los datos y la columna Registró en la tabla.
+        assertTrue(texto.contains("Control: Sin personal de control asignado"), texto);
+        assertTrue(texto.contains("Registró"), texto);
         assertTrue(texto.contains("Generada por SIGEX el"), texto);
         assertTrue(texto.contains("Página 1 de 1"), texto);
     }

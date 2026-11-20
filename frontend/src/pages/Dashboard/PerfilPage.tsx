@@ -1,23 +1,17 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
-  CircleAlert,
-  Eye,
-  EyeOff,
   IdCard,
-  KeyRound,
   LoaderCircle,
   Mail,
   Shield,
   UserRound,
-  CheckCircle2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
+import CambiarPasswordSeccion from '../../components/auth/CambiarPasswordSeccion'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
-import { PASSWORD_REQUIREMENTS, validateNewPassword } from '../../utils/passwordPolicy'
 import {
-  cambiarPassword,
   getMiPerfil,
   getPerfilDelRol,
   type PerfilDelRol as DatosDelRol,
@@ -44,16 +38,6 @@ export default function PerfilPage() {
     return () => { vigente = false }
   }, [recargaRol])
 
-  const [passwordActual, setPasswordActual] = useState('')
-  const [passwordNueva, setPasswordNueva] = useState('')
-  const [passwordConfirmacion, setPasswordConfirmacion] = useState('')
-  const [showActual, setShowActual] = useState(false)
-  const [showNueva, setShowNueva] = useState(false)
-  const [showConfirmacion, setShowConfirmacion] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [formError, setFormError] = useState('')
-  const [formSuccess, setFormSuccess] = useState('')
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -75,45 +59,7 @@ export default function PerfilPage() {
     }
   }, [recargaPerfil])
 
-  const handleSubmitPassword = async (event: FormEvent) => {
-    event.preventDefault()
-    setFormError('')
-    setFormSuccess('')
 
-    const errors: Record<string, string> = {}
-    if (!passwordActual.trim()) errors.passwordActual = 'La contraseña actual es obligatoria'
-    const nuevaError = validateNewPassword(passwordNueva)
-    if (nuevaError) errors.passwordNueva = nuevaError
-    if (!passwordConfirmacion.trim()) {
-      errors.passwordConfirmacion = 'Confirma la nueva contraseña'
-    } else if (passwordNueva !== passwordConfirmacion) {
-      errors.passwordConfirmacion = 'Las contraseñas no coinciden'
-    }
-    if (passwordActual && passwordNueva && passwordActual === passwordNueva) {
-      errors.passwordNueva = 'La nueva contraseña debe ser distinta a la actual'
-    }
-
-    setFieldErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
-    setSaving(true)
-    try {
-      const mensaje = await cambiarPassword({
-        passwordActual,
-        passwordNueva,
-        passwordConfirmacion,
-      })
-      setFormSuccess(mensaje)
-      setPasswordActual('')
-      setPasswordNueva('')
-      setPasswordConfirmacion('')
-      setFieldErrors({})
-    } catch (error: unknown) {
-      setFormError(error instanceof Error ? error.message : 'No se pudo cambiar la contraseña.')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const nombreCompleto = perfil
     ? `${perfil.nombre} ${perfil.apellidos}`.trim()
@@ -218,137 +164,8 @@ export default function PerfilPage() {
           ) : null}
 
 
-          <div className="mt-5 rounded-2xl border border-[#D8E3F5] bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]">
-                <KeyRound size={18} aria-hidden="true" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-[#011140]">Cambiar contraseña</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Ingresa tu contraseña actual y define una nueva.
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmitPassword} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#011140]">Contraseña actual *</label>
-                <div className="relative">
-                  <input
-                    type={showActual ? 'text' : 'password'}
-                    value={passwordActual}
-                    onChange={(e) => {
-                      setPasswordActual(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, passwordActual: '' }))
-                      setFormError('')
-                      setFormSuccess('')
-                    }}
-                    className={`w-full rounded-xl border py-2.5 pl-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${
-                      fieldErrors.passwordActual ? 'border-red-500 bg-[#FEF2F2]' : 'border-[#D8E3F5]'
-                    }`}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowActual((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7B9ACB]"
-                    aria-label={showActual ? 'Ocultar contraseña actual' : 'Mostrar contraseña actual'}
-                  >
-                    {showActual ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </div>
-                {fieldErrors.passwordActual && (
-                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.passwordActual}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#011140]">Nueva contraseña *</label>
-                <div className="relative">
-                  <input
-                    type={showNueva ? 'text' : 'password'}
-                    value={passwordNueva}
-                    onChange={(e) => {
-                      setPasswordNueva(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, passwordNueva: '' }))
-                      setFormError('')
-                      setFormSuccess('')
-                    }}
-                    className={`w-full rounded-xl border py-2.5 pl-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${
-                      fieldErrors.passwordNueva ? 'border-red-500 bg-[#FEF2F2]' : 'border-[#D8E3F5]'
-                    }`}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNueva((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7B9ACB]"
-                    aria-label={showNueva ? 'Ocultar nueva contraseña' : 'Mostrar nueva contraseña'}
-                  >
-                    {showNueva ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </div>
-                <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_REQUIREMENTS}</p>
-                {fieldErrors.passwordNueva && (
-                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.passwordNueva}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#011140]">Confirmar nueva contraseña *</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmacion ? 'text' : 'password'}
-                    value={passwordConfirmacion}
-                    onChange={(e) => {
-                      setPasswordConfirmacion(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, passwordConfirmacion: '' }))
-                      setFormError('')
-                      setFormSuccess('')
-                    }}
-                    className={`w-full rounded-xl border py-2.5 pl-3 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-[#0439D9] ${
-                      fieldErrors.passwordConfirmacion ? 'border-red-500 bg-[#FEF2F2]' : 'border-[#D8E3F5]'
-                    }`}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmacion((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7B9ACB]"
-                    aria-label={showConfirmacion ? 'Ocultar confirmación' : 'Mostrar confirmación'}
-                  >
-                    {showConfirmacion ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </button>
-                </div>
-                {fieldErrors.passwordConfirmacion && (
-                  <p className="mt-1 text-[11px] text-red-500">{fieldErrors.passwordConfirmacion}</p>
-                )}
-              </div>
-
-              {formError && (
-                <div className="flex items-start gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3 text-xs text-[#B91C1C]">
-                  <CircleAlert size={16} className="mt-0.5 shrink-0" />
-                  <p>{formError}</p>
-                </div>
-              )}
-
-              {formSuccess && (
-                <div className="flex items-start gap-2 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] p-3 text-xs text-[#166534]">
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-                  <p>{formSuccess}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={saving || loadingPerfil || Boolean(perfilError)}
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#0439D9] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                {saving ? 'Guardando...' : 'Actualizar contraseña'}
-              </button>
-            </form>
-          </div>
+          {/* Cambiar contraseña: el mismo formulario que el estudiante. */}
+          <div className="mt-5"><CambiarPasswordSeccion /></div>
         </section>
         <MobileBottomNav />
       </div>

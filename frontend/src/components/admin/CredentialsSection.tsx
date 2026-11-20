@@ -1,5 +1,5 @@
 import type { RegisterUserFormState, Rol } from '../../types/usuario.types';
-import { FIELD_LIMITS } from '../../utils/validators';
+import { DOMINIO_PERSONAL, FIELD_LIMITS } from '../../utils/validators';
 import RoleSelector from './RoleSelector';
 
 interface CredentialsSectionProps {
@@ -57,28 +57,27 @@ export default function CredentialsSection({
             onChange={(e) => onChange('email', e.target.value)}
             onBlur={() => handleBlurWithError('email')}
             onKeyDown={handleEnter}
-            placeholder="usuario@est.umss.edu"
+            placeholder="usuario@umss.edu"
             maxLength={FIELD_LIMITS.email.max}
-            className="w-full text-xs border border-gray-300 rounded-md py-2.5 pl-3 pr-28 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
+            className="w-full text-xs border border-gray-300 rounded-md py-2.5 pl-3 pr-36 focus:outline-none focus:ring-1 focus:ring-[#E1ECFF] transition-colors"
           />
           
-          {/* Quitamos el 'form.email.length > 0' para que sea permanente */}
+          {/* Aquí se registra al personal: se sugiere su dominio, pero un correo completo de otro dominio UMSS se acepta. */}
           {!form.email.includes('@') && (
             <button
               type="button"
-              onMouseDown={(e) => {
-                e.preventDefault(); 
-                onChange('email', `${form.email}@est.umss.edu`);
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#E1ECFF] px-2 py-1 text-[10px] font-bold text-[#0439D9] hover:bg-[#D0E2FF]"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onChange('email', `${form.email.trim()}@${DOMINIO_PERSONAL}`)}
+              aria-label={`Completar con @${DOMINIO_PERSONAL} (personal)`}
+              className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1 rounded bg-[#E1ECFF] px-2 py-1 text-[10px] font-bold text-[#0439D9] hover:bg-[#D0E2FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/40"
             >
-              @est.umss.edu
+              @{DOMINIO_PERSONAL}<span className="font-medium text-[#45628D]">· Personal</span>
             </button>
           )}
         </div>
 
         <p className="hidden text-gray-600 text-xs sm:block">
-          Dominio permitido: @est.umss.edu o @umss.edu.bo · Máximo {FIELD_LIMITS.email.max} caracteres
+          Personal: @umss.edu (también se aceptan @umss.edu.bo y @est.umss.edu) · Máximo {FIELD_LIMITS.email.max} caracteres
         </p>
       </div>
 

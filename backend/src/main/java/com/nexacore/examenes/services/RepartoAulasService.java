@@ -87,8 +87,10 @@ public class RepartoAulasService {
         List<Candidato> candidatos = asistencias.stream().map(a -> {
             Estudiante e = a.getEstudiante();
             Integer aulaIngreso = a.getFechaHoraIngreso() != null ? a.getIdAmbienteIngreso() : null;
+            // Regla de negocio (2.º test run): el aforo se llena solo con los habilitados. Los no habilitados y los
+            // pendientes no ocupan lugar (no pueden entrar); el pendiente recibe aula cuando lo habilitan.
             return new Candidato(e.getId(), e.getApellidos(), e.getNombre(),
-                    Boolean.FALSE.equals(a.getHabilitado()), aulaIngreso);
+                    !Boolean.TRUE.equals(a.getHabilitado()), aulaIngreso);
         }).toList();
         List<Aula> aulas = aulasDe(examen);
         // Con una sola aula el modo no cambia nada: todos van a ella.

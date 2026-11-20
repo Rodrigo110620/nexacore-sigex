@@ -73,6 +73,10 @@ public class NotificacionService {
     public static final String CAMBIO_HABILITACION = "HABILITACION";
     public static final String CAMBIO_EXAMEN = "EXAMEN";
     public static final String CAMBIO_FOTO = "FOTO";
+    /** Alta, edición, importación o activación de cuenta de estudiantes: recargan las listas de estudiantes. */
+    public static final String CAMBIO_ESTUDIANTE = "ESTUDIANTE";
+    /** Alta, edición, estado o importación de usuarios del personal: recarga la lista de usuarios. */
+    public static final String CAMBIO_USUARIO = "USUARIO";
 
     /** Evento "cambio": qué cambió y de qué examen o estudiante (null si es general). */
     public record Cambio(String tipo, Integer idExamen, Integer idEstudiante) {}
@@ -138,6 +142,21 @@ public class NotificacionService {
         if (idAutor != null) {
             marcar(n.getId(), idAutor);
         }
+        alConfirmar(() -> difundir(n));
+    }
+
+    /** Notificación para un solo usuario (p. ej. la respuesta de la mesa de ayuda); se envía al confirmar. */
+    @Transactional
+    public void publicarPara(Integer idDestinatario, String tipo, String titulo, String detalle, String enlace) {
+        if (idDestinatario == null) return;
+        Notificacion n = new Notificacion();
+        n.setTipo(tipo);
+        n.setTitulo(recortar(titulo, 200));
+        n.setDetalle(detalle == null ? null : recortar(detalle, 500));
+        n.setEnlace(enlace);
+        n.setIdDestinatario(idDestinatario);
+        n.setCreadaEn(LocalDateTime.now());
+        notificacionRepository.save(n);
         alConfirmar(() -> difundir(n));
     }
 
@@ -234,6 +253,14 @@ public class NotificacionService {
     private void difundir(Notificacion n) {
         Set<Integer> docentesDelExamen = new HashSet<>();
         for (Suscripcion s : suscripciones) {
+            // Para una sola persona: solo a ella (aunque sea estudiante: su portal muestra el aviso).
+            if (n.getIdDestinatario() != null) {
+                if (s.idUsuario().equals(n.getIdDestinatario())) {
+                    enviar(s, SseEmitter.event().name("notificacion").id(String.valueOf(n.getId()))
+                            .data(respuesta(n, false), MediaType.APPLICATION_JSON));
+                }
+                continue;
+            }
             if (s.esEstudiante() || s.idUsuario().equals(n.getIdAutor())) {
                 continue;
             }
@@ -290,6 +317,7 @@ public class NotificacionService {
     }
 
     private boolean puedeVer(Notificacion n, Integer idUsuario, boolean veTodo) {
+        if (n.getIdDestinatario() != null) return n.getIdDestinatario().equals(idUsuario);
         return veTodo || (n.getIdExamen() != null && (examenRepository.perteneceADocente(n.getIdExamen(), idUsuario)
                 || examenControlRepository.estaAsignado(n.getIdExamen(), idUsuario)));
     }

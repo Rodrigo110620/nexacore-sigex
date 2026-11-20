@@ -1,11 +1,13 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, CalendarClock, CalendarDays, ChevronDown, Clock3, GraduationCap, History, MapPin, ShieldCheck } from 'lucide-react'
+import { ArrowRight, CalendarClock, CalendarDays, ChevronDown, Clock3, GraduationCap, History, MapPin, Search, ShieldCheck, X } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import CronometroExamen from '../../components/examenes/CronometroExamen'
 import { BarraDegradado } from '../../components/inicio/Graficas'
 import ErrorCarga from '../../components/ui/ErrorCarga'
+import TablePagination from '../../components/users/TablePagination'
+import FiltroSelect from '../../components/ui/FiltroSelect'
 import { useAuth } from '../../context/AuthContext'
 import usePanelControl from '../../hooks/usePanelControl'
 import useResumenesExamenes from '../../hooks/useResumenesExamenes'
@@ -13,6 +15,7 @@ import type { ResumenEstudiantes } from '../../services/controlExamenService'
 import type { ExamenDto } from '../../services/examenService'
 import { personalDelExamen } from '../../services/personalControlService'
 import { addMinutes, estadoDelExamen, etiquetaAulas, fechaLocal, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
+import { coincide } from '../../utils/buscar'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje } from '../../utils/inicio'
 import { registraControl, tienePermiso } from '../../utils/permisos'
 import { aperturaControl } from '../../utils/tiempoExamen'
@@ -50,8 +53,18 @@ export default function ControlHoyPage() {
   const enHistorial = parametros.get('vista') === 'historial'
   const cambiarVista = (historial: boolean) => setParametros(historial ? { vista: 'historial' } : {}, { replace: true })
   const pasados = useMemo(() => unicos.filter((e) => e.fecha < hoy).reverse(), [unicos, hoy])
-  const [verPasados, setVerPasados] = useState(POR_PAGINA_HISTORIAL)
-  const pasadosVisibles = pasados.slice(0, verPasados)
+  const [paginaHistorial, setPaginaHistorial] = useState(0)
+  // Buscador (materia, docente, aula o grupo) y fecha: el historial crece semana tras semana.
+  const [buscar, setBuscar] = useState('')
+  const [fechaHistorial, setFechaHistorial] = useState('')
+  const fechasPasadas = useMemo(() => [...new Set(pasados.map((e) => e.fecha))], [pasados])
+  const pasadosFiltrados = pasados.filter((e) => (!fechaHistorial || e.fecha === fechaHistorial)
+    && coincide(buscar, e.asignatura, e.docente, e.ambienteNombre, etiquetaAulas(e), e.grupo, e.sigla))
+  // De 10 en 10, con la misma paginación que el resto del sistema.
+  const totalPaginasHistorial = Math.max(1, Math.ceil(pasadosFiltrados.length / POR_PAGINA_HISTORIAL))
+  const paginaActualHistorial = Math.min(paginaHistorial, totalPaginasHistorial - 1)
+  const pasadosVisibles = pasadosFiltrados.slice(paginaActualHistorial * POR_PAGINA_HISTORIAL, (paginaActualHistorial + 1) * POR_PAGINA_HISTORIAL)
+  const filtrando = buscar.trim() !== '' || fechaHistorial !== ''
   const { resumenes } = useResumenesExamenes((enHistorial ? pasadosVisibles : deHoy).map((e) => e.idExamen), ahora)
   const accion = registra ? 'Iniciar control' : 'Ver control'
   // Quién está en cada examen: el control ve al docente; el docente ve a su personal de control; el admin, ambos.
@@ -95,6 +108,33 @@ export default function ControlHoyPage() {
                 <p className="text-sm text-[#627A9B]">Cuando termina el día, sus exámenes pasan aquí con su resultado de ingreso.</p>
               </section>
             ) : (
+              <>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative min-w-0 flex-1">
+                  <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#627A9B]" aria-hidden="true" />
+                  <input type="search" value={buscar} onChange={(ev) => { setBuscar(ev.target.value); setPaginaHistorial(0) }}
+                    placeholder="Buscar por materia, docente o aula…" aria-label="Buscar en el historial"
+                    className="h-11 w-full rounded-lg border border-[#B8CBEF] bg-white pl-9 pr-9 text-sm text-[#011140] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30" />
+                  {buscar && (
+                    <button type="button" onClick={() => setBuscar('')} aria-label="Limpiar búsqueda"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
+                  )}
+                </div>
+                <FiltroSelect etiqueta="Fecha" className="sm:w-60" value={fechaHistorial} onChange={(v) => { setFechaHistorial(v); setPaginaHistorial(0) }}>
+                  <option value="">Todas las fechas</option>
+                  {fechasPasadas.map((f) => <option key={f} value={f}>{DIAS_LARGOS[new Date(`${f}T00:00:00`).getDay()]} {formatFecha(f)}</option>)}
+                </FiltroSelect>
+              </div>
+              {pasadosFiltrados.length === 0 ? (
+                <section className={`${TARJETA} flex flex-col items-center gap-2 p-8 text-center`}>
+                  <Search size={26} className="text-[#0439D9]" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-[#011140]">Sin resultados para los filtros aplicados.</p>
+                  {filtrando && (
+                    <button type="button" onClick={() => { setBuscar(''); setFechaHistorial('') }}
+                      className="text-sm font-semibold text-[#0439D9] hover:underline">Quitar filtros</button>
+                  )}
+                </section>
+              ) : (
               <section aria-label="Historial de exámenes" className={`${TARJETA} overflow-hidden`}>
                 <div aria-hidden="true" className={`${COLUMNAS} hidden border-b border-[#EEF2F7] bg-[#F8FAFF] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#627A9B] xl:grid`}>
                   <span>Estado</span><span>Examen</span><span>Horario · Aula</span><span>Ingreso</span><span /><span />
@@ -111,13 +151,13 @@ export default function ControlHoyPage() {
                     </Fragment>
                   ))}
                 </ul>
-                {pasados.length > verPasados && (
-                  <button type="button" onClick={() => setVerPasados((n) => n + POR_PAGINA_HISTORIAL)}
-                    className="w-full border-t border-[#EEF2F7] px-4 py-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F8FAFF]">
-                    Ver más ({pasados.length - verPasados} restantes)
-                  </button>
-                )}
+                <div className="border-t border-[#EEF2F7] px-3 py-2">
+                  <TablePagination page={paginaActualHistorial} pageSize={POR_PAGINA_HISTORIAL} totalRecords={pasadosFiltrados.length}
+                    totalPages={totalPaginasHistorial} onPageChange={setPaginaHistorial} itemLabel="exámenes del historial" compact />
+                </div>
               </section>
+              )}
+              </>
             )
           )
           : <>
@@ -176,7 +216,7 @@ export default function ControlHoyPage() {
 }
 
 // Lista: columnas en escritorio; en celular cada fila en dos o tres líneas (examen y botón arriba).
-const POR_PAGINA_HISTORIAL = 15
+const POR_PAGINA_HISTORIAL = 10
 const COLUMNAS = 'xl:grid xl:grid-cols-[104px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_112px_150px] xl:items-center xl:gap-x-4'
 const ESTADO = {
   'en-curso': { texto: 'En curso', clase: 'bg-[#DCFCE7] text-[#15803D]' },

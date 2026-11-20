@@ -47,6 +47,29 @@ it.each([
   }
 })
 
+it('un estudiante que ya marcó salida no muestra los botones de expulsar ni reasignar', () => {
+  localStorage.setItem('token', 'test')
+  localStorage.setItem('roles', JSON.stringify(['ADMIN']))
+  const { container } = render(
+    <AuthProvider>
+      <MemoryRouter>
+        <EstudiantesExamenLista
+          idExamen={20}
+          examen="Ingeniería · Aula 201"
+          datosExamen={examen}
+          estudiantes={[{ ...estudiante, ingresado: true, expulsado: false, fechaHoraSalida: '2026-11-14T15:58:00' }]}
+        />
+      </MemoryRouter>
+    </AuthProvider>,
+  )
+  for (const selector of ['table', 'ul']) {
+    const vista = within(container.querySelector(selector)!)
+    expect(vista.queryByRole('button', { name: 'Expulsar' })).not.toBeInTheDocument()
+    expect(vista.queryByRole('button', { name: 'Reasignar' })).not.toBeInTheDocument()
+    expect(vista.getByText('SALIÓ 15:58')).toBeInTheDocument()
+  }
+})
+
 it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', (indice) => {
   montar()
   fireEvent.click(screen.getAllByRole('button', { name: 'Expulsar' })[indice])
@@ -55,7 +78,7 @@ it.each([0, 1])('abre y cancela desde la vista %s; un motivo vacío no envía', 
   expect(within(modal).getByText('Lucía Aguilar · 2026001 · Ingeniería')).toBeInTheDocument()
   expect(within(modal).getByText('Entre 10 y 200 caracteres, con palabras que expliquen la expulsión.')).toBeInTheDocument()
   expect(within(modal).getByRole('group', { name: 'Motivos frecuentes' })).toBeInTheDocument()
-  expect(within(modal).getByText(/La expulsión queda registrada con la fecha y hora del servidor/)).toBeInTheDocument()
+  expect(within(modal).getByText(/La expulsión queda registrada con la hora del servidor y tu nombre. Se puede anular después/)).toBeInTheDocument()
   fireEvent.change(within(modal).getByRole('textbox'), { target: { value: '   ' } })
   expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)

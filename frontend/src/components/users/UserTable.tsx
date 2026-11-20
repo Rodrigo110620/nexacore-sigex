@@ -1,4 +1,6 @@
 import { Ban, LockOpen, Pencil } from 'lucide-react'
+import { claseFilaViva, useFilasVivasActuales } from '../../hooks/useFilaViva'
+import { MarcaFilaViva } from '../ui/FilaViva'
 import RoleBadge from './RoleBadge'
 import StatusBadge from './StatusBadge'
 import UserAvatar from './UserAvatar'
@@ -12,6 +14,7 @@ interface UserTableProps {
 }
 
 export default function UserTable({ users, onEditClick, onToggleBlockClick }: UserTableProps) {
+  const vivas = useFilasVivasActuales()
   return (
     <div className="max-w-full overflow-x-auto rounded-lg border border-[#D8E3F5] bg-white">
       <table className="w-full min-w-[760px] text-left">
@@ -31,12 +34,12 @@ export default function UserTable({ users, onEditClick, onToggleBlockClick }: Us
             const bloquear = puedeBloquear(user)
             const accion = bloquear ? 'Bloquear' : 'Desbloquear'
             return (
-            <tr key={user.id}>
+            <tr key={user.id} className={`transition-colors hover:bg-[#F8FAFF] ${claseFilaViva(vivas.get(Number(user.id)))}`}>
               <th scope="row" className="px-5 py-3 font-normal">
                 <div className="flex items-center gap-3">
                   <UserAvatar user={user} />
                   <span>
-                    <span className="block font-semibold">{user.nombre} {user.apellidos}</span>
+                    <span className="block font-semibold">{user.nombre} {user.apellidos}<MarcaFilaViva estado={vivas.get(Number(user.id))} /></span>
                     <span className="mt-1 block text-xs text-gray-500">ID: {user.id}</span>
                   </span>
                 </div>

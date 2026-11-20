@@ -127,7 +127,15 @@ public class MesaAyudaService {
         auditoriaService.registrar("AYUDA_ATENDIDA", AuditoriaService.datos("nombre", s.getNombre(), "correo", s.getCorreo(),
                 "tipo", TIPOS.getOrDefault(s.getTipo(), s.getTipo()), "respuesta", texto));
         notificacionService.emitirCambio("AYUDA", null, null);
+        // Si escribió con sesión, también le llega a su campana (o a su portal, si es estudiante).
+        notificacionService.publicarPara(s.getIdUsuario(), Notificacion.AYUDA_RESPONDIDA, "La mesa de ayuda respondió tu consulta",
+                texto != null ? recortarRespuesta(texto) + " · Te la enviamos también a " + s.getCorreo() + "."
+                        : "Tu consulta fue marcada como atendida.", null);
         return respuesta(s);
+    }
+
+    private static String recortarRespuesta(String texto) {
+        return texto.length() <= 300 ? texto : texto.substring(0, 297) + "…";
     }
 
     private SolicitudAyudaResponse respuesta(SolicitudAyuda s) {

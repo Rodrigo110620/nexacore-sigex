@@ -81,9 +81,12 @@ export default function TablePagination({
           onClick={() => onPageChange(currentPage - 1)}
           disabled={disabled || isFirstPage}
           aria-label="Página anterior"
-          className={compact
+          // En la primera página no hay «Anterior»: queda invisible (conserva su lugar para que nada salte).
+          aria-hidden={isFirstPage || undefined}
+          tabIndex={isFirstPage ? -1 : undefined}
+          className={`${isFirstPage ? 'invisible ' : ''}${compact
             ? 'inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#F4F5F7] text-[#627A9B] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50'
-            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}
+            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}`}
         >
           <ChevronLeft size={compact ? 13 : 17} aria-hidden="true" />
           {!compact && <span>Anterior</span>}
@@ -123,9 +126,12 @@ export default function TablePagination({
           onClick={() => onPageChange(currentPage + 1)}
           disabled={disabled || isLastPage}
           aria-label="Página siguiente"
-          className={compact
+          // En la última página no hay «Siguiente».
+          aria-hidden={isLastPage || undefined}
+          tabIndex={isLastPage ? -1 : undefined}
+          className={`${isLastPage ? 'invisible ' : ''}${compact
             ? 'inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#F4F5F7] text-[#627A9B] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] disabled:cursor-not-allowed disabled:opacity-50'
-            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}
+            : 'inline-flex h-10 items-center justify-center gap-0.5 rounded-md border border-[#B8CBEF] bg-white px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#E9F1FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:h-11 sm:px-3 sm:text-sm'}`}
         >
           {!compact && <span>Siguiente</span>}
           <ChevronRight size={compact ? 13 : 17} aria-hidden="true" />

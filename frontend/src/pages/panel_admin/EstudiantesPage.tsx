@@ -1,6 +1,9 @@
 import { BUSQUEDA_MAX, sanearBusqueda } from '../../utils/habilitacionValidators'
+import { useFilasVivas } from '../../hooks/useFilasNuevas'
+import { FilasVivas, NumeroVivo } from '../../components/ui/FilaViva'
+import useEnVivo from '../../hooks/useEnVivo'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, UserPlus } from 'lucide-react'
+import { CheckCircle2, CircleAlert, ImageUp, LoaderCircle, Search, UserPlus, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -11,7 +14,7 @@ import ImportarEstudiantesModal from '../../components/estudiantes/ImportarEstud
 import VistaPreviaDescarga, { type FormatoDescarga } from '../../components/ui/VistaPreviaDescarga'
 import MenuImportarExportar from '../../components/ui/MenuImportarExportar'
 import { obtenerArchivo } from '../../services/descargas'
-import { getCarreras, getFacultades, getMateriasDocente } from '../../services/estudianteService'
+import { getCarreras, getEstudiantes, getFacultades, getMateriasDocente } from '../../services/estudianteService'
 import TablePagination from '../../components/users/TablePagination'
 import EmptyState from '../../components/users/EmptyState'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
@@ -41,7 +44,11 @@ export default function EstudiantesPage() {
   const puedeDescargarLista = tienePermiso(auth, 'ESTUDIANTES_GESTIONAR', 'REPORTES_EXPORTAR')
   const [fotosPorRevisar, setFotosPorRevisar] = useState(0)
 
-  const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(initialFilters)
+  // Con ?buscar=<código SIS> en la dirección (p. ej. desde un enlace), la lista abre ya filtrada.
+  const [draftFilters, setDraftFilters] = useState<EstudianteFilterParams>(() => {
+    const buscar = new URLSearchParams(window.location.search).get('buscar')
+    return buscar ? { ...initialFilters, search: buscar } : initialFilters
+  })
   // DOCENTE: elige una card de materia y grupo; la lista muestra solo ese grupo.
   const [grupo, setGrupo] = useState<GrupoElegido>(TODOS_MIS_ESTUDIANTES)
   const elegirGrupo = (g: GrupoElegido) => {
@@ -64,7 +71,19 @@ export default function EstudiantesPage() {
     updateFilters,
     changePage,
     retry,
+    recargarEnSilencio,
   } = useEstudiantes()
+  // En vivo: altas, ediciones, importaciones, cuentas activadas y fotos nuevas aparecen sin recargar la página.
+  const [enVivo, setEnVivo] = useState(0)
+  useEnVivo((c) => c.tipo === 'ESTUDIANTE' || c.tipo === 'FOTO', () => { recargarEnSilencio(); setEnVivo((n) => n + 1) })
+
+  // En vivo: las filas que llegan o cambian (cuenta activada, foto, datos) se resaltan unos segundos.
+  // Mientras carga no hay lista: así la lista vacía de antes de cargar no cuenta como base (todo saldría «Nuevo»).
+  const filasVivas = useMemo(() => (loading ? undefined : estudiantes.map((e) => ({
+    id: e.id,
+    firma: JSON.stringify([e.nombre, e.apellidos, e.ci, e.codigoSis, e.telefono, e.estadoMatricula, e.tieneCuenta, e.fotoUrl, e.carreras?.map((c) => c.idCarrera)]),
+  }))), [estudiantes, loading])
+  const vivas = useFilasVivas(filasVivas, JSON.stringify([data.pagina, debouncedSearch, draftFilters]))
 
   const handleViewClick = (estudiante: EstudianteListItem) => {
     setFichaEstudiante(estudiante)
@@ -82,8 +101,26 @@ export default function EstudiantesPage() {
       idParalelo: draftFilters.idParalelo,
       idFacultad: draftFilters.idFacultad,
       idCarrera: draftFilters.idCarrera,
+      cuenta: draftFilters.cuenta,
     })
-  }, [debouncedSearch, draftFilters.idMateria, draftFilters.idParalelo, draftFilters.idCarrera, draftFilters.idFacultad, updateFilters])
+  }, [debouncedSearch, draftFilters.idMateria, draftFilters.idParalelo, draftFilters.idCarrera, draftFilters.idFacultad, draftFilters.cuenta, updateFilters])
+
+  // Cuántos activaron su cuenta y cuántos no, con la misma búsqueda y filtros (sin el de cuenta).
+  const [conteoCuentas, setConteoCuentas] = useState<{ todos: number; activada: number; sinActivar: number } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    const base = {
+      page: 0, size: 1, search: debouncedSearch.trim(), idFacultad: draftFilters.idFacultad, idCarrera: draftFilters.idCarrera,
+      idMateria: draftFilters.idMateria, idParalelo: draftFilters.idParalelo,
+    }
+    Promise.all([
+      getEstudiantes(base, controller.signal),
+      getEstudiantes({ ...base, cuenta: 'ACTIVADA' }, controller.signal),
+      getEstudiantes({ ...base, cuenta: 'SIN_ACTIVAR' }, controller.signal),
+    ]).then(([t, a, s]) => setConteoCuentas({ todos: t.totalRegistros, activada: a.totalRegistros, sinActivar: s.totalRegistros }))
+      .catch(() => { if (!controller.signal.aborted) setConteoCuentas(null) })
+    return () => controller.abort()
+  }, [debouncedSearch, draftFilters.idFacultad, draftFilters.idCarrera, draftFilters.idMateria, draftFilters.idParalelo, data.totalRegistros, enVivo])
 
   useEffect(() => {
     if (!esAdmin) return
@@ -92,7 +129,7 @@ export default function EstudiantesPage() {
       .then((lista) => { if (!cancelado) setFotosPorRevisar(lista.length) })
       .catch(() => { /* el acceso sigue disponible aunque no se sepa cuántas hay */ })
     return () => { cancelado = true }
-  }, [esAdmin])
+  }, [esAdmin, enVivo])
 
   const handleFiltersChange = (next: EstudianteFilterParams) => setDraftFilters(next)
 
@@ -134,7 +171,7 @@ export default function EstudiantesPage() {
     obtenerArchivo(`/estudiantes/planilla.${f}`, filtrosDescarga, `planilla_estudiantes.${f}`), [filtrosDescarga])
   const obtenerListaCsv = useCallback(() => obtenerArchivo('/estudiantes/planilla.csv', filtrosDescarga, 'planilla_estudiantes.csv'), [filtrosDescarga])
 
-  const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera)
+  const hasActiveFilters = Boolean(draftFilters.idMateria || draftFilters.idParalelo || draftFilters.search.trim() || draftFilters.idFacultad || draftFilters.idCarrera || draftFilters.cuenta)
   const filtersDisabled = error?.kind === 'unauthorized' || error?.kind === 'forbidden'
 
   return (
@@ -158,7 +195,7 @@ export default function EstudiantesPage() {
               <div className="flex flex-col gap-3 min-[960px]:flex-row min-[960px]:flex-wrap min-[960px]:items-end min-[1360px]:flex-nowrap">
                 <div className="min-w-0 flex-1 min-[960px]:basis-full min-[1360px]:basis-auto">
                   {soloSusEstudiantes ? (
-                    <BuscadorDelGrupo titulo={grupo.titulo} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
+                    <BuscadorDelGrupo titulo={grupo.titulo} total={loading ? undefined : data.totalRegistros} value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />
                   ) : <EstudianteFilters value={draftFilters} onChange={handleFiltersChange} disabled={filtersDisabled} />}
                 </div>
                 <div className={`order-first grid ${puedeEditar ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-2'} gap-2 min-[960px]:order-last min-[960px]:ml-auto min-[960px]:flex min-[960px]:shrink-0`}>
@@ -171,6 +208,7 @@ export default function EstudiantesPage() {
                     >
                       <ImageUp size={16} aria-hidden="true" className="shrink-0 text-[#0439D9]" />
                       <span className="min-[960px]:hidden">Revisión de fotos</span>
+                      <span className="hidden min-[960px]:inline">Fotos</span>
                       {fotosPorRevisar > 0 && (
                         <span aria-label={`${fotosPorRevisar} por revisar`} className="rounded-full bg-[#B45309] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                           {fotosPorRevisar}
@@ -230,6 +268,24 @@ export default function EstudiantesPage() {
               onClose={() => setFichaEstudiante(null)}
             />
 
+            {/* Quiénes activaron su cuenta: sin cuenta no tienen su QR para el examen. */}
+            <div role="tablist" aria-label="Cuenta del estudiante" className="mb-3 grid grid-cols-3 border-b border-[#D8E3F5] sm:flex sm:gap-2">
+              {([['', 'Todos', conteoCuentas?.todos], ['ACTIVADA', 'Cuenta activada', conteoCuentas?.activada], ['SIN_ACTIVAR', 'Sin activar', conteoCuentas?.sinActivar]] as const).map(([valor, texto, n]) => {
+                const activa = (draftFilters.cuenta ?? '') === valor
+                return (
+                  <button key={texto} type="button" role="tab" aria-selected={activa}
+                    onClick={() => setDraftFilters((f) => ({ ...f, cuenta: valor }))}
+                    className={`-mb-px inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-2 text-xs font-semibold transition-colors sm:px-3 sm:text-sm ${
+                      activa ? 'border-[#0439D9] text-[#0439D9]' : 'border-transparent text-[#45628D] hover:border-[#B8CBEF] hover:text-[#011140]'}`}>
+                    {texto}
+                    {n != null && (
+                      <span className={`rounded-full px-1.5 text-[11px] tabular-nums ${activa ? 'bg-[#0439D9] text-white' : valor === 'SIN_ACTIVAR' && n > 0 ? 'bg-[#FEF3C7] text-[#B45309]' : 'bg-[#EDF2FE] text-[#45628D]'}`}><NumeroVivo valor={n} /></span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="flex flex-col">
               {loading ? (
                 <div role="status" aria-live="polite" className="rounded-lg border border-[#B8CBEF] bg-[#E9F1FF] px-6 py-12 text-center text-[#011140]">
@@ -258,8 +314,9 @@ export default function EstudiantesPage() {
                   )}
                 </div>
               ) : estudiantes.length > 0 ? (
-                <div className="min-[960px]:rounded-none">                  {/* Móvil */}
-                  <div className="min-[960px]:hidden">
+                <FilasVivas marcadas={vivas}>
+                <div className="min-[960px]:rounded-none">                  {/* Móvil y laptops chicas: la tabla necesita 920 px, así que hasta 1100 px van tarjetas. */}
+                  <div className="min-[1100px]:hidden">
                     <EstudianteCardList
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
@@ -269,7 +326,7 @@ export default function EstudiantesPage() {
                     />
                   </div>
                   {/* Desktop */}
-                  <div className="hidden min-[960px]:block">
+                  <div className="hidden min-[1100px]:block">
                     <EstudianteTable
                       estudiantes={estudiantes}
                       onViewClick={handleViewClick}
@@ -288,8 +345,9 @@ export default function EstudiantesPage() {
                     itemLabel="estudiantes matriculados"
                   />
                 </div>
+                </FilasVivas>
               ) : (
-                <EmptyState message={hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes para mostrar.'} />
+                <EmptyState message={draftFilters.cuenta === 'SIN_ACTIVAR' && !draftFilters.search.trim() ? 'Todos los estudiantes activaron su cuenta.' : hasActiveFilters ? 'No se encontraron estudiantes con los filtros seleccionados.' : 'No hay estudiantes para mostrar.'} />
               )}
             </div>
           </div>
@@ -300,21 +358,35 @@ export default function EstudiantesPage() {
   )
 }
 
-/** DOCENTE: el título del grupo elegido en las cards y el buscador dentro de ese grupo. */
-function BuscadorDelGrupo({ titulo, value, onChange, disabled }: {
+/** DOCENTE: el título del grupo elegido (con cuántos son) y el buscador dentro de ese grupo. */
+function BuscadorDelGrupo({ titulo, total, value, onChange, disabled }: {
   titulo: string
+  total?: number
   value: EstudianteFilterParams
   onChange: (value: EstudianteFilterParams) => void
   disabled?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <h2 className="text-base font-bold text-[#011140]">{titulo}</h2>
-      <label className="w-full text-xs font-semibold text-[#45628D] sm:max-w-xl sm:flex-1">
+    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex min-w-0 shrink-0 items-center gap-2.5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#E9F1FF] text-[#0439D9]"><Users size={19} aria-hidden="true" /></span>
+        <div className="min-w-0">
+          <h2 className="truncate text-[15px] font-bold leading-tight text-[#011140]">{titulo}</h2>
+          <p className="text-xs text-[#627A9B]">
+            {total == null ? 'Cargando…' : <><b className="font-semibold tabular-nums text-[#011140]"><NumeroVivo valor={total} /></b> {total === 1 ? 'estudiante' : 'estudiantes'}</>}
+          </p>
+        </div>
+      </div>
+      <label className="relative block w-full min-w-0 sm:flex-1">
         <span className="sr-only">Buscar estudiante</span>
-        <input aria-label="Buscar estudiante" value={value.search} maxLength={BUSQUEDA_MAX} disabled={disabled}
+        <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8BA0BF]" aria-hidden="true" />
+        <input aria-label="Buscar estudiante" type="search" value={value.search} maxLength={BUSQUEDA_MAX} disabled={disabled}
           placeholder="Buscar por nombre, CI o código SIS" onChange={(e) => onChange({ ...value, search: sanearBusqueda(e.target.value) })}
-          className="h-11 w-full min-w-0 rounded-md border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] disabled:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]" />
+          className="h-11 w-full min-w-0 rounded-lg border border-[#D8E3F5] bg-[#F8FAFF] pl-9 pr-9 text-sm text-[#011140] outline-none transition-colors placeholder:text-[#8BA0BF] hover:border-[#B8CBEF] focus:border-[#0439D9] focus:bg-white focus:ring-2 focus:ring-[#0439D9]/15 disabled:bg-gray-100 [&::-webkit-search-cancel-button]:hidden" />
+        {value.search && (
+          <button type="button" onClick={() => onChange({ ...value, search: '' })} aria-label="Borrar la búsqueda"
+            className="absolute right-1.5 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-[#627A9B] hover:bg-[#F1F6FF]"><X size={15} aria-hidden="true" /></button>
+        )}
       </label>
     </div>
   )

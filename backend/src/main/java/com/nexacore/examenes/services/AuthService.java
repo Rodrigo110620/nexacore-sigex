@@ -87,7 +87,7 @@ public class AuthService {
             CredencialesInvalidasException.class, CuentaBloqueadaException.class, CuentaInactivaException.class})
     public AuthResponse login(LoginRequest peticion) {
         Usuario usuario = usuarioRepository.findByEmail(peticion.email().trim().toLowerCase(Locale.ROOT))
-                .orElseThrow(CredencialesInvalidasException::new);
+            .orElseThrow(() -> new CredencialesInvalidasException("El correo no está registrado"));
 
         LocalDateTime ahora = LocalDateTime.now();
         if (usuario.getBloqueadoHasta() != null && ahora.isBefore(usuario.getBloqueadoHasta())) {
@@ -127,7 +127,7 @@ public class AuthService {
         usuario.setIntentosFallidos(intentos);
         usuario.setBloqueadoHasta(null);
         usuarioRepository.save(usuario);
-        throw new CredencialesInvalidasException();
+        throw new CredencialesInvalidasException("La contraseña es incorrecta");
     }
 
     /** Minutos que faltan, redondeados hacia arriba para no mostrar "0 minutos". */
@@ -212,6 +212,20 @@ public class AuthService {
         // correo está registrado.
         String destino = usuario.getEmail();
         EnvioDiferido.alConfirmar(() -> emailService.enviarResetPassword(destino, nombreCompleto, rawToken, resetExpirationMinutes));
+    }
+
+    /**
+     * Si el enlace de restablecimiento todavía sirve (existe, no se usó, no venció y la cuenta está activa), para
+     * mostrar «Enlace no válido» apenas se abre, antes de escribir la contraseña. No dice de quién es la cuenta.
+     */
+    @Transactional(readOnly = true)
+    public boolean enlaceResetVigente(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return false;
+        return passwordResetTokenRepository.findByTokenHashAndUsedAtIsNull(hashToken(rawToken.trim()))
+                .filter(t -> !t.getExpiresAt().isBefore(LocalDateTime.now()))
+                .map(PasswordResetToken::getUsuario)
+                .filter(u -> u != null && ESTADO_ACTIVO.equalsIgnoreCase(u.getEstado()))
+                .isPresent();
     }
 
     @Transactional

@@ -54,6 +54,16 @@ import java.util.Objects;
  */
 @Service
 public class UsuarioService {
+
+    /** Aviso en vivo para que las listas abiertas recarguen; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacionService notificacionEnVivo;
+
+    private static final String CAMBIO_USUARIO = NotificacionService.CAMBIO_USUARIO;
+
+    private void avisarEnVivo(String tipo, Integer idEstudiante) {
+        if (notificacionEnVivo != null) notificacionEnVivo.emitirCambio(tipo, null, idEstudiante);
+    }
     private static final int TAMANO_MAXIMO_PAGINA = 100;
     private static final String SIN_ROL = "SIN_ROL";
     private static final String CARACTERES = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -113,6 +123,7 @@ public class UsuarioService {
         if (usuarioRepository.existsByCi(ci)) {
             throw new CiDuplicadoException(ci);
         }
+        noEsDeUnEstudiante(email, ci);
         String passwordTemporal = generarPasswordTemporal();
         Usuario usuario = new Usuario();
         usuario.setNombre(normalizarNombre(request.nombre()));
@@ -141,6 +152,7 @@ public class UsuarioService {
         boolean enviado = emailService.enviarPasswordTemporal(usuario.getEmail(), nombreCompleto, passwordTemporal);
         auditoriaService.registrar("USUARIO_CREADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
                 "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -152,6 +164,21 @@ public class UsuarioService {
                         : "Usuario registrado, pero el correo está deshabilitado: no se enviaron credenciales."
         );
     }
+    /**
+     * El CI y el correo de un estudiante son suyos: si una cuenta del personal los usara, el estudiante ya no podría
+     * activar la suya («Ya existe una cuenta con tu correo o tu CI»). null = no se revisa ese dato.
+     */
+    private void noEsDeUnEstudiante(String email, String ci) {
+        if (email != null && estudianteRepository.existsByEmailIgnoreCase(email)) {
+            throw EmailDuplicadoException.conMensaje("El correo " + email
+                    + " es de un estudiante: no puede usarse para una cuenta del personal.");
+        }
+        if (ci != null && estudianteRepository.existsByCiIgnoreCase(ci)) {
+            throw CiDuplicadoException.conMensaje("El CI " + ci
+                    + " es de un estudiante: no puede usarse para una cuenta del personal.");
+        }
+    }
+
     /**
      * Actualiza los datos de un usuario existente.
      */
@@ -169,6 +196,8 @@ public class UsuarioService {
         if (usuarioRepository.existsByCiAndIdNot(ci, id)) {
             throw new CiDuplicadoException(ci);
         }
+        // Solo si cambian: las cuentas de prueba del laboratorio ya usan correos de estudiante y se deben poder editar.
+        noEsDeUnEstudiante(usuario.getEmail().equalsIgnoreCase(email) ? null : email, ci.equals(usuario.getCi()) ? null : ci);
         // 3. Validar el rol
         String rolNombre = request.rol().toUpperCase();
         Rol rol = buscarRolDePersonal(rolNombre);
@@ -196,6 +225,7 @@ public class UsuarioService {
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
         auditoriaService.registrar("USUARIO_EDITADO", Map.of("idUsuario", usuario.getId(), "nombre", nombreCompleto,
                 "email", usuario.getEmail(), "rol", rolNombre, "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return new RegisterUserResponse(
                 usuario.getId(),
                 nombreCompleto,
@@ -228,6 +258,7 @@ public class UsuarioService {
         auditoriaService.registrar(activo ? "USUARIO_DESBLOQUEADO" : "USUARIO_BLOQUEADO",
                 Map.of("idUsuario", usuario.getId(), "nombre", usuario.getNombre() + " " + usuario.getApellidos(),
                         "email", usuario.getEmail(), "estado", usuario.getEstado()));
+        avisarEnVivo(CAMBIO_USUARIO, null);
         return aListResponse(usuario);
     }
 

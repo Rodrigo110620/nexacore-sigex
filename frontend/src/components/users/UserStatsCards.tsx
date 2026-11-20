@@ -1,3 +1,4 @@
+import { NumeroVivo } from '../ui/FilaViva'
 import { Users, Shield, BookOpen, Eye } from 'lucide-react'
 import type { UserStats } from '../../types/totalUser'
 
@@ -59,7 +60,7 @@ export default function UserStatsCards({ stats }: UserStatsCardsProps) {
         return (
           <article
             key={card.label}
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm sm:gap-4 sm:p-4"
+            className="flex min-w-0 items-center gap-2 rounded-xl border border-[#D8E3F5] bg-white p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-4 sm:p-4"
           >
             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg sm:h-12 sm:w-12 ${card.iconBg}`}>
               <Icon className={card.iconColor} size={19} aria-hidden="true" />
@@ -70,7 +71,7 @@ export default function UserStatsCards({ stats }: UserStatsCardsProps) {
               </p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-xl font-bold text-[#011140] sm:text-2xl">
-                  {card.value}
+                  <NumeroVivo valor={card.value} />
                 </span>
                 <span className={`truncate text-[10px] font-semibold sm:text-xs ${card.sublabelColor}`}>
                   {card.sublabel}

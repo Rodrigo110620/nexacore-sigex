@@ -148,6 +148,8 @@ export const validateDocumento = (value: string): string => {
   return ''
 }
 export const ALLOWED_EMAIL_DOMAIN = 'est.umss.edu'
+/** Dominio del personal (ADMIN, DOCENTE, CONTROL): el que se sugiere al registrar un usuario. */
+export const DOMINIO_PERSONAL = 'umss.edu'
 
 /** Personal: @umss.edu.bo. Estudiantes: @est.umss.edu / @est.umss.edu.bo. */
 const INSTITUTIONAL_EMAIL_REGEX =
@@ -163,6 +165,8 @@ const validateInstitutionalEmailBase = (value: string): string => {
 
 /* Valida las reglas generales de correo institucional usadas por personal. */
 export const validateEmail = (value: string): string => {
+  // Sin '@' no se supone un dominio: se pide completarlo (el de personal es @umss.edu).
+  if (value.trim() && !value.includes('@')) return `Completa el dominio del correo (por ejemplo, @${DOMINIO_PERSONAL})`
   const baseError = validateInstitutionalEmailBase(value)
   if (baseError) return baseError
 
@@ -194,15 +198,33 @@ export const validateStudentEmail = (value: string, codigoSis?: string): string 
   return ''
 }
 
+/** Dominios que el login ofrece para completar: el del personal y el de los estudiantes. */
+export const DOMINIOS_LOGIN = [
+  { dominio: DOMINIO_PERSONAL, quien: 'Personal' },
+  { dominio: ALLOWED_EMAIL_DOMAIN, quien: 'Estudiante' },
+] as const
+
+/** Un código SIS (9 dígitos) solo puede ser de un estudiante. */
+const esCodigoSis = (valor: string) => /^\d{9}$/.test(valor)
+
 /**
  * Arma el correo del login a partir de lo que escribe el usuario.
- * Sin '@' se completa con el dominio institucional; con '@' se respeta
- * tal cual (la cuenta admin usa otro dominio).
+ * El código SIS solo (9 dígitos) se completa con el dominio de estudiantes; con '@' se respeta tal cual.
+ * Cualquier otro usuario sin '@' se deja igual: debe elegir su dominio (personal o estudiante).
  */
 export const buildLoginEmail = (value: string): string => {
   const trimmed = value.trim()
-  if (!trimmed || trimmed.includes('@')) return trimmed
+  if (!trimmed || trimmed.includes('@') || !esCodigoSis(trimmed)) return trimmed
   return `${trimmed}@${ALLOWED_EMAIL_DOMAIN}`
+}
+
+/** Error del correo del login: sin dominio (y sin ser código SIS) pide elegirlo en vez de suponer uno. */
+export const validateLoginEmail = (value: string): string => {
+  const trimmed = value.trim()
+  if (trimmed && !trimmed.includes('@') && !esCodigoSis(trimmed)) {
+    return 'Elige tu dominio: @umss.edu (personal) o @est.umss.edu (estudiantes)'
+  }
+  return validateEmailFormat(buildLoginEmail(value))
 }
 
 /** Formato de correo genérico (login de cuentas ya existentes). */

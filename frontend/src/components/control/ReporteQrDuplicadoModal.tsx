@@ -203,9 +203,10 @@ export default function ReporteQrDuplicadoModal({
         </header>
         <div className="report-incidence-divider" />
         {idReporte ? (
-          <div className="report-incidence-success">
+          <div className="report-incidence-success" role="status">
+            <span className="report-incidence-success-icon"><CheckCircle2 size={28} aria-hidden="true" /></span>
             <p>Incidencia #{idReporte} registrada y pendiente de revisión.</p>
-            <button onClick={onClose}>Volver a escanear</button>
+            <button type="button" onClick={onClose}>Volver a escanear</button>
           </div>
         ) : (
           <>

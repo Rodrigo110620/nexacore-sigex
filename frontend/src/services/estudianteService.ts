@@ -30,6 +30,7 @@ export async function getEstudiantes(
       idExamen: params.idExamen,
       idMateria: params.idMateria || undefined,
       idParalelo: params.idParalelo || undefined,
+      cuenta: params.cuenta || undefined,
     },
     signal,
   })

@@ -17,6 +17,7 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
     @Query("""
             SELECT n FROM Notificacion n
             WHERE n.id > :desde
+              AND (n.idDestinatario IS NULL OR n.idDestinatario = :idUsuario)
               AND NOT EXISTS (SELECT 1 FROM NotificacionLeida l
                               WHERE l.id.idNotificacion = n.id AND l.id.idUsuario = :idUsuario AND l.oculta = true)
             ORDER BY n.id DESC
@@ -29,8 +30,10 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
      */
     @Query("""
             SELECT n FROM Notificacion n
-            WHERE (n.idExamen IN (SELECT e.id.idExamen FROM Examen e WHERE e.idDocente = :idDocente)
-                   OR n.idExamen IN (SELECT c.id.idExamen FROM ExamenControl c WHERE c.id.idUsuario = :idDocente))
+            WHERE ((n.idDestinatario IS NULL
+                    AND (n.idExamen IN (SELECT e.id.idExamen FROM Examen e WHERE e.idDocente = :idDocente)
+                         OR n.idExamen IN (SELECT c.id.idExamen FROM ExamenControl c WHERE c.id.idUsuario = :idDocente)))
+                   OR n.idDestinatario = :idDocente)
               AND n.id > :desde
               AND NOT EXISTS (SELECT 1 FROM NotificacionLeida l
                               WHERE l.id.idNotificacion = n.id AND l.id.idUsuario = :idDocente AND l.oculta = true)

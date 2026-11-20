@@ -1,4 +1,5 @@
 import useTiempoExamen from '../../hooks/useTiempoExamen'
+import PuntoVivo from '../ui/PuntoVivo'
 import { ETIQUETA_FASE, type FaseExamen, type HorarioExamen } from '../../utils/tiempoExamen'
 
 const COLORES: Record<FaseExamen, { texto: string; punto: string; fondo: string }> = {
@@ -24,10 +25,11 @@ export default function EstadoExamenBadge({ examen, variante = 'punto', classNam
   const enCurso = fase === 'en_curso'
 
   const punto = (
-    <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
-      {enCurso && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22C55E] opacity-60 motion-reduce:hidden" />}
-      <span className={`relative inline-flex h-2 w-2 rounded-full ${c.punto}`} />
-    </span>
+    enCurso ? <PuntoVivo /> : (
+      <span aria-hidden="true" className="relative inline-flex h-2 w-2 shrink-0">
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${c.punto}`} />
+      </span>
+    )
   )
 
   if (variante === 'pastilla') {

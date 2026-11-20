@@ -10,5 +10,12 @@ public record AsociacionLoteResponse(
         int asociados,
         List<String> yaAsociados,
         List<String> noEncontrados,
-        List<EstudianteHabilitacionResponse> estudiantes
-) {}
+        List<EstudianteHabilitacionResponse> estudiantes,
+        /** No matriculados (inactivos): no se asocian a exámenes (2.º test run). */
+        List<String> noMatriculados
+) {
+    public AsociacionLoteResponse(int asociados, List<String> yaAsociados, List<String> noEncontrados,
+                                  List<EstudianteHabilitacionResponse> estudiantes) {
+        this(asociados, yaAsociados, noEncontrados, estudiantes, List.of());
+    }
+}

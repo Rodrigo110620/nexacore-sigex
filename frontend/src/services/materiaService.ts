@@ -23,14 +23,6 @@ export async function buscarMaterias(search: string, signal?: AbortSignal): Prom
   return data
 }
 
-/** HU#1 BUG-A01: grupos que ya pertenecen a otro docente en esta materia. */
-export async function gruposOcupadosDeMateria(idMateria: number, excluirDocente?: number): Promise<string[]> {
-  const { data } = await api.get<string[]>(`/materias/${idMateria}/grupos-ocupados`, {
-    params: excluirDocente ? { excluirDocente } : undefined,
-  })
-  return data
-}
-
 /** IMP-12: las materias del docente que inició sesión. */
 export async function misMaterias(): Promise<MateriaDto[]> {
   const { data } = await api.get<MateriaDto[]>('/materias/mias')
@@ -47,6 +39,14 @@ export interface GrupoDto {
 /** Los grupos del docente en la materia (el DOCENTE, los suyos; el ADMIN indica el docente). */
 export async function gruposDeMateria(idMateria: number, idDocente?: number | null): Promise<GrupoDto[]> {
   const { data } = await api.get<GrupoDto[]>(`/materias/${idMateria}/grupos`, { params: idDocente ? { idDocente } : undefined })
+  return data
+}
+
+/** Grupos de la materia que ya tienen otro docente (no se ofrecen al asignar grupos). exceptoDocente: el que se edita. */
+export async function gruposOcupados(idMateria: number, exceptoDocente?: number | null, signal?: AbortSignal): Promise<string[]> {
+  const { data } = await api.get<string[]>(`/materias/${idMateria}/grupos-ocupados`, {
+    params: exceptoDocente ? { exceptoDocente } : undefined, signal,
+  })
   return data
 }
 

@@ -22,6 +22,8 @@ public class Notificacion {
     public static final String FOTO_REPORTADA = "FOTO_REPORTADA";
     /** Nueva consulta en la mesa de ayuda (V57): solo la ve quien ve todas (ADMIN). */
     public static final String AYUDA = "AYUDA";
+    /** La mesa de ayuda respondió la consulta de este usuario (va solo a él). */
+    public static final String AYUDA_RESPONDIDA = "AYUDA_RESPONDIDA";
     public static final String QR_DUPLICADO = "QR_DUPLICADO";
     public static final String INTENTO_INGRESO = "INTENTO_INGRESO";
     public static final String AULA_INCORRECTA = "AULA_INCORRECTA";
@@ -63,6 +65,10 @@ public class Notificacion {
 
     @Column(name = "id_autor")
     private Integer idAutor;
+
+    /** Solo para este usuario (V59); null = para el personal según el examen. */
+    @Column(name = "id_destinatario")
+    private Integer idDestinatario;
 
     @Column(name = "creada_en", nullable = false)
     private LocalDateTime creadaEn;

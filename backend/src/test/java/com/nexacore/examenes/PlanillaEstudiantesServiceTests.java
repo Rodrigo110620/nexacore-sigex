@@ -100,7 +100,7 @@ class PlanillaEstudiantesServiceTests {
     @Test
     void laPlantillaParaImportarConservaLasColumnasConIds() {
         String plantilla = new String(service.plantillaCsv(), StandardCharsets.UTF_8);
-        assertTrue(plantilla.startsWith("\uFEFFcodigoSis;nombre;apellidos;ci;email;idFacultad;idCarrera;telefono;estadoMatricula\n"), plantilla);
+        assertTrue(plantilla.startsWith("\uFEFFcodigoSis;nombre;apellidos;idFacultad;idCarrera;ci;telefono;estadoMatricula\n"), plantilla);
         assertEquals(2, plantilla.strip().split("\n").length);
     }
 

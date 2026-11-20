@@ -1,6 +1,8 @@
 import { coincide } from '../../utils/buscar'
 import { useEffect, useState } from 'react'
 import useEnVivo from '../../hooks/useEnVivo'
+import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
+import EtiquetaNuevo from '../reportes/EtiquetaNuevo'
 import TablePagination from '../users/TablePagination'
 import ErrorCarga from '../ui/ErrorCarga'
 import { Link } from 'react-router-dom'
@@ -18,7 +20,7 @@ const ESTADO: Record<string, [string, string]> = {
  * Fotos reportadas en el control de ingreso, pendientes y resueltas, para que quede constancia en el examen. El ADMIN
  * ve todas; el DOCENTE y el CONTROL, las de sus exámenes, y pueden revisar las pendientes. Se actualiza en vivo.
  */
-export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }: { idExamen: number | null; examen?: string; buscar?: string }) {
+export default function FotosReportadasReporte({ idExamen, examen, buscar = '', desde }: { idExamen: number | null; examen?: string; buscar?: string; desde?: string }) {
   const [recarga, setRecarga] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; filas?: FilaFotoReportada[]; error?: boolean }>()
@@ -35,7 +37,10 @@ export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }
 
   const actual = resultado?.clave === clave ? resultado : resultado?.filas ? resultado : undefined
   // BUG-G04: por nombre o código SIS del estudiante.
-  const filas = (actual?.filas ?? []).filter((f) => coincide(buscar, f.estudiante, f.codigoSis))
+  // Período de Reportes (Hoy, 7 días, Este mes): por la fecha del reporte.
+  const filas = (actual?.filas ?? []).filter((f) => coincide(buscar, f.estudiante, f.codigoSis) && (!desde || f.reportadoEn >= desde))
+  // Las que llegan en vivo se resaltan unos segundos con «Nuevo».
+  const nuevas = useFilasNuevas(actual?.filas?.map((f) => f.idReporte), `${idExamen ?? 'todos'}`)
   const totalPaginas = Math.ceil(filas.length / TAMANO_PAGINA)
   const paginaActual = Math.min(pagina, Math.max(totalPaginas - 1, 0))
   const visibles = filas.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA)
@@ -65,9 +70,9 @@ export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }
                 {visibles.map((f) => {
                   const [texto, clase] = ESTADO[f.estado] ?? [f.estado, 'bg-[#EEF2F6] text-[#475569]']
                   return (
-                    <tr key={f.idReporte}>
+                    <tr key={f.idReporte} className={nuevas.has(f.idReporte) ? CLASE_FILA_NUEVA : undefined}>
                       <td className="px-3 py-2.5 tabular-nums text-[#011140]">{fechaHoraNumerica(f.reportadoEn)}</td>
-                      <td className="px-3 py-2.5 font-semibold text-[#011140]">{f.estudiante}<span className="block text-[11px] font-normal text-[#627A9B]">{f.codigoSis ?? '—'}</span></td>
+                      <td className="px-3 py-2.5 font-semibold text-[#011140]">{f.estudiante}{nuevas.has(f.idReporte) && <EtiquetaNuevo />}<span className="block text-[11px] font-normal text-[#627A9B]">{f.codigoSis ?? '—'}</span></td>
                       <td className="px-3 py-2.5 text-[#45628D]">{f.examen ?? '—'}</td>
                       <td className="px-3 py-2.5 text-[#011140]">{textoMotivoReporte(f.motivo)}{f.detalle && <span className="block text-[11px] text-[#627A9B]">{f.detalle}</span>}</td>
                       <td className="px-3 py-2.5 text-[#45628D]">{f.reportadoPor ?? '—'}</td>
@@ -88,9 +93,9 @@ export default function FotosReportadasReporte({ idExamen, examen, buscar = '' }
             {visibles.map((f) => {
               const [texto, clase] = ESTADO[f.estado] ?? [f.estado, 'bg-[#EEF2F6] text-[#475569]']
               return (
-                <li key={f.idReporte} className="rounded-lg border border-[#E2E8F0] p-3">
+                <li key={f.idReporte} className={`rounded-lg border border-[#E2E8F0] p-3 ${nuevas.has(f.idReporte) ? CLASE_FILA_NUEVA : ''}`}>
                   <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 text-sm font-semibold text-[#011140]">{f.estudiante}<span className="block text-[11px] font-normal text-[#627A9B]">{[f.codigoSis, f.examen].filter(Boolean).join(' · ')}</span></p>
+                    <p className="min-w-0 text-sm font-semibold text-[#011140]">{f.estudiante}{nuevas.has(f.idReporte) && <EtiquetaNuevo />}<span className="block text-[11px] font-normal text-[#627A9B]">{[f.codigoSis, f.examen].filter(Boolean).join(' · ')}</span></p>
                     <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${clase}`}>{texto}</span>
                   </div>
                   <p className="mt-1 text-xs text-[#45628D]">{textoMotivoReporte(f.motivo)}{f.detalle ? `: ${f.detalle}` : ''}</p>

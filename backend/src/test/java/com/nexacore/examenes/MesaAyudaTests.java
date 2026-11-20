@@ -64,7 +64,6 @@ class MesaAyudaTests {
         assertThat(avisos).isEqualTo(1);
     }
 
-    @Autowired com.nexacore.examenes.repositories.UsuarioRepository usuarioRepository;
     @Autowired com.nexacore.examenes.repositories.RolRepository rolRepository;
     @Autowired com.nexacore.examenes.repositories.UsuarioRolRepository usuarioRolRepository;
     @Autowired org.springframework.transaction.support.TransactionTemplate transaccion;
@@ -117,6 +116,52 @@ class MesaAyudaTests {
             assertThat(s.getOrigen()).isEqualTo("PANEL");
             assertThat(s.getRol()).isEqualTo("DOCENTE");
         });
+    }
+
+    @Autowired com.nexacore.examenes.services.MesaAyudaService mesaAyudaService;
+    @Autowired com.nexacore.examenes.repositories.UsuarioRepository usuarioRepository;
+    @Autowired com.nexacore.examenes.repositories.NotificacionRepository notificacionRepository;
+
+    private Integer usuario(String email) {
+        var u = new com.nexacore.examenes.models.Usuario();
+        u.setNombre("Pía");
+        u.setApellidos("Rocha");
+        u.setCi(String.valueOf(7_000_000 + Math.abs(email.hashCode() % 999_999)));
+        u.setEmail(email);
+        u.setPassword("x");
+        u.setEstado("activo");
+        return usuarioRepository.saveAndFlush(u).getId();
+    }
+
+    // V59: al responder, quien escribió con sesión recibe la notificación; nadie más la ve.
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "admin@umss.edu", roles = "ADMIN")
+    void alResponderLeLlegaSoloAQuienEscribio() {
+        Integer quien = usuario("pia.rocha@umss.edu");
+        Integer otro = usuario("otro.admin@umss.edu");
+        var s = new SolicitudAyuda();
+        s.setNombre("Pía Rocha");
+        s.setCorreo("pia.rocha@umss.edu");
+        s.setTipo("OTRO");
+        s.setMensaje("No puedo ver mis exámenes asignados.");
+        s.setOrigen("PANEL");
+        s.setIdUsuario(quien);
+        s.setEstado(SolicitudAyuda.PENDIENTE);
+        s.setCreadaEn(java.time.LocalDateTime.now());
+        Integer id = repository.saveAndFlush(s).getId();
+
+        mesaAyudaService.atender(id, "Ya te asignamos el examen.");
+
+        var pagina = org.springframework.data.domain.PageRequest.of(0, 50);
+        assertThat(notificacionRepository.visibles(quien, 0, pagina))
+                .anySatisfy(n -> {
+                    assertThat(n.getTipo()).isEqualTo(com.nexacore.examenes.models.Notificacion.AYUDA_RESPONDIDA);
+                    assertThat(n.getDetalle()).contains("Ya te asignamos el examen.");
+                });
+        assertThat(notificacionRepository.visibles(otro, 0, pagina))
+                .noneMatch(n -> com.nexacore.examenes.models.Notificacion.AYUDA_RESPONDIDA.equals(n.getTipo()));
+        assertThat(notificacionRepository.deDocente(quien, 0, pagina))
+                .anyMatch(n -> com.nexacore.examenes.models.Notificacion.AYUDA_RESPONDIDA.equals(n.getTipo()));
     }
 
     @Test
