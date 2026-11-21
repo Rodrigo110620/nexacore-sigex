@@ -254,51 +254,67 @@ public class HabilitacionService {
      *
      * @throws IllegalArgumentException si falta el motivo o alguno no está asociado (400)
      */
-    @Transactional
+    @Transactional(noRollbackFor = { ControlIngresoException.class, IllegalArgumentException.class })
     public List<EstudianteHabilitacionResponse> actualizar(Integer idExamen, Integer idParalelo,
                                                            ActualizarHabilitacionRequest request) {
         notificacionService.emitirCambio(NotificacionService.CAMBIO_HABILITACION, idExamen, null);
         EstadoHabilitacion estado = request.estadoHabilitacion();
-        // Solo NO_HABILITADO guarda razón: habilitar o dejar pendiente la limpia.
         String motivo = null;
-        if (estado == EstadoHabilitacion.NO_HABILITADO) {
-            validarRazon(request.motivo());
-            motivo = request.motivo();
-        }
-        Examen examen = buscarExamenEditable(idExamen, idParalelo);
-        // Regla de negocio (2.º test run): la habilitación se decide antes del inicio. Con el examen en curso, quien no
-        // está habilitado y llega se registra como excepción en el control de ingreso.
-        if (EstadoExamen.EN_CURSO.equals(EstadoExamen.de(examen, java.time.LocalDateTime.now()))) {
-            throw new ControlIngresoException(HttpStatus.CONFLICT,
-                    "El examen ya empezó: la habilitación se cambia solo antes del inicio. Si llega alguien no habilitado, regístralo como excepción en el control de ingreso.");
-        }
+
         Set<Integer> ids = new HashSet<>(request.idsEstudiante());
         List<AsistenciaExamen> asistencias = asistenciaExamenRepository.buscarDelExamen(idExamen, idParalelo, ids);
-        if (asistencias.size() != ids.size()) {
-            throw new IllegalArgumentException("Algunos estudiantes seleccionados no están asociados a este examen");
-        }
-        if (estado != EstadoHabilitacion.HABILITADO) {
-            rechazarSiYaIngresaron(asistencias);
-        }
-        Boolean habilitado = estado == EstadoHabilitacion.PENDIENTE ? null : estado == EstadoHabilitacion.HABILITADO;
-        List<Map<String, Object>> cambios = new ArrayList<>();
+
+        List<Map<String, Object>> cambiosIntentados = new ArrayList<>();
         for (AsistenciaExamen asistencia : asistencias) {
-            cambios.add(Map.of(
+            cambiosIntentados.add(Map.of(
                     "idEstudiante", asistencia.getId().getIdEstudiante(),
                     "estadoAnterior", estadoDe(asistencia.getHabilitado()).name()));
-            asistencia.setHabilitado(habilitado);
-            asistencia.setMotivoInhabilitacion(motivo);
         }
-        asistenciaExamenRepository.saveAllAndFlush(asistencias);
-        // Quién cambió la habilitación, cuándo, a qué estado, con qué razón y desde qué estado.
-        Map<String, Object> detalles = new java.util.HashMap<>();
-        detalles.put("idExamen", idExamen);
-        detalles.put("idParalelo", idParalelo);
-        detalles.put("estado", estado.name());
-        detalles.put("motivo", motivo);
-        detalles.put("estudiantes", cambios);
-        auditoriaService.registrar("HABILITACION_ACTUALIZADA", detalles);
-        return listarSinVerificar(idExamen, idParalelo);
+
+        try {
+            if (estado == EstadoHabilitacion.NO_HABILITADO) {
+                validarRazon(request.motivo());
+                motivo = request.motivo();
+            }
+            Examen examen = buscarExamenEditable(idExamen, idParalelo);
+            if (EstadoExamen.EN_CURSO.equals(EstadoExamen.de(examen, java.time.LocalDateTime.now()))) {
+                throw new ControlIngresoException(HttpStatus.CONFLICT,
+                        "El examen ya empezó: la habilitación se cambia solo antes del inicio. Si llega alguien no habilitado, regístralo como excepción en el control de ingreso.");
+            }
+            if (asistencias.size() != ids.size()) {
+                throw new IllegalArgumentException("Algunos estudiantes seleccionados no están asociados a este examen");
+            }
+            if (estado != EstadoHabilitacion.HABILITADO) {
+                rechazarSiYaIngresaron(asistencias);
+            }
+
+            Boolean habilitado = estado == EstadoHabilitacion.PENDIENTE ? null : estado == EstadoHabilitacion.HABILITADO;
+            for (AsistenciaExamen asistencia : asistencias) {
+                asistencia.setHabilitado(habilitado);
+                asistencia.setMotivoInhabilitacion(motivo);
+            }
+            asistenciaExamenRepository.saveAllAndFlush(asistencias);
+
+            Map<String, Object> detalles = new java.util.HashMap<>();
+            detalles.put("idExamen", idExamen);
+            detalles.put("idParalelo", idParalelo);
+            detalles.put("estado", estado.name());
+            detalles.put("motivo", motivo);
+            detalles.put("estudiantes", cambiosIntentados);
+            auditoriaService.registrar("HABILITACION_ACTUALIZADA", detalles);
+            return listarSinVerificar(idExamen, idParalelo);
+
+        } catch (ControlIngresoException | IllegalArgumentException e) {
+            Map<String, Object> detallesFallo = new java.util.HashMap<>();
+            detallesFallo.put("idExamen", idExamen);
+            detallesFallo.put("idParalelo", idParalelo);
+            detallesFallo.put("estado", estado.name());
+            detallesFallo.put("motivo", request.motivo());
+            detallesFallo.put("estudiantes", cambiosIntentados);
+            detallesFallo.put("motivoFallo", e.getMessage());
+            auditoriaService.registrar("HABILITACION_FALLIDA", detallesFallo);
+            throw e;
+        }
     }
 
     /** Solo los matriculados (activos) se asocian a exámenes. */
