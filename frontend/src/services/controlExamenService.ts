@@ -62,8 +62,12 @@ export async function listarEstudiantesExamen(
   page: number,
   size = 5,
 ): Promise<PageResponse<EstudianteAsignado>> {
+  const consulta = api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, { params: { estado, page, size } })
+  // El filtro de ausentes solo necesita la página y su total.
+  if (estado === 'AUSENTES') return (await consulta).data
+
   const [{ data }, expulsiones] = await Promise.all([
-    api.get<PageResponse<EstudianteAsignado>>(`/examenes/${idExamen}/estudiantes`, { params: { estado, page, size } }),
+    consulta,
     listarExpulsionesExamen(idExamen),
   ])
   // Una expulsión anulada (por error) no cuenta: el estudiante sigue con su examen.

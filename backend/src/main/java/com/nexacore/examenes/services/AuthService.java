@@ -87,7 +87,7 @@ public class AuthService {
             CredencialesInvalidasException.class, CuentaBloqueadaException.class, CuentaInactivaException.class})
     public AuthResponse login(LoginRequest peticion) {
         Usuario usuario = usuarioRepository.findByEmail(peticion.email().trim().toLowerCase(Locale.ROOT))
-                .orElseThrow(CredencialesInvalidasException::new);
+            .orElseThrow(() -> new CredencialesInvalidasException("El correo no está registrado"));
 
         LocalDateTime ahora = LocalDateTime.now();
         if (usuario.getBloqueadoHasta() != null && ahora.isBefore(usuario.getBloqueadoHasta())) {
@@ -127,7 +127,7 @@ public class AuthService {
         usuario.setIntentosFallidos(intentos);
         usuario.setBloqueadoHasta(null);
         usuarioRepository.save(usuario);
-        throw new CredencialesInvalidasException();
+        throw new CredencialesInvalidasException("La contraseña es incorrecta");
     }
 
     /** Minutos que faltan, redondeados hacia arriba para no mostrar "0 minutos". */

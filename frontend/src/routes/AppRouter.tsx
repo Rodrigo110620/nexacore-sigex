@@ -70,7 +70,7 @@ export default function AppRouter() {
     <BrowserRouter>
       <NavigateRegistrar />
       <Routes>
-        {/* Una sola instancia para "/" y "/login": así la landing anima hacia el formulario sin remontarse. */}
+        {/* El formulario de acceso está disponible tanto en "/" como en "/login". */}
         <Route element={<LoginRoute />}>
           <Route path="/" element={null} />
           <Route path="/login" element={null} />

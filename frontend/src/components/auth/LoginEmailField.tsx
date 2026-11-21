@@ -9,6 +9,7 @@ interface LoginEmailFieldProps {
 }
 
 const DOMAIN_HINT_ID = 'login-email-domain';
+const EMAIL_ERROR_ID = 'login-email-error';
 
 /**
  * Campo de correo del login. Mientras no se escriba '@', debajo se ofrecen los dos dominios (personal y
@@ -16,6 +17,7 @@ const DOMAIN_HINT_ID = 'login-email-domain';
  */
 export default function LoginEmailField({ value, error, onChange, onBlur }: LoginEmailFieldProps) {
   const showDomain = !value.includes('@');
+  const description = [showDomain && DOMAIN_HINT_ID, error && EMAIL_ERROR_ID].filter(Boolean).join(' ');
 
   return (
     <div className="flex flex-col gap-2">
@@ -32,13 +34,13 @@ export default function LoginEmailField({ value, error, onChange, onBlur }: Logi
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          placeholder="usuario o código SIS"
+          placeholder="Ej. ana@umss.edu o 202100101"
           maxLength={FIELD_LIMITS.email.max}
           aria-invalid={Boolean(error)}
-          aria-describedby={showDomain ? DOMAIN_HINT_ID : undefined}
+          aria-describedby={description || undefined}
           className={`w-full rounded-xl border border-[#CBD5E1] py-3 pl-11 pr-3 text-sm focus:outline-none focus:ring-1 transition-colors ${
             error
-              ? 'border-[#FECACA] bg-[#FEF2F2] focus:ring-[#FECACA]'
+              ? 'border-[#e5baba] bg-[#FEF2F2] focus:ring-[#FECACA]'
               : 'border-[#D8E3F5] focus:ring-[#E1ECFF]'
           }`} />
         
@@ -64,8 +66,8 @@ export default function LoginEmailField({ value, error, onChange, onBlur }: Logi
         </div>
       )}
       {error && (
-        <p className="text-[#B91C1C] text-[0.70rem] flex items-center gap-1">
-          <CircleAlert size={12} /> {error}
+        <p id={EMAIL_ERROR_ID} className="text-[0.8rem] font-bold text-[#7F1D1D] flex items-center gap-1">
+          <CircleAlert size={12} className='text-[#7F1D1D]' strokeWidth={3} aria-hidden="true" /> {error}
         </p>
       )}
     </div>
