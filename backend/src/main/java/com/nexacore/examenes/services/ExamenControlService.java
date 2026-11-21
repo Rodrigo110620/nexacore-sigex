@@ -2,6 +2,7 @@ package com.nexacore.examenes.services;
 
 import com.nexacore.examenes.dto.PersonalControlResponse;
 import com.nexacore.examenes.exceptions.ControlIngresoException;
+import com.nexacore.examenes.models.Examen;
 import com.nexacore.examenes.models.ExamenControl;
 import com.nexacore.examenes.repositories.ExamenControlRepository;
 import com.nexacore.examenes.repositories.ExamenRepository;
@@ -11,6 +12,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -80,11 +83,51 @@ public class ExamenControlService {
                         "Solo se puede asignar personal de control activo (rol CONTROL).");
             }
         }
+        validarConflictoHorarioPersonal(idExamen, pedidos);
         repository.quitarDelExamen(idExamen);
         repository.flush();
         repository.saveAllAndFlush(pedidos.stream().map(id -> new ExamenControl(idExamen, id)).toList());
         notificacionService.emitirCambio("EXAMEN", idExamen, null);
         return delExamen(idExamen);
+    }
+
+    /**
+     * Impide asignar como personal de control a un usuario que ya tiene un examen en la misma fecha
+     * y cuyo rango horario se solapa con el examen que se está programando. El examen que se está
+     * editando (idExamen) se excluye de la comparación para permitir reasignar al mismo personal.
+     */
+    private void validarConflictoHorarioPersonal(Integer idExamen, Set<Integer> idUsuarios) {
+        Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND,
+                        "No se encontró el examen " + idExamen));
+        LocalDate fecha = examen.getFecha();
+        LocalTime inicio = examen.getHoraInicio();
+        LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
+
+        for (Integer idUsuario : idUsuarios) {
+            for (Integer otroIdExamen : repository.examenesDe(idUsuario)) {
+                if (otroIdExamen.equals(idExamen)) {
+                    continue; // es el mismo examen que se está editando
+                }
+                Examen otro = examenRepository.findFirstByIdIdExamen(otroIdExamen)
+                        .orElse(null);
+                if (otro == null) {
+                    continue;
+                }
+                if (!otro.getFecha().equals(fecha)) {
+                    continue;
+                }
+                LocalTime otroInicio = otro.getHoraInicio();
+                LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
+                if (inicio.isBefore(otroFin) && otroInicio.isBefore(fin)) {
+                    throw new ControlIngresoException(HttpStatus.CONFLICT,
+                            "El personal de control con id " + idUsuario
+                                    + " ya tiene un examen el " + fecha
+                                    + " entre " + otroInicio + " y " + otroFin
+                                    + ". No se puede asignar a dos exámenes con horario solapado.");
+                }
+            }
+        }
     }
 
     private void exigirExamen(Integer idExamen) {
