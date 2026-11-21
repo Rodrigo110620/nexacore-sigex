@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InicioDocentePage from '../pages/Dashboard/InicioDocentePage'
@@ -67,11 +67,37 @@ describe('Inicio del docente', () => {
     expect(within(materias).getByText('SIS-301 · Grupos G1 y G2')).toBeInTheDocument()
     expect(within(materias).getByText('Asistencia 94 %')).toBeInTheDocument()
     expect(within(materias).getByRole('link', { name: /Programar el primer examen/ })).toHaveAttribute('href', '/dashboard/examenes?nuevo=1&materia=2&nombre=Bases%20de%20Datos%20I')
+    expect(within(materias).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(materias).queryByRole('button', { name: 'Ver todas las materias' })).not.toBeInTheDocument()
     const registros = screen.getByRole('list', { name: 'Registros de mis exámenes' })
     expect(within(registros).getAllByRole('listitem')[0]).toHaveTextContent('Expulsión · Marco Paz Rivas')
     expect(within(registros).getAllByRole('listitem')[1]).toHaveTextContent('Programación Web · Aula 690B')
     // El selector de grupo ya no está: lo reemplazan las tarjetas de Mis materias.
     expect(screen.queryByRole('heading', { name: '¿Qué grupo deseas gestionar hoy?' })).not.toBeInTheDocument()
+  })
+
+  it('resume muchas materias y permite expandirlas sin perder sus acciones', async () => {
+    vi.mocked(listarExamenes).mockResolvedValue([])
+    const base = panel().materias[1]
+    vi.mocked(obtenerInicioDocente).mockResolvedValue(panel({
+      materias: Array.from({ length: 6 }, (_, i) => ({ ...base, idMateria: i + 1, nombre: `Materia ${i + 1}` })),
+    }))
+    montar()
+
+    const materias = within(await screen.findByRole('region', { name: 'Mis materias' }))
+    expect(materias.getAllByRole('listitem')).toHaveLength(3)
+    expect(screen.getByText(/Tienes 6 materias/)).toBeInTheDocument()
+    expect(materias.getByRole('link', { name: /Ver mis exámenes/ })).toHaveAttribute('href', '/dashboard/examenes')
+    const control = materias.getByRole('button', { name: 'Ver todas las materias' })
+    expect(control).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(control)
+    expect(materias.getAllByRole('listitem')).toHaveLength(6)
+    expect(materias.getAllByRole('link', { name: /Programar el primer examen/ })[5])
+      .toHaveAttribute('href', '/dashboard/examenes?nuevo=1&materia=6&nombre=Materia%206')
+    expect(control).toHaveAccessibleName('Ver menos')
+    expect(control).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(control)
+    expect(materias.getAllByRole('listitem')).toHaveLength(3)
   })
 
   it('sin materias asignadas lo dice y pide contactar al administrador', async () => {
