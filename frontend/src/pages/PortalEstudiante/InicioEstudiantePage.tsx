@@ -36,7 +36,10 @@ function EstadoBadge({ estado }: { estado: EstadoExamen }) {
   return <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${clase}`}>{texto}</span>
 }
 
-/** Aviso según el próximo examen: habilitado, pendiente de revisión o no habilitado (con la razón). */
+/**
+ * Aviso según el próximo examen: habilitado, pendiente o no habilitado (con la razón). BUG-C01: deja claro que el
+ * estado es solo de ese examen (no de la cuenta) y que lo decide el docente de la materia, no la administración.
+ */
 function AvisoHabilitacion({ proximo, fotoEnRevision }: { proximo: MiExamen | null; fotoEnRevision: boolean }) {
   // Si ya pasó por el control, lo que importa es lo que pasó ahí (lo muestra la tarjeta del examen).
   if (!proximo || pasoPorControl(proximo)) return null
@@ -51,7 +54,7 @@ function AvisoHabilitacion({ proximo, fotoEnRevision }: { proximo: MiExamen | nu
             {fotoEnRevision
               ? 'Además, tu foto nueva aún no fue aprobada. '
               : ''}
-            Si crees que es un error, comunícate con la administración antes del examen.
+            Esto es solo para este examen: tu cuenta sigue activa y tus otros exámenes no cambian. Si crees que es un error, consulta con tu docente antes del examen.
           </p>
         </div>
       </div>
@@ -63,7 +66,8 @@ function AvisoHabilitacion({ proximo, fotoEnRevision }: { proximo: MiExamen | nu
         <Clock size={24} className="shrink-0" aria-hidden="true" />
         <div>
           <p className="font-bold">Tu habilitación para {proximo.materia} está pendiente</p>
-          <p className="mt-0.5">La administración todavía no revisa tu habilitación. Vuelve a consultar antes del examen.</p>
+          <p className="mt-0.5">Tu docente todavía no decide si estás habilitado para este examen. Si tienes dudas, consulta con él antes del examen.</p>
+          <p className="mt-0.5 text-xs">Esto es solo para este examen: tu cuenta sigue activa y tus otros exámenes no cambian.</p>
         </div>
       </div>
     )
@@ -72,8 +76,8 @@ function AvisoHabilitacion({ proximo, fotoEnRevision }: { proximo: MiExamen | nu
     <div className="flex gap-3 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] p-4 text-sm text-[#14532D]">
       <ShieldCheck size={24} className="shrink-0 text-[#15803D]" aria-hidden="true" />
       <div>
-        <p className="font-bold text-[#15803D]">Estás habilitado para tu próximo examen</p>
-        <p className="mt-0.5">Preséntate con tu QR de ingreso y tu carnet. El personal de control verificará tu identidad.</p>
+        <p className="font-bold text-[#15803D]">Estás habilitado para {proximo.materia}</p>
+        <p className="mt-0.5">Esta habilitación es solo para este examen. Preséntate con tu QR de ingreso y tu carnet: el personal de control verificará tu identidad.</p>
       </div>
     </div>
   )
