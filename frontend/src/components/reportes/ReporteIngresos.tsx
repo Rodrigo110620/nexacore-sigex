@@ -9,27 +9,52 @@ interface Props {
 }
 
 export default function ReporteIngresos({ idExamen, buscar, tipo }: Props) {
-  const [datos, setDatos] = useState<ReporteIngreso[]>([])
-  const [cargando, setCargando] = useState(true)
+  const [resultado, setResultado] = useState<{
+    clave: string
+    datos?: ReporteIngreso[]
+    error?: string
+  }>()
+
+  const clave = `${idExamen ?? 'todos'}`
 
   useEffect(() => {
     let vigente = true
-    setCargando(true)
+
     reporteIngresos(idExamen)
-      .then((res) => { if (vigente) setDatos(res) })
-      .catch(() => { if (vigente) setDatos([]) })
-      .finally(() => { if (vigente) setCargando(false) })
-    return () => { vigente = false }
-  }, [idExamen])
+      .then((res) => {
+        if (vigente) {
+          setResultado({ clave, datos: res })
+        }
+      })
+      .catch(() => {
+        if (vigente) {
+          setResultado({ clave, error: 'No se pudo cargar el reporte de ingresos.' })
+        }
+      })
+
+    return () => {
+      vigente = false
+    }
+  }, [idExamen, clave])
+
+  const actual = resultado?.clave === clave ? resultado : undefined
+
+  if (!actual) {
+    return <p className="mt-4 text-sm text-[#627A9B]">Consultando ingresos…</p>
+  }
+
+  if (actual.error) {
+    return <div className="mt-4 text-sm text-[#B91C1C]">{actual.error}</div>
+  }
+
+  const datos = actual.datos ?? []
 
   // Filtramos por el tipo de pestaña (QR = NORMAL, MANUAL = MANUAL)
   const filtradosPorTipo = datos.filter((d) => tipo === 'QR' ? d.tipoIngreso === 'NORMAL' : d.tipoIngreso === 'MANUAL')
-
+  
   const filtrados = filtradosPorTipo.filter((d) =>
     !buscar || d.estudiante.toLowerCase().includes(buscar.toLowerCase()) || d.codigoSis.includes(buscar)
   )
-
-  if (cargando) return <p className="mt-4 text-sm text-[#627A9B]">Consultando ingresos…</p>
 
   return (
     <section aria-label={`Ingresos por ${tipo}`} className="rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-5">
