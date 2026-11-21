@@ -1,5 +1,5 @@
 import { ArrowRight, CircleAlert, Eye, EyeOff, LifeBuoy, LockKeyhole } from 'lucide-react';
-import MesaAyudaModal from '../../components/ayuda/MesaAyudaModal';
+import { abrirMesaAyuda } from '../../utils/mesaAyuda';
 import { validateLoginEmail, buildLoginEmail } from '../../utils/validators';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -18,12 +18,10 @@ function tituloError(mensaje: string): string {
     if (texto.includes('bloqueada')) return 'Cuenta bloqueada temporalmente';
     if (texto.includes('inactiva')) return 'Cuenta inactiva';
     if (texto.includes('demasiados')) return 'Demasiados intentos';
-    if (texto.includes('completa todos')) return 'Campos incompletos';
     return 'Credenciales no válidas';
 }
 
 export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
-    const [ayuda, setAyuda] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
@@ -37,7 +35,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
 
     const validatePassword = (value: string): string => {
         if (!value.trim()) return 'La contraseña es obligatoria';
-        if (value.length < 6) return 'Mínimo 6 caracteres';
+        if (value.length < 6) return 'La contraseña debe tener al menos 6 caracteres';
         return '';
     };
 
@@ -56,14 +54,6 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setGeneralError('');
-        setEmailError('');
-        setPasswordError('');
-
-        if (!email.trim() && !password.trim()) {
-            setGeneralError('Por favor, completa todos los campos para continuar');
-            return;
-        }
-
         const emailErr = validateLoginEmail(email);
         const passwordErr = validatePassword(password);
         setEmailError(emailErr);
@@ -78,13 +68,8 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
             navigate('/dashboard', { replace: true });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Error inesperado. Intenta más tarde.';
-            if (message.includes('correo')) {
-                setEmailError(message);
-            } else if (message.includes('contraseña')) {
-                setPasswordError(message);
-            } else {
-                setGeneralError(message);
-            }
+            const credencialesInvalidas = message === 'El correo no está registrado' || message === 'La contraseña es incorrecta';
+            setGeneralError(credencialesInvalidas ? 'Revisa tus credenciales e intenta de nuevo.' : message);
         } finally {
             setLoading(false);
         }
@@ -118,7 +103,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
 
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-[0.70rem] font-medium">
-                            <label className="text-[#011140]">CONTRASEÑA</label>
+                            <label htmlFor="login-password" className="text-[#011140]">CONTRASEÑA</label>
                             <Link
                                 to="/forgot-password"
                                 className="text-[#0439D9] transition-colors hover:text-[#5086F2] hover:underline"
@@ -133,7 +118,11 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                                 aria-hidden="true"
                             />
                             <input
+                                id="login-password"
                                 type={showPassword ? 'text' : 'password'}
+                                autoComplete="current-password"
+                                aria-invalid={Boolean(passwordError)}
+                                aria-describedby={passwordError ? 'login-password-error' : undefined}
                                 value={password}
                                 onChange={(e) => {
                                     setPassword(e.target.value);
@@ -157,14 +146,14 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                             </button>
                         </div>
                         {passwordError && (
-                            <p className="text-[0.80rem] font-bold text-[#7F1D1D] flex items-center gap-1">
-                                <CircleAlert size={12} className="text-[#7F1D1D]" strokeWidth={3} /> {passwordError}
+                            <p id="login-password-error" className="text-[0.80rem] font-bold text-[#7F1D1D] flex items-center gap-1">
+                                <CircleAlert size={12} className="text-[#7F1D1D]" strokeWidth={3} aria-hidden="true" /> {passwordError}
                             </p>
                         )}
                     </div>
 
                     {generalError && (
-                        <div className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
+                        <div role="alert" className="mr-2 flex items-start rounded-xl border border-[#EF4444] bg-[#FFF1F2] p-3">
                             <CircleAlert className="mr-2 text-[#B91C1C]" size={20} />
                             <div className="flex flex-col gap-0">
                                 <p className="text-xs font-bold text-[#7F1D1D]">
@@ -197,7 +186,7 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                         {/* En celular el encabezado no se muestra: este es el acceso a la mesa de ayuda. */}
                         <button
                             type="button"
-                            onClick={() => setAyuda(true)}
+                            onClick={() => abrirMesaAyuda()}
                             className="mt-2 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[#45628D] transition-colors hover:text-[#0439D9]"
                         >
                             <LifeBuoy size={14} aria-hidden="true" />
@@ -206,8 +195,6 @@ export default function Login__Sesion({ isMobile = false }: LoginSesionProps) {
                     </div>
                 </div>
             </form>
-            {/* Fuera del <form> de ingreso: un formulario dentro de otro enviaría el de ingreso. */}
-            <MesaAyudaModal open={ayuda} onClose={() => setAyuda(false)} />
         </>
     );
 }

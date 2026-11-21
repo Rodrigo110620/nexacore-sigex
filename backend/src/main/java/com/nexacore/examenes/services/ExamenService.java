@@ -192,6 +192,8 @@ public class ExamenService {
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
         validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
+        validarNoExisteExamenDuplicado(materia.getId(), paralelo.getId().getIdParalelo(),
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
 
         Integer idExamen = ((Number) entityManager
                 .createNativeQuery("SELECT nextval('examen_id_examen_seq')")
@@ -277,6 +279,8 @@ public class ExamenService {
             examen = moverAParalelo(examen, resolverParalelo(materia, docente, request.idParalelo()));
         }
         validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        validarNoExisteExamenDuplicado(materia.getId(), examen.getId().getIdParalelo(),
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
 
         examen.setFecha(request.fecha());
         examen.setHoraInicio(request.horaInicio());
@@ -385,6 +389,8 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
         validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        validarNoExisteExamenDuplicado(examen.getIdMateria(), examen.getId().getIdParalelo(),
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         List<Integer> idsAdicionales = examenAulaRepository.adicionalesDe(idExamen).stream()
                 .map(ea -> ea.getId().getIdAmbiente()).toList();
         validarAulasAdicionales(ambiente, idsAdicionales, request.fecha(), request.horaInicio(),
@@ -420,6 +426,31 @@ public class ExamenService {
                     "El ambiente " + nombre + " ya tiene un examen el " + fecha
                             + " entre " + otro.getHoraInicio() + " y " + finDe(otro)
                             + ". Elige otro horario o ambiente.");
+        }
+    }
+
+    /**
+     * Impide crear (o mover) un examen de la misma materia y grupo en una fecha y rango horario que ya esté
+     * ocupado por otro examen vigente. idExamenExcluido permite editar/reprogramar el propio examen sin chocar
+     * consigo mismo. Usa delParaleloEnFecha (idParalelo implica materia y docente por la PK compuesta).
+     */
+    private void validarNoExisteExamenDuplicado(
+            Integer idMateria, Integer idParalelo, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+            Integer idExamenExcluido) {
+        LocalTime fin = inicio.plusMinutes(duracionMinutos);
+        for (Examen otro : examenRepository.delParaleloEnFecha(idParalelo, fecha)) {
+            if (idExamenExcluido != null && otro.getId().getIdExamen().equals(idExamenExcluido)) {
+                continue;
+            }
+            if (otro.getIdMateria().equals(idMateria)
+                    && inicio.isBefore(otro.getHoraInicio().plusMinutes(otro.getDuracionMinutos()))
+                    && otro.getHoraInicio().isBefore(fin)) {
+                throw new ConflictoExamenException(
+                        "Ya existe un examen de esta materia y grupo el " + fecha
+                                + " entre " + otro.getHoraInicio() + " y "
+                                + otro.getHoraInicio().plusMinutes(otro.getDuracionMinutos())
+                                + ". No se pueden crear exámenes duplicados en el mismo horario.");
+            }
         }
     }
 
