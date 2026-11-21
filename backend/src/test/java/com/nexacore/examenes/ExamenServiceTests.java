@@ -40,6 +40,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -59,6 +61,7 @@ import static org.mockito.Mockito.when;
 
 /** Registro y edición de exámenes: fecha válida y conflictos de horario por ambiente y por docente. */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ExamenServiceTests {
 
     private static final int AMBIENTE = 3;
@@ -151,6 +154,52 @@ class ExamenServiceTests {
     }
 
     @Test
+    void crearRechazaExamenDuplicadoMismoGrupoMismaHora() {
+        prepararCatalogo();
+        prepararRespuesta();
+        prepararRegistro();
+        // Ambiente libre, pero ya existe un examen del mismo grupo, misma fecha y misma hora.
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA))
+                .thenReturn(List.of());
+        when(examenRepository.delParaleloEnFecha(PARALELO, FECHA))
+                .thenReturn(List.of(examen(91, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90)));
+
+        assertThatThrownBy(() -> service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90)))
+                .isInstanceOf(ConflictoExamenException.class);
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void crearPermiteOtraMateriaOtraHoraMismoGrupo() {
+        prepararCatalogo();
+        prepararRespuesta();
+        prepararRegistro();
+        // Existe un examen de otra materia en el mismo grupo y fecha, pero a otra hora (sin solapamiento).
+        // validarGrupoSinCruce (preexistente) no lanza por falta de solapamiento, y mi validación por
+        // materia tampoco lanza porque la materia es distinta.
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA))
+                .thenReturn(List.of());
+        Examen otroMateria = new Examen();
+        ExamenId otroId = new ExamenId();
+        otroId.setIdExamen(91);
+        otroId.setIdParalelo(PARALELO);
+        otroMateria.setId(otroId);
+        otroMateria.setIdMateria(99);
+        otroMateria.setIdDocente(DOCENTE);
+        otroMateria.setIdAmbiente(AMBIENTE);
+        otroMateria.setFecha(FECHA);
+        otroMateria.setHoraInicio(LocalTime.of(14, 0));
+        otroMateria.setDuracionMinutos(60);
+        otroMateria.setEstado("programado");
+        when(examenRepository.delParaleloEnFecha(PARALELO, FECHA))
+                .thenReturn(List.of(otroMateria));
+
+        ExamenResponse creado = service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90));
+
+        assertThat(creado.estado()).isEqualTo("programado");
+    }
+
+    @Test
     void crearRechazaUnaFechaPasada() {
         when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(ambiente(AMBIENTE)));
         CrearExamenRequest ayer = new CrearExamenRequest("Cálculo I", "Ana Rojas", LocalDate.now().minusDays(1),
@@ -169,11 +218,27 @@ class ExamenServiceTests {
         Examen propio = examen(50, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90);
         when(examenRepository.findById(any())).thenReturn(Optional.of(propio));
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of(propio));
+        when(examenRepository.delParaleloEnFecha(PARALELO, FECHA)).thenReturn(List.of(propio));
         when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ExamenResponse editado = service.actualizar(50, PARALELO, actualizarRequest(LocalTime.of(9, 0), 120));
 
         assertThat(editado.duracionMinutos()).isEqualTo(120);
+    }
+
+    @Test
+    void actualizarNoChocaConElPropioExamenAlMantenerHorario() {
+        prepararCatalogo();
+        prepararRespuesta();
+        Examen propio = examen(50, AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90);
+        when(examenRepository.findById(any())).thenReturn(Optional.of(propio));
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of(propio));
+        when(examenRepository.delParaleloEnFecha(PARALELO, FECHA)).thenReturn(List.of(propio));
+        when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ExamenResponse editado = service.actualizar(50, PARALELO, actualizarRequest(LocalTime.of(9, 0), 90));
+
+        assertThat(editado.duracionMinutos()).isEqualTo(90);
     }
 
     @Test
@@ -434,8 +499,10 @@ class ExamenServiceTests {
         when(paraleloRepository.deMateriaYDocente(MATERIA, DOCENTE)).thenReturn(java.util.List.of(paralelo));
         Query secuencia = mock(Query.class);
         when(secuencia.getSingleResult()).thenReturn(50L);
-        when(entityManager.createNativeQuery(anyString())).thenReturn(secuencia);
-        when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // Lenient: este stub solo se usa cuando se debe crear un paralelo nuevo (orElseGet); en los tests
+        // donde el grupo ya existe no se invoca y Mockito strict lo marca como innecesario.
+        org.mockito.Mockito.lenient().when(entityManager.createNativeQuery(anyString())).thenReturn(secuencia);
+        org.mockito.Mockito.lenient().when(examenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private static Ambiente ambiente(int id) {
