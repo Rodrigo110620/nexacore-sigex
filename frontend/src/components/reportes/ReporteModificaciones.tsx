@@ -164,49 +164,57 @@ export default function ReporteModificaciones({ idExamen, buscar, desde }: Props
             </table>
           </div>
 
-          {/* Vista móvil */}
+                    {/* Vista móvil */}
           <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
             {filtrados.map((d) => (
               <li
                 key={d.idAuditoria}
-                className="min-w-0 rounded-xl border border-[#E4E9F2] bg-white p-3"
+                className="relative flex flex-col min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm transition-all hover:shadow-md"
               >
-                <div className="flex items-start justify-between gap-2">
+                {/* Cabecera: Docente y Estudiante */}
+                <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold text-[#011140]">
+                    <p className="break-words text-sm font-bold text-[#011140]">
                       {d.docente}
                     </p>
-                    <p className="text-xs text-[#627A9B]">
-                      Intentó {d.accion} a {d.estudiante} ({d.codigoSis})
+                    <p className="mt-1 text-xs text-[#45628D]">
+                      Intentó <span className="font-semibold text-[#B91C1C]">{d.accion}</span> a:
+                    </p>
+                    <p className="break-words text-sm font-semibold text-[#011140]">
+                      {d.estudiante} <span className="inline-block rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0439D9]">{d.codigoSis}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-2">
+                {/* Detalle del fallo o éxito */}
+                <div className="mt-3">
                   {d.esFallo ? (
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
+                    <div className="rounded-lg border-l-4 border-[#FCA5A5] bg-[#FEF2F2] px-3 py-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#991B1B]">
                         <Ban size={12} /> Bloqueado
                       </span>
-                      <span className="text-xs text-[#B91C1C]">
+                      <p className="mt-1 break-words text-xs font-medium text-[#991B1B]">
                         {d.motivoFallo}
-                      </span>
+                      </p>
                     </div>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
-                      <CheckCircle2 size={12} /> Exitoso
-                    </span>
+                    <div className="rounded-lg border-l-4 border-[#0a5626] bg-[#F0FDF4] px-3 py-2">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#166534]">
+                        <CheckCircle2 size={12} /> Exitoso
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                  <dt className="text-[#627A9B]">Fecha</dt>
-                  <dd className="min-w-0 break-words text-right font-semibold text-[#011140]">
+                {/* Fecha y Examen */}
+                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+                  <dt className="font-semibold text-[#627A9B]">Fecha</dt>
+                  <dd className={`min-w-0 break-words text-right font-bold ${d.esFallo ? 'text-[#B91C1C]' : 'text-[#15803D]'}`}>
                     {fechaHoraNumerica(d.fechaHora, true)}
                   </dd>
 
-                  <dt className="text-[#627A9B]">Examen</dt>
-                  <dd className="min-w-0 break-words text-right text-[#011140]">
+                  <dt className="font-semibold text-[#627A9B]">Examen</dt>
+                  <dd className="min-w-0 break-words text-right font-medium text-[#011140]">
                     {d.examen}
                   </dd>
                 </dl>
