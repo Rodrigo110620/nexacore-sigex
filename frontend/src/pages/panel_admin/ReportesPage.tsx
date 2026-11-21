@@ -17,22 +17,25 @@ import { tienePermiso } from '../../utils/permisos'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
+import ReporteModificaciones from '../../components/reportes/ReporteModificaciones'
+
 
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'|  'modificaciones'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
+  { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
 ]
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas' }
+const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados',  }
 const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'],
+  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'],modificaciones: ['intento', 'intentos'], 
 }
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
@@ -377,6 +380,7 @@ export default function ReportesPage() {
               {pestana === 'expulsiones' && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta} nombresExamen={nombresExamen} buscar={buscar} desde={desde}
                 controles={idExamen != null && controles?.idExamen === idExamen ? controles.registros : []} />}
               {pestana === 'excepciones' && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} nombresExamen={nombresExamen} buscar={buscar} desde={desde} />}
+              {pestana === 'modificaciones' && <ReporteModificaciones idExamen={idExamen} buscar={buscar} desde={desde} />}
             </div>
           </div>
         </section>
