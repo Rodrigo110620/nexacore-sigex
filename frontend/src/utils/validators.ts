@@ -72,7 +72,7 @@ const TECLADO = ['qwer', 'wert', 'erty', 'rtyu', 'tyui', 'yuio', 'uiop', 'asdf',
  */
 export function nombreSinSentido(valor: string): string {
   // El apóstrofo es parte de la palabra (Q'uispe → quispe); se separa por espacios y guiones.
-  for (const palabra of valor.trim().toLowerCase().replace(/'/g, '').split(/[ \-]+/)) {
+  for (const palabra of valor.trim().toLowerCase().replace(/'/g, '').split(/[ -]+/)) {
     if (!palabra) continue
     if (/(\p{L})\1\1/u.test(palabra)) return 'no repitas la misma letra tres veces seguidas'
     if (!/[aeiouyáéíóúü]/.test(palabra)) return 'cada palabra debe tener al menos una vocal'
