@@ -38,6 +38,11 @@ describe('validateLoginEmail', () => {
 })
 
 describe('LoginEmailField', () => {
+  it('muestra un ejemplo de correo institucional y de código SIS', () => {
+    render(<LoginEmailFieldWrapper />)
+    expect(screen.getByLabelText('CORREO ELECTRÓNICO')).toHaveAttribute('placeholder', 'Ej. ana@umss.edu o 202100101')
+  })
+
   it('ofrece los dos dominios mientras no se escriba @ y completa el elegido', () => {
     render(<LoginEmailFieldWrapper />)
 

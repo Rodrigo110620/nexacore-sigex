@@ -208,11 +208,12 @@ public class PlanillaEstudiantesService {
     }
 
     /** Plantilla para importar (sección 22): solo los encabezados y una fila de ejemplo. */
-    private static final Object[] EJEMPLO = {"202100101", "Ana", "Rojas Vera", 1, 1, "7489211", "71234567", "MATRICULADO"};
+    private static final Object[] EJEMPLO = {"202100101", "Ana", "Rojas Vera", 1, 1, "71234567", "MATRICULADO"};
 
     private static String[] columnas() {
         return java.util.stream.Stream.concat(ImportacionEstudiantesService.COLUMNAS.stream(),
-            ImportacionEstudiantesService.COLUMNAS_OPCIONALES.stream()).toArray(String[]::new);
+            ImportacionEstudiantesService.COLUMNAS_OPCIONALES.stream().filter(columna -> !"ci".equals(columna)))
+            .toArray(String[]::new);
     }
 
     public byte[] plantillaCsv() {
