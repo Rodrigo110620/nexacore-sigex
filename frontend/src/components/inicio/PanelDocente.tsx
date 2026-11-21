@@ -95,9 +95,13 @@ export function IndicadoresDocente({ datos, examenesHoy, enCurso, proximoHoy, ho
 }
 
 const COLORES_MATERIA = ['from-[#6366F1] to-[#8B5CF6]', 'from-[#06B6D4] to-[#3B82F6]', 'from-[#8B5CF6] to-[#EC4899]', 'from-[#10B981] to-[#06B6D4]']
+const MATERIAS_VISIBLES = 3
 
 /** Sección 18: sus materias con grupos, estudiantes, próximo examen y asistencia de sus exámenes ya realizados. */
 export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos: InicioDocente; hoy: string; horaActual: string; puedeProgramar: boolean }) {
+  const [expandido, setExpandido] = useState(false)
+  const materias = expandido ? datos.materias : datos.materias.slice(0, MATERIAS_VISIBLES)
+
   return (
     <section aria-labelledby="mis-materias" className="min-w-0">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
@@ -108,8 +112,8 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
         <Link to="/dashboard/examenes" className="text-xs font-semibold text-[#0439D9] hover:underline">Ver mis exámenes →</Link>
       </div>
       {/* Con 1 o 2 materias, ocupan todo el ancho (sin una tercera columna vacía). */}
-      <ul className={`grid gap-3 sm:grid-cols-2 ${datos.materias.length >= 3 ? 'xl:grid-cols-3' : ''}`}>
-        {datos.materias.map((m, i) => {
+      <ul id="mis-materias-lista" className={`grid gap-3 sm:grid-cols-2 ${materias.length >= 3 ? 'xl:grid-cols-3' : ''}`}>
+        {materias.map((m, i) => {
           const px = m.proximoExamen
           const esHoy = px?.fecha === hoy
           const enCurso = esHoy && px && horaCorta(px.horaInicio) <= horaActual
@@ -150,6 +154,13 @@ export function MisMaterias({ datos, hoy, horaActual, puedeProgramar }: { datos:
           )
         })}
       </ul>
+      {datos.materias.length > MATERIAS_VISIBLES && (
+        <button type="button" aria-expanded={expandido} aria-controls="mis-materias-lista"
+          onClick={() => setExpandido((actual) => !actual)}
+          className="mt-2 min-h-10 text-xs font-semibold text-[#0439D9] hover:underline">
+          {expandido ? 'Ver menos' : 'Ver todas las materias'}
+        </button>
+      )}
     </section>
   )
 }
