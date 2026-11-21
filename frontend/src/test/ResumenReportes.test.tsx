@@ -14,6 +14,8 @@ const RESUMEN: ResumenReportesData = {
   excepciones: null,
   fotos: { total: 4, hoy: 1, ayer: 0, ...C },
   modificaciones: { total: 0, hoy: 0, ayer: 0, ...C },
+  'ingresos-qr': null,      
+  'ingresos-manual': null,
 }
 
 describe('Resumen de Reportes', () => {
