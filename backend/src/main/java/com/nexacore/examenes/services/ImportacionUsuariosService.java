@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.utils.MensajesValidacion;
 import com.nexacore.examenes.dto.ImportarUsuariosResponse;
 import com.nexacore.examenes.dto.RegisterUserRequest;
 import com.nexacore.examenes.exceptions.CiDuplicadoException;
@@ -100,12 +101,12 @@ public class ImportacionUsuariosService {
     /** Devuelve el motivo por el que la fila no se importó, o null si se registró. */
     private String procesarFila(CSVRecord fila, Set<String> emailEnArchivo, Set<String> ciEnArchivo) {
         if (!fila.isConsistent()) {
-            return "la cantidad de columnas no coincide con los encabezados.";
+            return "La cantidad de columnas no coincide con los encabezados.";
         }
 
         String estado = LecturaCsv.valor(fila, "estado").toLowerCase(Locale.ROOT);
         if (!estado.isEmpty() && !estado.equals("activo") && !estado.equals("inactivo")) {
-            return "el estado debe ser activo o inactivo.";
+            return "El estado debe ser activo o inactivo.";
         }
 
         RegisterUserRequest request = new RegisterUserRequest(
@@ -121,17 +122,14 @@ public class ImportacionUsuariosService {
 
         Set<ConstraintViolation<RegisterUserRequest>> violaciones = validator.validate(request);
         if (!violaciones.isEmpty()) {
-            return violaciones.stream()
-                .map(ConstraintViolation::getMessage)
-                .sorted()
-                .collect(Collectors.joining("; ")) + ".";
+            return MensajesValidacion.unir(violaciones);
         }
 
         if (!emailEnArchivo.add(request.email())) {
-            return "el correo " + request.email() + " está repetido en el archivo.";
+            return "El correo " + request.email() + " está repetido en el archivo.";
         }
         if (!ciEnArchivo.add(request.ci())) {
-            return "el CI " + request.ci() + " está repetido en el archivo.";
+            return "El CI " + request.ci() + " está repetido en el archivo.";
         }
 
         try {
@@ -141,7 +139,7 @@ public class ImportacionUsuariosService {
                  | RolInvalidoException | IllegalArgumentException e) {
             return e.getMessage();
         } catch (DataIntegrityViolationException e) {
-            return "no se pudo guardar por una restricción de la base de datos.";
+            return "No se pudo guardar por una restricción de la base de datos.";
         }
     }
 }

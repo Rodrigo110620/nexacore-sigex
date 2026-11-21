@@ -160,7 +160,20 @@ class ImportacionEstudiantesServiceTests {
         assertTrue(result.errores().get(0).startsWith("Fila 2: "));
         assertTrue(result.errores().get(0).contains("9 dígitos"));
         assertTrue(result.errores().get(1).contains("apellidos"));
-        assertTrue(result.errores().get(2).contains("idFacultad debe ser un número"));
+        assertTrue(result.errores().get(2).contains("El idFacultad debe ser un número"));
+        verify(estudianteService, never()).registrar(any());
+    }
+
+    @Test
+    void conElCodigoVacioSoloDiceQueEsObligatorio() {
+        var file = csv(ENCABEZADO + ",Ana,Pérez,7489210,ana@umss.edu,1,10\n");
+
+        var result = service.importar(file);
+
+        assertEquals(1, result.ignorados());
+        String error = result.errores().get(0);
+        assertTrue(error.startsWith("Fila 2: El código SIS es obligatorio"), error);
+        assertFalse(error.contains("9 dígitos"), error);
         verify(estudianteService, never()).registrar(any());
     }
 
@@ -182,7 +195,7 @@ class ImportacionEstudiantesServiceTests {
 
         assertEquals(1, result.insertados());
         assertEquals(2, result.ignorados());
-        assertEquals("Fila 3: el código SIS 202404012 está repetido en el archivo.", result.errores().get(0));
+        assertEquals("Fila 3: El código SIS 202404012 está repetido en el archivo.", result.errores().get(0));
         assertEquals("Fila 4: Ya existe un estudiante con ese código SIS.", result.errores().get(1));
     }
 
