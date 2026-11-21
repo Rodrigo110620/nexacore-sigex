@@ -23,6 +23,7 @@ public record RegisterUserRequest(
                 regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,}(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,})*$",
                 message = "El nombre solo puede contener letras; cada palabra minimo 2 letras"
         )
+        @com.nexacore.examenes.validation.NombreReal(campo = "El nombre")
         String nombre,
 
         @NotBlank(message = "Los apellidos son obligatorios")
@@ -31,6 +32,7 @@ public record RegisterUserRequest(
                 regexp = "^[A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,}(?:[ '\\-][A-Za-záéíóúÁÉÍÓÚüÜñÑ]{2,})*$",
                 message = "Los apellidos solo pueden contener letras; cada palabra minimo 2 letras"
         )
+        @com.nexacore.examenes.validation.NombreReal(campo = "Los apellidos")
         String apellidos,
 
         @NotBlank(message = "El CI/DNI es obligatorio")

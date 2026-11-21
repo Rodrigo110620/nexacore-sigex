@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import MesaAyudaGlobal from '../components/ayuda/MesaAyudaGlobal'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -21,6 +22,8 @@ function renderEn(ruta: string) {
           <Route path="/dashboard" element={<p>Panel</p>} />
         </Routes>
       </MemoryRouter>
+      {/* La mesa de ayuda es una sola para toda la app (se monta en App). */}
+      <MesaAyudaGlobal />
     </AuthProvider>
   )
 }

@@ -11,11 +11,13 @@ public record RegistrarEstudianteRequest(
         @NotBlank(message = "El nombre es obligatorio")
         @Size(min = ReglasEstudiante.NOMBRE_MIN, max = ReglasEstudiante.NOMBRE_MAX, message = "El nombre debe tener entre 2 y 50 caracteres")
         @Pattern(regexp = ReglasEstudiante.NOMBRE, message = ReglasEstudiante.MSG_NOMBRE)
+        @com.nexacore.examenes.validation.NombreReal(campo = "El nombre")
         String nombre,
         
         @NotBlank(message = "Los apellidos son obligatorios")
         @Size(min = ReglasEstudiante.APELLIDOS_MIN, max = ReglasEstudiante.APELLIDOS_MAX, message = "Los apellidos deben tener entre 2 y 80 caracteres")
         @Pattern(regexp = ReglasEstudiante.NOMBRE, message = ReglasEstudiante.MSG_APELLIDOS)
+        @com.nexacore.examenes.validation.NombreReal(campo = "Los apellidos")
         String apellidos,
         
         /** Opcional: si no se envía, el estudiante lo escribe al activar su cuenta. */

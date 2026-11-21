@@ -173,8 +173,8 @@ public class EstudianteService {
                 .orElseThrow(() -> new IllegalArgumentException("La carrera seleccionada no pertenece a la facultad indicada."));
 
         Estudiante estudiante = new Estudiante();
-        estudiante.setNombre(limpiar(request.nombre()));
-        estudiante.setApellidos(limpiar(request.apellidos()));
+        estudiante.setNombre(com.nexacore.examenes.utils.ValidacionNombre.normalizar(request.nombre()));
+        estudiante.setApellidos(com.nexacore.examenes.utils.ValidacionNombre.normalizar(request.apellidos()));
         estudiante.setCi(ci);
         estudiante.setEmail(email);
         estudiante.setCodigoSis(codigoSis);
@@ -278,8 +278,8 @@ public class EstudianteService {
                 .orElseThrow(() -> new IllegalArgumentException("La carrera seleccionada no pertenece a la facultad indicada."));
 
         // Actualizar datos personales
-        e.setNombre(limpiar(request.nombre()));
-        e.setApellidos(limpiar(request.apellidos()));
+        e.setNombre(com.nexacore.examenes.utils.ValidacionNombre.normalizar(request.nombre()));
+        e.setApellidos(com.nexacore.examenes.utils.ValidacionNombre.normalizar(request.apellidos()));
         e.setCodigoSis(nuevoCodigo);
         e.setCi(nuevoCi);
         e.setEmail(nuevoEmail);
