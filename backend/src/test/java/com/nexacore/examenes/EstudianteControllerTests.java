@@ -3,7 +3,10 @@ package com.nexacore.examenes;
 import com.nexacore.examenes.dto.EstudianteListResponse;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,8 +15,12 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -136,19 +143,38 @@ class EstudianteControllerTests {
             .andExpect(jsonPath("$.errores.telefono").exists());
     }
 
-    // La planilla la descargan el ADMIN y el DOCENTE (los suyos), no el CONTROL; la plantilla, solo el ADMIN.
     @Test
-    void planillaYPlantillaSegunElRol() throws Exception {
+    void planillaSegunElRol() throws Exception {
         mockMvc.perform(get("/estudiantes/planilla.xlsx").with(user("c@umss.edu").roles("CONTROL")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(get("/estudiantes/plantilla.xlsx").with(user("d@umss.edu").roles("DOCENTE")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/estudiantes/plantilla.csv").with(user("a@umss.edu").roles("ADMIN")))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("plantilla_estudiantes.csv")));
         mockMvc.perform(get("/estudiantes/planilla.xlsx").param("idMateria", "1").param("idParalelo", "2")
                         .with(user("a@umss.edu").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("planilla_estudiantes.xlsx")));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"csv", "xlsx"})
+    void soloAdminDescargaLaPlantillaDeImportacionSinCorreoNiCi(String formato) throws Exception {
+        String ruta = "/estudiantes/plantilla." + formato;
+        mockMvc.perform(get(ruta).with(user("d@umss.edu").roles("DOCENTE")))
+                .andExpect(status().isForbidden());
+        byte[] archivo = mockMvc.perform(get(ruta).with(user("a@umss.edu").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString("plantilla_estudiantes." + formato)))
+                .andReturn().getResponse().getContentAsByteArray();
+        List<String> esperadas = List.of("codigoSis", "nombre", "apellidos", "idFacultad", "idCarrera",
+                "telefono", "estadoMatricula");
+        if (formato.equals("csv")) {
+            String primeraLinea = new String(archivo, StandardCharsets.UTF_8).lines().findFirst().orElseThrow();
+            assertEquals("\uFEFF" + String.join(";", esperadas), primeraLinea);
+        } else {
+            try (var libro = new XSSFWorkbook(new ByteArrayInputStream(archivo))) {
+                var encabezados = libro.getSheetAt(0).getRow(0);
+                assertEquals(esperadas, StreamSupport.stream(encabezados.spliterator(), false)
+                        .map(celda -> celda.getStringCellValue()).toList());
+            }
+        }
     }
 }

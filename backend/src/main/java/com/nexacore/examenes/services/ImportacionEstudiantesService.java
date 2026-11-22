@@ -1,5 +1,6 @@
 package com.nexacore.examenes.services;
 
+import com.nexacore.examenes.utils.MensajesValidacion;
 import com.nexacore.examenes.dto.ImportarEstudiantesResponse;
 import com.nexacore.examenes.dto.RevisionImportacionResponse;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
@@ -180,9 +181,9 @@ public class ImportacionEstudiantesService {
                 if (sisExistentes.contains(r.codigoSis()) || ciExistentes.contains(r.ci()) || emailExistentes.contains(r.email())) {
                     yaRegistradas++;
                 } else if (r.idFacultad() != null && !facultades.contains(r.idFacultad())) {
-                    errores.add(new RevisionImportacionResponse.ErrorFila(fila, "Facultad", "la facultad " + r.idFacultad() + " no existe."));
+                    errores.add(new RevisionImportacionResponse.ErrorFila(fila, "Facultad", "La facultad " + r.idFacultad() + " no existe."));
                 } else if (r.idCarrera() != null && !carreras.contains(r.idCarrera())) {
-                    errores.add(new RevisionImportacionResponse.ErrorFila(fila, "Carrera", "la carrera " + r.idCarrera() + " no existe."));
+                    errores.add(new RevisionImportacionResponse.ErrorFila(fila, "Carrera", "La carrera " + r.idCarrera() + " no existe."));
                 } else {
                     listas++;
                 }
@@ -290,7 +291,7 @@ public class ImportacionEstudiantesService {
         } catch (EstudianteDuplicadoException | IllegalArgumentException e) {
             return e.getMessage();
         } catch (DataIntegrityViolationException e) {
-            return "no se pudo guardar por una restricción de la base de datos.";
+            return "No se pudo guardar por una restricción de la base de datos.";
         }
     }
 
@@ -324,7 +325,7 @@ public class ImportacionEstudiantesService {
         CSVRecord fila, Set<String> sisEnArchivo, Set<String> ciEnArchivo
     ) {
         if (!fila.isConsistent()) {
-            return Validacion.rechazo("la cantidad de columnas no coincide con los encabezados.");
+            return Validacion.rechazo("La cantidad de columnas no coincide con los encabezados.");
         }
 
         String idFacultadTexto = LecturaCsv.valor(fila, "idFacultad");
@@ -332,10 +333,10 @@ public class ImportacionEstudiantesService {
         Integer idFacultad = aEntero(idFacultadTexto);
         Integer idCarrera = aEntero(idCarreraTexto);
         if (!idFacultadTexto.isEmpty() && idFacultad == null) {
-            return Validacion.rechazo("Facultad", "idFacultad debe ser un número.");
+            return Validacion.rechazo("Facultad", "El idFacultad debe ser un número.");
         }
         if (!idCarreraTexto.isEmpty() && idCarrera == null) {
-            return Validacion.rechazo("Carrera", "idCarrera debe ser un número.");
+            return Validacion.rechazo("Carrera", "El idCarrera debe ser un número.");
         }
 
         RegistrarEstudianteRequest request = new RegistrarEstudianteRequest(
@@ -357,17 +358,14 @@ public class ImportacionEstudiantesService {
             String columna = violaciones.stream().map(v -> v.getPropertyPath().toString())
                 .min(Comparator.comparingInt(ImportacionEstudiantesService::ordenColumna))
                 .map(c -> COLUMNA_VISIBLE.getOrDefault(c, c)).orElse(null);
-            return Validacion.rechazo(columna, violaciones.stream()
-                .map(ConstraintViolation::getMessage)
-                .sorted()
-                .collect(Collectors.joining("; ")) + ".");
+            return Validacion.rechazo(columna, MensajesValidacion.unir(violaciones));
         }
 
         if (!sisEnArchivo.add(request.codigoSis())) {
-            return Validacion.rechazo("Código SIS", "el código SIS " + request.codigoSis() + " está repetido en el archivo.");
+            return Validacion.rechazo("Código SIS", "El código SIS " + request.codigoSis() + " está repetido en el archivo.");
         }
         if (request.ci() != null && !ciEnArchivo.add(request.ci())) {
-            return Validacion.rechazo("CI", "el CI " + request.ci() + " está repetido en el archivo.");
+            return Validacion.rechazo("CI", "El CI " + request.ci() + " está repetido en el archivo.");
         }
 
         // El correo sale del código SIS (no se pide en el archivo).

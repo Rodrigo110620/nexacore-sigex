@@ -213,21 +213,22 @@ export default function MiQrPage() {
                   {proximo.habilitado === false ? (
                     <div role="alert" className="rounded-2xl border border-[#FBCFD4] bg-[#FFF5F5] p-5 text-sm text-[#7F1D1D]">
                       <ShieldX size={28} className="text-[#B91C1C]" aria-hidden="true" />
-                      <p className="mt-2 text-base font-bold text-[#B91C1C]">No estás habilitado para este examen</p>
+                      <p className="mt-2 text-base font-bold text-[#B91C1C]">No estás habilitado para {proximo.materia}</p>
                       <p className="mt-1">Razón: {proximo.motivoInhabilitacion || 'no indicada'}.</p>
-                      <p className="mt-1 text-xs">El control de ingreso no te dejará ingresar. Si crees que es un error, comunícate con la administración antes del examen.</p>
+                      <p className="mt-1 text-xs">Esto es solo para este examen: tu cuenta sigue activa y tus otros exámenes no cambian. El control de ingreso no te dejará entrar a este examen; si crees que es un error, consulta con tu docente antes del examen.</p>
                     </div>
                   ) : proximo.habilitado === null ? (
                     <div className="rounded-2xl border border-[#FDE68A] bg-[#FFF7E6] p-5 text-sm text-[#92400E]">
                       <Clock size={28} aria-hidden="true" />
-                      <p className="mt-2 text-base font-bold">Tu habilitación está pendiente</p>
-                      <p className="mt-1">La administración todavía no revisa tu habilitación para este examen.</p>
+                      <p className="mt-2 text-base font-bold">Tu habilitación para {proximo.materia} está pendiente</p>
+                      <p className="mt-1">Tu docente todavía no decide si estás habilitado para este examen. Si tienes dudas, consulta con él antes del examen.</p>
+                      <p className="mt-1 text-xs">Esto es solo para este examen: tu cuenta sigue activa y tus otros exámenes no cambian.</p>
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-5 text-sm text-[#14532D]">
                       <ShieldCheck size={28} className="text-[#15803D]" aria-hidden="true" />
-                      <p className="mt-2 text-base font-bold text-[#15803D]">Acceso habilitado</p>
-                      <p className="mt-1">Estás habilitado para este examen. Llega con anticipación y presenta este QR.</p>
+                      <p className="mt-2 text-base font-bold text-[#15803D]">Estás habilitado para {proximo.materia}</p>
+                      <p className="mt-1">Esta habilitación es solo para este examen. Llega con anticipación y presenta este QR y tu carnet.</p>
                     </div>
                   )}
                 </>

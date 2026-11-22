@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MesaAyudaModal from '../components/ayuda/MesaAyudaModal'
 import BandejaAyuda from '../components/ayuda/BandejaAyuda'
 import Header from '../components/layout/Header'
+import MesaAyudaGlobal from '../components/ayuda/MesaAyudaGlobal'
 import { atenderSolicitudAyuda, enviarSolicitudAyuda, listarSolicitudesAyuda } from '../services/mesaAyudaService'
 
 vi.mock('../services/mesaAyudaService', async (original) => ({
@@ -33,8 +34,11 @@ describe('Mesa de ayuda', () => {
 
   it('el botón del ingreso abre el asistente: tema → pasos explicados → «se resolvió»', () => {
     const onClose = vi.fn()
-    render(<Header />)
+    render(<><Header /><MesaAyudaGlobal /></>)
     fireEvent.click(screen.getByRole('button', { name: 'Mesa de Ayuda' }))
+    // 2.º test run: otro clic (p. ej. en «¿Necesitas ayuda?») no abre una segunda mesa de ayuda.
+    fireEvent.click(screen.getByRole('button', { name: 'Mesa de Ayuda' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
     const dialogo = screen.getByRole('dialog', { name: 'Mesa de ayuda' })
     expect(within(dialogo).getByText('¿Con qué necesitas ayuda?')).toBeInTheDocument()
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Olvidé mi contraseña' }))

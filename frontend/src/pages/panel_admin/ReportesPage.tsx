@@ -17,22 +17,28 @@ import { tienePermiso } from '../../utils/permisos'
 import { listarRegistrosControlExamen, type RegistroControlIngresoExamen } from '../../services/controlIngresoService'
 import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../../services/intentoIngresoService'
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
+import ReporteModificaciones from '../../components/reportes/ReporteModificaciones'
+import ReporteIngresos from '../../components/reportes/ReporteIngresos'
+
 
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
+  { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
+  { id: 'ingresos-qr', texto: 'Ingresos QR', corto: 'Ing. QR' },
+  { id: 'ingresos-manual', texto: 'Ingresos Manuales', corto: 'Ing. Manual' },
 ]
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas' }
+const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales' }
 const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'],
+  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos']
 }
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
@@ -41,9 +47,9 @@ const nombreExamen = (e: ExamenDto) => `${materiaYGrupo(e)} · ${formatFecha(e.f
 
 /** BUG-G01: no inscrito (rojo), aula incorrecta (naranja) y no habilitado (gris) se distinguen, como en el mockup. */
 const COLOR_TIPO: Record<IntentoReporte['tipo'], string> = {
-  NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#B91C1C]',
-  AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#C2410C]',
-  NO_HABILITADO: 'bg-[#EEF2F6] text-[#45628D]',
+  NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]',
+  AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#9A3412] border border-[#FDBA74]',
+  NO_HABILITADO: 'bg-[#E0E7FF] text-[#3730A3] border border-[#A5B4FC]',
 }
 const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
@@ -82,9 +88,9 @@ function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number
 
   useEffect(() => {
     let vigente = true
-    ;(desde ? reporteIntentos(idExamen, pagina, TAMANO, buscar, desde) : reporteIntentos(idExamen, pagina, TAMANO, buscar))
-      .then((datos) => { if (vigente) setResultado({ clave, contexto, datos }) })
-      .catch(() => { if (vigente) setResultado({ clave, contexto, error: 'No se pudo cargar el reporte de intentos.' }) })
+      ; (desde ? reporteIntentos(idExamen, pagina, TAMANO, buscar, desde) : reporteIntentos(idExamen, pagina, TAMANO, buscar))
+        .then((datos) => { if (vigente) setResultado({ clave, contexto, datos }) })
+        .catch(() => { if (vigente) setResultado({ clave, contexto, error: 'No se pudo cargar el reporte de intentos.' }) })
     return () => { vigente = false }
   }, [idExamen, pagina, clave, contexto, buscar, desde])
 
@@ -149,25 +155,48 @@ function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number
               </tbody>
             </table>
           </div>
-          <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
+                    <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
             {datos.contenido.map((i) => (
-              <li key={i.idIntento} className={`min-w-0 rounded-xl border border-[#E4E9F2] bg-white p-3 ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
-                <div className="flex items-start justify-between gap-2">
+              <li key={i.idIntento} className={`relative flex flex-col min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm transition-all hover:shadow-md ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
+                
+                {/* Cabecera: Estudiante y SIS */}
+                <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
                   <div className="min-w-0">
-                    <p className="break-words text-sm font-semibold text-[#011140]">{i.estudiante ?? 'No identificado'}{nuevas.has(i.idIntento) && <EtiquetaNuevo />}</p>
-                    <p className="text-xs text-[#627A9B]">{i.codigoSis ? `SIS ${i.codigoSis}` : `Identificador ${i.identificador}`}</p>
+                    <p className="break-words text-sm font-bold text-[#011140]">
+                      {i.estudiante ?? 'No identificado'}
+                      {nuevas.has(i.idIntento) && <EtiquetaNuevo />}
+                    </p>
+                    <p className="mt-1 inline-block rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[11px] font-bold text-[#0439D9]">
+                      {i.codigoSis ? `SIS ${i.codigoSis}` : `ID ${i.identificador}`}
+                    </p>
                   </div>
+                  <div className="shrink-0"><EtiquetaTipo intento={i} /></div>
                 </div>
-                <div className="mt-2"><EtiquetaTipo intento={i} /></div>
-                {detalleDe(i) && <p className="mt-2 break-words rounded-lg bg-[#F8FAFC] px-2.5 py-2 text-xs text-[#334E7A] [overflow-wrap:anywhere]">{detalleDe(i)}</p>}
-                <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                  <dt className="text-[#627A9B]">Examen</dt>
+
+                {/* Detalle del error (más visible) */}
+                {detalleDe(i) && (
+                  <div className="mt-3 rounded-lg border-l-[3px] border-[#0439D9] bg-[#F4F8FF] px-3 py-2">
+                    <p className="break-words text-xs font-medium text-[#1E3A8A] [overflow-wrap:anywhere]">{detalleDe(i)}</p>
+                  </div>
+                )}
+
+                {/* Datos del examen y control */}
+                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+                  <dt className="font-semibold text-[#627A9B]">Examen</dt>
                   <dd className="min-w-0 text-right">
-                    <span className="block break-words font-medium text-[#011140]">{i.examen ?? `Examen #${i.idExamen}`}</span>
-                    <span className="text-[#627A9B]">{formatFecha(i.fechaExamen)} · {i.horaExamen?.slice(0, 5)}</span>
+                    <span className="block break-words font-bold text-[#011140]">{i.examen ?? `Examen #${i.idExamen}`}</span>
+                    <span className="text-[#45628D]">{formatFecha(i.fechaExamen)} · {i.horaExamen?.slice(0, 5)}</span>
                   </dd>
-                  <dt className="text-[#627A9B]">Intento</dt><dd className="min-w-0 break-words text-right font-semibold text-[#011140]">{fechaHoraNumerica(i.fechaHora, true)}</dd>
-                  <dt className="text-[#627A9B]">Controló</dt><dd className="min-w-0 break-words text-right text-[#011140]">{i.personalControl}</dd>
+                  
+                  <dt className="font-semibold text-[#627A9B]">Intento</dt>
+                  <dd className="min-w-0 break-words text-right font-bold text-[#B91C1C]">
+                    {fechaHoraNumerica(i.fechaHora, true)}
+                  </dd>
+                  
+                  <dt className="font-semibold text-[#627A9B]">Controló</dt>
+                  <dd className="min-w-0 break-words text-right font-semibold text-[#334155]">
+                    {i.personalControl}
+                  </dd>
                 </dl>
               </li>
             ))}
@@ -193,10 +222,10 @@ function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number
  * (REPORTES_VER) ve todos; el DOCENTE y el CONTROL, solo sus exámenes: los suyos o donde está asignado (V53).
  */
 export default function ReportesPage() {
-  const auth = useAuth() 
+  const auth = useAuth()
   const soloMios = !tienePermiso(auth, 'REPORTES_VER')
-  const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR') 
-  
+  const puedeExportar = tienePermiso(auth, 'REPORTES_EXPORTAR')
+
   const [pestana, setPestana] = useState<Pestana>('intentos')
   const [examenes, setExamenes] = useState<ExamenDto[]>([])
   const [idExamen, setIdExamen] = useState<number | null>(null)
@@ -214,12 +243,12 @@ export default function ReportesPage() {
 
   useEffect(() => {
     let vigente = true
-    ;(soloMios ? listarMisExamenes() : listarExamenes())
-      .then((lista) => {
-        if (!vigente) return
-        setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))
-      })
-      .catch(() => { if (vigente) setExamenes([]) })
+      ; (soloMios ? listarMisExamenes() : listarExamenes())
+        .then((lista) => {
+          if (!vigente) return
+          setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))
+        })
+        .catch(() => { if (vigente) setExamenes([]) })
     return () => { vigente = false }
   }, [soloMios])
 
@@ -354,7 +383,7 @@ export default function ReportesPage() {
             )}
 
             <div role="tablist" aria-label="Tipo de reporte"
-              className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-6 sm:overflow-visible sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0">
+              className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-4 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0 xl:gap-6 xl:overflow-visible">
               {PESTANAS.map((p) => (
                 <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
                   aria-label={resumen[p.id] ? `${p.texto} (${resumen[p.id]!.total})` : p.texto} onClick={() => setPestana(p.id)}
@@ -363,8 +392,7 @@ export default function ReportesPage() {
                     : 'font-medium text-[#627A9B] sm:border-transparent'}`}>
                   <span className="sm:hidden">{p.corto}</span><span className="hidden sm:inline">{p.texto}</span>
                   {resumen[p.id] && (
-                    <span className={`ml-1.5 inline-grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ${
-                      pestana === p.id ? 'bg-[#0439D9] text-white' : 'bg-[#E1E8F5] text-[#45628D]'}`}>{resumen[p.id]!.total}</span>
+                    <span className={`ml-1.5 inline-grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ${pestana === p.id ? 'bg-[#0439D9] text-white' : 'bg-[#E1E8F5] text-[#45628D]'}`}>{resumen[p.id]!.total}</span>
                   )}
                 </button>
               ))}
@@ -377,6 +405,9 @@ export default function ReportesPage() {
               {pestana === 'expulsiones' && <ExpulsionesReporte idExamen={idExamen} examen={etiqueta} nombresExamen={nombresExamen} buscar={buscar} desde={desde}
                 controles={idExamen != null && controles?.idExamen === idExamen ? controles.registros : []} />}
               {pestana === 'excepciones' && <ExcepcionesNoHabilitadoReporte idExamen={idExamen} nombresExamen={nombresExamen} buscar={buscar} desde={desde} />}
+              {pestana === 'modificaciones' && <ReporteModificaciones idExamen={idExamen} buscar={buscar} desde={desde} />}
+              {pestana === 'ingresos-qr' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="QR" />}
+              {pestana === 'ingresos-manual' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="MANUAL" />}
             </div>
           </div>
         </section>

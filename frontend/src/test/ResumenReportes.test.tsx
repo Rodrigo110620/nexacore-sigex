@@ -3,14 +3,19 @@ import { describe, expect, it, vi } from 'vitest'
 import ResumenReportes from '../components/reportes/ResumenReportes'
 import useFilasNuevas from '../hooks/useFilasNuevas'
 import GraficoPorHora from '../components/reportes/GraficoPorHora'
+import type { ResumenReportes as ResumenReportesData } from '../hooks/useResumenReportes'
 
 const H = Array<number>(24).fill(0)
 const C = { porHora: H, porHoraAyer: H, ultimoHoy: null, porMotivo: [] }
-const RESUMEN = {
+
+const RESUMEN: ResumenReportesData = {
   intentos: { total: 12, hoy: 3, ayer: 5, ...C },
   expulsiones: { total: 2, hoy: 0, ayer: 1, ...C },
   excepciones: null,
   fotos: { total: 4, hoy: 1, ayer: 0, ...C },
+  modificaciones: { total: 0, hoy: 0, ayer: 0, ...C },
+  'ingresos-qr': null,      
+  'ingresos-manual': null,
 }
 
 describe('Resumen de Reportes', () => {

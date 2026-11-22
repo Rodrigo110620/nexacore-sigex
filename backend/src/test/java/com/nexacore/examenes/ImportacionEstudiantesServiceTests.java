@@ -4,8 +4,11 @@ import java.util.List;
 import com.nexacore.examenes.dto.ReglasEstudiante;
 import com.nexacore.examenes.dto.RegistrarEstudianteRequest;
 import com.nexacore.examenes.exceptions.EstudianteDuplicadoException;
+import com.nexacore.examenes.repositories.EstudianteCarreraRepository;
+import com.nexacore.examenes.repositories.EstudianteRepository;
 import com.nexacore.examenes.services.EstudianteService;
 import com.nexacore.examenes.services.ImportacionEstudiantesService;
+import com.nexacore.examenes.services.PlanillaEstudiantesService;
 import com.nexacore.examenes.services.RegistroLoteEstudiantesService;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -14,6 +17,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
@@ -155,7 +160,20 @@ class ImportacionEstudiantesServiceTests {
         assertTrue(result.errores().get(0).startsWith("Fila 2: "));
         assertTrue(result.errores().get(0).contains("9 dígitos"));
         assertTrue(result.errores().get(1).contains("apellidos"));
-        assertTrue(result.errores().get(2).contains("idFacultad debe ser un número"));
+        assertTrue(result.errores().get(2).contains("El idFacultad debe ser un número"));
+        verify(estudianteService, never()).registrar(any());
+    }
+
+    @Test
+    void conElCodigoVacioSoloDiceQueEsObligatorio() {
+        var file = csv(ENCABEZADO + ",Ana,Pérez,7489210,ana@umss.edu,1,10\n");
+
+        var result = service.importar(file);
+
+        assertEquals(1, result.ignorados());
+        String error = result.errores().get(0);
+        assertTrue(error.startsWith("Fila 2: El código SIS es obligatorio"), error);
+        assertFalse(error.contains("9 dígitos"), error);
         verify(estudianteService, never()).registrar(any());
     }
 
@@ -177,7 +195,7 @@ class ImportacionEstudiantesServiceTests {
 
         assertEquals(1, result.insertados());
         assertEquals(2, result.ignorados());
-        assertEquals("Fila 3: el código SIS 202404012 está repetido en el archivo.", result.errores().get(0));
+        assertEquals("Fila 3: El código SIS 202404012 está repetido en el archivo.", result.errores().get(0));
         assertEquals("Fila 4: Ya existe un estudiante con ese código SIS.", result.errores().get(1));
     }
 
@@ -213,8 +231,23 @@ class ImportacionEstudiantesServiceTests {
         var primera = capturas.getAllValues().get(0);
         var segunda = capturas.getAllValues().get(1);
         assertEquals("202404012@est.umss.edu", primera.email());
+        assertEquals("7489210", primera.ci());
         assertEquals("202404013@est.umss.edu", segunda.email());
         org.junit.jupiter.api.Assertions.assertNull(segunda.ci());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"csv", "xlsx"})
+    void importaLaPlantillaGeneradaSinCiNiCorreo(String formato) {
+        var plantilla = new PlanillaEstudiantesService(mock(EstudianteRepository.class), mock(EstudianteCarreraRepository.class));
+        byte[] contenido = formato.equals("csv") ? plantilla.plantillaCsv() : plantilla.plantillaXlsx();
+        var archivo = new MockMultipartFile("file", "plantilla_estudiantes." + formato, "application/octet-stream", contenido);
+
+        var resultado = service.importar(archivo);
+
+        assertEquals(1, resultado.insertados(), String.valueOf(resultado.errores()));
+        verify(estudianteService).registrar(argThat((RegistrarEstudianteRequest r) ->
+            r.ci() == null && "202100101@est.umss.edu".equals(r.email()) && "71234567".equals(r.telefono())));
     }
 
     @Test

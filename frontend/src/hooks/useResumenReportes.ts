@@ -4,6 +4,8 @@ import { reporteIntentos } from '../services/intentoIngresoService'
 import { listarExpulsionesExamen, listarExpulsionesTodas } from '../services/expulsionService'
 import { listarExcepcionesNoHabilitado, listarExcepcionesTodas } from '../services/excepcionNoHabilitadoService'
 import { listarFotosReportadas, textoMotivoReporte } from '../services/fotoRevisionService'
+import { reporteModificacionesInhabilitados } from '../services/modificacionInhabilitadoService'
+import { reporteIngresos } from '../services/ingresoService'
 
 /** Motivo escrito a mano, corto para el gráfico (primera letra en mayúscula). */
 const recortar = (texto: string) => {
@@ -41,10 +43,10 @@ const TEXTO_TIPO_INTENTO: Record<string, string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
 }
 
-export type ClaveResumen = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos'
+export type ClaveResumen = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
 export type ResumenReportes = Record<ClaveResumen, Cifra | null>
 
-const VACIO: ResumenReportes = { intentos: null, expulsiones: null, excepciones: null, fotos: null }
+const VACIO: ResumenReportes = { intentos: null, expulsiones: null, excepciones: null, fotos: null, modificaciones: null, 'ingresos-qr': null, 'ingresos-manual': null }
 
 /** "2026-11-16" del día local, con {@code diasAtras} días antes. */
 function dia(diasAtras: number): string {
@@ -116,10 +118,12 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
       reporteIntentos(idExamen, 0, 100, '', ayer),
     ]).then(([t, h, a]) => {
       const fechas = a.contenido.map((i) => i.fechaHora)
-      return { total: t.totalRegistros, hoy: h.totalRegistros, ayer: a.totalRegistros - h.totalRegistros,
+      return {
+        total: t.totalRegistros, hoy: h.totalRegistros, ayer: a.totalRegistros - h.totalRegistros,
         porHora: porHoraDe(fechas), porHoraAyer: porHoraDe(fechas, 1), ultimoHoy: ultimoDeHoy(fechas),
         // Por motivo: con los (hasta 100) más recientes del período.
-        porMotivo: motivosDe(t.contenido.map((i) => TEXTO_TIPO_INTENTO[i.tipo] ?? 'Intento incorrecto')) }
+        porMotivo: motivosDe(t.contenido.map((i) => TEXTO_TIPO_INTENTO[i.tipo] ?? 'Intento incorrecto'))
+      }
     })
     const expulsiones = (idExamen == null ? listarExpulsionesTodas() : listarExpulsionesExamen(idExamen))
       .then((l) => {
@@ -130,11 +134,39 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
       .then((l) => cifraDe(l.map((e) => e.fechaHora), desde, l.map((e) => recortar(e.motivoInhabilitacion))))
     const fotos = listarFotosReportadas(idExamen).then((l) => cifraDe(l.map((f) => f.reportadoEn), desde, l.map((f) => textoMotivoReporte(f.motivo))))
 
-    void Promise.allSettled([intentos, expulsiones, excepciones, fotos]).then(([i, e, x, f]) => {
+    const modificaciones = reporteModificacionesInhabilitados(idExamen, desde)
+      .then((l) => cifraDe(
+        l.map((m) => m.fechaHora),
+        desde,
+        l.map((m) => m.esFallo ? 'Bloqueado' : 'Exitoso')
+      ))
+    const ingresos = reporteIngresos(idExamen).then((l) => {
+      const qr = l.filter((i) => i.tipoIngreso === 'NORMAL').map((i) => i.fechaHora)
+      const manual = l.filter((i) => i.tipoIngreso === 'MANUAL').map((i) => i.fechaHora)
+      return {
+        qr: cifraDe(qr, desde, qr.map(() => 'Ingreso QR')),
+        manual: cifraDe(manual, desde, manual.map(() => 'Ingreso Manual'))
+      }
+    })
+
+    void Promise.allSettled([intentos, expulsiones, excepciones, fotos, modificaciones, ingresos]).then(([i, e, x, f, m, ing]) => {
       if (!vigente) return
       const valor = (r: PromiseSettledResult<Cifra>) => (r.status === 'fulfilled' ? r.value : null)
-      setResultado({ clave, resumen: { intentos: valor(i), expulsiones: valor(e), excepciones: valor(x), fotos: valor(f) } })
+      const ingVal = (ing.status === 'fulfilled' && ing.value) ? ing.value : { qr: null, manual: null }
+
+      setResultado({
+        clave, resumen: {
+          intentos: valor(i),
+          expulsiones: valor(e),
+          excepciones: valor(x),
+          fotos: valor(f),
+          modificaciones: valor(m),
+          'ingresos-qr': ingVal.qr,
+          'ingresos-manual': ingVal.manual,
+        }
+      })
     })
+
     return () => { vigente = false }
   }, [idExamen, desde, clave, recarga])
 

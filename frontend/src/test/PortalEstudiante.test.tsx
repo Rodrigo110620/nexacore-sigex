@@ -101,7 +101,9 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     ])
     renderEn('/estudiante')
 
-    expect(await screen.findByText('Estás habilitado para tu próximo examen')).toBeInTheDocument()
+    expect(await screen.findByText('Estás habilitado para Cálculo I')).toBeInTheDocument()
+    // BUG-C01: el estado es solo de este examen, no de la cuenta.
+    expect(screen.getByText(/Esta habilitación es solo para este examen/)).toBeInTheDocument()
     expect(screen.getAllByText('Cálculo I').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /mostrar mi qr/i })).toHaveAttribute('href', '/estudiante/qr')
     await userEvent.click(screen.getByRole('tab', { name: 'Pasados (1)' }))
@@ -166,7 +168,7 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     expect(within(tarjeta).getByText('Tu ingreso quedó registrado a las 08:55')).toBeInTheDocument()
     expect(within(tarjeta).getByText('Rinde tu examen en el aula 691A.')).toBeInTheDocument()
     expect(within(tarjeta).getAllByText('Ingresó').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Estás habilitado para tu próximo examen')).not.toBeInTheDocument()
+    expect(screen.queryByText('Estás habilitado para Cálculo I')).not.toBeInTheDocument()
     // El QR pasa a segundo plano.
     expect(screen.queryByRole('link', { name: /mostrar mi qr/i })).not.toBeInTheDocument()
     expect(within(tarjeta).getByRole('link', { name: /ver mi qr/i })).toHaveAttribute('href', '/estudiante/qr')
@@ -181,7 +183,7 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     const tarjeta = (await screen.findByRole('heading', { name: 'Próximo examen' })).closest('article') as HTMLElement
     expect(within(tarjeta).getByRole('alert')).toHaveTextContent('No se autorizó tu ingreso')
     expect(within(tarjeta).getByRole('alert')).toHaveTextContent('Motivo: El carnet no coincide')
-    expect(screen.queryByText('Estás habilitado para tu próximo examen')).not.toBeInTheDocument()
+    expect(screen.queryByText('Estás habilitado para Cálculo I')).not.toBeInTheDocument()
   })
 
   it('si lo expulsaron, lo indica sin detalles internos y sin el QR', async () => {
@@ -225,6 +227,10 @@ describe('Panel de inicio del estudiante (CTA-03)', () => {
     vi.mocked(obtenerMisExamenes).mockResolvedValue([examen(1, 'Cálculo I', '2099-03-10', { habilitado: null })])
     renderEn('/estudiante')
     expect(await screen.findByText('Tu habilitación para Cálculo I está pendiente')).toBeInTheDocument()
+    // BUG-C01: lo decide el docente (no la administración) y es solo para este examen.
+    expect(screen.getByText(/Tu docente todavía no decide/)).toBeInTheDocument()
+    expect(screen.getByText(/Esto es solo para este examen: tu cuenta sigue activa/)).toBeInTheDocument()
+    expect(screen.queryByText(/administración todavía no revisa/)).not.toBeInTheDocument()
   })
 
   it('sin exámenes lo informa y sin conexión permite reintentar', async () => {
@@ -262,7 +268,7 @@ describe('Mi QR (CTA-03)', () => {
     expect(await screen.findByRole('img', { name: 'Tu código QR de ingreso' })).toBeInTheDocument()
     // Con la máquina cargada pueden pasar unos segundos antes de revisar: basta con que la cuenta corra cerca de 60.
     expect(screen.getByText(/Se renueva en (5\d|60) s/)).toBeInTheDocument()
-    expect(await screen.findByText('Acceso habilitado')).toBeInTheDocument()
+    expect(await screen.findByText('Estás habilitado para Cálculo I')).toBeInTheDocument()
   })
 
   it('pide un QR nuevo antes de que venza', async () => {
@@ -292,7 +298,10 @@ describe('Mi QR (CTA-03)', () => {
       examen(1, 'Cálculo I', '2099-03-10', { habilitado: false, motivoInhabilitacion: 'Deuda en biblioteca' }),
     ])
     renderEn('/estudiante/qr')
-    expect(await screen.findByText('No estás habilitado para este examen')).toBeInTheDocument()
+    expect(await screen.findByText('No estás habilitado para Cálculo I')).toBeInTheDocument()
+    // BUG-C01: solo afecta a este examen y se consulta con el docente.
+    expect(screen.getByText(/tu cuenta sigue activa y tus otros exámenes no cambian/)).toBeInTheDocument()
+    expect(screen.getByText(/consulta con tu docente/)).toBeInTheDocument()
     expect(screen.getAllByText('No habilitado').length).toBeGreaterThan(0)
     expect(screen.getByText('Razón: Deuda en biblioteca.')).toBeInTheDocument()
   })

@@ -13,6 +13,8 @@ import jakarta.validation.constraints.Size;
  */
 public record DatosDocenteRequest(
         @Size(max = 40, message = "El título no puede superar 40 caracteres")
+        // «Lic.», «Ing.», «M.Sc.», «Dr.»: solo letras y puntos, con un espacio entre palabras.
+        @Pattern(regexp = "^\\s*$|^\\s*[\\p{L}.]+( [\\p{L}.]+)*\\s*$", message = "El título solo admite letras y puntos (por ejemplo, Lic. o M.Sc.)")
         String titulo,
         @Size(max = 100, message = "La especialidad no puede superar 100 caracteres")
         @Pattern(regexp = "^\\s*$|^\\s*\\p{L}+( \\p{L}+)*\\s*$", message = "La especialidad solo admite letras, con un espacio entre palabras")
