@@ -1,5 +1,6 @@
 
 import api from './api'
+import { guardarEstudianteControl } from './controlOfflineService'
 
 export type TipoIdentificacion = 'codigo' | 'ci'
 
@@ -27,6 +28,7 @@ export async function identificarEstudiante(
     `/examenes/${idExamen}/estudiantes/identificar`,
     { params: { tipo, valor } },
   )
+  guardarEstudianteControl(idExamen, data)
   return data
 }
 
@@ -35,5 +37,6 @@ export async function identificarQr(idExamen: number, contenido: string): Promis
   const { data } = await api.post<EstudianteIdentificado>(
     `/examenes/${idExamen}/estudiantes/identificar-qr`, { contenido },
   )
+  guardarEstudianteControl(idExamen, data)
   return data
 }

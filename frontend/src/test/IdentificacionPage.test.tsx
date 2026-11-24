@@ -281,14 +281,14 @@ describe('IdentificacionPage', () => {
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('202104010')
   })
 
-  it('ACCS HU#01 CA-51 a 53: sin conexión no busca, avisa y conserva el dato para reintentar', async () => {
+  it('sin conexión solo identifica estudiantes cargados previamente', async () => {
     mockedIdentificar.mockClear()
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()
     const offline = sinConexion()
     buscar()
 
-    expect(screen.getByText(/Sin conexión a Internet: no es posible identificar al estudiante/)).toBeInTheDocument()
+    expect(screen.getByText(/este estudiante no fue cargado previamente/)).toBeInTheDocument()
     expect(mockedIdentificar).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Ingresa el Código Universitario:')).toHaveValue('202104010')
 
@@ -306,7 +306,7 @@ describe('IdentificacionPage', () => {
 
     fireEvent.click(continuar())
 
-    expect(screen.getByRole('alert')).toHaveTextContent('no se pudo verificar la habilitación')
+    expect(screen.getByRole('alert')).toHaveTextContent('la ficha de este estudiante no fue cargada previamente')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -322,21 +322,15 @@ describe('IdentificacionPage', () => {
     expect(within(modal).getByText('Deuda en biblioteca')).toBeInTheDocument()
   })
 
-  it('CA-54 a 57: sin conexión el Continuar de la verificación no navega y conserva los datos', async () => {
+  it('con la verificación ya cargada permite continuar aunque se corte Internet', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()
     await buscarEstudiante()
     const modal = await abrirVerificacion()
-    const offline = sinConexion()
+    sinConexion()
 
     fireEvent.click(within(modal).getByRole('button', { name: 'Continuar' }))
 
-    expect(within(modal).getByRole('alert')).toHaveTextContent('no es posible continuar con el control de ingreso')
-    expect(screen.queryByText('Flujo ACCS-02')).not.toBeInTheDocument()
-    expect(within(modal).getByText('202104010')).toBeInTheDocument()
-
-    offline.mockReturnValue(true)
-    fireEvent.click(within(modal).getByRole('button', { name: 'Continuar' }))
     expect(await screen.findByText('Flujo ACCS-02')).toBeInTheDocument()
   })
 

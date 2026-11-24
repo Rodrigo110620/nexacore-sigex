@@ -1,6 +1,8 @@
 import api from './api'
 import type { PageResponse } from '../types/userApi'
 import { listarExpulsionesExamen, type ExpulsionResponse } from './expulsionService'
+import { encolarOperacionControl, guardarEstudianteControl } from './controlOfflineService'
+import { isNetworkError } from '../utils/examFormUtils'
 
 export type FiltroEstado = 'TODOS' | 'HABILITADOS' | 'NO_HABILITADOS' | 'AUSENTES'
 
@@ -72,9 +74,15 @@ export async function listarEstudiantesExamen(
   ])
   // Una expulsión anulada (por error) no cuenta: el estudiante sigue con su examen.
   const porEstudiante = new Map([...expulsiones].filter((r) => !r.anuladaEn).reverse().map((registro) => [registro.idEstudiante, registro]))
-  return { ...data, contenido: data.contenido.map((estudiante) => ({
+  const contenido = data.contenido.map((estudiante) => ({
     ...estudiante, expulsado: porEstudiante.has(estudiante.idEstudiante), expulsion: porEstudiante.get(estudiante.idEstudiante),
-  })) }
+  }))
+  contenido.forEach((estudiante) => guardarEstudianteControl(idExamen, {
+    idEstudiante: estudiante.idEstudiante, nombre: estudiante.nombre, apellidos: estudiante.apellidos,
+    codigoSis: estudiante.codigoSis, ci: estudiante.ci, carrera: estudiante.carrera, fotoUrl: estudiante.fotoUrl ?? null,
+    estado: estudiante.estado, motivoInhabilitacion: estudiante.motivoInhabilitacion,
+  }))
+  return { ...data, contenido }
 }
 
 export async function obtenerResumenExamen(idExamen: number): Promise<ResumenEstudiantes> {
@@ -92,6 +100,13 @@ export async function reasignarAmbiente(
   idExamen: number,
   idEstudiante: number,
   request: ReasignarAmbienteRequest,
-): Promise<void> {
-  await api.post(`/control-ingresos/${idExamen}/${idEstudiante}/reasignar`, request)
+): Promise<{ pendienteSincronizacion?: boolean }> {
+  try {
+    await api.post(`/control-ingresos/${idExamen}/${idEstudiante}/reasignar`, request)
+    return {}
+  } catch (error) {
+    if (!isNetworkError(error)) throw error
+    encolarOperacionControl('REASIGNAR', { idExamen, idEstudiante, ...request })
+    return { pendienteSincronizacion: true }
+  }
 }

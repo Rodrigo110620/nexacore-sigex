@@ -6,6 +6,8 @@ export interface PersonalControl {
   nombre: string
   apellidos: string
   email: string
+  disponible?: boolean
+  conflictoHorario?: string | null
 }
 
 export async function personalDelExamen(idExamen: number): Promise<PersonalControl[]> {
@@ -20,5 +22,10 @@ export async function asignarPersonal(idExamen: number, idUsuarios: number[]): P
 
 export async function personalDisponible(): Promise<PersonalControl[]> {
   const { data } = await api.get<PersonalControl[]>('/personal-control')
+  return data
+}
+
+export async function personalDisponibleParaExamen(idExamen: number): Promise<PersonalControl[]> {
+  const { data } = await api.get<PersonalControl[]>(`/examenes/${idExamen}/personal-control/disponibles`)
   return data
 }

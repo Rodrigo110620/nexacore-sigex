@@ -214,13 +214,15 @@ export default function ReasignarAmbienteModal({ idExamen, examenNombre, estudia
 
     try {
       setCargando(true)
-      await reasignarAmbiente(idExamen, estudiante.idEstudiante, {
+      const resultado = await reasignarAmbiente(idExamen, estudiante.idEstudiante, {
         idAmbienteDestino: Number(idAmbienteDestino),
         // Formato oración que conserva siglas y códigos de aula (p. ej. 690B), igual que el servidor.
         motivo: normalizarMotivo(motivo),
         observacion: observacion.trim().replace(/\s+/g, ' ') || undefined,
       })
-      setSuccessGeneral('El estudiante fue reasignado exitosamente al nuevo ambiente.')
+      setSuccessGeneral(resultado.pendienteSincronizacion
+        ? 'Traslado guardado en este dispositivo. Se sincronizará automáticamente al recuperar Internet.'
+        : 'El estudiante fue reasignado exitosamente al nuevo ambiente.')
       // Mostrar el mensaje de éxito brevemente antes de cerrar el modal.
       await new Promise(resolve => setTimeout(resolve, 1500))
       const aulaDestino = [...(aulas ?? []), ...ambientes].find(
