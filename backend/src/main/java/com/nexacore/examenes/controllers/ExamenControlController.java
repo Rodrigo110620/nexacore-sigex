@@ -60,6 +60,13 @@ public class ExamenControlController {
         return service.disponibles();
     }
 
+    @Operation(summary = "Personal disponible para el horario de un examen")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @GetMapping("/examenes/{idExamen}/personal-control/disponibles")
+    public List<PersonalControlResponse> disponiblesParaExamen(@PathVariable Integer idExamen) {
+        return service.disponiblesParaExamen(idExamen);
+    }
+
     private static List<String> nombres(List<PersonalControlResponse> personal) {
         return personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList();
     }

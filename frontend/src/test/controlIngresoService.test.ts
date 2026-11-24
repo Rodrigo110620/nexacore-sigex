@@ -152,11 +152,11 @@ describe('INCI-01: confirmación de expulsión', () => {
     expect(window.dispatchEvent).not.toHaveBeenCalled()
   })
 
-  it('propaga errores de red sin fabricar un registro', async () => {
+  it('guarda la expulsión pendiente cuando se pierde la conexión', async () => {
     const error = new Error('Network Error')
     mockedApi.post = vi.fn().mockRejectedValue(error)
-    await expect(expulsarEstudiante(payload)).rejects.toBe(error)
-    expect(window.dispatchEvent).not.toHaveBeenCalled()
+    await expect(expulsarEstudiante(payload)).resolves.toMatchObject({ pendienteSincronizacion: true })
+    expect(window.dispatchEvent).toHaveBeenCalled()
   })
 
   it.each([

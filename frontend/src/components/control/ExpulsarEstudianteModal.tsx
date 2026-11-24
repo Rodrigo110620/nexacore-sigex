@@ -26,6 +26,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
   const [enviando, setEnviando] = useState(false)
   const [sinConfirmar, setSinConfirmar] = useState(false)
   const [registro, setRegistro] = useState<ExpulsionResponse | null>(null)
+  const [pendienteSincronizacion, setPendienteSincronizacion] = useState(false)
   const [error, setError] = useState('')
   const bloqueado = enviando || sinConfirmar
   const errorMotivo = validarMotivoExpulsion(motivo)
@@ -43,6 +44,11 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
     setError('')
     try {
       const respuesta = await expulsarEstudiante({ idEstudiante: estudiante.idEstudiante, idExamen, motivo })
+      if (respuesta && 'pendienteSincronizacion' in respuesta) {
+        setPendienteSincronizacion(true)
+        setSinConfirmar(true)
+        return
+      }
       // La evidencia (opcional) se sube después de registrar, una foto por envío.
       if (respuesta && evidencia.length) {
         try {
@@ -94,7 +100,8 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
             La expulsión queda registrada con la hora del servidor y tu nombre. Se puede anular después, también con un motivo.
           </p>
           {error && <p role="alert" className="mt-3 text-xs text-[#B91C1C]">{error}</p>}
-          {sinConfirmar && !registro && <p role="status" className="mt-3 text-xs">Respuesta recibida sin registro verificable. Consulta el registro antes de volver a enviar.</p>}
+          {sinConfirmar && !registro && !pendienteSincronizacion && <p role="status" className="mt-3 text-xs">Respuesta recibida sin registro verificable. Consulta el registro antes de volver a enviar.</p>}
+          {pendienteSincronizacion && <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900">Expulsión guardada en este dispositivo. Se enviará automáticamente al recuperar Internet. Las evidencias no se guardaron y deberán subirse después.</p>}
           {registro && (
             <div className="mt-3">
               <p role="status" className="text-xs font-semibold text-[#166534]">Expulsión registrada correctamente.</p>
@@ -104,7 +111,7 @@ export default function ExpulsarEstudianteModal({ idExamen, examen, datosExamen,
         </div>
         <div className="control-denial-footer">
           <button type="button" disabled={enviando} onClick={onClose} className="control-change">{sinConfirmar ? 'Cerrar' : 'Cancelar'}</button>
-          {!registro && <button type="submit" disabled={bloqueado || Boolean(errorMotivo)} className="control-deny">
+          {!registro && !pendienteSincronizacion && <button type="submit" disabled={bloqueado || Boolean(errorMotivo)} className="control-deny">
             <Ban size={14} aria-hidden="true" />{enviando ? 'Enviando…' : 'Expulsar'}
           </button>}
         </div>
