@@ -149,6 +149,7 @@ public class PlanillaEstudiantesService {
               AND (:docente IS NULL OR ip.id_docente = :docente)
               AND (:materia IS NULL OR ip.id_materia = :materia)
               AND (:paralelo IS NULL OR ip.id_paralelo = :paralelo)
+              AND """ + PeriodoService.delPeriodoActivo("p") + """
             ORDER BY m.nombre, p.nombre_grupo
             """, p, rs -> {
             porEstudiante.computeIfAbsent(rs.getInt(1), k -> new ArrayList<>()).add(rs.getString(2) + " · " + rs.getString(3));

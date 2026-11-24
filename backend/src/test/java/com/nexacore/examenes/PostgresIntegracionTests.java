@@ -1806,4 +1806,196 @@ class PostgresIntegracionTests {
         var hace = ahora.minusMinutes(minutos);
         return hace.isBefore(limite) ? limite : hace;
     }
+
+    // ---------------------------------------------------------------- V61: periodos académicos
+    @Test
+    void cadaGrupoEsDelPeriodoActivoYElMismoGrupoPuedeRepetirseEnOtroPeriodo() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("PER-01");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        Integer ii2026 = jdbc.queryForObject("SELECT id_periodo FROM periodo_academico WHERE activo", Integer.class);
+        assertThat(jdbc.queryForObject("SELECT id_periodo FROM paralelo WHERE id_paralelo = ?", Integer.class, g1)).isEqualTo(ii2026);
+        // En el mismo periodo, «G1» y «1» son el mismo grupo: no se repite.
+        assertThat(errorSql("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (" + idMateria + ", " + idDocente + ", 'G1')"))
+                .contains("ux_paralelo_materia_periodo_grupo");
+
+        jdbc.update("UPDATE periodo_academico SET activo = FALSE");
+        Integer i2027 = jdbc.queryForObject("""
+                INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, activo)
+                VALUES ('I-2027', DATE '2027-01-01', DATE '2027-06-30', TRUE) RETURNING id_periodo
+                """, Integer.class);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G1')", idMateria, idDocente);
+        Integer nuevo = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND id_periodo = ?",
+                Integer.class, idMateria, i2027);
+        sincronizar();
+        // Las listas del docente muestran solo los grupos del periodo activo.
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.idParalelo()).containsExactly(nuevo);
+        // Solo puede haber un periodo activo.
+        assertThat(errorSql("UPDATE periodo_academico SET activo = TRUE WHERE id_periodo = " + ii2026))
+                .contains("ux_periodo_academico_activo");
+    }
+
+    // ---------------------------------------------------------------- Exámenes que se cruzan
+    @Test
+    void elEstudianteNoIngresaADosExamenesQueSeCruzanHastaRegistrarSuSalida() {
+        prepararCatalogo();
+        int pA = materiaYParalelo("CRUCE-A");
+        int pB = materiaYParalelo("CRUCE-B");
+        int examenA = examen(pA, "08:00", 90);
+        int examenB = examen(pB, "08:00", 90);
+        int ana = estudiante("209960001", "Ana");
+        habilitacionService.asociar(examenA, pA, "209960001");
+        habilitacionService.asociar(examenB, pB, "209960001");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ?", ana);
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
+                + "VALUES (?, ?, 'image/jpeg', NOW())", ana, new byte[]{(byte) 0xFF, (byte) 0xD8});
+        abrirControl(examenA);
+        abrirControl(examenB);
+
+        var fechaB = jdbc.queryForObject("SELECT fecha FROM examen WHERE id_examen = ?", java.time.LocalDate.class, examenB);
+        var horaB = jdbc.queryForObject("SELECT hora_inicio FROM examen WHERE id_examen = ?", java.time.LocalTime.class, examenB);
+        // Al programar el examen B se avisa que Ana ya tiene el A a esa hora.
+        assertThat(examenService.crucesDeEstudiantes(pB, fechaB, horaB, 90, examenB))
+                .singleElement().satisfies(c -> assertThat(c.otrosExamenes()).contains("Materia CRUCE-A"));
+
+        java.util.function.IntFunction<com.nexacore.examenes.dto.AutorizarIngresoRequest> ingreso = idExamen ->
+                new com.nexacore.examenes.dto.AutorizarIngresoRequest(ana, idExamen, null, true, List.of(), List.of(),
+                        null, null, false, null);
+        assertThat(controlIngresoService.autorizar(ingreso.apply(examenA), "luis.paz@umss.edu").autorizado()).isTrue();
+        sincronizar();
+        var segundo = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
+        assertThat(segundo.autorizado()).isFalse();
+        assertThat(segundo.resultado()).isEqualTo("DENEGADO_OTRO_EXAMEN");
+        assertThat(segundo.causa()).contains("Ya está rindiendo Materia CRUCE-A");
+        sincronizar();
+        // También queda como intento de ingreso incorrecto del examen B (Ingresos no autorizados y Reportes).
+        assertThat(jdbc.queryForObject("SELECT observacion FROM intento_ingreso WHERE id_examen = ? AND id_estudiante = ?",
+                String.class, examenB, ana)).startsWith("Otro examen a la misma hora: Ya está rindiendo Materia CRUCE-A");
+        // Tras registrar su salida del examen A, puede ingresar al B.
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_salida = NOW() WHERE id_estudiante = ? AND id_examen = ?", ana, examenA);
+        sincronizar();
+        assertThat(controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu").autorizado()).isTrue();
+    }
+
+    // ---------------------------------------------------------------- Solo el control asignado controla
+    @Autowired com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
+
+    @Test
+    void soloElControlAsignadoPuedeControlarElExamen() {
+        prepararCatalogo();
+        int examen = examen(materiaYParalelo("ASIG-01"), "08:00", 90);
+        int asignado = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Carla','Asignada','71000001','carla.asignada@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Dario','Libre','71000002','dario.libre@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO examen_control (id_examen, id_usuario) VALUES (?, ?)", examen, asignado);
+        sincronizar();
+        java.util.function.Function<String, org.springframework.security.core.Authentication> como = (email) ->
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(email, null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        assertThat(examenAccesoService.puedeControlar(examen, como.apply("carla.asignada@umss.edu"))).isTrue();
+        assertThat(examenAccesoService.puedeControlar(examen, como.apply("dario.libre@umss.edu"))).isFalse();
+        assertThat(examenAccesoService.puedeVerControl(examen, como.apply("dario.libre@umss.edu"))).isFalse();
+        // El docente del examen sí lo controla.
+        var docente = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")));
+        assertThat(examenAccesoService.puedeControlar(examen, docente)).isTrue();
+    }
+
+    // ---------------------------------------------------------------- V62: sesiones por dispositivo
+    @Autowired com.nexacore.examenes.services.SesionService sesionService;
+    @Autowired com.nexacore.examenes.repositories.SesionUsuarioRepository sesionUsuarioRepository;
+
+    @Test
+    void cadaInicioDeSesionQuedaConSuDispositivoYAvisaSiLaCuentaYaEstabaAbierta() {
+        prepararCatalogo();
+        var usuario = usuarioRepository.findByEmail("luis.paz@umss.edu").orElseThrow();
+        String primera = sesionService.iniciar(usuario);
+        String segunda = sesionService.iniciar(usuario);
+        sincronizar();
+        assertThat(sesionService.validarYRegistrarActividad(primera)).isTrue();
+        // La segunda sesión avisa al usuario que su cuenta ya estaba abierta.
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notificacion WHERE id_destinatario = ? AND tipo = 'SESION_NUEVA'",
+                Integer.class, usuario.getId())).isEqualTo(1);
+        // Al restablecer la contraseña se cierran todas: sus tokens dejan de servir.
+        sesionService.cerrarTodasDe(usuario.getId(), "CONTRASENA_RESTABLECIDA");
+        sincronizar();
+        assertThat(sesionUsuarioRepository.estaAbierta(primera)).isFalse();
+        assertThat(sesionUsuarioRepository.estaAbierta(segunda)).isFalse();
+        assertThat(sesionService.validarYRegistrarActividad(segunda)).isFalse();
+    }
+
+    // ---------------------------------------------------------------- V63: materias por carrera
+    @Test
+    void unEstudianteDeOtraCarreraNoSeAgregaAMenosQueEsteInscritoEnElGrupo() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("CARR-01");
+        int examen = examen(paralelo, "08:00", 90);
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        Integer sistemas = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería de Sistemas'", Integer.class);
+        Integer civil = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería Civil'", Integer.class);
+        Integer facultad = jdbc.queryForObject("SELECT id_facultad FROM carrera WHERE id_carrera = ?", Integer.class, sistemas);
+        int deSistemas = estudiante("209950001", "Sara");
+        int deCivil = estudiante("209950002", "Carlos");
+        int deCivilInscrito = estudiante("209950003", "Ines");
+        for (int[] ec : new int[][]{{deSistemas, sistemas}, {deCivil, civil}, {deCivilInscrito, civil}}) {
+            jdbc.update("INSERT INTO estudiante_carrera (id_estudiante, id_carrera, id_facultad) VALUES (?, ?, ?)", ec[0], ec[1], facultad);
+        }
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente) VALUES (?, ?, ?, ?)",
+                deCivilInscrito, paralelo, idMateria, idDocente);
+        sincronizar();
+
+        // Sin carreras definidas, la materia no restringe a nadie.
+        habilitacionService.asociar(examen, paralelo, "209950002");
+        jdbc.update("DELETE FROM asistencia_examen WHERE id_estudiante = ?", deCivil);
+        jdbc.update("DELETE FROM inscripcion_paralelo WHERE id_estudiante = ?", deCivil);
+
+        // La materia es de Sistemas.
+        jdbc.update("INSERT INTO materia_carrera (id_materia, id_carrera, id_facultad) VALUES (?, ?, ?)", idMateria, sistemas, facultad);
+        sincronizar();
+        habilitacionService.asociar(examen, paralelo, "209950001");
+        assertThatThrownBy(() -> habilitacionService.asociar(examen, paralelo, "209950002"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("es de Ingeniería Civil y Materia CARR-01 es de Ingeniería de Sistemas");
+        // En lote: el de otra carrera vuelve en el resultado; el inscrito oficialmente sí se asocia.
+        var lote = habilitacionService.asociarLote(examen, paralelo, List.of("209950002", "209950003"));
+        assertThat(lote.deOtraCarrera()).containsExactly("209950002");
+        assertThat(lote.asociados()).isEqualTo(1);
+    }
+
+    @Test
+    void unDocenteNoConsultaLosCrucesDeUnGrupoAjeno() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("CRUCE-AJENO");
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Otra','Docente','71000009','otra.docente@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", otro);
+        sincronizar();
+        var contexto = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "otra.docente@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThatThrownBy(() -> examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThat(examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null)).isEmpty();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Autowired com.nexacore.examenes.services.NotificacionService notificacionEnVivoService;
+
+    @Test
+    void alCerrarLasSesionesSeCortaLaConexionEnVivo() throws Exception {
+        prepararCatalogo();
+        sincronizar();
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")));
+        var emitter = notificacionEnVivoService.suscribir(auth);
+        notificacionEnVivoService.cortarConexiones(idDocente, null, null);
+        // Cortada: ya no se le puede enviar nada.
+        assertThatThrownBy(() -> emitter.send("hola")).isInstanceOf(IllegalStateException.class);
+    }
 }

@@ -39,6 +39,7 @@ class ExpulsionConsultaTests {
     @MockitoBean ExamenRepository examenes;
     @MockitoBean SesionExamenService sesiones;
     @MockitoBean com.nexacore.examenes.repositories.EstudianteRepository estudiantes;
+    @MockitoBean com.nexacore.examenes.repositories.ExamenControlRepository asignados;
     private final LocalDateTime fecha = LocalDateTime.of(2026, 10, 24, 14, 0);
 
     @BeforeEach
@@ -63,6 +64,7 @@ class ExpulsionConsultaTests {
     @ValueSource(strings = {"ADMIN", "CONTROL", "DOCENTE", "ESTUDIANTE"})
     void consultaRespetaRolesYDocenteAsignado(String rol) throws Exception {
         when(examenes.perteneceADocente(20, 7)).thenReturn(true);
+        when(asignados.estaAsignado(20, 7)).thenReturn(true);
         var respuesta = mvc.perform(get("/control-ingresos/examen/20/expulsiones")
                         .with(user("docente@sigex.test").roles(rol)))
                 .andExpect(status().is(rol.equals("ESTUDIANTE") ? 403 : 200));

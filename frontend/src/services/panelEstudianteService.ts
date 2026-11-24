@@ -93,6 +93,8 @@ export interface MiExamen {
   fechaHoraExpulsion?: string | null
   /** INCI-03: aula original si lo trasladaron en la sesión actual. */
   trasladadoDesde?: string | null
+  /** Otros exámenes suyos que se cruzan en horario con este; null si ninguno. */
+  cruceHorario?: string | null
   /** Normas del examen que valen para todos. */
   normasGenerales: string[]
   /** Sus adaptaciones (normas particulares); nunca las de otros estudiantes. */

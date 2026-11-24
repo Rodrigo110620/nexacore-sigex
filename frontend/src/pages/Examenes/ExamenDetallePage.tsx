@@ -29,6 +29,7 @@ import EstudiantesHabilitadosTab from '../../components/examenes/EstudiantesHabi
 import { useAuth } from '../../context/AuthContext'
 import { getEstudianteById } from '../../services/estudianteService'
 import { cancelarExamen, listarExamenes, type ExamenDto } from '../../services/examenService'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import {
   addMinutes,
@@ -112,7 +113,7 @@ export default function ExamenDetallePage() {
     if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
-      const lista = await listarExamenes()
+      const lista = await listarExamenes(TODOS_LOS_PERIODOS)
       const found = lista.find((e) => e.idExamen === idExamen && e.idParalelo === idParalelo) ?? null
       setExamen(found)
       if (!found) setError('No se encontró el examen.')

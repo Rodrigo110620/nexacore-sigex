@@ -201,11 +201,13 @@ public class InicioAdminService {
      */
     private List<InicioAdminResponse.Motivo> motivos(MapSqlParameterSource p) {
         int[] c = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(CASE WHEN observacion IS NULL OR (observacion NOT LIKE 'Ambiente incorrecto%' AND observacion NOT LIKE :marca) THEN 1 ELSE 0 END), 0),
+                SELECT COALESCE(SUM(CASE WHEN observacion IS NULL OR (observacion NOT LIKE 'Ambiente incorrecto%' AND observacion NOT LIKE :marca
+                                              AND observacion NOT LIKE 'Otro examen a la misma hora%') THEN 1 ELSE 0 END), 0),
                        COALESCE(SUM(CASE WHEN observacion LIKE 'Ambiente incorrecto%' THEN 1 ELSE 0 END), 0),
-                       COALESCE(SUM(CASE WHEN observacion LIKE :marca AND observacion NOT LIKE '%Fuera de tiempo%' THEN 1 ELSE 0 END), 0)
+                       COALESCE(SUM(CASE WHEN observacion LIKE :marca AND observacion NOT LIKE '%Fuera de tiempo%' THEN 1 ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN observacion LIKE 'Otro examen a la misma hora%' THEN 1 ELSE 0 END), 0)
                 FROM intento_ingreso WHERE fecha_hora >= :desdeHora
-                """, p, (rs, i2) -> new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3)});
+                """, p, (rs, i2) -> new int[]{rs.getInt(1), rs.getInt(2), rs.getInt(3), rs.getInt(4)});
         Integer fuera = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM registro_control_ingreso
                 WHERE resultado_autorizacion = 'DENEGADO' AND motivo_denegacion LIKE 'Fuera de tiempo%' AND fecha_hora >= :desdeHora
@@ -216,7 +218,8 @@ public class InicioAdminService {
                 new InicioAdminResponse.Motivo(AULA_INCORRECTA, c[1], MotivoIntento.AULA_INCORRECTA),
                 new InicioAdminResponse.Motivo("No habilitado", c[2], MotivoIntento.NO_HABILITADO),
                 new InicioAdminResponse.Motivo("QR vencido o duplicado", qr == null ? 0 : qr, "QR_DUPLICADO"),
-                new InicioAdminResponse.Motivo("Fuera del horario", fuera == null ? 0 : fuera, MotivoIntento.FUERA_HORARIO)));
+                new InicioAdminResponse.Motivo("Fuera del horario", fuera == null ? 0 : fuera, MotivoIntento.FUERA_HORARIO),
+                new InicioAdminResponse.Motivo("Otro examen a la misma hora", c[3], MotivoIntento.OTRO_EXAMEN)));
         lista.removeIf(m -> m.cantidad() == 0);
         lista.sort(java.util.Comparator.comparingInt(InicioAdminResponse.Motivo::cantidad).reversed());
         return lista;

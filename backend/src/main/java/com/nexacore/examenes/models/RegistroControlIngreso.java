@@ -70,4 +70,11 @@ public class RegistroControlIngreso {
     @ColumnDefault("now()")
     @Column(name = "fecha_hora", nullable = false)
     private LocalDateTime fechaHora;
+
+    /** Sesión y dispositivo desde el que se registró (V62); null en registros anteriores. */
+    @Column(name = "id_sesion", length = 36)
+    private String idSesion;
+
+    @Column(name = "dispositivo", length = 120)
+    private String dispositivo;
 }

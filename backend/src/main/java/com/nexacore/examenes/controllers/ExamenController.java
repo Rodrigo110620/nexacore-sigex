@@ -47,17 +47,19 @@ public class ExamenController {
 
     @Operation(summary = "Mis exámenes (para Reportes)",
             description = "Con REPORTES_VER, todos. El DOCENTE, los suyos; el CONTROL, en los que está asignado como personal de control.")
-    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')")
+    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS', 'CONTROL_INGRESO_TODOS')")
     @GetMapping("/mios")
-    public ResponseEntity<List<ExamenResponse>> listarMios() {
-        return ResponseEntity.ok(examenService.listarMios());
+    public ResponseEntity<List<ExamenResponse>> listarMios(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idPeriodo) {
+        return ResponseEntity.ok(examenService.listarMios(idPeriodo));
     }
 
     @Operation(summary = "Listar exámenes", description = "ADMIN y CONTROL ven todos. DOCENTE solo los que tiene asignados.")
     @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_VER_TODOS', 'EXAMENES_VER_PROPIOS', 'REPORTES_VER')")
     @GetMapping
-    public ResponseEntity<List<ExamenResponse>> listar() {
-        return ResponseEntity.ok(examenService.listar());
+    public ResponseEntity<List<ExamenResponse>> listar(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idPeriodo) {
+        return ResponseEntity.ok(examenService.listar(idPeriodo));
     }
 
     @Operation(summary = "Registrar examen", description = "Crea examen con validación de conflicto de ambiente. Solo el DOCENTE "
@@ -88,6 +90,24 @@ public class ExamenController {
                                                       @Valid @RequestBody ReprogramarExamenRequest request,
                                                       Authentication authentication) {
         return ResponseEntity.ok(examenService.reprogramar(idExamen, idParalelo, request, authentication.getName()));
+    }
+
+    @Operation(summary = "Cruces de horario de los estudiantes",
+            description = "Estudiantes del grupo (o del examen, al editar) que ya tienen otro examen que se cruza con ese "
+                    + "horario. Solo avisa: el docente decide si cambia el horario.")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_PROPIOS', 'EXAMENES_GESTIONAR_TODOS')")
+    @GetMapping("/cruces-estudiantes")
+    public ResponseEntity<List<com.nexacore.examenes.dto.CruceEstudianteResponse>> crucesDeEstudiantes(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idParalelo,
+            @org.springframework.web.bind.annotation.RequestParam
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate fecha,
+            @org.springframework.web.bind.annotation.RequestParam
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.TIME)
+            java.time.LocalTime horaInicio,
+            @org.springframework.web.bind.annotation.RequestParam int duracionMinutos,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idExamen) {
+        return ResponseEntity.ok(examenService.crucesDeEstudiantes(idParalelo, fecha, horaInicio, duracionMinutos, idExamen));
     }
 
     @Operation(summary = "Historial de sesiones del examen",

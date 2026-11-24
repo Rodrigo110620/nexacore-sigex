@@ -28,6 +28,26 @@ public class MateriaController {
         this.docenteMateriaService = docenteMateriaService;
     }
 
+    /** Plan de estudios (V63); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.MateriaCarreraService materiaCarreraService;
+
+    @Operation(summary = "Materias con sus carreras", description = "Plan de estudios: a qué carreras pertenece cada materia. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/carreras")
+    public ResponseEntity<List<com.nexacore.examenes.dto.MateriaConCarrerasResponse>> materiasConCarreras() {
+        return ResponseEntity.ok(materiaCarreraService.listar());
+    }
+
+    @Operation(summary = "Carreras de una materia", description = "Deja la materia con esas carreras; vacío = sin restricción. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PutMapping("/{idMateria}/carreras")
+    public ResponseEntity<com.nexacore.examenes.dto.MateriaConCarrerasResponse> asignarCarreras(
+            @org.springframework.web.bind.annotation.PathVariable Integer idMateria,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.nexacore.examenes.dto.AsignarCarrerasRequest request) {
+        return ResponseEntity.ok(materiaCarreraService.asignar(idMateria, request.idsCarrera()));
+    }
+
     @Operation(summary = "Buscar asignaturas", description = "Búsqueda predictiva por nombre o sigla. Mínimo 3 caracteres. ADMIN o DOCENTE.")
     @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
     @GetMapping

@@ -24,6 +24,7 @@ import ReporteIngresos from '../../components/reportes/ReporteIngresos'
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
@@ -50,9 +51,11 @@ const COLOR_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]',
   AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#9A3412] border border-[#FDBA74]',
   NO_HABILITADO: 'bg-[#E0E7FF] text-[#3730A3] border border-[#A5B4FC]',
+  OTRO_EXAMEN: 'bg-[#F3E8FF] text-[#6B21A8] border border-[#D8B4FE]',
 }
 const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
+  OTRO_EXAMEN: 'Rinde otro examen a la misma hora',
 }
 
 function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {
@@ -243,7 +246,7 @@ export default function ReportesPage() {
 
   useEffect(() => {
     let vigente = true
-      ; (soloMios ? listarMisExamenes() : listarExamenes())
+      ; (soloMios ? listarMisExamenes(TODOS_LOS_PERIODOS) : listarExamenes(TODOS_LOS_PERIODOS))
         .then((lista) => {
           if (!vigente) return
           setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))

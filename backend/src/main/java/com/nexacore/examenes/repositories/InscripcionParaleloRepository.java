@@ -18,4 +18,11 @@ public interface InscripcionParaleloRepository extends JpaRepository<Inscripcion
     List<Integer> idsInscritos(@Param("idParalelo") Integer idParalelo,
                                @Param("idMateria") Integer idMateria,
                                @Param("idDocente") Integer idDocente);
+
+    /** Inscritos (vigentes) del grupo, para avisar cruces de horario al programar su examen. */
+    @Query("""
+            SELECT i.id.idEstudiante FROM InscripcionParalelo i
+            WHERE i.id.idParalelo = :idParalelo AND LOWER(i.estado) = 'inscrito'
+            """)
+    List<Integer> idsInscritosDelGrupo(@Param("idParalelo") Integer idParalelo);
 }

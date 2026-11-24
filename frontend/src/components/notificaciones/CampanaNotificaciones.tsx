@@ -26,6 +26,7 @@ const ETIQUETA: Record<string, string> = {
   EXPULSION_ANULADA: 'Expulsión anulada',
   AYUDA: 'Mesa de ayuda',
   AYUDA_RESPONDIDA: 'Respuesta de ayuda',
+  SESION_NUEVA: 'Sesión en otro dispositivo',
 }
 
 const hace = (iso: string) => {

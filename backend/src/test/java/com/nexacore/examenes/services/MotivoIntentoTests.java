@@ -34,4 +34,12 @@ class MotivoIntentoTests {
         assertThat(c.detalle()).isEqualTo("Intentó ingresar a un examen que no le corresponde.");
         assertThat(MotivoIntento.de(null).detalle()).isNull();
     }
+
+    @Test
+    void otroExamenALaMismaHoraConSuDetalle() {
+        var c = MotivoIntento.de("Otro examen a la misma hora: Ya está rindiendo Cálculo II en el aula 607 desde las 08:05");
+        assertThat(c.tipo()).isEqualTo(MotivoIntento.OTRO_EXAMEN);
+        assertThat(c.etiqueta()).isEqualTo("Rinde otro examen a la misma hora");
+        assertThat(c.detalle()).isEqualTo("Ya está rindiendo Cálculo II en el aula 607 desde las 08:05");
+    }
 }

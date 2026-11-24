@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X, CalendarRange, BookOpen } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
+import PeriodosAcademicos from '../../components/configuracion/PeriodosAcademicos'
+import MateriasCarreras from '../../components/configuracion/MateriasCarreras'
 import HistorialOperaciones from '../../components/configuracion/HistorialOperaciones'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -219,8 +221,8 @@ export default function ConfiguracionPage() {
   }, [recarga])
 
   const esAdmin = useAuth().roles.includes('ADMIN')
-  type Pestana = 'roles' | 'respaldo' | 'historial'
-  const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : 'roles'
+  type Pestana = 'roles' | 'periodos' | 'materias' | 'respaldo' | 'historial'
+  const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : hash === '#periodos' ? 'periodos' : hash === '#materias' ? 'materias' : 'roles'
   // La pestaña sale de la dirección (#respaldo, #historial): así el menú lateral y las pestañas siempre coinciden.
   const { hash } = useLocation()
   const navigate = useNavigate()
@@ -252,7 +254,7 @@ export default function ConfiguracionPage() {
             {esAdmin && (
               <div role="tablist" aria-label="Secciones de Configuración"
                 className={`mb-4 gap-2 overflow-x-auto ${pestana === 'historial' ? 'hidden min-[960px]:flex' : 'flex'}`}>
-                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History]] as const).map(([id, texto, Icono]) => (
+                {([['roles', 'Roles y permisos', ShieldCheck], ['periodos', 'Periodos', CalendarRange], ['materias', 'Materias', BookOpen], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History]] as const).map(([id, texto, Icono]) => (
                   <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => cambiarPestana(id)}
                     className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
                       pestana === id ? 'bg-[#0439D9] text-white shadow-sm' : 'border border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F1F6FF]'}`}>
@@ -261,7 +263,11 @@ export default function ConfiguracionPage() {
                 ))}
               </div>
             )}
-            {esAdmin && pestana === 'historial' ? (
+            {esAdmin && pestana === 'periodos' ? (
+              <PeriodosAcademicos />
+            ) : esAdmin && pestana === 'materias' ? (
+              <MateriasCarreras />
+            ) : esAdmin && pestana === 'historial' ? (
               <HistorialOperaciones />
             ) : esAdmin && pestana === 'respaldo' ? (
               // El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles.

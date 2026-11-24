@@ -22,7 +22,7 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
-import { crearExamen, type ModoReparto } from '../../services/examenService'
+import { crearExamen, crucesDeEstudiantes, type CruceEstudianteDto, type ModoReparto } from '../../services/examenService'
 import {
   detalleAmbiente,
   formatAmPm,
@@ -204,6 +204,20 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
     }
   }, [isOpen, recargaAmbientes])
 
+  // Estudiantes del grupo con otro examen a esa hora (aviso al revisar, paso 3): el docente puede cambiar el horario.
+  const [cruces, setCruces] = useState<{ clave: string; lista: CruceEstudianteDto[] } | null>(null)
+  const claveCruces = `${idParalelo ?? ''}|${form.fecha}|${form.horaInicio}|${form.horaFin}`
+  useEffect(() => {
+    const dur = minutesBetween(form.horaInicio, form.horaFin)
+    if (step !== 3 || !idParalelo || !form.fecha || !form.horaInicio || dur === null) return
+    let cancelled = false
+    const clave = `${idParalelo}|${form.fecha}|${form.horaInicio}|${form.horaFin}`
+    crucesDeEstudiantes({ idParalelo, fecha: form.fecha, horaInicio: form.horaInicio, duracionMinutos: dur })
+      .then((lista) => { if (!cancelled) setCruces({ clave, lista }) })
+      .catch(() => { /* solo es un aviso: si falla, no impide registrar */ })
+    return () => { cancelled = true }
+  }, [step, idParalelo, form.fecha, form.horaInicio, form.horaFin])
+
   // Refrescar disponibilidad cuando cambian fecha, hora o duración
   useEffect(() => {
     const dur = minutesBetween(form.horaInicio, form.horaFin)
@@ -224,6 +238,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
   if (!isOpen) return null
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
+  const crucesVigentes = cruces && cruces.clave === claveCruces ? cruces.lista : []
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
   // Si el aula principal pasa a ser una de las adicionales, deja de contarse dos veces.
   const adicionalesVigentes = aulasAdicionales.filter((idAula) => String(idAula) !== form.idAmbiente)
@@ -915,6 +930,26 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
 
             {step === 3 && (
             <>
+            {crucesVigentes.length > 0 && (
+              <section role="alert" className="rounded-xl border border-[#FEC84B] bg-[#FFFAEB] p-4 text-xs text-[#7A2E0E]">
+                <p className="flex items-start gap-2 font-semibold">
+                  <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  {crucesVigentes.length === 1 ? '1 estudiante inscrito tiene' : `${crucesVigentes.length} estudiantes inscritos tienen`} otro
+                  examen a esa hora. No podrán rendir los dos: en la puerta solo se permite el ingreso a uno.
+                </p>
+                <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto pl-6">
+                  {crucesVigentes.slice(0, 50).map((c) => (
+                    <li key={c.idEstudiante}>
+                      <span className="font-semibold">{c.nombre}</span>{c.codigoSis ? ` (${c.codigoSis})` : ''}: {c.otrosExamenes}
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" onClick={() => { setGeneralError(''); setStep(2) }}
+                  className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#FEC84B] bg-white px-3 font-semibold text-[#7A2E0E] hover:bg-[#FEF0C7]">
+                  Cambiar el horario
+                </button>
+              </section>
+            )}
             <section className="rounded-xl border border-[#D8E3F5] bg-white p-4">
               <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />

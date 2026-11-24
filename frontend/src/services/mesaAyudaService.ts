@@ -1,6 +1,6 @@
 import api from './api'
 
-export type TipoAyuda = 'CUENTA' | 'CONTRASENA' | 'ACTIVACION' | 'QR' | 'FOTO' | 'EXAMEN' | 'OTRO'
+export type TipoAyuda = 'CUENTA' | 'CONTRASENA' | 'ACTIVACION' | 'QR' | 'FOTO' | 'EXAMEN' | 'CRUCE_HORARIO' | 'OTRO'
 
 export const TIPOS_AYUDA: [TipoAyuda, string][] = [
   ['CUENTA', 'No tengo cuenta o no puedo entrar'],
@@ -9,6 +9,7 @@ export const TIPOS_AYUDA: [TipoAyuda, string][] = [
   ['QR', 'Mi código QR'],
   ['FOTO', 'Mi foto'],
   ['EXAMEN', 'Un examen'],
+  ['CRUCE_HORARIO', 'Dos exámenes a la misma hora'],
   ['OTRO', 'Otro'],
 ]
 

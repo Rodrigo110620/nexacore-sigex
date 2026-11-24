@@ -85,7 +85,8 @@ public class NotificacionService {
      * Conexión en vivo abierta. Personal: idEstudiante null. Estudiante: su id, y no recibe
      * notificaciones del personal.
      */
-    private record Suscripcion(SseEmitter emitter, Integer idUsuario, boolean veTodo, Integer idEstudiante, boolean cambiosDeTodos) {
+    private record Suscripcion(SseEmitter emitter, Integer idUsuario, boolean veTodo, Integer idEstudiante, boolean cambiosDeTodos,
+                               /** Sesión del dispositivo que la abrió (V62): al cerrarse, se corta. */ String idSesion) {
         boolean esEstudiante() {
             return idEstudiante != null;
         }
@@ -224,7 +225,8 @@ public class NotificacionService {
     /** Abre la conexión en vivo. Sin límite de tiempo: el latido la mantiene y el cliente reconecta. */
     public SseEmitter suscribir(Authentication authentication) {
         Usuario usuario = usuario(authentication);
-        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), veTodo(authentication), null, cambiosDeTodos(authentication)));
+        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), veTodo(authentication), null, cambiosDeTodos(authentication),
+                com.nexacore.examenes.security.SesionActual.idSesion()));
     }
 
     /** Conexión en vivo del estudiante: solo recibe los cambios suyos o de sus exámenes. */
@@ -233,7 +235,23 @@ public class NotificacionService {
         Integer idEstudiante = estudianteRepository.findByIdUsuario(usuario.getId())
                 .orElseThrow(() -> new AccessDeniedException("Esta cuenta no pertenece a un estudiante."))
                 .getId();
-        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), false, idEstudiante, false));
+        return abrir(new Suscripcion(new SseEmitter(0L), usuario.getId(), false, idEstudiante, false,
+                com.nexacore.examenes.security.SesionActual.idSesion()));
+    }
+
+    /**
+     * Corta las conexiones en vivo de una sesión cerrada (o de todas las del usuario si {@code idSesion} es null, salvo
+     * {@code excepto}): una sesión cerrada o un usuario desactivado no sigue recibiendo avisos.
+     */
+    public void cortarConexiones(Integer idUsuario, String idSesion, String excepto) {
+        for (Suscripcion s : suscripciones) {
+            boolean delUsuario = idUsuario == null || idUsuario.equals(s.idUsuario());
+            boolean deLaSesion = idSesion == null ? (excepto == null || !excepto.equals(s.idSesion())) : idSesion.equals(s.idSesion());
+            if (delUsuario && deLaSesion) {
+                suscripciones.remove(s);
+                try { s.emitter().complete(); } catch (Exception ignorada) { /* ya estaba cerrada */ }
+            }
+        }
     }
 
     private SseEmitter abrir(Suscripcion s) {

@@ -245,6 +245,7 @@ public class ControlIngresoService {
         Usuario control = usuarioRepository.findByEmail(emailControl)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.UNAUTHORIZED, "No se encontró el usuario autenticado"));
 
+        estudianteRepository.bloquearParaIngreso(request.idEstudiante());
         AsistenciaExamen asistencia = asistenciaRepository
                 .buscarParaAutorizar(request.idEstudiante(), request.idExamen())
                 .orElseThrow(() -> new ControlIngresoException(
@@ -277,6 +278,16 @@ public class ControlIngresoService {
             registrarIncidencias(asistencia, control, request.incidencias(), ahora);
             guardarRegistroDelControl(asistencia, control, request, "DENEGADO", causa, limpiar(request.observaciones()), ahora);
             return crearRespuesta(asistencia, control, request, false, "DENEGADO_DUPLICADO", causa, ahora,
+                    request.incidencias().size());
+        }
+
+        String otroExamen = examenQueSeCruza(asistencia);
+        if (otroExamen != null) {
+            LocalDateTime ahora = asistenciaRepository.obtenerFechaHoraServidor();
+            registrarIncidencias(asistencia, control, request.incidencias(), ahora);
+            guardarRegistroDelControl(asistencia, control, request, "DENEGADO", otroExamen, limpiar(request.observaciones()), ahora);
+            registrarIntentoOtroExamen(asistencia, control, otroExamen);
+            return crearRespuesta(asistencia, control, request, false, "DENEGADO_OTRO_EXAMEN", otroExamen, ahora,
                     request.incidencias().size());
         }
 
@@ -383,6 +394,55 @@ public class ControlIngresoService {
         } catch (DateTimeParseException e) {
             throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "La hora del dispositivo no es válida.");
         }
+    }
+
+    /** Intentos de ingreso (V7); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.IntentoIngresoRepository intentoIngresoRepository;
+
+    /**
+     * El intento de entrar a un examen mientras rinde otro queda también como intento de ingreso incorrecto: aparece
+     * en «Ingresos no autorizados», en Reportes y avisa al docente y al administrador.
+     */
+    private void registrarIntentoOtroExamen(AsistenciaExamen asistencia, Usuario control, String motivo) {
+        if (intentoIngresoRepository == null) return;
+        Estudiante estudiante = asistencia.getEstudiante();
+        String identificador = estudiante == null || estudiante.getCodigoSis() == null ? "" : estudiante.getCodigoSis();
+        String detalle = MotivoIntento.MARCA_OTRO_EXAMEN + ": " + motivo;
+        intentoIngresoRepository.registrar(asistencia.getId().getIdExamen(), asistencia.getId().getIdEstudiante(),
+                control.getId(), identificador, detalle.length() > 500 ? detalle.substring(0, 500) : detalle);
+        String nombre = estudiante == null ? "" : (estudiante.getNombre() + " " + estudiante.getApellidos()).trim();
+        notificacionService.publicar(Notificacion.INTENTO_INGRESO, "Intento de ingreso incorrecto: " + nombre,
+                notificacionService.materia(asistencia.getId().getIdExamen()) + " · " + motivo
+                        + " · Registrado por " + control.getNombre() + " " + control.getApellidos(),
+                asistencia.getId().getIdExamen(), asistencia.getId().getIdEstudiante(),
+                "/dashboard/control/" + asistencia.getId().getIdExamen() + "/informacion", control.getEmail());
+    }
+
+    /**
+     * Si el estudiante ya está dentro de otro examen del mismo día que se cruza en horario con este, el motivo para no
+     * dejarlo ingresar (no puede rendir dos exámenes a la vez); si no, null. Si salió de aquel examen, puede ingresar.
+     */
+    private String examenQueSeCruza(AsistenciaExamen asistencia) {
+        Examen examen = asistencia.getExamen();
+        if (examen == null || examen.getFecha() == null || examen.getHoraInicio() == null || examen.getDuracionMinutos() == null) {
+            return null;
+        }
+        java.time.LocalTime inicio = examen.getHoraInicio();
+        java.time.LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
+        for (AsistenciaExamenRepository.IngresoEnCurso otro : asistenciaRepository.ingresosEnCursoDelDia(
+                asistencia.getId().getIdEstudiante(), asistencia.getId().getIdExamen(), examen.getFecha())) {
+            if (otro.horaInicio() == null || otro.duracionMinutos() == null) continue;
+            java.time.LocalTime otroFin = otro.horaInicio().plusMinutes(otro.duracionMinutos());
+            if (inicio.isBefore(otroFin) && otro.horaInicio().isBefore(fin)) {
+                String desde = otro.fechaHoraIngreso() == null ? ""
+                        : " desde las " + otro.fechaHoraIngreso().toLocalTime().withNano(0).toString().substring(0, 5);
+                return "Ya está rindiendo " + otro.materia() + (otro.aula() == null ? "" : " en el aula " + otro.aula())
+                        + desde + ", que se cruza en horario con este examen. Para ingresar aquí debe registrarse "
+                        + "antes su salida de ese examen.";
+            }
+        }
+        return null;
     }
 
     /**
@@ -669,7 +729,7 @@ public class ControlIngresoService {
                             registro.getFechaHora() == null ? List.of() : incidenciasPorEstudiante
                                     .getOrDefault(registro.getId().getIdEstudiante(), Map.of())
                                     .getOrDefault(alMicrosegundo(registro.getFechaHora()), List.of()),
-                            esReemplazo(control, asignados, docenteDelExamen));
+                            esReemplazo(control, asignados, docenteDelExamen), registro.getDispositivo());
                 })
                 .toList();
     }
@@ -763,6 +823,7 @@ public class ControlIngresoService {
                 asistencia.getId().getIdEstudiante(), control.getId(),
                 resultado, causa, serializarVerificaciones(request.verificacionesAdicionales()),
                 observaciones);
+        marcarSesion(asistencia, control);
     }
 
     private void guardarRegistro(
@@ -778,6 +839,19 @@ public class ControlIngresoService {
                 asistencia.getId().getIdEstudiante(), control.getId(),
                 resultado, causa, serializarVerificaciones(request.verificacionesAdicionales()),
                 observaciones, fechaHora);
+        marcarSesion(asistencia, control);
+    }
+
+    /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SesionService sesionService;
+
+    /** Guarda desde qué sesión y dispositivo se hizo el registro (dos celulares con la misma cuenta se distinguen). */
+    private void marcarSesion(AsistenciaExamen asistencia, Usuario control) {
+        String idSesion = com.nexacore.examenes.security.SesionActual.idSesion();
+        if (idSesion == null || sesionService == null) return;
+        registroRepository.marcarSesion(asistencia.getId().getIdExamen(), asistencia.getId().getIdEstudiante(),
+                control.getId(), idSesion, sesionService.dispositivoActual());
     }
 
     private String serializarVerificaciones(List<String> valores) {

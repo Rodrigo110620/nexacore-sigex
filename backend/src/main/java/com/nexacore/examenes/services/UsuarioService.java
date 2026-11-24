@@ -208,6 +208,9 @@ public class UsuarioService {
         usuario.setEmail(email);
         usuario.setEstado(Boolean.TRUE.equals(request.activo()) ? "activo" : "inactivo");
         usuarioRepository.save(usuario);
+        if (!Boolean.TRUE.equals(request.activo()) && notificacionEnVivo != null) {
+            notificacionEnVivo.cortarConexiones(usuario.getId(), null, null);
+        }
         // 5. Borrar el rol antiguo antes de asignar el nuevo
         usuarioRolRepository.deleteByUsuarioId(id); 
         // 6. Asignar el nuevo rol actualizado
@@ -255,6 +258,8 @@ public class UsuarioService {
             usuario.setBloqueadoHasta(null);
         }
         usuarioRepository.save(usuario);
+        // Desactivado: se cortan sus conexiones en vivo (dejan de llegarle avisos en las pantallas abiertas).
+        if (!activo && notificacionEnVivo != null) notificacionEnVivo.cortarConexiones(usuario.getId(), null, null);
         auditoriaService.registrar(activo ? "USUARIO_DESBLOQUEADO" : "USUARIO_BLOQUEADO",
                 Map.of("idUsuario", usuario.getId(), "nombre", usuario.getNombre() + " " + usuario.getApellidos(),
                         "email", usuario.getEmail(), "estado", usuario.getEstado()));

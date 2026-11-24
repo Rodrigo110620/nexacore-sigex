@@ -431,7 +431,9 @@ class ActaExamenServiceTests {
         assertTrue(texto.contains("Firma del docente"), texto);
         assertTrue(texto.contains("Firma del responsable de control"), texto);
         // Quién hizo el control: la línea Control en los datos y la columna Registró en la tabla.
-        assertTrue(texto.contains("Control: Sin personal de control asignado"), texto);
+        assertTrue(texto.contains("Control Sin personal de control asignado"), texto);
+        // Horario sin segundos.
+        assertTrue(texto.contains("10:00 – 11:00"), texto);
         assertTrue(texto.contains("Registró"), texto);
         assertTrue(texto.contains("Generada por SIGEX el"), texto);
         assertTrue(texto.contains("Página 1 de 1"), texto);

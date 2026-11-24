@@ -31,6 +31,12 @@ class IdentificacionControllerTests {
     @MockitoBean
     private IdentificacionService service;
 
+    @MockitoBean
+    private com.nexacore.examenes.repositories.UsuarioRepository usuarios;
+
+    @MockitoBean
+    private com.nexacore.examenes.repositories.ExamenControlRepository asignados;
+
     @Test
     @WithMockUser(roles = "DOCENTE")
     void rechazaUsuarioSinRolControlOAdmin() throws Exception {
@@ -44,6 +50,11 @@ class IdentificacionControllerTests {
         EstudianteAsignadoResponse fila = new EstudianteAsignadoResponse(23, "Zoe", "Quispe Luna", "201901234",
                 "7845123", "Ingeniería de Sistemas", DESHABILITADO, "Deuda en biblioteca", true);
         when(service.listarAsignados(7, "TODOS", 0, 10)).thenReturn(new PageResponse<>(List.of(fila), 0, 10, 1, 1));
+        // Solo el control asignado al examen lo controla.
+        var control = new com.nexacore.examenes.models.Usuario();
+        control.setId(40);
+        when(usuarios.findByEmail("user")).thenReturn(java.util.Optional.of(control));
+        when(asignados.estaAsignado(7, 40)).thenReturn(true);
 
         mockMvc.perform(get("/examenes/7/estudiantes"))
                 .andExpect(status().isOk())

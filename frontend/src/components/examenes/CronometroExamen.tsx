@@ -39,7 +39,7 @@ export default function CronometroExamen({ examen, variante = 'tarjeta', classNa
 
   if (variante === 'compacto') {
     return (
-      <span role="timer" aria-live="off" className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${estilo.fondo} ${estilo.color} ${className}`}>
+      <span role="timer" aria-live="off" className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${estilo.fondo} ${estilo.color} ${className}`}>
         <Icono size={13} aria-hidden="true" />
         {conCuenta ? (
           <>

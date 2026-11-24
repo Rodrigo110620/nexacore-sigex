@@ -72,6 +72,15 @@ const TEMAS: Tema[] = [
       'Si el docente ya lo revisó y sigue sin aparecer, escríbenos con los datos del examen.',
     ],
     pista: 'Indica la materia, el grupo, la fecha del examen y qué ves (no aparece, no habilitado, aula equivocada…).' },
+  { tipo: 'CRUCE_HORARIO', titulo: 'Dos exámenes a la misma hora', Icono: CalendarClock,
+    explicacion: 'No puedes estar en dos exámenes a la vez: en la puerta solo se permite tu ingreso al primero al que entres.',
+    pasos: [
+      'En tu inicio, los exámenes que se cruzan aparecen marcados con el aviso «Se cruza con…».',
+      'Si llegas a uno, puedes rendirlo: el otro te quedará bloqueado mientras estés dentro (después de registrar tu salida, puedes ir al otro si sigue abierto).',
+      'Para no perder ninguno, avisa a tus docentes cuanto antes: pueden reprogramar uno o tomarte el examen aparte.',
+      'Si no hay respuesta, escríbenos con las dos materias: tu reclamo llega a la administración.',
+    ],
+    pista: 'Indica las dos materias, sus grupos, la fecha y la hora en que se cruzan.' },
   { tipo: 'OTRO', titulo: 'Otro problema', Icono: CircleHelp,
     explicacion: 'Cuéntanos qué pasa y te ayudamos.', pasos: [],
     pista: 'Describe qué intentabas hacer, en qué pantalla estabas y el mensaje exacto que te salió.' },
@@ -97,16 +106,19 @@ function mensajeError(err: unknown): string {
  * Mesa de ayuda: preguntas frecuentes y un formulario corto. La consulta le llega al administrador y la
  * respuesta, al correo indicado. Se abre desde el ingreso (sin sesión) y desde el menú de la cuenta.
  */
-export default function MesaAyudaModal({ open, onClose, nombreInicial = '' }: {
+export default function MesaAyudaModal({ open, onClose, nombreInicial = '', temaInicial }: {
   open: boolean
   onClose: () => void
   /** Con sesión, el nombre ya viene escrito. */
   nombreInicial?: string
+  /** Abre directo en ese tema (p. ej. CRUCE_HORARIO desde el aviso del portal). */
+  temaInicial?: string
 }) {
   const id = useId()
   // Asistente: 0 = elegir tema, 1 = pasos para resolverlo, 2 = escribir la consulta.
-  const [paso, setPaso] = useState(0)
-  const [tema, setTema] = useState<Tema | null>(null)
+  const temaDeInicio = TEMAS.find((t) => t.tipo === temaInicial) ?? null
+  const [paso, setPaso] = useState(temaDeInicio ? (temaDeInicio.pasos.length ? 1 : 2) : 0)
+  const [tema, setTema] = useState<Tema | null>(temaDeInicio)
   const [nombre, setNombre] = useState(nombreInicial)
   const [correo, setCorreo] = useState('')
   const [mensaje, setMensaje] = useState('')
