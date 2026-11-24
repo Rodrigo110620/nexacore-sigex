@@ -262,15 +262,16 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         validarNoPasado(request.fecha(), request.horaInicio());
-        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
-                null);
-
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocenteParaRegistro(request);
         // IMP-12: el docente solo programa exámenes de sus materias.
         docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
+        Conjunto conjunto = new Conjunto(materia.getId(), docente.getIdUsuario());
+        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
+                null, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
-                request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), null, conjunto);
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
         validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         validarNoExisteExamenDuplicado(materia.getId(), paralelo.getId().getIdParalelo(),
@@ -329,10 +330,6 @@ public class ExamenService {
             validarNoPasado(request.fecha(), request.horaInicio());
         }
 
-        // Validar conflicto excluyendo el propio examen
-        validarSinConflicto(
-                request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
-
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         // Como al crearlo: el DOCENTE no puede pasarle su examen a otro docente.
         Docente docente = SesionActual.gestionaSoloPropios()
@@ -343,12 +340,16 @@ public class ExamenService {
         if (!materia.getId().equals(examen.getIdMateria())) {
             docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
         }
+        // Validar conflictos excluyendo el propio examen.
+        Conjunto conjunto = new Conjunto(materia.getId(), docente.getIdUsuario());
+        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
         List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
                 ? request.idAmbientesAdicionales()
                 : examenAulaRepository.adicionalesDe(idExamen).stream().map(ea -> ea.getId().getIdAmbiente()).toList();
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, idsAdicionales,
-                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
 
         Map<String, Object> antes = resumen(examen);
         normasExamenService.actualizar(examen, request.normasGenerales(), request.normasParticulares());
@@ -468,14 +469,16 @@ public class ExamenService {
         String motivo = MotivoReprogramacion.validar(request.motivo());
         Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
-        validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        Conjunto conjunto = new Conjunto(examen.getIdMateria(), examen.getIdDocente());
+        validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         validarNoExisteExamenDuplicado(examen.getIdMateria(), examen.getId().getIdParalelo(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         List<Integer> idsAdicionales = examenAulaRepository.adicionalesDe(idExamen).stream()
                 .map(ea -> ea.getId().getIdAmbiente()).toList();
         validarAulasAdicionales(ambiente, idsAdicionales, request.fecha(), request.horaInicio(),
-                request.duracionMinutos(), idExamen);
+                request.duracionMinutos(), idExamen, conjunto);
 
         Integer idUsuario = usuarioRepository.findByEmail(emailUsuario).map(Usuario::getId).orElse(null);
         Map<String, Object> antes = resumen(examen);
@@ -496,11 +499,34 @@ public class ExamenService {
         return toResponse(guardado);
     }
 
+    /**
+     * Materia y docente del examen que se valida. Un aula solo se comparte en un examen conjunto: la misma materia y
+     * el mismo docente con otro de sus grupos (G1 y G2), a la misma hora de inicio y con la misma duración (BUG-B02).
+     */
+    record Conjunto(Integer idMateria, Integer idDocente) {
+        boolean con(Examen otro, LocalTime inicio, int duracionMinutos) {
+            return idMateria.equals(otro.getIdMateria()) && idDocente.equals(otro.getIdDocente())
+                    && inicio.equals(otro.getHoraInicio()) && Integer.valueOf(duracionMinutos).equals(otro.getDuracionMinutos());
+        }
+
+        boolean mismaMateriaYDocente(Examen otro) {
+            return idMateria.equals(otro.getIdMateria()) && idDocente.equals(otro.getIdDocente());
+        }
+    }
+
     private void validarSinConflicto(
             Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido) {
-        Examen otro = primerSolapado(examenRepository.findByAmbienteAndFecha(idAmbiente, fecha),
-                inicio, duracionMinutos, idExamenExcluido);
+            Integer idExamenExcluido, Conjunto conjunto) {
+        List<Examen> enElAula = examenRepository.findByAmbienteAndFecha(idAmbiente, fecha).stream()
+                .filter(e -> conjunto == null || !conjunto.con(e, inicio, duracionMinutos))
+                .toList();
+        Examen otro = primerSolapado(enElAula, inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null && conjunto != null && conjunto.mismaMateriaYDocente(otro)) {
+            String nombre = ambienteRepository.findById(idAmbiente).map(Ambiente::getNombre).orElse("indicado");
+            throw new ConflictoExamenException("El aula " + nombre + " ya tiene el examen de otro de tus grupos de esta materia ("
+                    + otro.getHoraInicio() + " – " + finDe(otro) + "). Para tomarlo junto en la misma aula, usa la misma "
+                    + "hora de inicio y la misma duración.");
+        }
         if (otro != null) {
             String nombre = ambienteRepository.findById(idAmbiente).map(Ambiente::getNombre).orElse("indicado");
             throw new ConflictoExamenException(
@@ -532,6 +558,25 @@ public class ExamenService {
                                 + otro.getHoraInicio().plusMinutes(otro.getDuracionMinutos())
                                 + ". No se pueden crear exámenes duplicados en el mismo horario.");
             }
+        }
+    }
+
+    /**
+     * BUG-B01: un docente no toma a la vez exámenes de materias distintas (no puede estar en dos aulas). Sí puede
+     * tomar a la misma hora los de varios grupos de la misma materia (examen conjunto, BUG-B02).
+     */
+    private void validarDocenteSinCruce(Conjunto conjunto, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+                                        Integer idExamenExcluido) {
+        List<Examen> deOtraMateria = examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(conjunto.idDocente()).stream()
+                .filter(e -> fecha.equals(e.getFecha()) && !"cancelado".equalsIgnoreCase(e.getEstado())
+                        && !conjunto.idMateria().equals(e.getIdMateria()))
+                .toList();
+        Examen otro = primerSolapado(deOtraMateria, inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null) {
+            String materia = otro.getParalelo() != null && otro.getParalelo().getMateria() != null
+                    ? otro.getParalelo().getMateria().getNombre() : "otra materia";
+            throw new ConflictoExamenException("El docente ya tiene el examen de " + materia + " el " + fecha + " entre "
+                    + otro.getHoraInicio() + " y " + finDe(otro) + ": no puede tomar dos exámenes de materias distintas a la vez.");
         }
     }
 
@@ -568,7 +613,7 @@ public class ExamenService {
      */
     private List<Ambiente> validarAulasAdicionales(
             Ambiente principal, List<Integer> ids, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido) {
+            Integer idExamenExcluido, Conjunto conjunto) {
         List<Integer> lista = listaSegura(ids);
         if (lista.size() > MAX_AULAS_ADICIONALES) {
             throw new IllegalArgumentException(
@@ -588,7 +633,7 @@ public class ExamenService {
         }
         List<Ambiente> aulas = lista.stream().map(bloqueados::get).toList();
         for (Ambiente aula : aulas) {
-            validarSinConflicto(aula.getId(), fecha, inicio, duracionMinutos, idExamenExcluido);
+            validarSinConflicto(aula.getId(), fecha, inicio, duracionMinutos, idExamenExcluido, conjunto);
         }
         if (!aulas.isEmpty()) {
             List<String> sinAforo = Stream.concat(Stream.of(principal), aulas.stream())

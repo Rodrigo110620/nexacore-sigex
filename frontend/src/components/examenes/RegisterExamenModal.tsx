@@ -228,12 +228,15 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: dur,
+        // El aula del otro grupo de la misma materia a la misma hora se puede compartir (examen conjunto).
+        idMateria,
+        idDocente,
       })
         .then((data) => { if (!cancelled) setAmbientes(data) })
         .catch(() => { /* silencioso: ya tenemos la lista base */ })
     }, 400)
     return () => { cancelled = true; window.clearTimeout(handle) }
-  }, [form.fecha, form.horaInicio, form.horaFin])
+  }, [form.fecha, form.horaInicio, form.horaFin, idMateria, idDocente])
 
   if (!isOpen) return null
 
