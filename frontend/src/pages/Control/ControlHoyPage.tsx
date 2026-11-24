@@ -217,7 +217,7 @@ export default function ControlHoyPage() {
 
 // Lista: columnas en escritorio; en celular cada fila en dos o tres líneas (examen y botón arriba).
 const POR_PAGINA_HISTORIAL = 10
-const COLUMNAS = 'xl:grid xl:grid-cols-[104px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_112px_150px] xl:items-center xl:gap-x-4'
+const COLUMNAS = 'xl:grid xl:grid-cols-[104px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_156px_150px] xl:items-center xl:gap-x-4'
 const ESTADO = {
   'en-curso': { texto: 'En curso', clase: 'bg-[#DCFCE7] text-[#15803D]' },
   proximo: { texto: 'Próximo', clase: 'bg-[#E0E9FF] text-[#0439D9]' },

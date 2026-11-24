@@ -44,7 +44,7 @@ export interface IntentoReporte {
   identificador: string
   motivo: string
   /** NO_CORRESPONDE: no inscrito en la materia · AULA_INCORRECTA: se presentó en otra aula · NO_HABILITADO: excepción. */
-  tipo: 'NO_CORRESPONDE' | 'AULA_INCORRECTA' | 'NO_HABILITADO'
+  tipo: 'NO_CORRESPONDE' | 'AULA_INCORRECTA' | 'NO_HABILITADO' | 'OTRO_EXAMEN'
   /** Lo que va en la insignia: «Aula incorrecta: se presentó en 660 · su aula es 607», «No habilitado: matrícula pendiente». */
   etiqueta?: string | null
   /** El resto, legible (texto del control, acción tomada, observaciones). */

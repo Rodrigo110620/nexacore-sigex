@@ -186,8 +186,31 @@ public class HabilitacionService {
             throw new IllegalArgumentException(fila.nombre() + " " + fila.apellidos()
                     + " no está matriculado (inactivo): no se lo puede asociar a un examen");
         }
+        if (!fueraDeSuCarrera(examen, List.of(fila.idEstudiante())).isEmpty()) {
+            throw new IllegalArgumentException(fila.nombre() + " " + fila.apellidos() + " es de "
+                    + materiaCarreraService.carrerasDelEstudiante(fila.idEstudiante()) + " y "
+                    + examen.getParalelo().getMateria().getNombre() + " es de "
+                    + materiaCarreraService.carrerasTexto(examen.getIdMateria())
+                    + ": no se lo puede asociar a este examen. Solo rinde si está inscrito oficialmente en el grupo.");
+        }
         registrar(examen, List.of(fila.idEstudiante()));
         return listarSinVerificar(idExamen, idParalelo);
+    }
+
+    /** Plan de estudios (V63); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MateriaCarreraService materiaCarreraService;
+
+    /**
+     * V63: de estos estudiantes, los que no son de ninguna carrera de la materia y no están inscritos oficialmente en
+     * el grupo del examen. No se mezclan materias con carreras que no les corresponden.
+     */
+    private Set<Integer> fueraDeSuCarrera(Examen examen, Collection<Integer> idsEstudiante) {
+        if (materiaCarreraService == null || idsEstudiante.isEmpty()) return Set.of();
+        Set<Integer> inscritos = new HashSet<>(inscripcionParaleloRepository.idsInscritos(
+                examen.getId().getIdParalelo(), examen.getIdMateria(), examen.getIdDocente()));
+        List<Integer> sinInscripcion = idsEstudiante.stream().filter(id -> !inscritos.contains(id)).toList();
+        return materiaCarreraService.deOtraCarrera(examen.getIdMateria(), sinInscripcion);
     }
 
     /**
@@ -228,9 +251,18 @@ public class HabilitacionService {
                 nuevos.add(estudiante.getId());
             }
         }
+        Set<Integer> fuera = fueraDeSuCarrera(examen, nuevos);
+        List<String> deOtraCarrera = new ArrayList<>();
+        if (!fuera.isEmpty()) {
+            for (String buscado : buscados) {
+                Estudiante estudiante = porCodigo.getOrDefault(buscado, porCi.get(buscado));
+                if (estudiante != null && fuera.contains(estudiante.getId())) deOtraCarrera.add(buscado);
+            }
+            nuevos.removeAll(fuera);
+        }
         registrar(examen, nuevos);
         return new AsociacionLoteResponse(nuevos.size(), yaAsociados, noEncontrados,
-                listarSinVerificar(idExamen, idParalelo), noMatriculados);
+                listarSinVerificar(idExamen, idParalelo), noMatriculados, deOtraCarrera);
     }
 
     /** Asocia a todos los inscritos en el paralelo del examen que aún no estén asociados. */

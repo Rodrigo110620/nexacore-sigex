@@ -64,9 +64,19 @@ public class ExamenAccesoService {
         return usuarioRepository.findByEmail(authentication.getName()).map(Usuario::getId).orElse(null);
     }
 
-    /** Registrar ingresos e incidencias: con CONTROL_INGRESO_TODOS en cualquiera; con _PROPIOS, en los suyos. */
+    /**
+     * Registrar ingresos e incidencias: solo el personal de control asignado a ese examen (V53) y, con _PROPIOS, el
+     * docente en sus exámenes. Un control que no está asignado no puede controlar otro examen.
+     */
     public boolean puedeControlar(Integer idExamen, Authentication authentication) {
-        return segunPermiso(idExamen, authentication, Permiso.CONTROL_INGRESO_TODOS, Permiso.CONTROL_INGRESO_PROPIOS);
+        if (idExamen == null || authentication == null || !authentication.isAuthenticated()) return false;
+        boolean controla = Permisos.tiene(authentication, Permiso.CONTROL_INGRESO_TODOS);
+        boolean docente = Permisos.tiene(authentication, Permiso.CONTROL_INGRESO_PROPIOS);
+        if (!controla && !docente) return false;
+        Integer yo = idUsuario(authentication);
+        if (yo == null) return false;
+        return (controla && examenControlRepository.estaAsignado(idExamen, yo))
+                || (docente && examenRepository.perteneceADocente(idExamen, yo));
     }
 
     /**

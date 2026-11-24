@@ -29,4 +29,16 @@ public final class SesionActual {
         return Permisos.tiene(Permiso.EXAMENES_GESTIONAR_PROPIOS) && !Permisos.tiene(Permiso.EXAMENES_GESTIONAR_TODOS);
     }
 
+
+    /** Atributo de la petición con el id de la sesión del token (V62); lo pone JwtAuthFilter. */
+    public static final String ATRIBUTO_SESION = "sigex.idSesion";
+
+    /** Id de la sesión de la petición actual, o null (token anterior a V62 o fuera de una petición). */
+    public static String idSesion() {
+        var atributos = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (atributos == null) return null;
+        Object id = atributos.getAttribute(ATRIBUTO_SESION,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        return id instanceof String s ? s : null;
+    }
 }

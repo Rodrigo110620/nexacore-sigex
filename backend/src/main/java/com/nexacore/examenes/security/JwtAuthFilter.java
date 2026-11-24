@@ -20,6 +20,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+
+    /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.nexacore.examenes.services.SesionService sesionService;
     private final UsuarioRepository usuarioRepository;
 
     public JwtAuthFilter(JwtService jwtService, UsuarioRepository usuarioRepository) {
@@ -52,6 +57,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (!usuarioRepository.esActivo(email)) {
                 filterChain.doFilter(request, response);
                 return;
+            }
+            // Sesión cerrada (desde Mi perfil, al cerrar sesión o al cambiar la contraseña): el token ya no sirve.
+            String idSesion = jwtService.extraerSesion(jwt);
+            if (idSesion != null && sesionService != null) {
+                if (!sesionService.validarYRegistrarActividad(idSesion)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                request.setAttribute(SesionActual.ATRIBUTO_SESION, idSesion);
             }
             List<String> roles = usuarioRepository.findNombresDeRol(email);
 

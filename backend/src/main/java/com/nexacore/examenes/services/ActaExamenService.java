@@ -338,8 +338,9 @@ public class ActaExamenService {
                 .map(Ambiente::getNombre)
                 .forEach(aulas::add);
 
-        String horario = examen.getHoraInicio() + " – " + examen.getHoraInicio()
-                .plusMinutes(examen.getDuracionMinutos());
+        // Sin segundos: «08:00 – 10:00».
+        String horario = examen.getHoraInicio().format(HORA_CORTA) + " – " + examen.getHoraInicio()
+                .plusMinutes(examen.getDuracionMinutos()).format(HORA_CORTA);
 
         String grupo = paraleloRepository == null ? null
                 : paraleloRepository.findAllByIdParalelos(List.of(examen.getId().getIdParalelo())).stream()
@@ -396,28 +397,45 @@ public class ActaExamenService {
         return tabla;
     }
 
-    /** Sección 12: los datos del examen en dos columnas (Materia, Docente, Aula · Fecha, Horario, Generada). */
+    /**
+     * Sección 12: los datos del examen en una tabla de etiqueta y valor, dos pares por fila y alineados arriba:
+     * Materia · Fecha, Docente · Horario, Aula · Generada, Control (a todo el ancho, puede ser largo).
+     */
     private PdfPTable datosDelExamen(BaseFont base, BaseFont negrita, DatosExamen datos, LocalDateTime generada, List<String> personal) {
-        var tabla = new PdfPTable(new float[]{1, 1});
+        var tabla = new PdfPTable(new float[]{0.95f, 3.1f, 0.95f, 1.9f});
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
-        tabla.addCell(columnaDeDatos(base, negrita,
-                List.of("Materia:", datos.asignatura() + " (" + datos.sigla() + ")" + (datos.grupo() == null ? "" : " · Grupo " + datos.grupo()), "Docente:", datos.docente(), "Aula:", datos.aulas(),
-                        "Control:", personal.isEmpty() ? "Sin personal de control asignado" : String.join(", ", personal))));
-        tabla.addCell(columnaDeDatos(base, negrita,
-                List.of("Fecha:", datos.fecha(), "Horario:", datos.horario(), "Generada:", generada.format(FECHA) + " " + generada.format(HORA))));
+        String materia = datos.asignatura() + " (" + datos.sigla() + ")" + (datos.grupo() == null ? "" : " · Grupo " + datos.grupo());
+        String control = personal.isEmpty() ? "Sin personal de control asignado" : String.join(", ", personal);
+        filaDeDatos(tabla, base, negrita, "Materia", materia, "Fecha", datos.fecha(), true);
+        filaDeDatos(tabla, base, negrita, "Docente", datos.docente(), "Horario", datos.horario(), false);
+        filaDeDatos(tabla, base, negrita, "Aula", datos.aulas(), "Generada", generada.format(FECHA) + " " + generada.format(HORA), true);
+        tabla.addCell(celdaDeDato("Control", negrita, true, false));
+        var valor = celdaDeDato(control, base, false, false);
+        valor.setColspan(3);
+        tabla.addCell(valor);
         return tabla;
     }
 
-    private static PdfPCell columnaDeDatos(BaseFont base, BaseFont negrita, List<String> pares) {
-        var p = new Paragraph();
-        p.setLeading(15);
-        for (int i = 0; i < pares.size(); i += 2) {
-            p.add(new Phrase(pares.get(i) + " ", new Font(negrita, 8.5f, Font.NORMAL, TINTA)));
-            p.add(new Phrase(pares.get(i + 1) + (i + 2 < pares.size() ? "\n" : ""), new Font(base, 8.5f, Font.NORMAL, TINTA)));
-        }
-        var celda = new PdfPCell(p);
-        sinBorde(celda);
+    private static void filaDeDatos(PdfPTable tabla, BaseFont base, BaseFont negrita, String etiqueta1, String valor1,
+                                    String etiqueta2, String valor2, boolean sombreada) {
+        tabla.addCell(celdaDeDato(etiqueta1, negrita, true, sombreada));
+        tabla.addCell(celdaDeDato(valor1, base, false, sombreada));
+        tabla.addCell(celdaDeDato(etiqueta2, negrita, true, sombreada));
+        tabla.addCell(celdaDeDato(valor2, base, false, sombreada));
+    }
+
+    private static PdfPCell celdaDeDato(String texto, BaseFont fuente, boolean etiqueta, boolean sombreada) {
+        var celda = new PdfPCell(new Phrase(texto == null || texto.isBlank() ? "—" : texto,
+                new Font(fuente, 8.5f, Font.NORMAL, etiqueta ? SUAVE : TINTA)));
+        celda.setBorder(Rectangle.BOTTOM);
+        celda.setBorderColor(new Color(0xE2, 0xE8, 0xF0));
+        celda.setBackgroundColor(sombreada ? FONDO : Color.WHITE);
+        celda.setVerticalAlignment(Element.ALIGN_TOP);
+        celda.setPaddingTop(4);
+        celda.setPaddingBottom(5);
+        celda.setPaddingLeft(5);
+        celda.setUseAscender(true);
         return celda;
     }
 
@@ -427,16 +445,8 @@ public class ActaExamenService {
                 "Habilitados: " + habilitados, "Asistieron: " + asistidos, "Ausentes: " + ausentes, "No habilitados: " + noHabilitados));
         if (expulsados > 0) etiquetas.add("Expulsados: " + expulsados);
         if (pendientes > 0) etiquetas.add("Pendientes: " + pendientes);
-        float[] anchos = new float[etiquetas.size() + 1];
-        // Cada etiqueta del ancho de su texto («No habilitados: 0» no se parte en dos líneas); el resto, vacío.
-        // Hasta 6 etiquetas (con expulsados y pendientes): el espacio que sobra nunca queda en cero ni negativo.
-        float usado = 0;
-        for (int i = 0; i < etiquetas.size(); i++) {
-            anchos[i] = Math.max(1f, etiquetas.get(i).length() / 13f);
-            usado += anchos[i];
-        }
-        anchos[etiquetas.size()] = Math.max(0.3f, 7.5f - usado);
-        var tabla = new PdfPTable(anchos);
+        // Todas del mismo ancho y a todo el ancho de la hoja: se leen como una sola fila de totales.
+        var tabla = new PdfPTable(etiquetas.size());
         tabla.setWidthPercentage(100);
         tabla.setSpacingBefore(10);
         tabla.setSpacingAfter(12);
@@ -447,13 +457,13 @@ public class ActaExamenService {
             celda.setBackgroundColor(new Color(0xED, 0xF2, 0xFE));
             celda.setBorderColor(Color.WHITE);
             celda.setBorderWidth(2);
-            celda.setPadding(5);
+            celda.setPaddingTop(6);
+            celda.setPaddingBottom(7);
             celda.setHorizontalAlignment(Element.ALIGN_CENTER);
+            celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            celda.setUseAscender(true);
             tabla.addCell(celda);
         }
-        var resto = new PdfPCell(new Phrase(" "));
-        sinBorde(resto);
-        tabla.addCell(resto);
         return tabla;
     }
 

@@ -19,6 +19,7 @@ import {
 } from '../../services/profileService'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import PerfilDelRol from '../../components/perfil/PerfilDelRol'
+import SesionesActivas from '../../components/perfil/SesionesActivas'
 import CabeceraPerfil from '../../components/perfil/CabeceraPerfil'
 
 export default function PerfilPage() {
@@ -166,6 +167,7 @@ export default function PerfilPage() {
 
           {/* Cambiar contraseña: el mismo formulario que el estudiante. */}
           <div className="mt-5"><CambiarPasswordSeccion /></div>
+          <div className="mt-5"><SesionesActivas /></div>
         </section>
         <MobileBottomNav />
       </div>

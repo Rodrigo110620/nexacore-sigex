@@ -1,6 +1,7 @@
 import { Camera, CircleCheck, Clock, Info, TriangleAlert } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import CambiarPasswordSeccion from '../../components/auth/CambiarPasswordSeccion'
+import SesionesActivas from '../../components/perfil/SesionesActivas'
 import PortalEstudianteLayout from '../../components/estudiantes/PortalEstudianteLayout'
 import FotoEstudiante from '../../components/estudiantes/FotoEstudiante'
 import { PortalCargando, PortalError } from '../../components/estudiantes/PortalEstado'
@@ -101,6 +102,7 @@ export default function MiPerfilPage() {
                 texto: 'No puede contener tu nombre, tu código SIS ni tu CI',
                 viola: (nueva) => usaDatosDelEstudiante(nueva, perfil.codigoSis, perfil.nombre),
               } : undefined} />
+              <SesionesActivas />
             </div>
           </div>
         )}

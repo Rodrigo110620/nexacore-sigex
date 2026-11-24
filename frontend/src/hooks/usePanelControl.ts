@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { listarExamenes, type ExamenDto } from '../services/examenService'
+import { listarMisExamenes, type ExamenDto } from '../services/examenService'
 import useEnVivo from './useEnVivo'
 import { ahoraServidorMs, sincronizarReloj } from '../services/tiempoService'
 
 export const REFRESCO_MS = 30_000
 
 /**
- * Exámenes no cancelados para el panel de CONTROL y la hora actual, que se renueva cada 30 s
+ * Exámenes no cancelados para el panel de CONTROL (solo los que tiene asignados; el docente, también los suyos; el
+ * ADMIN, todos para supervisar) y la hora actual, que se renueva cada 30 s
  * mientras la página está abierta (así cambia qué examen está en curso y se refresca el avance).
  */
 export default function usePanelControl() {
@@ -18,7 +19,7 @@ export default function usePanelControl() {
 
   useEffect(() => {
     let vigente = true
-    listarExamenes()
+    listarMisExamenes()
       .then((lista) => {
         if (vigente) setExamenes(lista.filter((e) => e.estado?.toLowerCase() !== 'cancelado'))
       })

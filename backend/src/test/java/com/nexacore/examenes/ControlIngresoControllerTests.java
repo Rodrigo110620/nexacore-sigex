@@ -46,6 +46,17 @@ class ControlIngresoControllerTests {
     @MockitoBean
     private com.nexacore.examenes.repositories.ExamenRepository examenes;
 
+    @MockitoBean
+    private com.nexacore.examenes.repositories.ExamenControlRepository asignados;
+
+    /** El usuario de control simulado, asignado al examen 20 (solo el control asignado lo controla). */
+    private void controlAsignado(String email) {
+        var control = new com.nexacore.examenes.models.Usuario();
+        control.setId(50);
+        when(usuarios.findByEmail(email)).thenReturn(java.util.Optional.of(control));
+        when(asignados.estaAsignado(20, 50)).thenReturn(true);
+    }
+
     // Los usuarios son simulados (no existen en la base): la auditoría también, para no violar su clave foránea.
     @MockitoBean
     private com.nexacore.examenes.services.AuditoriaService auditoria;
@@ -97,6 +108,7 @@ class ControlIngresoControllerTests {
     @ParameterizedTest
     @ValueSource(strings = {"CONTROL"})
     void registrarExcepcionDeNoHabilitadoGuardaLaExcepcion(String rol) throws Exception {
+        controlAsignado("control@sigex.test");
         mockMvc.perform(post("/control-ingresos/excepcion-no-habilitado").with(user("control@sigex.test").roles(rol))
                         .contentType(APPLICATION_JSON).content(EXCEPCION))
                 .andExpect(status().isOk());
@@ -217,6 +229,7 @@ class ControlIngresoControllerTests {
     @Test
     @WithMockUser(username = "control@umss.edu.bo", roles = "CONTROL")
     void respondeConflictAlDenegarUnIngresoYaAutorizado() throws Exception {
+        controlAsignado("control@umss.edu.bo");
         when(service.denegar(any(AutorizarIngresoRequest.class), anyString()))
                 .thenThrow(new ControlIngresoException(
                         HttpStatus.CONFLICT, "No se puede denegar un ingreso que ya fue autorizado"));

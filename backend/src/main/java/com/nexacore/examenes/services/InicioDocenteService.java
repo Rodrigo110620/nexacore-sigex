@@ -46,7 +46,8 @@ public class InicioDocenteService {
                 .addValue("hasta", Timestamp.valueOf(ahora.toLocalDate().plusDays(1).atStartOfDay()));
 
         Map<Integer, List<String>> grupos = new LinkedHashMap<>();
-        jdbc.query("SELECT id_materia, nombre_grupo FROM paralelo WHERE id_docente = :yo ORDER BY nombre_grupo", p,
+        jdbc.query("SELECT id_materia, nombre_grupo FROM paralelo p WHERE id_docente = :yo AND "
+                + PeriodoService.delPeriodoActivo("p") + " ORDER BY nombre_grupo", p,
                 rs -> { grupos.computeIfAbsent(rs.getInt(1), k -> new ArrayList<>()).add(rs.getString(2)); });
 
         Map<Integer, Integer> asistencia = asistenciaRealizados(p, ahora);

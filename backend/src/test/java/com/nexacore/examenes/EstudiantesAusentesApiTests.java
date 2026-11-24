@@ -39,6 +39,9 @@ class EstudiantesAusentesApiTests {
         for (int examen : new int[]{ID, ID + 1}) {
             jdbc.update("INSERT INTO examen(id_examen,id_paralelo,id_materia,id_docente,id_ambiente,fecha,hora_inicio,duracion_minutos) VALUES (?,?,?,?,?,CURRENT_DATE,'09:00',60)", examen, ID, ID, ID, ID);
         }
+        // Solo el control asignado al examen lo controla.
+        jdbc.update("INSERT INTO usuario(id_usuario,nombre,apellidos,ci,email,password) VALUES (?,'Carla','Control','AUSCTRL','control@sigex.test','x')", ID + 50);
+        jdbc.update("INSERT INTO examen_control(id_examen,id_usuario) VALUES (?,?)", ID, ID + 50);
         Boolean[] habilitaciones = {true, true, true, true, false, null, true};
         for (int i = 0; i < habilitaciones.length; i++) {
             jdbc.update("INSERT INTO estudiante(id_estudiante,codigo_sis,nombre,apellidos,ci,email) VALUES (?,?,'Eva',?,?,?)",

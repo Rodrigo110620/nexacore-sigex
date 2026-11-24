@@ -85,6 +85,8 @@ export interface AsociacionLoteDto {
   estudiantes: EstudianteHabilitacionDto[]
   /** No matriculados (inactivos): no se asocian (2.º test run). */
   noMatriculados?: string[]
+  /** V63: de una carrera a la que no pertenece la materia (y sin inscripción oficial en el grupo). */
+  deOtraCarrera?: string[]
 }
 
 /** identificadores: códigos universitarios o CI, mezclados. Los ya asociados o inexistentes vuelven en el resumen. */

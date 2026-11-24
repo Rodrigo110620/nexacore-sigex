@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, Ban, BarChart3, BookCheck, CalendarDays, CircleCheck, ClipboardCheck, Clock3, GraduationCap, Hourglass, ImageIcon,
-  MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon,
-} from 'lucide-react'
+  MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon, CalendarClock } from 'lucide-react'
 import { iconoAviso, iconoOperacion } from '../../utils/iconosActividad'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -31,6 +30,7 @@ const ESTILO_MOTIVO: Record<string, [string, string, string, string, LucideIcon]
   NO_HABILITADO: ['#FBBF24', '#D97706', '#FEF3C7', 'text-[#D97706]', Ban],
   QR_DUPLICADO: ['#A78BFA', '#7C3AED', '#EDE9FE', 'text-[#7C3AED]', QrCode],
   FUERA_HORARIO: ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3],
+  OTRO_EXAMEN: ['#C084FC', '#9333EA', '#F3E8FF', 'text-[#9333EA]', CalendarClock],
 }
 const ESTILO_OTRO: [string, string, string, string, LucideIcon] = ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3]
 

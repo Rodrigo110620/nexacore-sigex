@@ -88,6 +88,63 @@ public class ExamenService {
     @org.springframework.beans.factory.annotation.Autowired
     private com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
 
+    /** Periodo académico activo (V61); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PeriodoService periodoService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.InscripcionParaleloRepository inscripcionParaleloRepository;
+
+    /**
+     * Estudiantes del grupo (inscritos y, al editar, los ya asociados al examen) que tienen otro examen ese día que se
+     * cruza con el horario elegido. Solo avisa: el docente decide si cambia el horario.
+     */
+    @Transactional(readOnly = true)
+    public List<com.nexacore.examenes.dto.CruceEstudianteResponse> crucesDeEstudiantes(
+            Integer idParalelo, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos, Integer idExamen) {
+        if (fecha == null || inicio == null || duracionMinutos <= 0) return List.of();
+        Set<Integer> ids = new java.util.LinkedHashSet<>();
+        if (idParalelo != null && inscripcionParaleloRepository != null) {
+            ids.addAll(inscripcionParaleloRepository.idsInscritosDelGrupo(idParalelo));
+        }
+        if (idExamen != null) {
+            ids.addAll(asistenciaExamenRepository.idsEstudiantesDelExamen(idExamen));
+        }
+        if (ids.isEmpty()) return List.of();
+        LocalTime fin = inicio.plusMinutes(duracionMinutos);
+        java.util.Map<Integer, List<String>> porEstudiante = new java.util.LinkedHashMap<>();
+        for (AsistenciaExamenRepository.OtroExamen otro : asistenciaExamenRepository.otrosExamenesDelDia(
+                ids, fecha, idExamen == null ? -1 : idExamen)) {
+            if ("cancelado".equalsIgnoreCase(otro.estado()) || otro.horaInicio() == null || otro.duracionMinutos() == null) {
+                continue;
+            }
+            LocalTime otroFin = otro.horaInicio().plusMinutes(otro.duracionMinutos());
+            if (inicio.isBefore(otroFin) && otro.horaInicio().isBefore(fin)) {
+                porEstudiante.computeIfAbsent(otro.idEstudiante(), k -> new ArrayList<>())
+                        .add(otro.materia() + " (" + otro.horaInicio() + "–" + otroFin + ")");
+            }
+        }
+        if (porEstudiante.isEmpty()) return List.of();
+        java.util.Map<Integer, com.nexacore.examenes.models.Estudiante> estudiantes = new java.util.HashMap<>();
+        estudianteRepository.findAllById(porEstudiante.keySet()).forEach(e -> estudiantes.put(e.getId(), e));
+        return porEstudiante.entrySet().stream().map(e -> {
+            var est = estudiantes.get(e.getKey());
+            String nombre = est == null ? "" : (java.util.Objects.toString(est.getNombre(), "") + " "
+                    + java.util.Objects.toString(est.getApellidos(), "")).trim();
+            return new com.nexacore.examenes.dto.CruceEstudianteResponse(e.getKey(), est == null ? null : est.getCodigoSis(),
+                    nombre, String.join("; ", e.getValue()));
+        }).sorted(java.util.Comparator.comparing(com.nexacore.examenes.dto.CruceEstudianteResponse::nombre)).toList();
+    }
+
+    private Integer periodoActivo() {
+        return periodoService == null ? null : periodoService.idActivo();
+    }
+
+    /** true si el grupo es del periodo (sin periodo, en una base sin periodos, no se filtra). */
+    private static boolean delPeriodo(Paralelo p, Integer idPeriodo) {
+        return idPeriodo == null || p == null || p.getIdPeriodo() == null || idPeriodo.equals(p.getIdPeriodo());
+    }
+
     public ExamenService(
             ExamenRepository examenRepository,
             AmbienteRepository ambienteRepository,
@@ -123,7 +180,14 @@ public class ExamenService {
 
     @Transactional(readOnly = true)
     public List<ExamenResponse> listar() {
-        List<Examen> examenes = examenesVisibles();
+        return listar(null);
+    }
+
+    /** Los exámenes del periodo pedido (por defecto, el activo). */
+    @Transactional(readOnly = true)
+    public List<ExamenResponse> listar(Integer idPeriodo) {
+        Integer periodo = periodoService == null ? null : periodoService.resolver(idPeriodo);
+        List<Examen> examenes = examenesVisibles().stream().filter(e -> delPeriodo(e.getParalelo(), periodo)).toList();
         Catalogos catalogos = catalogosDe(examenes);
         return examenes.stream()
                 .map(examen -> toResponse(examen, catalogos))
@@ -136,15 +200,22 @@ public class ExamenService {
      */
     @Transactional(readOnly = true)
     public List<ExamenResponse> listarMios() {
+        return listarMios(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExamenResponse> listarMios(Integer idPeriodo) {
         if (com.nexacore.examenes.security.Permisos.tiene(
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
                 com.nexacore.examenes.security.Permiso.REPORTES_VER)) {
-            return listar();
+            return listar(idPeriodo);
         }
+        Integer periodo = periodoService == null ? null : periodoService.resolver(idPeriodo);
         Integer yo = usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);
         java.util.Set<Integer> asignados = new java.util.HashSet<>(examenControlRepository.examenesDe(yo));
         List<Examen> examenes = examenRepository.findAllByOrderByFechaDescHoraInicioDesc().stream()
                 .filter(e -> yo.equals(e.getIdDocente()) || asignados.contains(e.getId().getIdExamen()))
+                .filter(e -> delPeriodo(e.getParalelo(), periodo))
                 .toList();
         Catalogos catalogos = catalogosDe(examenes);
         return examenes.stream().map(examen -> toResponse(examen, catalogos)).toList();
@@ -692,7 +763,9 @@ public class ExamenService {
      * el docente en la materia. Con varios grupos (G1, G2…) hay que elegir uno. Sin ninguno, se crea el G1.
      */
     private Paralelo resolverParalelo(Materia materia, Docente docente, Integer idParalelo) {
-        List<Paralelo> grupos = paraleloRepository.deMateriaYDocente(materia.getId(), docente.getIdUsuario());
+        Integer periodo = periodoActivo();
+        List<Paralelo> grupos = paraleloRepository.deMateriaYDocente(materia.getId(), docente.getIdUsuario()).stream()
+                .filter(p -> delPeriodo(p, periodo)).toList();
         if (idParalelo != null) {
             return grupos.stream().filter(p -> p.getId().getIdParalelo().equals(idParalelo)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("El grupo elegido no es de esta materia y este docente."));
@@ -713,6 +786,7 @@ public class ExamenService {
                     p.setId(pid);
                     p.setMateria(materia);
                     p.setDocente(docente);
+                    p.setIdPeriodo(periodo);
                     // Cada grupo de una materia tiene un solo docente: si el G1 ya es de otro, toma el primero libre.
                     p.setNombreGrupo(primerGrupoLibre(materia.getId()));
                     return paraleloRepository.save(p);
@@ -722,8 +796,9 @@ public class ExamenService {
     /** El primer grupo (G1…G20) de la materia que todavía no tiene docente. */
     private String primerGrupoLibre(Integer idMateria) {
         java.util.Set<String> ocupados = new java.util.HashSet<>();
+        Integer periodo = periodoActivo();
         for (Paralelo otro : paraleloRepository.findByIdIdMateria(idMateria)) {
-            if (otro.getNombreGrupo() != null) {
+            if (otro.getNombreGrupo() != null && delPeriodo(otro, periodo)) {
                 String g = otro.getNombreGrupo().trim().toUpperCase(java.util.Locale.ROOT);
                 ocupados.add(g.matches("\\d{1,2}") ? "G" + g : g);
             }

@@ -1,4 +1,4 @@
-import { BarChart3, BookCheck, ClipboardCheck, DatabaseBackup, GraduationCap, History, LayoutGrid, LifeBuoy, Settings, ShieldCheck, Users, type LucideIcon } from 'lucide-react'
+import { BarChart3, BookCheck, ClipboardCheck, DatabaseBackup, GraduationCap, History, LayoutGrid, LifeBuoy, Settings, ShieldCheck, Users, type LucideIcon, CalendarRange, BookOpen } from 'lucide-react'
 import { tienePermiso } from '../../utils/permisos'
 
 export interface NavItem {
@@ -51,7 +51,9 @@ export function navItemsFor(roles: string[], permisos?: string[] | null): NavIte
     // El respaldo y el historial de operaciones son solo del ADMIN (un rol extra con ROLES_GESTIONAR ve solo los roles).
     const hijos: NonNullable<NavItem['hijos']> = [{ label: 'Roles y permisos', to: '/dashboard/configuracion', icon: ShieldCheck }]
     if (roles.includes('ADMIN')) {
-      hijos.push({ label: 'Respaldo', to: '/dashboard/configuracion#respaldo', icon: DatabaseBackup },
+      hijos.push({ label: 'Periodos', to: '/dashboard/configuracion#periodos', icon: CalendarRange },
+        { label: 'Materias', to: '/dashboard/configuracion#materias', icon: BookOpen },
+        { label: 'Respaldo', to: '/dashboard/configuracion#respaldo', icon: DatabaseBackup },
         { label: 'Historial', to: '/dashboard/configuracion#historial', icon: History, titulo: 'Historial de operaciones' })
     }
     items.push({ label: 'Configuración', to: '/dashboard/configuracion', icon: Settings, soloEscritorio: true, ...(hijos.length > 1 ? { hijos } : {}) })

@@ -131,9 +131,37 @@ public class PanelEstudianteService {
     public List<MiExamenResponse> examenes(String email) {
         Estudiante e = estudianteDe(email);
         String nombreCompleto = (e.getNombre() + " " + e.getApellidos()).trim();
-        return asistenciaRepository.listarDelEstudiante(e.getId()).stream()
-                .map(a -> aExamen(e.getId(), nombreCompleto, a))
+        List<AsistenciaExamen> asistencias = asistenciaRepository.listarDelEstudiante(e.getId());
+        return asistencias.stream()
+                .map(a -> aExamen(e.getId(), nombreCompleto, a).conCruce(cruces(a, asistencias)))
                 .toList();
+    }
+
+    /**
+     * Sus otros exámenes (no cancelados) del mismo día que se cruzan con este, para avisarle con tiempo: elige a cuál
+     * entra o reclama por la mesa de ayuda para que se reprograme. null si no hay cruces.
+     */
+    private static String cruces(AsistenciaExamen a, List<AsistenciaExamen> todas) {
+        Examen ex = a.getExamen();
+        if (ex == null || ex.getFecha() == null || ex.getHoraInicio() == null || ex.getDuracionMinutos() == null
+                || "cancelado".equalsIgnoreCase(ex.getEstado())) {
+            return null;
+        }
+        java.time.LocalTime fin = ex.getHoraInicio().plusMinutes(ex.getDuracionMinutos());
+        List<String> otros = new java.util.ArrayList<>();
+        for (AsistenciaExamen b : todas) {
+            Examen o = b.getExamen();
+            if (o == null || b.getId().getIdExamen().equals(a.getId().getIdExamen()) || !ex.getFecha().equals(o.getFecha())
+                    || o.getHoraInicio() == null || o.getDuracionMinutos() == null || "cancelado".equalsIgnoreCase(o.getEstado())) {
+                continue;
+            }
+            java.time.LocalTime oFin = o.getHoraInicio().plusMinutes(o.getDuracionMinutos());
+            if (ex.getHoraInicio().isBefore(oFin) && o.getHoraInicio().isBefore(fin)) {
+                otros.add(o.getParalelo().getMateria().getNombre() + ", " + o.getHoraInicio().toString().substring(0, 5)
+                        + "–" + oFin.toString().substring(0, 5));
+            }
+        }
+        return otros.isEmpty() ? null : String.join("; ", otros);
     }
 
     @Transactional

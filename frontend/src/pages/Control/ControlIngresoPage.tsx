@@ -147,7 +147,9 @@ export default function ControlIngresoPage() {
     .then(([c, t]) => { setCtx(c); setTypes(t) })
     .catch((err) => setLoadError(isNetworkError(err)
       ? 'Sin conexión a Internet: no se pudo cargar la información del control. Verifica tu conexión e inténtalo nuevamente.'
-      : 'No se pudo cargar la información del control.'))
+      : (err as { response?: { status?: number } })?.response?.status === 403
+        ? 'No estás asignado como personal de control de este examen. Solo el personal asignado (o el docente del examen) puede controlarlo.'
+        : 'No se pudo cargar la información del control.'))
     .finally(() => setLoading(false)), [idEstudiante, idExamen])
 
   useEffect(() => {

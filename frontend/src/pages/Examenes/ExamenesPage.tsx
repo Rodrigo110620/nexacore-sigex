@@ -9,6 +9,7 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { listarPeriodos, type PeriodoDto } from '../../services/periodoService'
 import { addMinutes, fechaLocal, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
@@ -103,17 +104,24 @@ export default function ExamenesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Periodo académico: por defecto, el activo; los anteriores quedan como historial.
+  const [periodos, setPeriodos] = useState<PeriodoDto[]>([])
+  const [idPeriodo, setIdPeriodo] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    listarPeriodos().then(setPeriodos).catch(() => undefined)
+  }, [])
+
   const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
     if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
-      setExamenes(await listarExamenes())
+      setExamenes(await listarExamenes(idPeriodo))
     } catch {
       setError('No se pudo cargar la lista de exámenes.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [idPeriodo])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -311,6 +319,23 @@ export default function ExamenesPage() {
                 </div>
               </div>
             </div>
+
+            {periodos.length > 0 && (
+              <div className="mb-2 flex items-center justify-end gap-2 text-xs text-[#45628D]">
+                <label htmlFor="examenes-periodo" className="font-semibold">Periodo</label>
+                <select
+                  id="examenes-periodo"
+                  value={idPeriodo ?? ''}
+                  onChange={(e) => { setIdPeriodo(e.target.value === '' ? undefined : Number(e.target.value)); setPage(0) }}
+                  className="h-9 rounded-lg border border-[#B8CBEF] bg-white px-2 text-[13px] font-semibold text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30"
+                >
+                  <option value="">{periodos.find((p) => p.activo)?.nombre ?? 'Activo'} (activo)</option>
+                  {periodos.filter((p) => !p.activo).map((p) => (
+                    <option key={p.idPeriodo} value={p.idPeriodo}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="mb-3 flex items-end justify-between gap-3 border-b border-[#D8E3F5]">
             <div role="tablist" aria-label="Exámenes por estado" className="grid min-w-0 flex-1 grid-cols-3 sm:flex sm:flex-none sm:gap-2">

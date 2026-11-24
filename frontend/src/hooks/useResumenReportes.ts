@@ -41,6 +41,7 @@ function motivosDe(etiquetas: string[]): { etiqueta: string; n: number }[] {
 
 const TEXTO_TIPO_INTENTO: Record<string, string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
+  OTRO_EXAMEN: 'Otro examen a la misma hora',
 }
 
 export type ClaveResumen = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'

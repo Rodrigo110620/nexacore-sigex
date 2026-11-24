@@ -120,6 +120,38 @@ public class AuthController {
         return ResponseEntity.ok(perfilRolService.deLaSesion(authentication));
     }
 
+    /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.SesionService sesionService;
+
+    @io.swagger.v3.oas.annotations.Operation(summary = "Mis sesiones abiertas",
+            description = "Navegador, dispositivo, IP y última actividad de cada sesión; actual = la de este dispositivo.")
+    @GetMapping("/sesiones")
+    public ResponseEntity<java.util.List<com.nexacore.examenes.dto.SesionResponse>> misSesiones() {
+        return ResponseEntity.ok(sesionService.misSesiones());
+    }
+
+    @io.swagger.v3.oas.annotations.Operation(summary = "Cerrar una de mis sesiones")
+    @org.springframework.web.bind.annotation.DeleteMapping("/sesiones/{idSesion}")
+    public ResponseEntity<Void> cerrarSesion(@org.springframework.web.bind.annotation.PathVariable String idSesion) {
+        sesionService.cerrar(idSesion);
+        return ResponseEntity.noContent().build();
+    }
+
+    @io.swagger.v3.oas.annotations.Operation(summary = "Cerrar mis demás sesiones", description = "Todas menos la de este dispositivo.")
+    @PostMapping("/sesiones/cerrar-otras")
+    public ResponseEntity<Map<String, Integer>> cerrarOtrasSesiones() {
+        return ResponseEntity.ok(Map.of("cerradas", sesionService.cerrarOtras()));
+    }
+
+    @io.swagger.v3.oas.annotations.Operation(summary = "Cerrar sesión", description = "Cierra la sesión de este dispositivo: su token deja de servir.")
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        String actual = com.nexacore.examenes.security.SesionActual.idSesion();
+        if (actual != null) sesionService.cerrar(actual);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/cambiar-password")
     public ResponseEntity<Map<String, String>> cambiarPassword(
             Authentication authentication,

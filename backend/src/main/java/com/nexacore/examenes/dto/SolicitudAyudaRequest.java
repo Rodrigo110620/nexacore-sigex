@@ -15,7 +15,7 @@ public record SolicitudAyudaRequest(
         @NotBlank(message = "Escribe tu correo") @Email(message = "El correo no es válido") @Size(max = 150)
         String correo,
         @NotBlank(message = "Elige el tipo de problema")
-        @Pattern(regexp = "CUENTA|CONTRASENA|ACTIVACION|QR|FOTO|EXAMEN|OTRO", message = "Tipo de problema no válido")
+        @Pattern(regexp = "CUENTA|CONTRASENA|ACTIVACION|QR|FOTO|EXAMEN|CRUCE_HORARIO|OTRO", message = "Tipo de problema no válido")
         String tipo,
         @NotBlank(message = "Cuéntanos qué pasa") @Size(min = 15, max = 1000, message = "El mensaje debe tener entre 15 y 1000 caracteres")
         String mensaje,

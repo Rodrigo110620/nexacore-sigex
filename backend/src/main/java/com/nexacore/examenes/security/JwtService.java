@@ -69,11 +69,19 @@ public class JwtService {
      * @return token JWT compacto listo para enviar al cliente
      */
     public String generarToken(String email, List<String> roles) {
+        return generarToken(email, roles, null);
+    }
+
+    /** Igual, con el id de la sesión del dispositivo (V62): cerrarla invalida el token. */
+    public String generarToken(String email, List<String> roles, String idSesion) {
         Date ahora = new Date();
         Date vencimiento = new Date(ahora.getTime() + expiracionMs);
+        Map<String, Object> claims = new java.util.HashMap<>();
+        claims.put("roles", roles);
+        if (idSesion != null) claims.put("sid", idSesion);
 
         return Jwts.builder()
-                .setClaims(Map.of("roles", roles))
+                .setClaims(claims)
                 .setSubject(email)
                 .setIssuedAt(ahora)
                 .setExpiration(vencimiento)
@@ -98,6 +106,12 @@ public class JwtService {
     /** Devuelve el email (subject) contenido en el token. */
     public String extraerEmail(String token) {
         return extraerClaims(token).getSubject();
+    }
+
+    /** Id de la sesión del token, o null si es anterior a V62. */
+    public String extraerSesion(String token) {
+        Object sid = extraerClaims(token).get("sid");
+        return sid instanceof String s ? s : null;
     }
 
     /** Devuelve los roles contenidos en el token. */

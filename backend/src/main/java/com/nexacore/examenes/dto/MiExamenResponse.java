@@ -30,5 +30,24 @@ public record MiExamenResponse(
         /** Normas particulares (adaptaciones) de este estudiante; nunca las de otros. */
         List<String> normasParticulares,
         /** INCI-03: aula original si lo trasladaron en la sesión actual; null si no. */
-        String trasladadoDesde
-) {}
+        String trasladadoDesde,
+        /** Otros exámenes suyos que se cruzan en horario con este («Cálculo II, 08:00–10:00»); null si ninguno. */
+        String cruceHorario
+) {
+    public MiExamenResponse(Integer idExamen, String materia, LocalDate fecha, LocalTime horaInicio, Integer duracionMinutos,
+                            String aula, Boolean habilitado, String motivoInhabilitacion, String resultadoIngreso,
+                            String motivoDenegacion, LocalDateTime fechaHoraIngreso, boolean expulsado,
+                            LocalDateTime fechaHoraExpulsion, List<String> normasGenerales, List<String> normasParticulares,
+                            String trasladadoDesde) {
+        this(idExamen, materia, fecha, horaInicio, duracionMinutos, aula, habilitado, motivoInhabilitacion, resultadoIngreso,
+                motivoDenegacion, fechaHoraIngreso, expulsado, fechaHoraExpulsion, normasGenerales, normasParticulares,
+                trasladadoDesde, null);
+    }
+
+    /** El mismo examen con el aviso de cruce de horario. */
+    public MiExamenResponse conCruce(String cruce) {
+        return new MiExamenResponse(idExamen, materia, fecha, horaInicio, duracionMinutos, aula, habilitado,
+                motivoInhabilitacion, resultadoIngreso, motivoDenegacion, fechaHoraIngreso, expulsado, fechaHoraExpulsion,
+                normasGenerales, normasParticulares, trasladadoDesde, cruce);
+    }
+}

@@ -52,6 +52,10 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
+    /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SesionService sesionService;
     private final EmailService emailService;
     private final int resetExpirationMinutes;
     private final int maxIntentosFallidos;
@@ -109,7 +113,8 @@ public class AuthService {
         }
 
         List<String> roles = obtenerRoles(usuario);
-        String token = jwtService.generarToken(usuario.getEmail(), roles);
+        String idSesion = sesionService == null ? null : sesionService.iniciar(usuario);
+        String token = jwtService.generarToken(usuario.getEmail(), roles, idSesion);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
 
         return new AuthResponse(token, nombreCompleto, roles);
@@ -173,6 +178,8 @@ public class AuthService {
 
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
+        // Las demás sesiones abiertas (otros dispositivos) se cierran; esta sigue.
+        if (sesionService != null) sesionService.cerrarOtrasDe(usuario.getId(), "CONTRASENA_CAMBIADA");
     }
 
     /** La cuenta de un estudiante sigue la misma regla que al activarla: sin su nombre, SIS ni CI. */
@@ -255,6 +262,7 @@ public class AuthService {
 
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
+        if (sesionService != null) sesionService.cerrarTodasDe(usuario.getId(), "CONTRASENA_RESTABLECIDA");
 
         token.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(token);

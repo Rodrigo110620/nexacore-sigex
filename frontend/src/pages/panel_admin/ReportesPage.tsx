@@ -50,9 +50,11 @@ const COLOR_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]',
   AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#9A3412] border border-[#FDBA74]',
   NO_HABILITADO: 'bg-[#E0E7FF] text-[#3730A3] border border-[#A5B4FC]',
+  OTRO_EXAMEN: 'bg-[#F3E8FF] text-[#6B21A8] border border-[#D8B4FE]',
 }
 const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
+  OTRO_EXAMEN: 'Rinde otro examen a la misma hora',
 }
 
 function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {

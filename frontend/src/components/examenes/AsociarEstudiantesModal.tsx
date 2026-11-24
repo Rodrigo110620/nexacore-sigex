@@ -207,7 +207,7 @@ export default function AsociarEstudiantesModal({
           ? await asociarInscritos(idExamen, idParalelo)
           : await asociarEstudiantesLote(idExamen, idParalelo, identificadores)
       onAsociados(respuesta.estudiantes)
-      const sinPendientes = respuesta.yaAsociados.length === 0 && respuesta.noEncontrados.length === 0 && !respuesta.noMatriculados?.length
+      const sinPendientes = respuesta.yaAsociados.length === 0 && respuesta.noEncontrados.length === 0 && !respuesta.noMatriculados?.length && !respuesta.deOtraCarrera?.length
       if (respuesta.asociados > 0 && sinPendientes) {
         setTexto('')
         setSeleccion(new Map())
@@ -221,7 +221,7 @@ export default function AsociarEstudiantesModal({
         return
       }
       setResumen(respuesta)
-      if (modo === 'codigos') setTexto([...respuesta.yaAsociados, ...respuesta.noEncontrados, ...(respuesta.noMatriculados ?? [])].join('\n'))
+      if (modo === 'codigos') setTexto([...respuesta.yaAsociados, ...respuesta.noEncontrados, ...(respuesta.noMatriculados ?? []), ...(respuesta.deOtraCarrera ?? [])].join('\n'))
       if (modo === 'registro') setSeleccion(new Map())
     } catch (err) {
       // El lote es transaccional: si falla no queda nadie asociado y la selección se conserva.
@@ -532,6 +532,9 @@ export default function AsociarEstudiantesModal({
                     : `Se asociaron ${resumen.asociados} estudiantes.`}
               </p>
               {resumen.yaAsociados.length > 0 && <p>Ya estaban asociados: {resumen.yaAsociados.join(', ')}</p>}
+              {!!resumen.deOtraCarrera?.length && (
+                <p className="text-red-700">No se asociaron por ser de una carrera a la que no pertenece esta materia (y no estar inscritos oficialmente en el grupo): {resumen.deOtraCarrera.join(', ')}</p>
+              )}
               {!!resumen.noMatriculados?.length && (
                 <p className="text-red-700">No se asociaron por no estar matriculados (inactivos): {resumen.noMatriculados.join(', ')}</p>
               )}

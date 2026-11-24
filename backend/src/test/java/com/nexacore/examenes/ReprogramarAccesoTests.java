@@ -128,8 +128,9 @@ class ReprogramarAccesoTests {
 
         org.assertj.core.api.Assertions.assertThat(acceso.esMio(5, sesion)).isTrue();
         org.assertj.core.api.Assertions.assertThat(acceso.esMio(6, sesion)).isFalse();
-        // Puede controlar cualquier examen (reemplazo), aunque no sea suyo.
-        org.assertj.core.api.Assertions.assertThat(acceso.puedeControlar(6, sesion)).isTrue();
+        // Solo controla los exámenes donde está asignado: ya no hay reemplazos sin asignación.
+        org.assertj.core.api.Assertions.assertThat(acceso.puedeControlar(5, sesion)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(acceso.puedeControlar(6, sesion)).isFalse();
         org.assertj.core.api.Assertions.assertThat(acceso.veTodosLosReportes(sesion)).isFalse();
     }
 

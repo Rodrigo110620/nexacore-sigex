@@ -1,3 +1,4 @@
+import { abrirMesaAyuda } from '../../utils/mesaAyuda'
 import { useEffect, useState } from 'react'
 import AvisosEnVivo from '../../components/estudiantes/AvisosEnVivo'
 import { CalendarDays, CircleCheck, Clock, Info, LoaderCircle, MapPin, QrCode, RotateCw, ScrollText, ShieldCheck, ShieldX, TriangleAlert, WifiOff } from 'lucide-react'
@@ -150,6 +151,16 @@ function FilaExamen({ examen, pasado }: { examen: MiExamen; pasado: boolean }) {
         <p className="mt-0.5 text-xs text-[#627A9B]">{fechaLarga(examen.fecha)} · {horario(examen)}</p>
         <p className="text-xs text-[#627A9B]">{examen.aula ? `Aula ${examen.aula}` : 'Aula por asignar'}{examen.aula && examen.trasladadoDesde ? ` (te trasladaron desde ${examen.trasladadoDesde})` : ''}</p>
         {detalle && <p className={`mt-1 text-xs ${estado === 'INGRESO' ? 'text-[#047857]' : 'text-[#7F1D1D]'}`}>{detalle}</p>}
+        {!pasado && examen.cruceHorario && (
+          <div role="alert" className="mt-2 rounded-lg border border-[#FEC84B] bg-[#FFFAEB] px-2.5 py-2 text-xs text-[#7A2E0E]">
+            <p className="font-semibold">Se cruza con {examen.cruceHorario}.</p>
+            <p className="mt-0.5">No puedes estar en los dos: en la puerta solo podrás entrar al primero al que ingreses. Avisa a tus docentes o reclama para que se reprograme.</p>
+            <button type="button" onClick={() => abrirMesaAyuda('', 'CRUCE_HORARIO')}
+              className="mt-1.5 font-semibold text-[#0439D9] underline-offset-2 hover:underline">
+              Reclamar en la mesa de ayuda
+            </button>
+          </div>
+        )}
         {!pasado && normas > 0 && (
           <p className="mt-1 inline-flex items-center gap-1 text-xs text-[#0439D9]">
             <ScrollText size={12} aria-hidden="true" /> {normas === 1 ? '1 norma' : `${normas} normas`} para este examen
