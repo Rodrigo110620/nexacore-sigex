@@ -1,7 +1,8 @@
 import api from './api'
 import type { PageResponse } from '../types/userApi'
 import { listarExpulsionesExamen, type ExpulsionResponse } from './expulsionService'
-import { guardarEstudianteControl } from './controlOfflineService'
+import { encolarOperacionControl, guardarEstudianteControl } from './controlOfflineService'
+import { isNetworkError } from '../utils/examFormUtils'
 
 export type FiltroEstado = 'TODOS' | 'HABILITADOS' | 'NO_HABILITADOS' | 'AUSENTES'
 
@@ -99,6 +100,13 @@ export async function reasignarAmbiente(
   idExamen: number,
   idEstudiante: number,
   request: ReasignarAmbienteRequest,
-): Promise<void> {
-  await api.post(`/control-ingresos/${idExamen}/${idEstudiante}/reasignar`, request)
+): Promise<{ pendienteSincronizacion?: boolean }> {
+  try {
+    await api.post(`/control-ingresos/${idExamen}/${idEstudiante}/reasignar`, request)
+    return {}
+  } catch (error) {
+    if (!isNetworkError(error)) throw error
+    encolarOperacionControl('REASIGNAR', { idExamen, idEstudiante, ...request })
+    return { pendienteSincronizacion: true }
+  }
 }

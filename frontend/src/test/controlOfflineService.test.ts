@@ -74,4 +74,18 @@ describe('controlOfflineService', () => {
 
     expect(operacionesControlPendientes()[0]).toMatchObject({ error: 'Dato inválido', statusError: 400 })
   })
+
+  it('sincroniza expulsiones, traslados y salidas por sus rutas correspondientes', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: {} })
+    encolarOperacionControl('EXPULSAR', { idEstudiante: 10, idExamen: 20, motivo: 'Uso de celular' })
+    encolarOperacionControl('REASIGNAR', { idEstudiante: 11, idExamen: 20, idAmbienteDestino: 7, motivo: 'Contingencia' })
+    encolarOperacionControl('SALIDA', { idEstudiante: 12, idExamen: 20 })
+
+    await sincronizarOperacionesControl()
+
+    expect(api.post).toHaveBeenCalledWith('/control-ingresos/expulsar', expect.objectContaining({ idEstudiante: 10 }))
+    expect(api.post).toHaveBeenCalledWith('/control-ingresos/20/11/reasignar', expect.objectContaining({ idAmbienteDestino: 7 }))
+    expect(api.post).toHaveBeenCalledWith('/control-ingresos/salida', { idEstudiante: 12, idExamen: 20 })
+    expect(operacionesControlPendientes()).toEqual([])
+  })
 })

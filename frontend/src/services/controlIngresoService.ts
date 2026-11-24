@@ -2,11 +2,16 @@ import api from './api'
 import { esExpulsionConfirmada, normalizarMotivoExpulsion, validarMotivoExpulsion, type ExpulsionResponse } from './expulsionService'
 import { emitirCambioLocal } from './notificacionService'
 import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
-import { contextoControlGuardado, guardarContextoControl, guardarTiposIncidencia, tiposIncidenciaGuardados } from './controlOfflineService'
+import { contextoControlGuardado, encolarOperacionControl, guardarContextoControl, guardarTiposIncidencia, tiposIncidenciaGuardados } from './controlOfflineService'
 import { isNetworkError } from '../utils/examFormUtils'
 
+export interface OperacionControlOfflineResultado {
+  pendienteSincronizacion: true
+  fechaHoraDispositivo: string
+}
+
 /** null significa que hubo respuesta HTTP, pero no un registro verificable. */
-export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | null> {
+export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | OperacionControlOfflineResultado | null> {
   const motivo = normalizarMotivoExpulsion(payload.motivo)
   const errorMotivo = validarMotivoExpulsion(motivo)
   if (errorMotivo) throw new Error(errorMotivo)
@@ -14,11 +19,15 @@ export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Pr
     throw new Error('El estudiante y el examen deben tener identificadores válidos.')
   }
   // Lista explícita: tampoco se transmiten campos extra presentes en tiempo de ejecución.
-  const { data } = await api.post<unknown>('/control-ingresos/expulsar', {
-    idEstudiante: payload.idEstudiante,
-    idExamen: payload.idExamen,
-    motivo,
-  })
+  const solicitud = { idEstudiante: payload.idEstudiante, idExamen: payload.idExamen, motivo }
+  let data: unknown
+  try {
+    data = (await api.post<unknown>('/control-ingresos/expulsar', solicitud)).data
+  } catch (error) {
+    if (!isNetworkError(error)) throw error
+    encolarOperacionControl('EXPULSAR', solicitud)
+    return { pendienteSincronizacion: true, fechaHoraDispositivo: new Date().toISOString() }
+  }
   if (!esExpulsionConfirmada(data) || data.idEstudiante !== payload.idEstudiante
     || data.idExamen !== payload.idExamen || data.motivo !== motivo) return null
   emitirCambioLocal({ tipo: 'INGRESO', idExamen: data.idExamen, idEstudiante: data.idEstudiante })
@@ -93,8 +102,16 @@ export async function listarRegistrosControlExamen(idExamen: number): Promise<Re
 }
 
 /** V56: registra la salida del estudiante (entregó y se retiró). Solo quien ingresó, no fue expulsado y aún no salió. */
-export async function registrarSalida(idEstudiante: number, idExamen: number): Promise<{ fechaHoraSalida: string }> {
-  const { data } = await api.post<{ fechaHoraSalida: string }>('/control-ingresos/salida', { idEstudiante, idExamen })
+export async function registrarSalida(idEstudiante: number, idExamen: number): Promise<{ fechaHoraSalida: string; pendienteSincronizacion?: boolean }> {
+  const payload = { idEstudiante, idExamen }
+  let data: { fechaHoraSalida: string; pendienteSincronizacion?: boolean }
+  try {
+    data = (await api.post<{ fechaHoraSalida: string }>('/control-ingresos/salida', payload)).data
+  } catch (error) {
+    if (!isNetworkError(error)) throw error
+    encolarOperacionControl('SALIDA', payload)
+    data = { fechaHoraSalida: new Date().toISOString(), pendienteSincronizacion: true }
+  }
   emitirCambioLocal({ tipo: 'INGRESO', idExamen, idEstudiante })
   return data
 }

@@ -1,5 +1,5 @@
 import api from './api'
-import type { AutorizarIngresoPayload, ContextoControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+import type { AutorizarIngresoPayload, ContextoControlIngreso, ExpulsarEstudiantePayload, TipoIncidencia } from '../types/controlIngreso'
 import type { EstudianteIdentificado, TipoIdentificacion } from './identificacionService'
 import type { ExamenDto } from './examenService'
 import { isNetworkError } from '../utils/examFormUtils'
@@ -8,11 +8,19 @@ const VERSION = 1
 const EVENTO = 'sigex-control-offline-change'
 const prefijo = 'sigex:control-offline'
 
-export type TipoOperacionControl = 'AUTORIZAR' | 'DENEGAR'
+export type TipoOperacionControl = 'AUTORIZAR' | 'DENEGAR' | 'EXPULSAR' | 'REASIGNAR' | 'SALIDA'
+interface ReasignarOfflinePayload {
+  idEstudiante: number
+  idExamen: number
+  idAmbienteDestino: number
+  motivo: string
+  observacion?: string
+}
+export type PayloadOperacionControl = AutorizarIngresoPayload | ExpulsarEstudiantePayload | ReasignarOfflinePayload | { idEstudiante: number; idExamen: number }
 export interface OperacionControlPendiente {
   id: string
   tipo: TipoOperacionControl
-  payload: AutorizarIngresoPayload
+  payload: PayloadOperacionControl
   creadaEn: string
   intentos: number
   error?: string
@@ -74,7 +82,7 @@ export function estudianteControlGuardado(idExamen: number, tipo: TipoIdentifica
 export function guardarExamenesControl(examenes: ExamenDto[]) { const dato = leer(); dato.examenes = examenes; guardar(dato) }
 export function examenesControlGuardados() { return leer().examenes }
 
-export function encolarOperacionControl(tipo: TipoOperacionControl, payload: AutorizarIngresoPayload) {
+export function encolarOperacionControl(tipo: TipoOperacionControl, payload: PayloadOperacionControl) {
   const dato = leer()
   const repetida = dato.operaciones.find((o) => !o.error && o.tipo === tipo && o.payload.idExamen === payload.idExamen && o.payload.idEstudiante === payload.idEstudiante)
   if (repetida) return repetida
@@ -88,6 +96,23 @@ export function operacionesControlPendientes() { return leer().operaciones }
 export const eventoControlOffline = EVENTO
 
 let sincronizando: Promise<void> | null = null
+function solicitudOperacion(operacion: OperacionControlPendiente) {
+  const { tipo, payload } = operacion
+  switch (tipo) {
+    case 'AUTORIZAR': return api.post('/control-ingresos/autorizar', payload)
+    case 'DENEGAR': return api.post('/control-ingresos/denegar', payload)
+    case 'EXPULSAR': return api.post('/control-ingresos/expulsar', payload)
+    case 'SALIDA': return api.post('/control-ingresos/salida', payload)
+    case 'REASIGNAR': {
+      const reasignacion = payload as ReasignarOfflinePayload
+      return api.post(`/control-ingresos/${reasignacion.idExamen}/${reasignacion.idEstudiante}/reasignar`, {
+        idAmbienteDestino: reasignacion.idAmbienteDestino,
+        motivo: reasignacion.motivo,
+        observacion: reasignacion.observacion,
+      })
+    }
+  }
+}
 export function sincronizarOperacionesControl(): Promise<void> {
   if (sincronizando) return sincronizando
   if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve()
@@ -98,7 +123,7 @@ export function sincronizarOperacionesControl(): Promise<void> {
       // intentar una vez para recuperar marcaciones que Vite etiquetó como 500 al perder el backend.
       if (operacion.error && operacion.statusError != null && operacion.statusError < 500) continue
       try {
-        await api.post(operacion.tipo === 'AUTORIZAR' ? '/control-ingresos/autorizar' : '/control-ingresos/denegar', operacion.payload)
+        await solicitudOperacion(operacion)
         const actual = leer(); actual.operaciones = actual.operaciones.filter((o) => o.id !== operacion.id); guardar(actual)
       } catch (e) {
         const error = e as { response?: { status?: number; data?: { resultado?: string; mensaje?: string } } }
