@@ -55,4 +55,23 @@ describe('controlOfflineService', () => {
     expect(api.post).not.toHaveBeenCalled()
     expect(operacionesControlPendientes()).toHaveLength(1)
   })
+
+  it('mantiene pendiente un 500 vacío del proxy para reintentarlo al volver el backend', async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { status: 500, data: '' } })
+    encolarOperacionControl('AUTORIZAR', payload)
+
+    await sincronizarOperacionesControl()
+
+    expect(operacionesControlPendientes()).toHaveLength(1)
+    expect(operacionesControlPendientes()[0].error).toBeUndefined()
+  })
+
+  it('marca para revisión un rechazo funcional 400', async () => {
+    vi.mocked(api.post).mockRejectedValue({ response: { status: 400, data: { mensaje: 'Dato inválido' } } })
+    encolarOperacionControl('AUTORIZAR', payload)
+
+    await sincronizarOperacionesControl()
+
+    expect(operacionesControlPendientes()[0]).toMatchObject({ error: 'Dato inválido', statusError: 400 })
+  })
 })

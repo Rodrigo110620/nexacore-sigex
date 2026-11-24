@@ -2,6 +2,7 @@ import api from './api'
 import type { AutorizarIngresoPayload, ContextoControlIngreso, TipoIncidencia } from '../types/controlIngreso'
 import type { EstudianteIdentificado, TipoIdentificacion } from './identificacionService'
 import type { ExamenDto } from './examenService'
+import { isNetworkError } from '../utils/examFormUtils'
 
 const VERSION = 1
 const EVENTO = 'sigex-control-offline-change'
@@ -15,6 +16,7 @@ export interface OperacionControlPendiente {
   creadaEn: string
   intentos: number
   error?: string
+  statusError?: number
 }
 
 interface AlmacenControl {
@@ -92,7 +94,9 @@ export function sincronizarOperacionesControl(): Promise<void> {
   sincronizando = (async () => {
     const dato = leer()
     for (const operacion of [...dato.operaciones]) {
-      if (operacion.error) continue
+      // Los rechazos 4xx requieren revisión humana. Los errores antiguos sin estado se vuelven a
+      // intentar una vez para recuperar marcaciones que Vite etiquetó como 500 al perder el backend.
+      if (operacion.error && operacion.statusError != null && operacion.statusError < 500) continue
       try {
         await api.post(operacion.tipo === 'AUTORIZAR' ? '/control-ingresos/autorizar' : '/control-ingresos/denegar', operacion.payload)
         const actual = leer(); actual.operaciones = actual.operaciones.filter((o) => o.id !== operacion.id); guardar(actual)
@@ -102,10 +106,26 @@ export function sincronizarOperacionesControl(): Promise<void> {
         if (operacion.tipo === 'AUTORIZAR' && error.response?.status === 409 && error.response.data?.resultado === 'DENEGADO_DUPLICADO') {
           const actual = leer(); actual.operaciones = actual.operaciones.filter((o) => o.id !== operacion.id); guardar(actual); continue
         }
-        if (!error.response) break // sigue sin red: se conserva y se reintentará al próximo evento online.
+        const status = error.response?.status
+        if (isNetworkError(e) || (status != null && status >= 500)) {
+          // Sigue sin red o el servidor está temporalmente indisponible: no necesita revisión.
+          const actual = leer()
+          const pendiente = actual.operaciones.find((o) => o.id === operacion.id)
+          if (pendiente?.error) {
+            pendiente.error = undefined
+            pendiente.statusError = undefined
+            guardar(actual)
+          }
+          break
+        }
         const actual = leer()
         const pendiente = actual.operaciones.find((o) => o.id === operacion.id)
-        if (pendiente) { pendiente.intentos += 1; pendiente.error = error.response.data?.mensaje ?? 'El servidor rechazó esta marcación.'; guardar(actual) }
+        if (pendiente) {
+          pendiente.intentos += 1
+          pendiente.error = error.response?.data?.mensaje ?? 'El servidor rechazó esta marcación.'
+          pendiente.statusError = status
+          guardar(actual)
+        }
       }
     }
   })().finally(() => { sincronizando = null })
