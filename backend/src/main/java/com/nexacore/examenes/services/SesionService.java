@@ -66,6 +66,9 @@ public class SesionService {
         sesion.setIniciadaEn(ahora);
         sesion.setUltimaActividad(ahora);
         repository.save(sesion);
+        auditoriaService.registrarComo(usuario.getId(), "SESION_INICIADA", AuditoriaService.datos(
+                "dispositivo", dispositivo, "ip", sesion.getIp(),
+                "otrasSesiones", otras.isEmpty() ? null : otras.stream().map(SesionUsuario::getDispositivo).distinct().toList()));
 
         if (!otras.isEmpty()) {
             String detalle = "Se inició sesión en " + dispositivo + " a las " + ahora.format(HORA) + ". Tu cuenta sigue abierta en: "
@@ -109,7 +112,9 @@ public class SesionService {
             sesion.setMotivoCierre(idSesion.equals(SesionActual.idSesion()) ? "CERRO_SESION" : "CERRADA_POR_USUARIO");
             repository.save(sesion);
             notificacionService.cortarConexiones(yo, idSesion, null);
-            auditoriaService.registrar("SESION_CERRADA", Map.of("dispositivo", sesion.getDispositivo()));
+            boolean propia = idSesion.equals(SesionActual.idSesion());
+            auditoriaService.registrar("SESION_CERRADA", AuditoriaService.datos(
+                    "sesionCerrada", sesion.getDispositivo(), "propia", propia, "ip", sesion.getIp()));
         }
     }
 
@@ -119,7 +124,7 @@ public class SesionService {
         Integer yo = usuarioActual();
         int cerradas = repository.cerrarDelUsuario(yo, SesionActual.idSesion(), "CERRADA_POR_USUARIO", LocalDateTime.now());
         notificacionService.cortarConexiones(yo, null, SesionActual.idSesion());
-        if (cerradas > 0) auditoriaService.registrar("SESIONES_CERRADAS", Map.of("cantidad", cerradas));
+        if (cerradas > 0) auditoriaService.registrar("SESIONES_CERRADAS", AuditoriaService.datos("cantidad", cerradas));
         return cerradas;
     }
 

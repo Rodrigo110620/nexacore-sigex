@@ -56,6 +56,31 @@ public class AuthService {
     /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private SesionService sesionService;
+
+    /** Historial de operaciones: bloqueos por intentos y contraseñas restablecidas (pasan sin sesión). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AuditoriaService auditoria;
+
+    private static jakarta.servlet.http.HttpServletRequest peticion() {
+        return org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+                instanceof org.springframework.web.context.request.ServletRequestAttributes a ? a.getRequest() : null;
+    }
+
+    private static String userAgent() {
+        var r = peticion();
+        return r == null ? null : r.getHeader("User-Agent");
+    }
+
+    private static String ipCliente() {
+        var r = peticion();
+        if (r == null) return null;
+        String xff = r.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            String[] partes = xff.split(",");
+            return partes[partes.length - 1].trim();
+        }
+        return r.getRemoteAddr();
+    }
     private final EmailService emailService;
     private final int resetExpirationMinutes;
     private final int maxIntentosFallidos;
@@ -127,6 +152,11 @@ public class AuthService {
             usuario.setIntentosFallidos(0);
             usuario.setBloqueadoHasta(ahora.plusMinutes(minutosBloqueo));
             usuarioRepository.save(usuario);
+            if (auditoria != null) {
+                auditoria.registrarComo(usuario.getId(), "CUENTA_BLOQUEADA_INTENTOS", AuditoriaService.datos(
+                        "intentos", maxIntentosFallidos, "minutos", minutosBloqueo,
+                        "dispositivo", SesionService.describir(userAgent()), "ip", ipCliente()));
+            }
             throw new CuentaBloqueadaException(minutosBloqueo);
         }
         usuario.setIntentosFallidos(intentos);
@@ -263,6 +293,10 @@ public class AuthService {
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
         if (sesionService != null) sesionService.cerrarTodasDe(usuario.getId(), "CONTRASENA_RESTABLECIDA");
+        if (auditoria != null) {
+            auditoria.registrarComo(usuario.getId(), "CONTRASENA_RESTABLECIDA", AuditoriaService.datos(
+                    "dispositivo", SesionService.describir(userAgent()), "ip", ipCliente()));
+        }
 
         token.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(token);
