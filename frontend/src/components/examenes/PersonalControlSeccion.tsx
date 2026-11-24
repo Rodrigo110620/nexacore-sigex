@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { LoaderCircle, Pencil, ShieldCheck, UserRound } from 'lucide-react'
 import ErrorCarga from '../ui/ErrorCarga'
-import { asignarPersonal, personalDelExamen, personalDisponible, type PersonalControl } from '../../services/personalControlService'
+import { asignarPersonal, personalDelExamen, personalDisponibleParaExamen, type PersonalControl } from '../../services/personalControlService'
 
 const nombre = (p: PersonalControl) => `${p.nombre} ${p.apellidos}`.trim()
 
@@ -33,7 +33,7 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
     setEditando(true)
     setMensaje('')
     setElegidos(new Set((asignados ?? []).map((p) => p.idUsuario)))
-    personalDisponible().then(setDisponibles).catch(() => setMensaje('No se pudo cargar el personal de control.'))
+    personalDisponibleParaExamen(idExamen).then(setDisponibles).catch(() => setMensaje('No se pudo verificar el horario del personal. Intenta nuevamente.'))
   }
 
   const alternar = (id: number) => setElegidos((prev) => {
@@ -88,8 +88,8 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
               {(disponibles ?? []).map((p) => (
                 <li key={p.idUsuario}>
                   <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#E2E8F0] px-3 text-sm text-[#011140] has-[:checked]:border-[#0439D9] has-[:checked]:bg-[#F1F6FF]">
-                    <input type="checkbox" checked={elegidos.has(p.idUsuario)} onChange={() => alternar(p.idUsuario)} className="h-4 w-4 accent-[#0439D9]" />
-                    <span className="min-w-0"><span className="block truncate font-semibold">{nombre(p)}</span><span className="block truncate text-[11px] text-[#627A9B]">{p.email}</span></span>
+                    <input type="checkbox" checked={elegidos.has(p.idUsuario)} disabled={!p.disponible || guardando} onChange={() => alternar(p.idUsuario)} className="h-4 w-4 accent-[#0439D9] disabled:cursor-not-allowed" />
+                    <span className="min-w-0"><span className="block truncate font-semibold">{nombre(p)}{!p.disponible && <span className="ml-2 text-[10px] font-bold text-[#B91C1C]">No disponible · {p.conflictoHorario}</span>}</span><span className="block truncate text-[11px] text-[#627A9B]">{p.email}</span></span>
                   </label>
                 </li>
               ))}

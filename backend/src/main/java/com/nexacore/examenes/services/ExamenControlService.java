@@ -54,6 +54,38 @@ public class ExamenControlService {
                 new PersonalControlResponse(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4)));
     }
 
+    /** Personal activo indicando si se cruza con el horario del examen consultado. */
+    @Transactional(readOnly = true)
+    public List<PersonalControlResponse> disponiblesParaExamen(Integer idExamen) {
+        Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
+                .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND,
+                        "No se encontró el examen " + idExamen));
+        LocalDate fecha = examen.getFecha();
+        LocalTime inicio = examen.getHoraInicio();
+        LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
+        return jdbc.query(PERSONAL + " ORDER BY u.apellidos, u.nombre", new MapSqlParameterSource(), (rs, i) -> {
+            int idUsuario = rs.getInt(1);
+            String conflicto = conflictoHorario(idExamen, idUsuario, fecha, inicio, fin);
+            return new PersonalControlResponse(idUsuario, rs.getString(2), rs.getString(3), rs.getString(4),
+                    conflicto == null, conflicto);
+        });
+    }
+
+    private String conflictoHorario(Integer idExamen, Integer idUsuario, LocalDate fecha,
+                                    LocalTime inicio, LocalTime fin) {
+        for (Integer otroIdExamen : repository.examenesDe(idUsuario)) {
+            if (otroIdExamen.equals(idExamen)) continue;
+            Examen otro = examenRepository.findFirstByIdIdExamen(otroIdExamen).orElse(null);
+            if (otro == null || !otro.getFecha().equals(fecha)) continue;
+            LocalTime otroInicio = otro.getHoraInicio();
+            LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
+            if (inicio.isBefore(otroFin) && otroInicio.isBefore(fin)) {
+                return "Ocupado " + otroInicio + "–" + otroFin;
+            }
+        }
+        return null;
+    }
+
     /** El personal de control asignado a un examen, por apellido. */
     @Transactional(readOnly = true)
     public List<PersonalControlResponse> delExamen(Integer idExamen) {
