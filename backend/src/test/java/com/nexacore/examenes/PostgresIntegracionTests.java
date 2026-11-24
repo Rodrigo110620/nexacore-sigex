@@ -1962,4 +1962,40 @@ class PostgresIntegracionTests {
         assertThat(lote.deOtraCarrera()).containsExactly("209950002");
         assertThat(lote.asociados()).isEqualTo(1);
     }
+
+    @Test
+    void unDocenteNoConsultaLosCrucesDeUnGrupoAjeno() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("CRUCE-AJENO");
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Otra','Docente','71000009','otra.docente@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", otro);
+        sincronizar();
+        var contexto = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "otra.docente@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThatThrownBy(() -> examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThat(examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null)).isEmpty();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Autowired com.nexacore.examenes.services.NotificacionService notificacionEnVivoService;
+
+    @Test
+    void alCerrarLasSesionesSeCortaLaConexionEnVivo() throws Exception {
+        prepararCatalogo();
+        sincronizar();
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")));
+        var emitter = notificacionEnVivoService.suscribir(auth);
+        notificacionEnVivoService.cortarConexiones(idDocente, null, null);
+        // Cortada: ya no se le puede enviar nada.
+        assertThatThrownBy(() -> emitter.send("hola")).isInstanceOf(IllegalStateException.class);
+    }
 }

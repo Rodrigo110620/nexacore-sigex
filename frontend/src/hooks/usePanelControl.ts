@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { listarMisExamenes, type ExamenDto } from '../services/examenService'
 import useEnVivo from './useEnVivo'
 import { ahoraServidorMs, sincronizarReloj } from '../services/tiempoService'
+import { TODOS_LOS_PERIODOS } from '../services/periodoService'
 
 export const REFRESCO_MS = 30_000
 
@@ -19,7 +20,7 @@ export default function usePanelControl() {
 
   useEffect(() => {
     let vigente = true
-    listarMisExamenes()
+    listarMisExamenes(TODOS_LOS_PERIODOS)
       .then((lista) => {
         if (vigente) setExamenes(lista.filter((e) => e.estado?.toLowerCase() !== 'cancelado'))
       })

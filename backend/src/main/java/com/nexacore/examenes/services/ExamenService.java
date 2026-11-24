@@ -103,6 +103,16 @@ public class ExamenService {
     public List<com.nexacore.examenes.dto.CruceEstudianteResponse> crucesDeEstudiantes(
             Integer idParalelo, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos, Integer idExamen) {
         if (fecha == null || inicio == null || duracionMinutos <= 0) return List.of();
+        // Un docente solo consulta sus propios grupos y exámenes: los nombres de otros grupos no son suyos.
+        if (SesionActual.gestionaSoloPropios()) {
+            Integer yo = usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);
+            boolean grupoAjeno = idParalelo != null && paraleloRepository.findAllByIdParalelos(List.of(idParalelo)).stream()
+                    .noneMatch(p -> yo.equals(p.getId().getIdDocente()));
+            boolean examenAjeno = idExamen != null && !examenRepository.perteneceADocente(idExamen, yo);
+            if (grupoAjeno || examenAjeno) {
+                throw new org.springframework.security.access.AccessDeniedException("Solo puedes consultar tus propios grupos.");
+            }
+        }
         Set<Integer> ids = new java.util.LinkedHashSet<>();
         if (idParalelo != null && inscripcionParaleloRepository != null) {
             ids.addAll(inscripcionParaleloRepository.idsInscritosDelGrupo(idParalelo));

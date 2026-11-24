@@ -40,8 +40,8 @@ public record RegisterUserRequest(
         @Pattern(regexp = "^\\d{7,8}$", message = "El CI/DNI debe contener solo digitos")
         String ci,
 
-        @NotBlank(message = "El correo electronico es obligatorio")
-        @Email(message = "El formato del correo electronico no es valido")
+        @NotBlank(message = "El correo electrónico es obligatorio")
+        @Email(message = "El formato del correo electrónico no es válido")
         @Pattern(
                 regexp = "(?i)^[A-Za-z0-9._%+-]+@(est\\.)?umss\\.edu(\\.bo)?$",
                 message = "Solo se permiten correos institucionales UMSS"

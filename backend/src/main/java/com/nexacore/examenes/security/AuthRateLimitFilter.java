@@ -105,9 +105,13 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     private static String clientKey(HttpServletRequest request) {
+        // El proxy (Traefik en el laboratorio) agrega la IP real al FINAL de X-Forwarded-For; los valores anteriores
+        // los puede inventar el cliente, así que tomar el primero permitiría saltarse el límite cambiando la cabecera.
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            String[] partes = forwarded.split(",");
+            String ultima = partes[partes.length - 1].trim();
+            if (!ultima.isEmpty()) return ultima;
         }
         String remote = request.getRemoteAddr();
         return remote != null ? remote : "unknown";

@@ -14,6 +14,7 @@ import { obtenerInicioDocente, type InicioDocente } from '../../services/inicioS
 import { BannerDocente, ExamenesHoyDocente, IndicadoresDocente, MisMaterias, RegistrosDocente } from '../../components/inicio/PanelDocente'
 import { tienePermiso } from '../../utils/permisos'
 import { ordenarPorFase, tiempoExamen } from '../../utils/tiempoExamen'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 export default function InicioDocentePage() {
   const auth = useAuth()
@@ -45,7 +46,7 @@ export default function InicioDocentePage() {
 
   useEffect(() => {
     let vigente = true
-    listarExamenes()
+    listarExamenes(TODOS_LOS_PERIODOS)
       .then((listaExamenes) => {
         if (!vigente) return
         setError('')

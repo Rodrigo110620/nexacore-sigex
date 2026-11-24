@@ -13,7 +13,7 @@ package com.nexacore.examenes.exceptions;
 public class CredencialesInvalidasException extends RuntimeException {
 
     public CredencialesInvalidasException() {
-        super("Usuario o contrasena incorrectos");
+        super("Usuario o contraseña incorrectos");
     }
 
     public CredencialesInvalidasException(String mensaje) {

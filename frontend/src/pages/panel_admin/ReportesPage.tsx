@@ -24,6 +24,7 @@ import ReporteIngresos from '../../components/reportes/ReporteIngresos'
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
@@ -245,7 +246,7 @@ export default function ReportesPage() {
 
   useEffect(() => {
     let vigente = true
-      ; (soloMios ? listarMisExamenes() : listarExamenes())
+      ; (soloMios ? listarMisExamenes(TODOS_LOS_PERIODOS) : listarExamenes(TODOS_LOS_PERIODOS))
         .then((lista) => {
           if (!vigente) return
           setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))

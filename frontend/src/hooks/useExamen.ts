@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listarExamenes, type ExamenDto } from '../services/examenService'
+import { TODOS_LOS_PERIODOS } from '../services/periodoService'
 
 /**
  * Datos del examen para el encabezado de las pantallas de control. No hay GET /examenes/{id}:
@@ -11,7 +12,7 @@ export default function useExamen(idExamen: number): ExamenDto | undefined {
   useEffect(() => {
     if (!Number.isInteger(idExamen) || idExamen <= 0) return
     let vigente = true
-    listarExamenes()
+    listarExamenes(TODOS_LOS_PERIODOS)
       .then((examenes) => {
         if (vigente) setExamen(examenes.find((e) => e.idExamen === idExamen))
       })

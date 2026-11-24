@@ -108,6 +108,7 @@ public class SesionService {
             sesion.setCerradaEn(LocalDateTime.now());
             sesion.setMotivoCierre(idSesion.equals(SesionActual.idSesion()) ? "CERRO_SESION" : "CERRADA_POR_USUARIO");
             repository.save(sesion);
+            notificacionService.cortarConexiones(yo, idSesion, null);
             auditoriaService.registrar("SESION_CERRADA", Map.of("dispositivo", sesion.getDispositivo()));
         }
     }
@@ -115,8 +116,9 @@ public class SesionService {
     /** Cierra todas las sesiones del usuario menos la actual; devuelve cuántas cerró. */
     @Transactional
     public int cerrarOtras() {
-        int cerradas = repository.cerrarDelUsuario(usuarioActual(), SesionActual.idSesion(), "CERRADA_POR_USUARIO",
-                LocalDateTime.now());
+        Integer yo = usuarioActual();
+        int cerradas = repository.cerrarDelUsuario(yo, SesionActual.idSesion(), "CERRADA_POR_USUARIO", LocalDateTime.now());
+        notificacionService.cortarConexiones(yo, null, SesionActual.idSesion());
         if (cerradas > 0) auditoriaService.registrar("SESIONES_CERRADAS", Map.of("cantidad", cerradas));
         return cerradas;
     }
@@ -125,12 +127,14 @@ public class SesionService {
     @Transactional
     public void cerrarOtrasDe(Integer idUsuario, String motivo) {
         repository.cerrarDelUsuario(idUsuario, SesionActual.idSesion(), motivo, LocalDateTime.now());
+        notificacionService.cortarConexiones(idUsuario, null, SesionActual.idSesion());
     }
 
     /** Al restablecer la contraseña por correo: se cierran todas. */
     @Transactional
     public void cerrarTodasDe(Integer idUsuario, String motivo) {
         repository.cerrarDelUsuario(idUsuario, null, motivo, LocalDateTime.now());
+        notificacionService.cortarConexiones(idUsuario, null, null);
     }
 
     /** Dispositivo de la sesión actual, para guardarlo con los registros del control. */

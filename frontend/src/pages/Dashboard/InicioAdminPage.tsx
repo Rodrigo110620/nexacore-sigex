@@ -20,6 +20,7 @@ import ErrorCarga from '../../components/ui/ErrorCarga'
 import IncidenciasHoyModal from '../../components/inicio/IncidenciasHoyModal'
 import { EnVivo } from '../../components/inicio/Comun'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO', 'AUDITORIA'])
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -82,7 +83,7 @@ export default function InicioAdminPage() {
   useEffect(() => {
     let vigente = true
     const historial = listarHistorial({ search: '', modulo: '', operacion: '', desde: '', hasta: '' }, 0, 5)
-    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(), listarNotificaciones(), historial]).then(([resumen, lista, avisos, ops]) => {
+    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(TODOS_LOS_PERIODOS), listarNotificaciones(), historial]).then(([resumen, lista, avisos, ops]) => {
       if (!vigente) return
       if (resumen.status === 'fulfilled') {
         setDatos(resumen.value)
