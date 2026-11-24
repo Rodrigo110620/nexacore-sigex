@@ -2,6 +2,8 @@ import api from './api'
 import { esExpulsionConfirmada, normalizarMotivoExpulsion, validarMotivoExpulsion, type ExpulsionResponse } from './expulsionService'
 import { emitirCambioLocal } from './notificacionService'
 import type { AutorizarIngresoPayload, AutorizarIngresoResultado, ContextoControlIngreso, ExpulsarEstudiantePayload, RegistroControlIngreso, TipoIncidencia } from '../types/controlIngreso'
+import { contextoControlGuardado, guardarContextoControl, guardarTiposIncidencia, tiposIncidenciaGuardados } from './controlOfflineService'
+import { isNetworkError } from '../utils/examFormUtils'
 
 /** null significa que hubo respuesta HTTP, pero no un registro verificable. */
 export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Promise<ExpulsionResponse | null> {
@@ -24,8 +26,15 @@ export async function expulsarEstudiante(payload: ExpulsarEstudiantePayload): Pr
 }
 
 export async function obtenerContextoControl(idEstudiante: number, idExamen: number) {
-  const { data } = await api.get<ContextoControlIngreso>(`/control-ingresos/${idEstudiante}/${idExamen}/contexto`)
-  return data
+  try {
+    const { data } = await api.get<ContextoControlIngreso>(`/control-ingresos/${idEstudiante}/${idExamen}/contexto`)
+    guardarContextoControl(data)
+    return data
+  } catch (error) {
+    const guardado = contextoControlGuardado(idEstudiante, idExamen)
+    if (guardado && isNetworkError(error)) return guardado
+    throw error
+  }
 }
 
 export async function autorizarIngreso(payload: AutorizarIngresoPayload) {
@@ -40,8 +49,15 @@ export async function autorizarIngreso(payload: AutorizarIngresoPayload) {
 }
 
 export async function obtenerTiposIncidencia() {
-  const { data } = await api.get<TipoIncidencia[]>('/control-ingresos/tipos-incidencia')
-  return data
+  try {
+    const { data } = await api.get<TipoIncidencia[]>('/control-ingresos/tipos-incidencia')
+    guardarTiposIncidencia(data)
+    return data
+  } catch (error) {
+    const guardados = tiposIncidenciaGuardados()
+    if (guardados.length && isNetworkError(error)) return guardados
+    throw error
+  }
 }
 
 export async function denegarIngreso(payload: AutorizarIngresoPayload) {

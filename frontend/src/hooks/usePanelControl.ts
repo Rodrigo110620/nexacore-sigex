@@ -3,6 +3,7 @@ import { listarMisExamenes, type ExamenDto } from '../services/examenService'
 import useEnVivo from './useEnVivo'
 import { ahoraServidorMs, sincronizarReloj } from '../services/tiempoService'
 import { TODOS_LOS_PERIODOS } from '../services/periodoService'
+import { examenesControlGuardados, guardarExamenesControl } from '../services/controlOfflineService'
 
 export const REFRESCO_MS = 30_000
 
@@ -22,10 +23,14 @@ export default function usePanelControl() {
     let vigente = true
     listarMisExamenes(TODOS_LOS_PERIODOS)
       .then((lista) => {
+        guardarExamenesControl(lista)
         if (vigente) setExamenes(lista.filter((e) => e.estado?.toLowerCase() !== 'cancelado'))
       })
       .catch(() => {
-        if (vigente) setError('No se pudo cargar la lista de exámenes.')
+        if (!vigente) return
+        const guardados = examenesControlGuardados()
+        if (guardados.length) setExamenes(guardados.filter((e) => e.estado?.toLowerCase() !== 'cancelado'))
+        else setError('No se pudo cargar la lista de exámenes.')
       })
     return () => {
       vigente = false

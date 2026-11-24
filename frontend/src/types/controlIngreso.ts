@@ -58,6 +58,8 @@ export interface AutorizarIngresoResultado {
   ambiente?: string
   /** DASH-03: aviso si el aula quedó llena o casi llena con este ingreso. */
   avisoAforo?: string | null
+  /** La marcación quedó en el dispositivo y aún no fue confirmada por el servidor. */
+  pendienteSincronizacion?: boolean
 }
 
 export interface TipoIncidencia {
