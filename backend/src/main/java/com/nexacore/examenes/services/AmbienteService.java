@@ -96,16 +96,16 @@ public class AmbienteService {
                 ambiente.getCapacidad(), ambiente.getPabellon());
     }
 
+    /** Para saber el docente de la sesión; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.UsuarioRepository usuarioRepositorio;
+
     /**
      * Todas las aulas con disponible=false si alguna está ocupada en ese horario, como aula principal
      * o adicional de otro examen. Dos consultas en total (exámenes del día y sus aulas adicionales),
      * en lugar de una por aula: con una base remota, 100+ consultas superaban el tiempo de espera.
      */
     @Transactional(readOnly = true)
-    /** Para saber el docente de la sesión; por campo para no cambiar el constructor. */
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.nexacore.examenes.repositories.UsuarioRepository usuarioRepositorio;
-
     public List<AmbienteDisponibilidadResponse> disponibilidad(
             LocalDate fecha, LocalTime horaInicio, int duracionMinutos,
             Integer idExamenExcluido, Integer idParaleloExcluido) {
@@ -116,6 +116,7 @@ public class AmbienteService {
      * Con materia (y docente; si no viene, el de la sesión): el aula del examen conjunto de otro grupo de la misma
      * materia y docente, a la misma hora y duración, sigue disponible para compartirla (BUG-B02).
      */
+    @Transactional(readOnly = true)
     public List<AmbienteDisponibilidadResponse> disponibilidad(
             LocalDate fecha, LocalTime horaInicio, int duracionMinutos,
             Integer idExamenExcluido, Integer idParaleloExcluido, Integer idMateria, Integer idDocente) {
