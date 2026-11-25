@@ -15,26 +15,28 @@ export default function PersonalControlRegistro({ fecha, horaInicio, duracionMin
   elegidos: number[]
   onChange: (ids: number[]) => void
 }) {
-  const [personal, setPersonal] = useState<PersonalControl[] | null>(null)
-  const [error, setError] = useState(false)
+  // El resultado queda guardado con el horario que se consultó: si el horario cambia, se ve «cargando» hasta la respuesta.
+  const clave = [fecha, horaInicio, duracionMinutos, idMateria, idDocente].join('|')
+  const [carga, setCarga] = useState<{ clave: string; personal: PersonalControl[] | null; error: boolean } | null>(null)
+  const vigente = carga?.clave === clave ? carga : null
+  const personal = vigente?.personal ?? null
+  const error = vigente?.error ?? false
 
   useEffect(() => {
     if (!fecha || !horaInicio || !duracionMinutos) return
-    let vigente = true
-    setPersonal(null)
-    setError(false)
+    let activo = true
     personalDisponibleEnHorario({ fecha, horaInicio: horaInicio.length === 5 ? `${horaInicio}:00` : horaInicio, duracionMinutos, idMateria, idDocente })
       .then((lista) => {
-        if (!vigente) return
-        setPersonal(lista)
+        if (!activo) return
+        setCarga({ clave, personal: lista, error: false })
         // Si cambió el horario y alguien marcado quedó ocupado, se desmarca.
         const libres = new Set(lista.filter((p) => p.disponible !== false).map((p) => p.idUsuario))
         if (elegidos.some((id) => !libres.has(id))) onChange(elegidos.filter((id) => libres.has(id)))
       })
-      .catch(() => { if (vigente) setError(true) })
-    return () => { vigente = false }
+      .catch(() => { if (activo) setCarga({ clave, personal: null, error: true }) })
+    return () => { activo = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar el horario
-  }, [fecha, horaInicio, duracionMinutos, idMateria, idDocente])
+  }, [clave])
 
   const alternar = (id: number) => onChange(elegidos.includes(id) ? elegidos.filter((x) => x !== id) : [...elegidos, id])
 

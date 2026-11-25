@@ -162,10 +162,16 @@ public class ExamenControlService {
         for (Integer idUsuario : idUsuarios) {
             String conflicto = conflictoHorario(horario, idUsuario);
             if (conflicto != null) {
-                String nombre = jdbc.queryForObject("SELECT trim(nombre || ' ' || apellidos) FROM usuario WHERE id_usuario = :id",
-                        new MapSqlParameterSource("id", idUsuario), String.class);
+                String nombre = null;
+                try {
+                    nombre = jdbc.queryForObject("SELECT trim(nombre || ' ' || apellidos) FROM usuario WHERE id_usuario = :id",
+                            new MapSqlParameterSource("id", idUsuario), String.class);
+                } catch (org.springframework.dao.DataAccessException e) {
+                    // sin el nombre, el mensaje sigue siendo claro
+                }
                 throw new ControlIngresoException(HttpStatus.CONFLICT,
-                        nombre + " ya controla otro examen el " + horario.fecha() + " (" + conflicto.replace("Ocupado ", "")
+                        (nombre == null || nombre.isBlank() ? "El personal de control" : nombre) + " ya tiene un examen el "
+                                + horario.fecha() + " (" + conflicto.replace("Ocupado ", "")
                                 + "). No se puede asignar a dos exámenes con horario cruzado.");
             }
         }

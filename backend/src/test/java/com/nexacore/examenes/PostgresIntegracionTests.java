@@ -2060,7 +2060,7 @@ class PostgresIntegracionTests {
             jdbc.update("UPDATE examen SET hora_inicio = '08:30' WHERE id_examen = ?", examenG2.idExamen());
             sincronizar();
             assertThatThrownBy(() -> examenControlService.asignar(examenG2.idExamen(), List.of(ctrl)))
-                    .hasMessageContaining("Pia Control ya controla otro examen");
+                    .hasMessageContaining("Pia Control ya tiene un examen el");
             assertThat(jdbc.queryForObject("SELECT count(*) FROM examen", Long.class)).isEqualTo(antes);
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
