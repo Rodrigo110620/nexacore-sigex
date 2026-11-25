@@ -25,6 +25,8 @@ export interface CrearExamenPayload {
   /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
   idAmbientesAdicionales?: number[]
   modoReparto?: ModoReparto
+  /** Personal de control asignado junto con el examen (opcional). */
+  idsPersonalControl?: number[]
 }
 
 /** Aula de un examen en el orden en que se llena (0 = principal). capacidad null: aforo sin registrar. */

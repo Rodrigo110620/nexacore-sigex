@@ -60,26 +60,51 @@ public class ExamenControlService {
         Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND,
                         "No se encontró el examen " + idExamen));
-        LocalDate fecha = examen.getFecha();
-        LocalTime inicio = examen.getHoraInicio();
-        LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
+        return disponiblesEn(new Horario(idExamen, examen.getFecha(), examen.getHoraInicio(), examen.getDuracionMinutos(),
+                examen.getIdMateria(), examen.getIdDocente()));
+    }
+
+    /**
+     * Personal activo y si está libre en un horario que todavía no es examen (al registrarlo). Con la materia y el
+     * docente, el grupo que se toma junto (misma materia, docente, inicio y duración) no cuenta como cruce.
+     */
+    @Transactional(readOnly = true)
+    public List<PersonalControlResponse> disponiblesEnHorario(LocalDate fecha, LocalTime inicio, int duracionMinutos,
+                                                             Integer idMateria, Integer idDocente) {
+        if (duracionMinutos < 1) throw new IllegalArgumentException("La duración debe ser al menos 1 minuto");
+        return disponiblesEn(new Horario(null, fecha, inicio, duracionMinutos, idMateria, idDocente));
+    }
+
+    /** Un horario de examen: el que se consulta o el que se está registrando (idExamen null). */
+    record Horario(Integer idExamen, LocalDate fecha, LocalTime inicio, int duracionMinutos, Integer idMateria, Integer idDocente) {
+        LocalTime fin() { return inicio.plusMinutes(duracionMinutos); }
+
+        /** El mismo examen, o el otro grupo que se toma junto con este: no es un cruce para el control. */
+        boolean esElMismoOConjunto(Examen otro) {
+            if (idExamen != null && idExamen.equals(otro.getId().getIdExamen())) return true;
+            return idMateria != null && idMateria.equals(otro.getIdMateria())
+                    && idDocente != null && idDocente.equals(otro.getIdDocente())
+                    && inicio.equals(otro.getHoraInicio()) && duracionMinutos == otro.getDuracionMinutos();
+        }
+    }
+
+    private List<PersonalControlResponse> disponiblesEn(Horario horario) {
         return jdbc.query(PERSONAL + " ORDER BY u.apellidos, u.nombre", new MapSqlParameterSource(), (rs, i) -> {
             int idUsuario = rs.getInt(1);
-            String conflicto = conflictoHorario(idExamen, idUsuario, fecha, inicio, fin);
+            String conflicto = conflictoHorario(horario, idUsuario);
             return new PersonalControlResponse(idUsuario, rs.getString(2), rs.getString(3), rs.getString(4),
                     conflicto == null, conflicto);
         });
     }
 
-    private String conflictoHorario(Integer idExamen, Integer idUsuario, LocalDate fecha,
-                                    LocalTime inicio, LocalTime fin) {
+    private String conflictoHorario(Horario horario, Integer idUsuario) {
         for (Integer otroIdExamen : repository.examenesDe(idUsuario)) {
-            if (otroIdExamen.equals(idExamen)) continue;
             Examen otro = examenRepository.findFirstByIdIdExamen(otroIdExamen).orElse(null);
-            if (otro == null || !otro.getFecha().equals(fecha)) continue;
+            if (otro == null || !otro.getFecha().equals(horario.fecha()) || horario.esElMismoOConjunto(otro)) continue;
+            if ("cancelado".equalsIgnoreCase(otro.getEstado())) continue;
             LocalTime otroInicio = otro.getHoraInicio();
             LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
-            if (inicio.isBefore(otroFin) && otroInicio.isBefore(fin)) {
+            if (horario.inicio().isBefore(otroFin) && otroInicio.isBefore(horario.fin())) {
                 return "Ocupado " + otroInicio + "–" + otroFin;
             }
         }
@@ -132,32 +157,16 @@ public class ExamenControlService {
         Examen examen = examenRepository.findFirstByIdIdExamen(idExamen)
                 .orElseThrow(() -> new ControlIngresoException(HttpStatus.NOT_FOUND,
                         "No se encontró el examen " + idExamen));
-        LocalDate fecha = examen.getFecha();
-        LocalTime inicio = examen.getHoraInicio();
-        LocalTime fin = inicio.plusMinutes(examen.getDuracionMinutos());
-
+        Horario horario = new Horario(idExamen, examen.getFecha(), examen.getHoraInicio(), examen.getDuracionMinutos(),
+                examen.getIdMateria(), examen.getIdDocente());
         for (Integer idUsuario : idUsuarios) {
-            for (Integer otroIdExamen : repository.examenesDe(idUsuario)) {
-                if (otroIdExamen.equals(idExamen)) {
-                    continue; // es el mismo examen que se está editando
-                }
-                Examen otro = examenRepository.findFirstByIdIdExamen(otroIdExamen)
-                        .orElse(null);
-                if (otro == null) {
-                    continue;
-                }
-                if (!otro.getFecha().equals(fecha)) {
-                    continue;
-                }
-                LocalTime otroInicio = otro.getHoraInicio();
-                LocalTime otroFin = otroInicio.plusMinutes(otro.getDuracionMinutos());
-                if (inicio.isBefore(otroFin) && otroInicio.isBefore(fin)) {
-                    throw new ControlIngresoException(HttpStatus.CONFLICT,
-                            "El personal de control con id " + idUsuario
-                                    + " ya tiene un examen el " + fecha
-                                    + " entre " + otroInicio + " y " + otroFin
-                                    + ". No se puede asignar a dos exámenes con horario solapado.");
-                }
+            String conflicto = conflictoHorario(horario, idUsuario);
+            if (conflicto != null) {
+                String nombre = jdbc.queryForObject("SELECT trim(nombre || ' ' || apellidos) FROM usuario WHERE id_usuario = :id",
+                        new MapSqlParameterSource("id", idUsuario), String.class);
+                throw new ControlIngresoException(HttpStatus.CONFLICT,
+                        nombre + " ya controla otro examen el " + horario.fecha() + " (" + conflicto.replace("Ocupado ", "")
+                                + "). No se puede asignar a dos exámenes con horario cruzado.");
             }
         }
     }

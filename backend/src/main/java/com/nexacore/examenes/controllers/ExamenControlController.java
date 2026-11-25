@@ -67,6 +67,18 @@ public class ExamenControlController {
         return service.disponiblesParaExamen(idExamen);
     }
 
+    @Operation(summary = "Personal disponible para un horario", description = "Al registrar un examen: quién está libre en esa fecha y hora.")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @GetMapping("/personal-control/disponibles")
+    public List<PersonalControlResponse> disponiblesEnHorario(
+            @org.springframework.web.bind.annotation.RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fecha,
+            @org.springframework.web.bind.annotation.RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.TIME) java.time.LocalTime horaInicio,
+            @org.springframework.web.bind.annotation.RequestParam int duracionMinutos,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idMateria,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Integer idDocente) {
+        return service.disponiblesEnHorario(fecha, horaInicio, duracionMinutos, idMateria, idDocente);
+    }
+
     private static List<String> nombres(List<PersonalControlResponse> personal) {
         return personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList();
     }

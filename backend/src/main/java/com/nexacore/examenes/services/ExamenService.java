@@ -77,6 +77,13 @@ public class ExamenService {
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
     private final ExamenAulaRepository examenAulaRepository;
+    /** Para asignar el personal de control al registrar (por setter: no cambia el constructor que usan las pruebas). */
+    private ExamenControlService examenControlService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setExamenControlService(ExamenControlService examenControlService) {
+        this.examenControlService = examenControlService;
+    }
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
             "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "AL", "PARA", "POR", "CON");
@@ -303,6 +310,13 @@ public class ExamenService {
                 "idExamen", guardado.getId().getIdExamen(),
                 "idParalelo", guardado.getId().getIdParalelo(),
                 "examen", resumen(guardado)));
+        // El personal de control elegido en el registro: en la misma transacción (si alguien está ocupado, no se crea).
+        if (request.idsPersonalControl() != null && !request.idsPersonalControl().isEmpty() && examenControlService != null) {
+            var personal = examenControlService.asignar(idExamen, request.idsPersonalControl());
+            auditoriaService.registrar("PERSONAL_CONTROL_ASIGNADO", AuditoriaService.datos("idExamen", idExamen,
+                    "personal", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList(),
+                    "agregados", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList()));
+        }
         return toResponse(guardado);
     }
 

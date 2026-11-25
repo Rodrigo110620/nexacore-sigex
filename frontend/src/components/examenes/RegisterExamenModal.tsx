@@ -22,6 +22,7 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
+import PersonalControlRegistro from './PersonalControlRegistro'
 import { crearExamen, crucesDeEstudiantes, type CruceEstudianteDto, type ModoReparto } from '../../services/examenService'
 import {
   detalleAmbiente,
@@ -206,6 +207,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
 
   // Estudiantes del grupo con otro examen a esa hora (aviso al revisar, paso 3): el docente puede cambiar el horario.
   const [cruces, setCruces] = useState<{ clave: string; lista: CruceEstudianteDto[] } | null>(null)
+  // Personal de control elegido al registrar; sin nadie, se avisa una vez antes de guardar.
+  const [personalControl, setPersonalControl] = useState<number[]>([])
+  const [avisoSinControl, setAvisoSinControl] = useState(false)
   const claveCruces = `${idParalelo ?? ''}|${form.fecha}|${form.horaInicio}|${form.horaFin}`
   useEffect(() => {
     const dur = minutesBetween(form.horaInicio, form.horaFin)
@@ -271,6 +275,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
 
   const resetAll = () => {
     setStep(1)
+    setPersonalControl([])
+    setAvisoSinControl(false)
     setForm(INITIAL_EXAMEN_FORM)
     setGrupos([])
     setIdParalelo(null)
@@ -418,6 +424,11 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
       return
     }
 
+    if (personalControl.length === 0 && !avisoSinControl) {
+      setAvisoSinControl(true)
+      return
+    }
+
     submittingRef.current = true
     setSaving(true)
     setGeneralError('')
@@ -437,6 +448,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
         idParalelo,
         idAmbientesAdicionales: adicionalesVigentes,
         modoReparto,
+        idsPersonalControl: personalControl,
       })
       setSuccess(true)
       onSuccess?.()
@@ -952,6 +964,16 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                   Cambiar el horario
                 </button>
               </section>
+            )}
+            <PersonalControlRegistro fecha={form.fecha} horaInicio={form.horaInicio}
+              duracionMinutos={minutesBetween(form.horaInicio, form.horaFin)} idMateria={idMateria} idDocente={idDocente}
+              elegidos={personalControl} onChange={(ids) => { setPersonalControl(ids); setAvisoSinControl(false) }} />
+            {avisoSinControl && (
+              <p role="alert" className="flex items-start gap-2 rounded-xl border border-[#FEC84B] bg-[#FFFAEB] p-3 text-xs text-[#7A2E0E]">
+                <CircleAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>El examen quedará <b>sin personal de control</b>. Puedes asignarlo después en el detalle del examen.
+                  Toca <b>Registrar</b> otra vez para continuar así.</span>
+              </p>
             )}
             <section className="rounded-xl border border-[#D8E3F5] bg-white p-4">
               <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">

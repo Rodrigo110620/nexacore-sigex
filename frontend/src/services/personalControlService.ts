@@ -29,3 +29,17 @@ export async function personalDisponibleParaExamen(idExamen: number): Promise<Pe
   const { data } = await api.get<PersonalControl[]>(`/examenes/${idExamen}/personal-control/disponibles`)
   return data
 }
+
+/** Al registrar un examen: quién está libre en ese horario (el otro grupo que se toma junto no cuenta como cruce). */
+export async function personalDisponibleEnHorario(params: {
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  idMateria?: number | null
+  idDocente?: number | null
+}): Promise<PersonalControl[]> {
+  const { data } = await api.get<PersonalControl[]>('/personal-control/disponibles', {
+    params: { ...params, idMateria: params.idMateria ?? undefined, idDocente: params.idDocente ?? undefined },
+  })
+  return data
+}

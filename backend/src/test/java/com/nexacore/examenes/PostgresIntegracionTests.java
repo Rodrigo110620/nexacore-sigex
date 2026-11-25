@@ -1999,6 +1999,60 @@ class PostgresIntegracionTests {
         assertThatThrownBy(() -> emitter.send("hola")).isInstanceOf(IllegalStateException.class);
     }
 
+    // ---------------------------------------------------------------- Personal de control al registrar el examen
+    @Test
+    void alRegistrarElExamenSeAsignaElPersonalDeControlLibreYPuedeTomarJuntosLosGrupos() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("PCR-A");
+        Integer materiaA = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        jdbc.update("UPDATE paralelo SET nombre_grupo = 'G1' WHERE id_paralelo = ?", g1);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G2')", materiaA, idDocente);
+        Integer g2 = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND nombre_grupo = 'G2'", Integer.class, materiaA);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)", idDocente, materiaA);
+        List<Integer> aulas = jdbc.queryForList("SELECT id_ambiente FROM ambiente ORDER BY id_ambiente LIMIT 2", Integer.class);
+        jdbc.update("UPDATE ambiente SET capacidad = 40 WHERE id_ambiente IN (?, ?)", aulas.get(0), aulas.get(1));
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Pia", "Control", "7100001", "pia.control@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl, rolControl);
+        sincronizar();
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(7);
+        var ocho = java.time.LocalTime.of(8, 0);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            // Libre antes de registrar; se asigna en el mismo guardado del examen.
+            assertThat(examenControlService.disponiblesEnHorario(fecha, ocho, 90, materiaA, idDocente))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement().satisfies(p -> assertThat(p.disponible()).isTrue());
+            var examenG1 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia PCR-A", "Luis Paz", fecha, ocho,
+                    90, aulas.get(0), List.of(), List.of(), materiaA, idDocente, List.of(), null, g1, List.of(ctrl)));
+            assertThat(examenControlService.delExamen(examenG1.idExamen())).extracting(p -> p.idUsuario()).containsExactly(ctrl);
+
+            // Ya no está libre para otra materia que se cruza…
+            assertThat(examenControlService.disponiblesEnHorario(fecha, java.time.LocalTime.of(9, 0), 60, null, null))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement()
+                    .satisfies(p -> { assertThat(p.disponible()).isFalse(); assertThat(p.conflictoHorario()).contains("08:00"); });
+            // …pero sí para el G2 que se toma junto (misma materia, docente, hora y duración).
+            assertThat(examenControlService.disponiblesEnHorario(fecha, ocho, 90, materiaA, idDocente))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement().satisfies(p -> assertThat(p.disponible()).isTrue());
+            var examenG2 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia PCR-A", "Luis Paz", fecha, ocho,
+                    90, aulas.get(0), List.of(), List.of(), materiaA, idDocente, List.of(), null, g2, List.of(ctrl)));
+            assertThat(examenControlService.delExamen(examenG2.idExamen())).extracting(p -> p.idUsuario()).containsExactly(ctrl);
+
+            // Ocupado a otra hora que se cruza: no se registra el examen (todo o nada).
+            long antes = jdbc.queryForObject("SELECT count(*) FROM examen", Long.class);
+            jdbc.update("UPDATE examen SET hora_inicio = '08:30' WHERE id_examen = ?", examenG2.idExamen());
+            sincronizar();
+            assertThatThrownBy(() -> examenControlService.asignar(examenG2.idExamen(), List.of(ctrl)))
+                    .hasMessageContaining("Pia Control ya controla otro examen");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM examen", Long.class)).isEqualTo(antes);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
     // ---------------------------------------------------------------- BUG-B01 / BUG-B02 (Sprint 4, 2.º reporte)
     @Autowired com.nexacore.examenes.services.RepartoAulasService repartoAulas;
 
