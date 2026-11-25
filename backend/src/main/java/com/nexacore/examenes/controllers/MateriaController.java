@@ -39,6 +39,43 @@ public class MateriaController {
         return ResponseEntity.ok(materiaCarreraService.listar());
     }
 
+    /** Catálogo de materias (V64); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.MateriaCatalogoService materiaCatalogoService;
+
+    @Operation(summary = "Crear materia", description = "Sigla, nombre y carreras. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PostMapping
+    public ResponseEntity<com.nexacore.examenes.dto.MateriaConCarrerasResponse> crear(
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.nexacore.examenes.dto.MateriaRequest request) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(materiaCatalogoService.crear(request));
+    }
+
+    @Operation(summary = "Editar materia", description = "Sigla, nombre y (si se envían) carreras. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PutMapping("/{idMateria}")
+    public ResponseEntity<com.nexacore.examenes.dto.MateriaConCarrerasResponse> editar(
+            @org.springframework.web.bind.annotation.PathVariable Integer idMateria,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.nexacore.examenes.dto.MateriaRequest request) {
+        return ResponseEntity.ok(materiaCatalogoService.editar(idMateria, request));
+    }
+
+    @Operation(summary = "Activar o desactivar materia", description = "Desactivar no borra: deja de ofrecerse. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PutMapping("/{idMateria}/estado")
+    public ResponseEntity<com.nexacore.examenes.dto.MateriaConCarrerasResponse> cambiarEstado(
+            @org.springframework.web.bind.annotation.PathVariable Integer idMateria, @RequestParam boolean activa) {
+        return ResponseEntity.ok(materiaCatalogoService.cambiarEstado(idMateria, activa));
+    }
+
+    @Operation(summary = "Importar materias", description = "CSV con sigla;nombre;carreras (separadas por |). Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PostMapping(value = "/importar", consumes = "multipart/form-data")
+    public ResponseEntity<com.nexacore.examenes.dto.ImportacionMateriasResponse> importar(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws java.io.IOException {
+        return ResponseEntity.ok(materiaCatalogoService.importar(file.getBytes()));
+    }
+
     @Operation(summary = "Carreras de una materia", description = "Deja la materia con esas carreras; vacío = sin restricción. Solo ADMIN.")
     @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PutMapping("/{idMateria}/carreras")
@@ -77,7 +114,11 @@ public class MateriaController {
     @GetMapping("/mias")
     public List<MateriaResponse> mias() {
         Integer idDocente = docenteMateriaService.docenteDeLaSesion();
-        return idDocente == null ? List.of() : docenteMateriaService.materiasDe(idDocente);
+        if (idDocente == null) return List.of();
+        // V64: para programar exámenes solo se ofrecen las materias activas.
+        java.util.Set<Integer> activas = materiaRepository.findAll().stream().filter(com.nexacore.examenes.models.Materia::isActiva)
+                .map(com.nexacore.examenes.models.Materia::getId).collect(java.util.stream.Collectors.toSet());
+        return docenteMateriaService.materiasDe(idDocente).stream().filter(m -> activas.contains(m.id())).toList();
     }
 
     @Operation(summary = "Grupos ocupados de una materia",

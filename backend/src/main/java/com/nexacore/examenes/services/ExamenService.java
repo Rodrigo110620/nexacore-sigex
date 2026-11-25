@@ -699,7 +699,7 @@ public class ExamenService {
                             "La asignatura seleccionada no existe en el catálogo institucional."));
         }
         String texto = nombre == null ? "" : nombre.trim();
-        return materiaRepository.findByNombreIgnoreCase(texto)
+        return materiaRepository.findFirstByNombreIgnoreCaseOrderByIdAsc(texto)
                 .or(() -> materiaRepository.findBySiglaIgnoreCase(texto))
                 .map(this::corregirSiglaSiEsNombre)
                 .orElseThrow(() -> new IllegalArgumentException(

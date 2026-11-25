@@ -2060,4 +2060,50 @@ class PostgresIntegracionTests {
     }
 
     @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepositorio;
+
+    // ---------------------------------------------------------------- V64: catálogo de materias
+    @Autowired com.nexacore.examenes.services.MateriaCatalogoService materiaCatalogoService;
+
+    @Test
+    void elAdminCreaEditaDesactivaEImportaMaterias() {
+        prepararCatalogo();
+        Integer sistemas = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería de Sistemas'", Integer.class);
+        var creada = materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest(" cat-101 ", "teoría de grafos", List.of(sistemas)));
+        assertThat(creada.sigla()).isEqualTo("CAT-101");
+        assertThat(creada.nombre()).isEqualTo("Teoría de grafos");
+        assertThat(creada.carreras()).extracting(c -> c.nombre()).containsExactly("Ingeniería de Sistemas");
+        // No se repiten sigla ni nombre.
+        assertThatThrownBy(() -> materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest("CAT-101", "Otra", null)))
+                .hasMessageContaining("Ya existe la materia con sigla CAT-101");
+        assertThat(materiaCatalogoService.editar(creada.idMateria(),
+                new com.nexacore.examenes.dto.MateriaRequest("CAT-101", "Teoría de Grafos I", null)).nombre()).isEqualTo("Teoría de Grafos I");
+
+        // Desactivada: no aparece al buscar para programar exámenes ni se asigna a un docente nuevo.
+        materiaCatalogoService.cambiarEstado(creada.idMateria(), false);
+        sincronizar();
+        assertThat(materiaRepository.buscar("grafos")).isEmpty();
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(creada.idMateria())))
+                .hasMessageContaining("está desactivada");
+        materiaCatalogoService.cambiarEstado(creada.idMateria(), true);
+        sincronizar();
+        assertThat(materiaRepository.buscar("grafos")).hasSize(1);
+
+        // Importar: crea las nuevas, respeta las existentes e informa los errores por fila.
+        String csv = """
+                sigla;nombre;carreras
+                CAT-201;Compiladores;Ingeniería de Sistemas|Ingeniería Informática
+                CAT-101;Repetida;
+                CAT-202;Lógica;Carrera que no existe
+                ;Sin sigla;
+                CAT-203;Autómatas;
+                """;
+        var r = materiaCatalogoService.importar(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(r.creadas()).isEqualTo(2);
+        assertThat(r.existentes()).containsExactly("CAT-101");
+        assertThat(r.errores()).hasSize(2).anySatisfy(e -> assertThat(e).startsWith("Fila 4:").contains("no existe la carrera"))
+                .anySatisfy(e -> assertThat(e).startsWith("Fila 5:").contains("sigla es obligatoria"));
+        sincronizar();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM materia_carrera mc JOIN materia m ON m.id_materia = mc.id_materia WHERE m.sigla = 'CAT-201'",
+                Integer.class)).isEqualTo(2);
+    }
 }

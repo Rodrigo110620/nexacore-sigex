@@ -76,6 +76,13 @@ public class DocenteMateriaService {
             throw new IllegalArgumentException("El usuario no está registrado como DOCENTE.");
         }
         Set<Integer> ids = validar(idMaterias);
+        // V64: una materia desactivada no se asigna de nuevo (la que el docente ya tenía se conserva).
+        Set<Integer> yaTenia = new java.util.HashSet<>(docenteMateriaRepository.idsDeMaterias(idDocente));
+        for (Materia m : materiaRepository.findAllById(ids)) {
+            if (!m.isActiva() && !yaTenia.contains(m.getId())) {
+                throw new IllegalArgumentException("La materia " + m.getNombre() + " está desactivada: no se puede asignar.");
+            }
+        }
         Map<Integer, Set<String>> porMateria = validarGrupos(idDocente, ids, grupos);
         docenteMateriaRepository.borrarDelDocente(idDocente);
         docenteMateriaRepository.flush();

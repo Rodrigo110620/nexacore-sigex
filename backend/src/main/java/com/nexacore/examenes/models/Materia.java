@@ -23,5 +23,10 @@ public class Materia {
     @Column(name = "nombre", nullable = false)
     private String nombre;
 
+    /** V64: una materia desactivada no se ofrece para programar exámenes ni asignar a docentes; su historial queda. */
+    @org.hibernate.annotations.ColumnDefault("true")
+    @Column(name = "activa", nullable = false)
+    private boolean activa = true;
+
 
 }
