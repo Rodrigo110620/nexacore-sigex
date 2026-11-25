@@ -19,6 +19,7 @@ import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../..
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 import ReporteModificaciones from '../../components/reportes/ReporteModificaciones'
 import ReporteIngresos from '../../components/reportes/ReporteIngresos'
+import ReporteUsoAmbientes from '../../components/reportes/ReporteUsoAmbientes'
 
 
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
@@ -26,7 +27,7 @@ import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoMod
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'| 'uso-ambientes'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
@@ -35,11 +36,12 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
   { id: 'ingresos-qr', texto: 'Ingresos QR', corto: 'Ing. QR' },
   { id: 'ingresos-manual', texto: 'Ingresos Manuales', corto: 'Ing. Manual' },
+  { id: 'uso-ambientes', texto: 'Uso de Ambientes', corto: 'Ambientes' },
 ]
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales' }
+const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales','uso-ambientes': 'Uso de Ambientes'  }
 const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos']
+  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos'], 'uso-ambientes': ['ambiente', 'ambientes'] 
 }
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
@@ -411,6 +413,7 @@ export default function ReportesPage() {
               {pestana === 'modificaciones' && <ReporteModificaciones idExamen={idExamen} buscar={buscar} desde={desde} />}
               {pestana === 'ingresos-qr' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="QR" />}
               {pestana === 'ingresos-manual' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="MANUAL" />}
+              {pestana === 'uso-ambientes' && <ReporteUsoAmbientes idExamen={idExamen} buscar={buscar} />}
             </div>
           </div>
         </section>
