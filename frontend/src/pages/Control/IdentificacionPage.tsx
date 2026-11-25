@@ -108,7 +108,8 @@ export default function IdentificacionPage() {
   const manejarContinuar = async () => {
     if (!estudiante || verificando) return
     setErrorVerificacion(null)
-    if (isOffline()) {
+    // Sin internet, o con el servidor caído: la ficha preparada en el dispositivo.
+    const desdeGuardado = () => {
       const contexto = contextoControlGuardado(estudiante.idEstudiante, idExamen)
       if (!contexto) {
         setErrorVerificacion({ para: estudiante, mensaje: 'Sin conexión: la ficha de este estudiante no fue cargada previamente.' })
@@ -117,8 +118,8 @@ export default function IdentificacionPage() {
       setEstudianteVerificado(estudiante)
       setAulaEstudiante(contexto.ambiente ?? null)
       setModalVerificacionOpen(true)
-      return
     }
+    if (isOffline()) { desdeGuardado(); return }
     setVerificando(true)
     try {
       setEstudianteVerificado(await identificarEstudiante(idExamen, 'codigo', estudiante.codigoSis))
@@ -133,6 +134,7 @@ export default function IdentificacionPage() {
       setErrorContinuar(null)
       setModalVerificacionOpen(true)
     } catch (error) {
+      if (isNetworkError(error) && contextoControlGuardado(estudiante.idEstudiante, idExamen)) { desdeGuardado(); return }
       setErrorVerificacion({
         para: estudiante,
         mensaje: isNetworkError(error)

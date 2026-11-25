@@ -1,4 +1,6 @@
 import api from './api'
+import { fotoOffline, guardarFotoOffline } from './fotosOffline'
+import { isNetworkError } from '../utils/examFormUtils'
 import type {
   ActualizarEstudiantePayload,
   CarreraOption,
@@ -156,10 +158,21 @@ export async function quitarFotoEstudiante(id: number): Promise<void> {
   await api.delete(`/estudiantes/${id}/foto`)
 }
 
-/** La foto se pide con el token (un <img src> no lo enviaría). */
+/**
+ * La foto se pide con el token (un <img src> no lo enviaría). Se guarda en el dispositivo y, si el servidor no
+ * responde, se muestra la guardada: así el control reconoce al estudiante aunque el servidor esté caído.
+ */
 export async function descargarFotoEstudiante(fotoUrl: string, signal?: AbortSignal): Promise<Blob> {
-  const { data } = await api.get<Blob>(fotoUrl, { responseType: 'blob', signal })
-  return data
+  try {
+    const { data } = await api.get<Blob>(fotoUrl, { responseType: 'blob', signal })
+    void guardarFotoOffline(fotoUrl, data)
+    return data
+  } catch (err) {
+    if (!isNetworkError(err)) throw err
+    const guardada = await fotoOffline(fotoUrl)
+    if (guardada) return guardada
+    throw err
+  }
 }
 
 export async function getMateriasDocente(signal?: AbortSignal) {
