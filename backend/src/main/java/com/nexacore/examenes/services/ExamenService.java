@@ -699,7 +699,7 @@ public class ExamenService {
                             "La asignatura seleccionada no existe en el catálogo institucional."));
         }
         String texto = nombre == null ? "" : nombre.trim();
-        return materiaRepository.findByNombreIgnoreCase(texto)
+        return materiaRepository.findFirstByNombreIgnoreCaseOrderByIdAsc(texto)
                 .or(() -> materiaRepository.findBySiglaIgnoreCase(texto))
                 .map(this::corregirSiglaSiEsNombre)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -729,7 +729,8 @@ public class ExamenService {
                 || compacta.startsWith(compactaNombre.substring(0, Math.min(8, compactaNombre.length())));
     }
 
-    private String siglaUnicaDesdeNombre(String nombre) {
+    /** Sigla sugerida y libre a partir del nombre: «Teoría de Grafos» → TG-101 (la usa también el catálogo de materias). */
+    public String siglaUnicaDesdeNombre(String nombre) {
         String prefijo = prefijoDesdeNombre(nombre);
         int n = 101;
         String candidata = prefijo + "-" + n;

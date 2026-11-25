@@ -56,6 +56,13 @@ public class MateriaCarreraService {
         for (MateriaCarrera mc : repository.findAll()) {
             porMateria.computeIfAbsent(mc.getId().getIdMateria(), k -> new ArrayList<>()).add(mc.getId().getIdCarrera());
         }
+        // Oferta en el periodo activo: grupos y docentes de cada materia en ese semestre.
+        Map<Integer, int[]> oferta = new HashMap<>();
+        if (jdbc != null) {
+            jdbc.query("SELECT p.id_materia, COUNT(*), COUNT(DISTINCT p.id_docente) FROM paralelo p WHERE "
+                    + PeriodoService.delPeriodoActivo("p") + " GROUP BY p.id_materia", Map.of(),
+                    rs -> { oferta.put(rs.getInt(1), new int[]{rs.getInt(2), rs.getInt(3)}); });
+        }
         return materiaRepository.findAll().stream()
                 .sorted(Comparator.comparing(Materia::getNombre, String.CASE_INSENSITIVE_ORDER))
                 .map(m -> new MateriaConCarrerasResponse(m.getId(), m.getSigla(), m.getNombre(),
@@ -63,9 +70,15 @@ public class MateriaCarreraService {
                                 .map(carreras::get).filter(java.util.Objects::nonNull)
                                 .sorted(Comparator.comparing(Carrera::getNombre))
                                 .map(c -> new MateriaConCarrerasResponse.CarreraDeMateria(c.getId().getIdCarrera(), c.getNombre()))
-                                .toList()))
+                                .toList(),
+                        m.isActiva(), oferta.getOrDefault(m.getId(), new int[2])[0], oferta.getOrDefault(m.getId(), new int[2])[1],
+                        m.isSiglaProvisional()))
                 .toList();
     }
+
+    /** Consultas de la oferta por periodo; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc;
 
     /** Deja la materia exactamente con esas carreras (vacío: sin restricción). */
     @Transactional
@@ -105,6 +118,11 @@ public class MateriaCarreraService {
             if (suyas.stream().noneMatch(carrerasMateria::contains)) fuera.add(id);
         }
         return fuera;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Integer> idsCarrera(Integer idMateria) {
+        return repository.idsCarrera(idMateria);
     }
 
     /** «Ing. de Sistemas, Ing. Informática»: las carreras de la materia, para los mensajes. */

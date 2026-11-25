@@ -225,6 +225,15 @@ export default function ExamenesPage() {
           {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
         </FiltroSelect>
       )}
+      {periodos.length > 0 && (
+        // Por defecto, el periodo activo; los anteriores quedan como historial.
+        <FiltroSelect etiqueta="Periodo" value={idPeriodo === undefined ? '' : String(idPeriodo)}
+          className={filtraDocente ? 'col-span-2 min-[960px]:col-span-1' : ''}
+          onChange={(v) => { setIdPeriodo(v === '' ? undefined : Number(v)); setPage(0) }}>
+          <option value="">{periodos.find((p) => p.activo)?.nombre ?? 'Activo'} (activo)</option>
+          {periodos.filter((p) => !p.activo).map((p) => <option key={p.idPeriodo} value={p.idPeriodo}>{p.nombre}</option>)}
+        </FiltroSelect>
+      )}
     </>
   )
 
@@ -287,7 +296,7 @@ export default function ExamenesPage() {
                 <div className="grid w-full grid-cols-2 gap-2 min-[960px]:hidden">
                   {filtrosExamen}
                 </div>
-                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9rem_13rem] items-center' : 'grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem] items-center'}`}>
+                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(11rem,1fr)_10rem_9rem_8rem_12rem_10rem] items-center' : 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9.5rem_10rem] items-center'}`}>
                   <div className="relative">
                     <Search
                       size={17}
@@ -320,22 +329,6 @@ export default function ExamenesPage() {
               </div>
             </div>
 
-            {periodos.length > 0 && (
-              <div className="mb-2 flex items-center justify-end gap-2 text-xs text-[#45628D]">
-                <label htmlFor="examenes-periodo" className="font-semibold">Periodo</label>
-                <select
-                  id="examenes-periodo"
-                  value={idPeriodo ?? ''}
-                  onChange={(e) => { setIdPeriodo(e.target.value === '' ? undefined : Number(e.target.value)); setPage(0) }}
-                  className="h-9 rounded-lg border border-[#B8CBEF] bg-white px-2 text-[13px] font-semibold text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30"
-                >
-                  <option value="">{periodos.find((p) => p.activo)?.nombre ?? 'Activo'} (activo)</option>
-                  {periodos.filter((p) => !p.activo).map((p) => (
-                    <option key={p.idPeriodo} value={p.idPeriodo}>{p.nombre}</option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <div className="mb-3 flex items-end justify-between gap-3 border-b border-[#D8E3F5]">
             <div role="tablist" aria-label="Exámenes por estado" className="grid min-w-0 flex-1 grid-cols-3 sm:flex sm:flex-none sm:gap-2">

@@ -65,12 +65,12 @@ describe('Configuración → Roles y permisos', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Nuevo rol/ }))
     const form = screen.getByRole('region', { name: 'Nuevo rol' })
     expect(within(form).queryByText('Gestionar los usuarios del personal')).not.toBeInTheDocument()
-    fireEvent.change(within(form).getByLabelText('Nombre del rol'), { target: { value: 'supervisor' } })
+    fireEvent.change(within(form).getByLabelText(/Nombre del rol/), { target: { value: 'supervisor' } })
     fireEvent.change(within(form).getByLabelText('Descripción'), { target: { value: 'Supervisa el control de ingreso' } })
-    fireEvent.click(within(form).getByRole('button', { name: 'Crear rol' }))
+    fireEvent.click(within(form).getByRole('button', { name: 'Registrar Rol' }))
     expect(within(form).getByRole('alert')).toHaveTextContent('Elige al menos un permiso')
     fireEvent.click(within(form).getByLabelText('Registrar ingresos e incidencias en cualquier examen'))
-    fireEvent.click(within(form).getByRole('button', { name: 'Crear rol' }))
+    fireEvent.click(within(form).getByRole('button', { name: 'Registrar Rol' }))
     await waitFor(() => expect(servicio.crearRolConPermisos).toHaveBeenCalledWith({
       nombre: 'SUPERVISOR', descripcion: 'Supervisa el control de ingreso', permisos: ['CONTROL_INGRESO_TODOS'],
     }))
@@ -104,13 +104,13 @@ describe('permisos en el frontend', () => {
 
     // Recién al escribir aparecen las sugerencias que coinciden.
     expect(within(form).queryByRole('group', { name: 'Plantillas sugeridas' })).not.toBeInTheDocument()
-    fireEvent.change(within(form).getByLabelText('Nombre del rol'), { target: { value: 'aux' } })
+    fireEvent.change(within(form).getByLabelText(/Nombre del rol/), { target: { value: 'aux' } })
     const sugeridas = within(form).getByRole('group', { name: 'Plantillas sugeridas' })
     expect(within(form).getByText('Sugerencias para «AUX»')).toBeInTheDocument()
     expect(within(sugeridas).queryByRole('button', { name: /Secretaría de reportes/ })).not.toBeInTheDocument()
     fireEvent.click(within(sugeridas).getByRole('button', { name: /Auxiliar de control/ }))
     // El nombre que escribió se mantiene; la descripción vacía se completa.
-    expect(within(form).getByLabelText('Nombre del rol')).toHaveValue('AUX')
+    expect(within(form).getByLabelText(/Nombre del rol/)).toHaveValue('AUX')
     expect(within(form).getByLabelText('Descripción')).toHaveValue('Apoya al control de ingreso en la puerta del aula')
     expect(within(form).getByLabelText('Registrar ingresos e incidencias en cualquier examen')).toBeChecked()
     expect(within(form).getByLabelText('Ver todos los exámenes')).toBeChecked()
