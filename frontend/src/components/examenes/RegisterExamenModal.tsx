@@ -47,12 +47,15 @@ import {
   EXAM_SECTION_CARD_CLASS,
   aulasSinAforo,
   aulasAdicionalesOcupadas,
+  horaMinimaFin,
+  horaMinimaInicio,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import { gruposDeMateria, type GrupoDto } from '../../services/materiaService'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import HoraSelector from './HoraSelector'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
 import FechaInput from './FechaInput'
@@ -729,6 +732,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                     label="Hora de inicio"
                     value={form.horaInicio}
                     error={errors.horaInicio}
+                    minimo={horaMinimaInicio(form.fecha, new Date(ahoraServidorMs()))}
+                    maximo="21:40"
                     onChange={(v) => handleChange('horaInicio', v)}
                   />
                   {errors.horaInicio && (
@@ -744,6 +749,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                     label="Hora de fin"
                     value={form.horaFin}
                     error={errors.horaFin}
+                    minimo={horaMinimaFin(form.horaInicio)}
                     onChange={(v) => handleChange('horaFin', v)}
                   />
                   {duracion !== null && (
@@ -905,6 +911,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                                 )}
                               </div>
                               <span className="text-[10px] text-gray-500">{detalleAmbiente(a)}</span>
+                              {a.disponible === false && a.ocupadoPor && (
+                                <span className="text-[10px] font-semibold text-red-600">Ocupado por {a.ocupadoPor}</span>
+                              )}
                             </button>
                           </li>
                         ))
@@ -923,7 +932,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                   <p className="mt-1 text-[10px] text-red-500">{errors.idAmbiente}</p>
                 ) : ambienteOcupado && (
                   <p className="mt-1 text-[10px] text-red-500">
-                    El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
+                    El ambiente está ocupado en ese horario{ambienteSeleccionado?.ocupadoPor ? ` por ${ambienteSeleccionado.ocupadoPor}` : ''}. Elige otro ambiente u horario.
                   </p>
                 )}
                 <AulasAdicionalesEditor

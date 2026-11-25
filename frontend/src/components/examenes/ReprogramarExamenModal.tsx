@@ -3,11 +3,12 @@ import { CalendarClock, CheckCircle2, X } from 'lucide-react'
 import axios from 'axios'
 import { reprogramarExamen, type ExamenDto } from '../../services/examenService'
 import { addMinutes, formatFecha, horaCorta } from '../../utils/examenFormat'
-import { isNetworkError, isOffline, minutesBetween, todayISO } from '../../utils/examFormUtils'
+import { horaMinimaFin, horaMinimaInicio, isNetworkError, isOffline, minutesBetween, todayISO } from '../../utils/examFormUtils'
 import { MOTIVO_REPROGRAMACION_MAX, validarMotivoReprogramacion } from '../../utils/motivoReprogramacion'
 import { ConfirmDiscardDialog } from './ExamFormDialogs'
 import FechaInput from './FechaInput'
 import HoraSelector from './HoraSelector'
+import { ahoraServidorMs } from '../../services/tiempoService'
 
 interface Props {
   examen: ExamenDto
@@ -157,13 +158,14 @@ export default function ReprogramarExamenModal({ examen, onClose, onReprogramado
                     Hora de Inicio <span className="text-red-500">*</span>
                   </label>
                   <HoraSelector id="reprogramar-hora-inicio" label="Hora de inicio" value={hora}
+                    minimo={horaMinimaInicio(fecha, new Date(ahoraServidorMs()))} maximo="21:40"
                     onChange={(v) => { setHora(v); limpiar('fecha'); limpiar('horaFin') }} />
                 </div>
                 <div className="min-w-0">
                   <label htmlFor="reprogramar-hora-fin" className="mb-1 block text-xs font-medium text-[#011140]">
                     Hora de Fin / Duración <span className="text-red-500">*</span>
                   </label>
-                  <HoraSelector id="reprogramar-hora-fin" label="Hora de fin" value={horaFin}
+                  <HoraSelector id="reprogramar-hora-fin" label="Hora de fin" value={horaFin} minimo={horaMinimaFin(hora)}
                     onChange={(v) => { setHoraFin(v); limpiar('horaFin') }} />
                   {duracion !== null && <p className="mt-1 text-[10px] text-gray-500">{duracion} minutos</p>}
                   {errorCampo('horaFin')}

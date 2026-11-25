@@ -2055,16 +2055,51 @@ class PostgresIntegracionTests {
                     90, aulas.get(0), List.of(), List.of(), materiaA, idDocente, List.of(), null, g2, List.of(ctrl)));
             assertThat(examenControlService.delExamen(examenG2.idExamen())).extracting(p -> p.idUsuario()).containsExactly(ctrl);
 
+            // V66: con dos aulas, cada control queda a cargo de una (en orden, o la que se elija).
+            String usuario2 = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+            Integer ctrl2 = jdbc.queryForObject(usuario2, Integer.class, "Ivo", "Control", "7100002", "ivo.control@umss.edu");
+            jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl2, rolControl);
+            jdbc.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, ?, 1)", examenG1.idExamen(), aulas.get(1));
+            var repartidos = examenControlService.asignar(examenG1.idExamen(), List.of(ctrl, ctrl2), null);
+            assertThat(repartidos).extracting(p -> p.idAmbiente()).containsExactlyInAnyOrder(aulas.get(0), aulas.get(1));
+            var elegidos = examenControlService.asignar(examenG1.idExamen(), List.of(ctrl, ctrl2), java.util.Map.of(ctrl, aulas.get(1), ctrl2, aulas.get(1)));
+            assertThat(elegidos).extracting(p -> p.idAmbiente()).containsOnly(aulas.get(1));
+            assertThat(examenControlService.asignacionDe(examenG1.idExamen(), "ivo.control@umss.edu").idAmbiente()).isEqualTo(aulas.get(1));
+            Integer ajena = jdbc.queryForObject("SELECT id_ambiente FROM ambiente WHERE id_ambiente NOT IN (?, ?) LIMIT 1", Integer.class, aulas.get(0), aulas.get(1));
+            assertThatThrownBy(() -> examenControlService.asignar(examenG1.idExamen(), List.of(ctrl), java.util.Map.of(ctrl, ajena)))
+                    .hasMessageContaining("no es de este examen");
+
             // Ocupado a otra hora que se cruza: no se registra el examen (todo o nada).
             long antes = jdbc.queryForObject("SELECT count(*) FROM examen", Long.class);
             jdbc.update("UPDATE examen SET hora_inicio = '08:30' WHERE id_examen = ?", examenG2.idExamen());
             sincronizar();
             assertThatThrownBy(() -> examenControlService.asignar(examenG2.idExamen(), List.of(ctrl)))
                     .hasMessageContaining("Pia Control ya tiene un examen el");
+            // Al reprogramar, se revisa otra vez a su personal: con el G2 a las 08:30 ya no es conjunto y Pia queda cruzada.
+            assertThatThrownBy(() -> examenControlService.revisarTrasCambio(examenG2.idExamen()))
+                    .hasMessageContaining("No se puede cambiar el horario: Pia Control ya tiene un examen el");
+            jdbc.update("UPDATE examen SET hora_inicio = '08:00' WHERE id_examen = ?", examenG2.idExamen());
+            sincronizar();
+            // Si se quita el aula adicional del G1, sus controles quedan en las aulas que siguen siendo del examen.
+            jdbc.update("DELETE FROM examen_aula WHERE id_examen = ?", examenG1.idExamen());
+            examenControlService.revisarTrasCambio(examenG1.idExamen());
+            assertThat(examenControlService.delExamen(examenG1.idExamen())).extracting(p -> p.idAmbiente()).containsOnly(aulas.get(0));
             assertThat(jdbc.queryForObject("SELECT count(*) FROM examen", Long.class)).isEqualTo(antes);
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void laJornadaDeExamenesEsDe0645A2145() {
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(6, 30), 60))
+                .hasMessageContaining("antes de las 06:45");
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(21, 0), 60))
+                .hasMessageContaining("a más tardar a las 21:45");
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(23, 0), 120))
+                .hasMessageContaining("a más tardar a las 21:45");
+        com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(6, 45), 90);
+        com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(20, 15), 90);
     }
 
     // ---------------------------------------------------------------- BUG-B01 / BUG-B02 (Sprint 4, 2.º reporte)

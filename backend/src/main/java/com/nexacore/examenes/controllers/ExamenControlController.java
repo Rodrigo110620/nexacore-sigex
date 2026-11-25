@@ -42,7 +42,7 @@ public class ExamenControlController {
     public List<PersonalControlResponse> asignar(@PathVariable Integer idExamen, @Valid @RequestBody AsignarPersonalControlRequest request) {
         // Se compara con el personal que tenía: el historial dice a quién agregó y a quién quitó.
         List<String> antes = nombres(service.delExamen(idExamen));
-        List<PersonalControlResponse> personal = service.asignar(idExamen, request.idUsuarios());
+        List<PersonalControlResponse> personal = service.asignar(idExamen, request.idUsuarios(), request.aulas());
         List<String> ahora = nombres(personal);
         List<String> agregados = ahora.stream().filter(n -> !antes.contains(n)).toList();
         List<String> quitados = antes.stream().filter(n -> !ahora.contains(n)).toList();
@@ -79,7 +79,17 @@ public class ExamenControlController {
         return service.disponiblesEnHorario(fecha, horaInicio, duracionMinutos, idMateria, idDocente);
     }
 
+    @Operation(summary = "Mi aula en el examen", description = "Para el personal de control: el aula a su cargo (204 si no está asignado).")
+    @PreAuthorize("@examenAccesoService.puedeVerControl(#idExamen, authentication)")
+    @GetMapping("/examenes/{idExamen}/personal-control/mia")
+    public org.springframework.http.ResponseEntity<PersonalControlResponse> mia(@PathVariable Integer idExamen,
+            org.springframework.security.core.Authentication authentication) {
+        PersonalControlResponse mia = service.asignacionDe(idExamen, authentication.getName());
+        return mia == null ? org.springframework.http.ResponseEntity.noContent().build() : org.springframework.http.ResponseEntity.ok(mia);
+    }
+
     private static List<String> nombres(List<PersonalControlResponse> personal) {
-        return personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList();
+        // Con su aula (V66): el historial también muestra si a alguien lo cambiaron de aula.
+        return personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim() + (p.ambiente() == null ? "" : " (aula " + p.ambiente() + ")")).toList();
     }
 }

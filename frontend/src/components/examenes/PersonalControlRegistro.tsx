@@ -54,28 +54,56 @@ export default function PersonalControlRegistro({ fecha, horaInicio, duracionMin
       {personal && personal.length === 0 && (
         <p className="mt-2 flex items-start gap-1.5 text-xs text-[#B45309]"><CircleAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" /> No hay usuarios con el rol CONTROL. Créalos en Usuarios.</p>
       )}
-      {personal && personal.length > 0 && (
-        <ul className="mt-2 max-h-52 overflow-y-auto rounded-md border border-[#D8E3F5]">
-          {personal.map((p) => {
-            const ocupado = p.disponible === false
-            return (
-              <li key={p.idUsuario} className="border-b border-[#EEF2F8] last:border-b-0">
-                <label className={`flex items-center gap-2.5 px-3 py-2 text-[13px] ${ocupado ? 'cursor-not-allowed bg-[#F8FAFC] text-[#94A3B8]' : 'cursor-pointer text-[#011140] hover:bg-[#F8FAFF]'}`}>
-                  <input type="checkbox" disabled={ocupado} checked={elegidos.includes(p.idUsuario)} onChange={() => alternar(p.idUsuario)}
-                    className="h-4 w-4 shrink-0 accent-[#0439D9]" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{`${p.nombre} ${p.apellidos}`.trim()}</span>
-                    <span className="block truncate text-[11px] text-[#627A9B]">{p.email}</span>
-                  </span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${ocupado ? 'bg-[#FEF3F2] text-[#B42318]' : 'bg-[#ECFDF3] text-[#05603A]'}`}>
-                    {ocupado ? (p.conflictoHorario ?? 'Ocupado') : 'Disponible'}
-                  </span>
-                </label>
-              </li>
-            )
-          })}
+      {personal && personal.length > 0 && <ListaPersonal personal={personal} elegidos={elegidos} alternar={alternar} />}
+    </section>
+  )
+}
+
+/** Solo los disponibles para marcar; los ocupados se pueden ver plegados, con el examen con el que chocan. */
+export function ListaPersonal({ personal, elegidos, alternar, deshabilitado = false }: {
+  personal: PersonalControl[]
+  elegidos: number[]
+  alternar: (id: number) => void
+  deshabilitado?: boolean
+}) {
+  const libres = personal.filter((p) => p.disponible !== false)
+  const ocupados = personal.filter((p) => p.disponible === false)
+  return (
+    <>
+      {libres.length === 0 ? (
+        <p className="mt-2 flex items-start gap-1.5 rounded-md bg-[#FFFAEB] p-2 text-xs text-[#7A2E0E]">
+          <CircleAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+          Todo el personal de control tiene otro examen a esa hora. Cambia el horario o asígnalo después.
+        </p>
+      ) : (
+        <ul aria-label="Personal de control disponible" className="mt-2 max-h-52 overflow-y-auto rounded-md border border-[#D8E3F5]">
+          {libres.map((p) => (
+            <li key={p.idUsuario} className="border-b border-[#EEF2F8] last:border-b-0">
+              <label className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-[13px] text-[#011140] hover:bg-[#F8FAFF]">
+                <input type="checkbox" disabled={deshabilitado} checked={elegidos.includes(p.idUsuario)} onChange={() => alternar(p.idUsuario)}
+                  className="h-4 w-4 shrink-0 accent-[#0439D9]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{`${p.nombre} ${p.apellidos}`.trim()}</span>
+                  <span className="block truncate text-[11px] text-[#627A9B]">{p.email}</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-[#ECFDF3] px-2 py-0.5 text-[10px] font-bold text-[#05603A]">Disponible</span>
+              </label>
+            </li>
+          ))}
         </ul>
       )}
-    </section>
+      {ocupados.length > 0 && (
+        <details className="mt-2 text-[11px] text-[#627A9B]">
+          <summary className="cursor-pointer font-semibold text-[#45628D]">
+            {ocupados.length === 1 ? '1 ocupado' : `${ocupados.length} ocupados`} a esa hora
+          </summary>
+          <ul className="mt-1 space-y-0.5 pl-4">
+            {ocupados.map((p) => (
+              <li key={p.idUsuario}>{`${p.nombre} ${p.apellidos}`.trim()} · {p.conflictoHorario ?? 'Ocupado'}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
   )
 }

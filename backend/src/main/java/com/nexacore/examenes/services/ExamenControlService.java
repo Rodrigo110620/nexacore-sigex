@@ -116,11 +116,30 @@ public class ExamenControlService {
     public List<PersonalControlResponse> delExamen(Integer idExamen) {
         exigirExamen(idExamen);
         return jdbc.query("""
-                SELECT u.id_usuario, u.nombre, u.apellidos, u.email FROM examen_control c
+                SELECT u.id_usuario, u.nombre, u.apellidos, u.email, c.id_ambiente, a.nombre FROM examen_control c
                 JOIN usuario u ON u.id_usuario = c.id_usuario
-                WHERE c.id_examen = :idExamen ORDER BY u.apellidos, u.nombre
+                LEFT JOIN ambiente a ON a.id_ambiente = c.id_ambiente
+                WHERE c.id_examen = :idExamen ORDER BY a.nombre NULLS LAST, u.apellidos, u.nombre
                 """, new MapSqlParameterSource("idExamen", idExamen), (rs, i) ->
-                new PersonalControlResponse(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4)));
+                new PersonalControlResponse(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4), true, null,
+                        (Integer) rs.getObject(5), rs.getString(6)));
+    }
+
+    /** El aula a cargo del usuario en el examen (null si no está asignado o no tiene aula fija). */
+    @Transactional(readOnly = true)
+    public PersonalControlResponse asignacionDe(Integer idExamen, String email) {
+        return delExamen(idExamen).stream().filter(p -> p.email() != null && p.email().equalsIgnoreCase(email)).findFirst().orElse(null);
+    }
+
+    /** Aulas del examen en el orden en que se llenan: la principal y las adicionales. */
+    private List<Integer> aulasDelExamen(Integer idExamen) {
+        return jdbc.queryForList("""
+                SELECT id_ambiente FROM (
+                    SELECT e.id_ambiente, 0 AS orden FROM examen e WHERE e.id_examen = :idExamen
+                    UNION
+                    SELECT ea.id_ambiente, ea.orden + 1 FROM examen_aula ea WHERE ea.id_examen = :idExamen
+                ) x GROUP BY id_ambiente ORDER BY min(orden)
+                """, new MapSqlParameterSource("idExamen", idExamen), Integer.class);
     }
 
     /**
@@ -129,6 +148,16 @@ public class ExamenControlService {
      */
     @Transactional
     public List<PersonalControlResponse> asignar(Integer idExamen, List<Integer> idUsuarios) {
+        return asignar(idExamen, idUsuarios, null);
+    }
+
+    /**
+     * Reemplaza el personal de control del examen, con el aula de cada uno (V66). Sin aulas indicadas y con varias
+     * aulas en el examen, se reparten en orden (uno por aula, y se vuelve a empezar si hay más personal que aulas).
+     * @throws ControlIngresoException 400 si un aula no es del examen.
+     */
+    @Transactional
+    public List<PersonalControlResponse> asignar(Integer idExamen, List<Integer> idUsuarios, java.util.Map<Integer, Integer> aulas) {
         exigirExamen(idExamen);
         Set<Integer> pedidos = new LinkedHashSet<>(idUsuarios);
         pedidos.remove(null);
@@ -141,11 +170,46 @@ public class ExamenControlService {
             }
         }
         validarConflictoHorarioPersonal(idExamen, pedidos);
+        List<Integer> aulasExamen = pedidos.isEmpty() ? List.of() : aulasDelExamen(idExamen);
+        java.util.Map<Integer, Integer> aulaDe = new java.util.HashMap<>();
+        int siguiente = 0;
+        for (Integer idUsuario : pedidos) {
+            Integer elegida = aulas == null ? null : aulas.get(idUsuario);
+            if (elegida != null && !aulasExamen.contains(elegida)) {
+                throw new ControlIngresoException(HttpStatus.BAD_REQUEST, "El aula elegida para el personal de control no es de este examen.");
+            }
+            if (elegida == null && aulasExamen.size() > 1) elegida = aulasExamen.get(siguiente++ % aulasExamen.size());
+            if (elegida == null && aulasExamen.size() == 1) elegida = aulasExamen.get(0);
+            aulaDe.put(idUsuario, elegida);
+        }
         repository.quitarDelExamen(idExamen);
         repository.flush();
-        repository.saveAllAndFlush(pedidos.stream().map(id -> new ExamenControl(idExamen, id)).toList());
+        repository.saveAllAndFlush(pedidos.stream().map(id -> new ExamenControl(idExamen, id, aulaDe.get(id))).toList());
         notificacionService.emitirCambio("EXAMEN", idExamen, null);
         return delExamen(idExamen);
+    }
+
+    /**
+     * Tras editar o reprogramar el examen: su personal de control sigue sin cruces con el nuevo horario y cada uno
+     * sigue en un aula del examen (si se quitó la suya, se reparte de nuevo). Si alguien quedó cruzado, no se guarda.
+     */
+    @Transactional
+    public void revisarTrasCambio(Integer idExamen) {
+        List<Integer> asignados = repository.asignadosA(idExamen);
+        if (asignados.isEmpty()) return;
+        List<Integer> aulasExamen = aulasDelExamen(idExamen);
+        java.util.Map<Integer, Integer> aulasVigentes = new java.util.HashMap<>();
+        for (PersonalControlResponse p : delExamen(idExamen)) {
+            if (p.idAmbiente() != null && aulasExamen.contains(p.idAmbiente())) aulasVigentes.put(p.idUsuario(), p.idAmbiente());
+        }
+        try {
+            asignar(idExamen, asignados, aulasVigentes);
+        } catch (ControlIngresoException e) {
+            if (e.getStatus() != HttpStatus.CONFLICT) throw e;
+            throw new ControlIngresoException(HttpStatus.CONFLICT, "No se puede cambiar el horario: " + e.getMessage()
+                    .replace(" No se puede asignar a dos exámenes con horario cruzado.", "")
+                    + " Quítalo del personal de control o elige otro horario.");
+        }
     }
 
     /**

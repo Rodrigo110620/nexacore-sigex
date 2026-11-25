@@ -443,7 +443,8 @@ export default function ExamenDetallePage() {
                     </dl>
                   </section>
 
-                  <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado} />
+                  <PersonalControlSeccion idExamen={examen.idExamen} puedeAsignar={gestionaExamenes && !finalizado && !cancelado}
+                    aulas={(examen.aulas?.length ? examen.aulas : [{ idAmbiente: examen.idAmbiente, nombre: examen.ambienteNombre }])} />
 
                   <section className="rounded-2xl border border-[#D8E3F5] bg-white p-4 shadow-sm sm:px-5">
                     <div className="mb-1 flex items-center gap-2.5">

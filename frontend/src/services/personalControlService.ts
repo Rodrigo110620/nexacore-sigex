@@ -8,6 +8,9 @@ export interface PersonalControl {
   email: string
   disponible?: boolean
   conflictoHorario?: string | null
+  /** Aula a su cargo cuando el examen tiene varias (V66). */
+  idAmbiente?: number | null
+  ambiente?: string | null
 }
 
 export async function personalDelExamen(idExamen: number): Promise<PersonalControl[]> {
@@ -15,9 +18,16 @@ export async function personalDelExamen(idExamen: number): Promise<PersonalContr
   return data
 }
 
-export async function asignarPersonal(idExamen: number, idUsuarios: number[]): Promise<PersonalControl[]> {
-  const { data } = await api.put<PersonalControl[]>(`/examenes/${idExamen}/personal-control`, { idUsuarios })
+/** aulas (opcional): idUsuario → idAmbiente. Sin ella, con varias aulas, el servidor reparte uno por aula. */
+export async function asignarPersonal(idExamen: number, idUsuarios: number[], aulas?: Record<number, number>): Promise<PersonalControl[]> {
+  const { data } = await api.put<PersonalControl[]>(`/examenes/${idExamen}/personal-control`, { idUsuarios, aulas })
   return data
+}
+
+/** El aula a cargo del usuario en el examen; null si no está asignado. */
+export async function miAsignacion(idExamen: number): Promise<PersonalControl | null> {
+  const res = await api.get<PersonalControl | ''>(`/examenes/${idExamen}/personal-control/mia`)
+  return res.status === 204 || !res.data ? null : res.data
 }
 
 export async function personalDisponible(): Promise<PersonalControl[]> {
