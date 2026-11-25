@@ -3,6 +3,9 @@ import { reporteUsoAmbientes, type ReporteUsoAmbiente } from '../../services/uso
 import { formatFecha } from '../../utils/examenFormat'
 import { CheckCircle2, Clock, XCircle, MapPin } from 'lucide-react'
 import type { EstadoUsoAmbiente } from '../../services/usoAmbientesService'
+import TablePagination from '../users/TablePagination'
+
+const TAMANO_PAGINA = 10
 
 interface Props {
   idExamen: number | null
@@ -29,6 +32,7 @@ function EstadoChip({ estado }: { estado: EstadoUsoAmbiente }) {
 export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
   const [resultado, setResultado] = useState<{ clave: string; datos?: ReporteUsoAmbiente[]; error?: string }>()
   const [filtro, setFiltro] = useState<Filtro>('TODOS')
+  const [pagina, setPagina] = useState(0)
   
   const clave = `${idExamen ?? 'todos'}`
 
@@ -63,6 +67,11 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
     if (filtro === 'PENDIENTES') return d.estado === 'PENDIENTE'
     return true
   })
+
+  // Paginación: 10 por página; si cambia el filtro o la búsqueda y la página ya no existe, vuelve a la última.
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / TAMANO_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas - 1)
+  const visibles = filtrados.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA)
 
   // 3. Contadores para los botones de filtro (basados en la búsqueda actual)
   const totalRegistros = filtradosBusqueda.length
@@ -99,7 +108,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
               <button 
                 key={id} 
                 type="button" 
-                onClick={() => setFiltro(id as Filtro)}
+                onClick={() => { setFiltro(id as Filtro); setPagina(0) }}
                 className={`flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-semibold transition-colors sm:flex-none sm:text-[13px] ${
                   activo ? 'bg-white text-[#0439D9] shadow-sm' : 'text-[#627A9B] hover:text-[#011140]'
                 }`}
@@ -138,7 +147,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((d, i) => (
+                {visibles.map((d, i) => (
                   <tr key={`${d.idExamen}-${d.ambiente}-${i}`} className="border-b border-[#EDF1F7] transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-3 py-2.5 font-bold text-[#011140]">
                       <span className="flex items-center gap-1.5"><MapPin size={14} className="text-[#0439D9]" aria-hidden="true" /> {d.ambiente}</span>
@@ -160,37 +169,38 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
             </table>
           </div>
 
-          {/* VISTA DE CELULAR (Tarjetas) */}
-          <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
-            {filtrados.map((d, i) => (
-              <li key={`${d.idExamen}-${d.ambiente}-${i}`} className="flex min-w-0 flex-col rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
-                  <p className="flex min-w-0 items-center gap-1.5 break-words text-sm font-bold text-[#011140]">
-                    <MapPin size={16} className="shrink-0 text-[#0439D9]" aria-hidden="true" /> {d.ambiente}
+          {/* VISTA DE CELULAR: tarjetas compactas (aula y estado; materia y grupo; fecha, horario e ingresos) */}
+          <ul className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:hidden">
+            {visibles.map((d, i) => (
+              <li key={`${d.idExamen}-${d.ambiente}-${i}`} className="min-w-0 rounded-lg border border-[#D8E3F5] bg-white px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="flex min-w-0 items-center gap-1 text-sm font-bold text-[#011140]">
+                    <MapPin size={14} className="shrink-0 text-[#0439D9]" aria-hidden="true" /> <span className="truncate">{d.ambiente}</span>
                   </p>
                   <EstadoChip estado={d.estado} />
                 </div>
-                <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
-                  <dt className="font-semibold text-[#627A9B]">Materia</dt>
-                  <dd className="min-w-0 break-words text-right font-bold text-[#011140]">{d.materia}</dd>
-                  <dt className="font-semibold text-[#627A9B]">Grupo</dt>
-                  <dd className="text-right font-semibold text-[#0439D9]">{d.grupo}</dd>
-                  {variosDocentes && (<>
-                    <dt className="font-semibold text-[#627A9B]">Docente</dt>
-                    <dd className="min-w-0 break-words text-right text-[#334155]">{d.docente}</dd>
+                <p className="mt-1 truncate text-[13px] font-semibold text-[#011140]">
+                  {d.materia} <span className="font-bold text-[#0439D9]">· {d.grupo}</span>
+                </p>
+                {variosDocentes && <p className="truncate text-[11px] text-[#627A9B]">{d.docente}</p>}
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs tabular-nums text-[#45628D]">
+                  <span>{formatFecha(d.fecha)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{d.horaInicio.slice(0, 5)} – {d.horaFin.slice(0, 5)}</span>
+                  {d.estado !== 'PENDIENTE' && (<>
+                    <span aria-hidden="true">·</span>
+                    <span><b className="text-[#011140]">{d.ingresos}</b>{d.capacidad ? ` / ${d.capacidad}` : ''} ingresos</span>
                   </>)}
-                  <dt className="font-semibold text-[#627A9B]">Fecha</dt>
-                  <dd className="text-right text-[#334155]">{formatFecha(d.fecha)}</dd>
-                  <dt className="font-semibold text-[#627A9B]">Horario</dt>
-                  <dd className="text-right tabular-nums text-[#334155]">{d.horaInicio.slice(0, 5)} – {d.horaFin.slice(0, 5)}</dd>
-                  <dt className="font-semibold text-[#627A9B]">Ingresos</dt>
-                  <dd className="text-right tabular-nums font-bold text-[#011140]">
-                    {d.estado === 'PENDIENTE' ? '—' : `${d.ingresos}${d.capacidad ? ` / ${d.capacidad}` : ''}`}
-                  </dd>
-                </dl>
+                </p>
               </li>
             ))}
           </ul>
+          {filtrados.length > TAMANO_PAGINA && (
+            <div className="mt-3">
+              <TablePagination page={paginaActual} pageSize={TAMANO_PAGINA} totalRecords={filtrados.length} totalPages={totalPaginas}
+                onPageChange={setPagina} itemLabel="ambientes" />
+            </div>
+          )}
         </>
       )}
     </section>

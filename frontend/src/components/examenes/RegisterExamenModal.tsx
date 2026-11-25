@@ -427,6 +427,12 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
       return
     }
 
+    // Con aulas adicionales, al menos un personal de control por cada una (el docente no está en todas las puertas).
+    if (adicionalesVigentes.length > 0 && personalControl.length < adicionalesVigentes.length) {
+      const aulas = adicionalesVigentes.length + 1
+      setGeneralError(`El examen se reparte en ${aulas} aulas: asigna al menos ${adicionalesVigentes.length} ${adicionalesVigentes.length === 1 ? 'persona' : 'personas'} de control (una por cada aula adicional).`)
+      return
+    }
     if (personalControl.length === 0 && !avisoSinControl) {
       setAvisoSinControl(true)
       return
@@ -976,6 +982,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
             )}
             <PersonalControlRegistro fecha={form.fecha} horaInicio={form.horaInicio}
               duracionMinutos={minutesBetween(form.horaInicio, form.horaFin)} idMateria={idMateria} idDocente={idDocente}
+              minimo={adicionalesVigentes.length}
               elegidos={personalControl} onChange={(ids) => { setPersonalControl(ids); setAvisoSinControl(false) }} />
             {avisoSinControl && (
               <p role="alert" className="flex items-start gap-2 rounded-xl border border-[#FEC84B] bg-[#FFFAEB] p-3 text-xs text-[#7A2E0E]">

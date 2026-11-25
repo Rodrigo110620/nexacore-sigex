@@ -6,7 +6,9 @@ import { personalDisponibleEnHorario, type PersonalControl } from '../../service
  * Paso de confirmación del registro: quién controlará el ingreso. Opcional (se puede asignar después en el detalle),
  * pero visible para no olvidarlo. Muestra quién está ocupado a esa hora y no deja marcarlo.
  */
-export default function PersonalControlRegistro({ fecha, horaInicio, duracionMinutos, idMateria, idDocente, elegidos, onChange }: {
+export default function PersonalControlRegistro({ fecha, horaInicio, duracionMinutos, idMateria, idDocente, elegidos, onChange, minimo = 0 }: {
+  /** Con aulas adicionales: cuántas personas hacen falta como mínimo (una por cada aula adicional). */
+  minimo?: number
   fecha: string
   horaInicio: string
   duracionMinutos: number | null
@@ -44,9 +46,15 @@ export default function PersonalControlRegistro({ fecha, horaInicio, duracionMin
     <section aria-labelledby="registro-personal-control" className="rounded-xl border border-[#D8E3F5] bg-white p-4">
       <h3 id="registro-personal-control" className="flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
         <ShieldCheck size={15} className="text-[#0439D9]" aria-hidden="true" />
-        PERSONAL DE CONTROL <span className="font-normal normal-case tracking-normal text-[#627A9B]">(opcional · {elegidos.length} elegido{elegidos.length === 1 ? '' : 's'})</span>
+        PERSONAL DE CONTROL <span className="font-normal normal-case tracking-normal text-[#627A9B]">({minimo > 0 ? `mínimo ${minimo}` : 'opcional'} · {elegidos.length} elegido{elegidos.length === 1 ? '' : 's'})</span>
       </h3>
-      <p className="mt-1 text-[11px] text-[#627A9B]">Quién controlará el ingreso. Si no eliges ahora, puedes asignarlo después en el detalle del examen.</p>
+      {minimo > 0 ? (
+        <p className={`mt-1 text-[11px] font-semibold ${elegidos.length < minimo ? 'text-[#B45309]' : 'text-[#05603A]'}`}>
+          El examen se reparte en {minimo + 1} aulas: elige al menos {minimo} {minimo === 1 ? 'persona' : 'personas'} (una por cada aula adicional).
+        </p>
+      ) : (
+        <p className="mt-1 text-[11px] text-[#627A9B]">Quién controlará el ingreso. Si no eliges ahora, puedes asignarlo después en el detalle del examen.</p>
+      )}
       {error && <p role="alert" className="mt-2 text-xs font-semibold text-[#B42318]">No se pudo cargar el personal de control. Podrás asignarlo después en el detalle del examen.</p>}
       {!personal && !error && (
         <p role="status" className="mt-2 flex items-center gap-2 text-xs text-[#627A9B]"><LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> Revisando quién está libre a esa hora…</p>

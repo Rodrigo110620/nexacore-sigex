@@ -131,6 +131,63 @@ public class ExamenControlService {
         return delExamen(idExamen).stream().filter(p -> p.email() != null && p.email().equalsIgnoreCase(email)).findFirst().orElse(null);
     }
 
+    /** «El examen se reparte en 3 aulas: asigna al menos 2 personas de control (una por cada aula adicional).» */
+    public static String minimoPorAulas(int aulas) {
+        int minimo = aulas - 1;
+        return "El examen se reparte en " + aulas + " aulas: asigna al menos " + minimo
+                + (minimo == 1 ? " persona" : " personas") + " de control (una por cada aula adicional).";
+    }
+
+    /**
+     * Exámenes de los próximos {@code dias} días que todavía no terminan y no tienen personal de control. Con
+     * {@code soloDocente}, solo los de ese docente.
+     */
+    @Transactional(readOnly = true)
+    public List<com.nexacore.examenes.dto.ExamenSinPersonalResponse> sinPersonal(int dias, Integer soloDocente) {
+        return jdbc.query("""
+                SELECT e.id_examen, e.id_paralelo, m.nombre, p.nombre_grupo, e.fecha, e.hora_inicio,
+                       1 + (SELECT count(*) FROM examen_aula ea WHERE ea.id_examen = e.id_examen) AS aulas
+                FROM examen e
+                JOIN materia m ON m.id_materia = e.id_materia
+                JOIN paralelo p ON p.id_paralelo = e.id_paralelo
+                WHERE lower(coalesce(e.estado, '')) NOT IN ('cancelado', 'finalizado')
+                  AND e.fecha BETWEEN CAST(timezone('America/La_Paz', clock_timestamp()) AS date)
+                                  AND CAST(timezone('America/La_Paz', clock_timestamp()) AS date) + :dias
+                  AND (e.fecha + e.hora_inicio + make_interval(mins => e.duracion_minutos)) > timezone('America/La_Paz', clock_timestamp())
+                  AND NOT EXISTS (SELECT 1 FROM examen_control c WHERE c.id_examen = e.id_examen)
+                  AND (CAST(:docente AS integer) IS NULL OR e.id_docente = CAST(:docente AS integer))
+                ORDER BY e.fecha, e.hora_inicio
+                LIMIT 200
+                """, new MapSqlParameterSource("dias", Math.max(0, Math.min(dias, 60))).addValue("docente", soloDocente),
+                (rs, i) -> new com.nexacore.examenes.dto.ExamenSinPersonalResponse(rs.getInt(1), rs.getInt(2), rs.getString(3),
+                        rs.getString(4), rs.getDate(5).toLocalDate(), rs.getTime(6).toLocalTime(), rs.getInt(7)));
+    }
+
+    /**
+     * Cada hora: los exámenes de mañana sin personal de control avisan una sola vez al ADMIN y a su docente (la
+     * notificación es del examen). No avisa dos veces el mismo examen.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "${app.aviso-sin-control.cron:0 0 * * * *}", zone = "America/La_Paz")
+    @Transactional
+    public int avisarExamenesDeMananaSinPersonal() {
+        java.time.LocalDate manana = java.time.LocalDate.now(java.time.ZoneId.of("America/La_Paz")).plusDays(1);
+        int avisos = 0;
+        for (var e : sinPersonal(1, null)) {
+            if (!e.fecha().equals(manana)) continue;
+            Integer yaAvisado = jdbc.queryForObject("SELECT count(*) FROM notificacion WHERE tipo = :tipo AND id_examen = :idExamen",
+                    new MapSqlParameterSource("tipo", com.nexacore.examenes.models.Notificacion.SIN_PERSONAL_CONTROL)
+                            .addValue("idExamen", e.idExamen()), Integer.class);
+            if (yaAvisado != null && yaAvisado > 0) continue;
+            notificacionService.publicar(com.nexacore.examenes.models.Notificacion.SIN_PERSONAL_CONTROL,
+                    "Examen de mañana sin personal de control",
+                    e.materia() + " · " + e.grupo() + " · " + e.horaInicio() + (e.aulas() > 1 ? " · " + e.aulas() + " aulas" : "")
+                            + ". Asigna quién controlará el ingreso.",
+                    e.idExamen(), null, "/dashboard/examenes/" + e.idExamen() + "/" + e.idParalelo(), "");
+            avisos++;
+        }
+        return avisos;
+    }
+
     /** Aulas del examen en el orden en que se llenan: la principal y las adicionales. */
     private List<Integer> aulasDelExamen(Integer idExamen) {
         return jdbc.queryForList("""
@@ -158,6 +215,11 @@ public class ExamenControlService {
      */
     @Transactional
     public List<PersonalControlResponse> asignar(Integer idExamen, List<Integer> idUsuarios, java.util.Map<Integer, Integer> aulas) {
+        return asignar(idExamen, idUsuarios, aulas, true);
+    }
+
+    private List<PersonalControlResponse> asignar(Integer idExamen, List<Integer> idUsuarios, java.util.Map<Integer, Integer> aulas,
+                                                  boolean exigirUnoPorAulaAdicional) {
         exigirExamen(idExamen);
         Set<Integer> pedidos = new LinkedHashSet<>(idUsuarios);
         pedidos.remove(null);
@@ -170,7 +232,11 @@ public class ExamenControlService {
             }
         }
         validarConflictoHorarioPersonal(idExamen, pedidos);
-        List<Integer> aulasExamen = pedidos.isEmpty() ? List.of() : aulasDelExamen(idExamen);
+        List<Integer> aulasExamen = aulasDelExamen(idExamen);
+        // Con varias aulas el docente no puede estar en todas las puertas: al menos uno por aula adicional.
+        if (exigirUnoPorAulaAdicional && aulasExamen.size() > 1 && pedidos.size() < aulasExamen.size() - 1) {
+            throw new ControlIngresoException(HttpStatus.BAD_REQUEST, minimoPorAulas(aulasExamen.size()));
+        }
         java.util.Map<Integer, Integer> aulaDe = new java.util.HashMap<>();
         int siguiente = 0;
         for (Integer idUsuario : pedidos) {
@@ -203,7 +269,7 @@ public class ExamenControlService {
             if (p.idAmbiente() != null && aulasExamen.contains(p.idAmbiente())) aulasVigentes.put(p.idUsuario(), p.idAmbiente());
         }
         try {
-            asignar(idExamen, asignados, aulasVigentes);
+            asignar(idExamen, asignados, aulasVigentes, false);
         } catch (ControlIngresoException e) {
             if (e.getStatus() != HttpStatus.CONFLICT) throw e;
             throw new ControlIngresoException(HttpStatus.CONFLICT, "No se puede cambiar el horario: " + e.getMessage()

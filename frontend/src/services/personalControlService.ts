@@ -53,3 +53,20 @@ export async function personalDisponibleEnHorario(params: {
   })
   return data
 }
+
+/** Un examen próximo que todavía no tiene personal de control. */
+export interface ExamenSinPersonal {
+  idExamen: number
+  idParalelo: number
+  materia: string
+  grupo: string
+  fecha: string
+  horaInicio: string
+  aulas: number
+}
+
+/** Los exámenes de los próximos días sin personal de control (el docente, solo los suyos). */
+export async function examenesSinPersonal(dias = 7): Promise<ExamenSinPersonal[]> {
+  const { data } = await api.get<ExamenSinPersonal[]>('/examenes/sin-personal-control', { params: { dias } })
+  return data
+}

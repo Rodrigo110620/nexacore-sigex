@@ -2102,6 +2102,40 @@ class PostgresIntegracionTests {
         com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(20, 15), 90);
     }
 
+    @Test
+    void losExamenesSinPersonalDeControlSeAvisanYConVariasAulasEsObligatorio() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("SPC-A");
+        int manana = examen(paralelo, "08:00", 90);
+        int conPersonal = examen(paralelo, "10:00", 90);
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Leo", "Control", "7200001", "leo.control@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl, rolControl);
+        // «Mañana» en Bolivia, aunque la base use otra zona horaria.
+        jdbc.update("UPDATE examen SET fecha = CAST(timezone('America/La_Paz', clock_timestamp()) AS date) + 1 WHERE id_examen IN (?, ?)",
+                manana, conPersonal);
+        examenControlService.asignar(conPersonal, List.of(ctrl));
+        sincronizar();
+
+        // El panel los lista; el docente solo ve los suyos.
+        assertThat(examenControlService.sinPersonal(7, null)).extracting(e -> e.idExamen()).contains(manana).doesNotContain(conPersonal);
+        assertThat(examenControlService.sinPersonal(7, -1)).isEmpty();
+        // Un día antes se avisa una sola vez.
+        assertThat(examenControlService.avisarExamenesDeMananaSinPersonal()).isGreaterThanOrEqualTo(1);
+        assertThat(examenControlService.avisarExamenesDeMananaSinPersonal()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notificacion WHERE tipo = 'SIN_PERSONAL_CONTROL' AND id_examen = ?",
+                Integer.class, manana)).isEqualTo(1);
+
+        // Con dos aulas, al menos uno por aula adicional: sin nadie no se puede.
+        Integer otraAula = jdbc.queryForObject("SELECT id_ambiente FROM ambiente WHERE id_ambiente <> ? LIMIT 1", Integer.class, idAmbiente);
+        jdbc.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, ?, 1)", manana, otraAula);
+        sincronizar();
+        assertThatThrownBy(() -> examenControlService.asignar(manana, List.of()))
+                .hasMessageContaining("asigna al menos 1 persona de control");
+        assertThat(examenControlService.asignar(manana, List.of(ctrl))).hasSize(1);
+    }
+
     @Autowired com.nexacore.examenes.services.ReporteUsoAmbientesService reporteUsoAmbientes;
 
     @Test
@@ -2171,8 +2205,15 @@ class PostgresIntegracionTests {
                     fecha, java.time.LocalTime.of(8, 30), 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(), null, g2)))
                     .hasMessageContaining("usa la misma hora de inicio y la misma duración");
             // …a la misma hora y duración, el G2 comparte el aula del G1 (con un aula adicional por si no caben).
+            // Con un aula adicional hace falta al menos un personal de control.
+            Integer ctrlConj = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                    + "VALUES ('Eva', 'Control', '7300001', 'eva.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+            jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) SELECT ?, id_rol FROM rol WHERE nombre = 'CONTROL'", ctrlConj);
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2)))
+                    .hasMessageContaining("asigna al menos 1 persona de control");
             var examenG2 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
-                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2));
+                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2, List.of(ctrlConj)));
             assertThat(examenG2.idParalelo()).isEqualTo(g2);
 
             // Aforo compartido: el aula tiene 3 lugares; el G1 usa 2 y al G2 le queda 1.

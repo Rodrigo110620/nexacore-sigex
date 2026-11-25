@@ -280,6 +280,12 @@ public class ExamenService {
         validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null, conjunto);
+        // Con varias aulas, al menos un personal de control por aula adicional (el docente no está en todas las puertas).
+        int personalPedido = request.idsPersonalControl() == null ? 0 : (int) request.idsPersonalControl().stream()
+                .filter(java.util.Objects::nonNull).distinct().count();
+        if (!adicionales.isEmpty() && personalPedido < adicionales.size()) {
+            throw new IllegalArgumentException(ExamenControlService.minimoPorAulas(adicionales.size() + 1));
+        }
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
         validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         validarNoExisteExamenDuplicado(materia.getId(), paralelo.getId().getIdParalelo(),

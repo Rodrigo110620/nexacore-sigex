@@ -23,6 +23,9 @@ public class ExamenControlController {
     @org.springframework.beans.factory.annotation.Autowired
     private com.nexacore.examenes.services.AuditoriaService auditoria;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.nexacore.examenes.services.ExamenAccesoService acceso;
+
     private final ExamenControlService service;
 
     public ExamenControlController(ExamenControlService service) {
@@ -86,6 +89,18 @@ public class ExamenControlController {
             org.springframework.security.core.Authentication authentication) {
         PersonalControlResponse mia = service.asignacionDe(idExamen, authentication.getName());
         return mia == null ? org.springframework.http.ResponseEntity.noContent().build() : org.springframework.http.ResponseEntity.ok(mia);
+    }
+
+    @Operation(summary = "Exámenes próximos sin personal de control",
+            description = "Los de los próximos días (7 por defecto) que aún no tienen quién controle. ADMIN: todos; DOCENTE: los suyos.")
+    @PreAuthorize("@permisos.alguno(authentication, 'EXAMENES_GESTIONAR_TODOS', 'EXAMENES_GESTIONAR_PROPIOS')")
+    @GetMapping("/examenes/sin-personal-control")
+    public List<com.nexacore.examenes.dto.ExamenSinPersonalResponse> sinPersonal(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "7") int dias,
+            org.springframework.security.core.Authentication authentication) {
+        Integer soloDocente = com.nexacore.examenes.security.Permisos.tiene(authentication, com.nexacore.examenes.security.Permiso.EXAMENES_GESTIONAR_TODOS)
+                ? null : java.util.Objects.requireNonNullElse(acceso.idUsuario(authentication), -1);
+        return service.sinPersonal(dias, soloDocente);
     }
 
     private static List<String> nombres(List<PersonalControlResponse> personal) {
