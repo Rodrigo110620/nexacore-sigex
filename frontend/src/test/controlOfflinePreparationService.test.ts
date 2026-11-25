@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import api from '../services/api'
-import { prepararExamenSinConexion } from '../services/controlOfflinePreparationService'
+import { prepararExamenSinConexion, prepararExamenesDelDia, preparadoEn, VIGENCIA_PREPARACION_MS } from '../services/controlOfflinePreparationService'
+import { guardarFotoOffline } from '../services/fotosOffline'
 import { contextoControlGuardado, estudianteControlGuardado, tiposIncidenciaGuardados } from '../services/controlOfflineService'
 
 vi.mock('../services/api', () => ({ default: { get: vi.fn() } }))
+vi.mock('../services/fotosOffline', () => ({ guardarFotoOffline: vi.fn(async () => undefined), limpiarFotosOffline: vi.fn(async () => undefined) }))
 
 describe('prepararExamenSinConexion', () => {
   beforeEach(() => {
@@ -15,8 +17,9 @@ describe('prepararExamenSinConexion', () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
       if (url === '/examenes/20/estudiantes') return { data: { contenido: [{
         idEstudiante: 10, nombre: 'Ana', apellidos: 'Paz', codigoSis: '2026001', ci: '123', carrera: 'Sistemas',
-        estado: 'HABILITADO', motivoInhabilitacion: null, ingresado: false,
+        estado: 'HABILITADO', motivoInhabilitacion: null, ingresado: false, fotoUrl: '/estudiantes/10/foto',
       }], pagina: 0, totalPaginas: 1, totalRegistros: 1, tamano: 100 } }
+      if (url === '/estudiantes/10/foto') return { data: new Blob(['jpg']) }
       if (url === '/control-ingresos/tipos-incidencia') return { data: [{ id: 1, nombre: 'Documento', descripcion: null }] }
       if (url === '/control-ingresos/10/20/contexto') return { data: {
         idEstudiante: 10, estudiante: 'Ana Paz', codigoSis: '2026001', documento: '123', idExamen: 20,
@@ -27,9 +30,31 @@ describe('prepararExamenSinConexion', () => {
       throw new Error(`Ruta inesperada: ${url}`)
     })
 
-    await expect(prepararExamenSinConexion(20)).resolves.toEqual({ estudiantes: 1, contextos: 1 })
+    await expect(prepararExamenSinConexion(20)).resolves.toEqual({ estudiantes: 1, contextos: 1, fotos: 1 })
     expect(estudianteControlGuardado(20, 'codigo', '2026001')?.nombre).toBe('Ana')
     expect(contextoControlGuardado(10, 20)?.ambiente).toBe('A1')
     expect(tiposIncidenciaGuardados()).toHaveLength(1)
+    expect(guardarFotoOffline).toHaveBeenCalledWith('/estudiantes/10/foto', expect.any(Blob))
+  })
+
+  it('prepara solos los exámenes de hoy que no terminaron, sin repetir los recién preparados', async () => {
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (String(url).endsWith('/estudiantes')) return { data: { contenido: [], pagina: 0, totalPaginas: 1, totalRegistros: 0, tamano: 100 } }
+      if (url === '/control-ingresos/tipos-incidencia') return { data: [] }
+      throw new Error(`Ruta inesperada: ${url}`)
+    })
+    const ahora = new Date(2026, 10, 24, 9, 0).getTime()
+    const examenes = [
+      { idExamen: 1, fecha: '2026-11-24', estado: 'programado' },
+      { idExamen: 2, fecha: '2026-11-24', estado: 'finalizado' },
+      { idExamen: 3, fecha: '2026-11-25', estado: 'programado' },
+      { idExamen: 4, fecha: '2026-11-24', estado: 'cancelado' },
+    ]
+    await expect(prepararExamenesDelDia(examenes, ahora)).resolves.toBe(1)
+    expect(preparadoEn(1)).toBe(ahora)
+    expect(preparadoEn(3)).toBeNull()
+    // Recién preparado: no se vuelve a descargar hasta que pasen 10 minutos.
+    await expect(prepararExamenesDelDia(examenes, ahora + 60_000)).resolves.toBe(0)
+    await expect(prepararExamenesDelDia(examenes, ahora + VIGENCIA_PREPARACION_MS + 1)).resolves.toBe(1)
   })
 })

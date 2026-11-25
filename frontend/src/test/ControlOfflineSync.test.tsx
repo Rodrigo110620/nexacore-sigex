@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import ControlOfflineSync from '../components/control/ControlOfflineSync'
+import ControlOfflineSync, { REINTENTO_SINCRONIZACION_MS } from '../components/control/ControlOfflineSync'
 import {
   eventoControlOffline,
   operacionesControlPendientes,
@@ -53,5 +53,19 @@ describe('ControlOfflineSync', () => {
 
     await act(async () => { await Promise.resolve() })
     expect(screen.queryByText('Todas las marcaciones fueron sincronizadas correctamente.')).not.toBeInTheDocument()
+  })
+
+  it('reintenta sola cuando vuelve el servidor aunque el celular nunca perdió internet', async () => {
+    render(<ControlOfflineSync />)
+    await act(async () => { await Promise.resolve() })
+    expect(sincronizarOperacionesControl).toHaveBeenCalledTimes(1)
+
+    await act(async () => { vi.advanceTimersByTime(REINTENTO_SINCRONIZACION_MS) })
+    expect(sincronizarOperacionesControl).toHaveBeenCalledTimes(2)
+
+    // Sin pendientes no hace peticiones.
+    vi.mocked(operacionesControlPendientes).mockReturnValue([])
+    await act(async () => { vi.advanceTimersByTime(REINTENTO_SINCRONIZACION_MS * 3) })
+    expect(sincronizarOperacionesControl).toHaveBeenCalledTimes(2)
   })
 })

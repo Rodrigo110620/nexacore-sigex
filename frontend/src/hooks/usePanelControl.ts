@@ -4,6 +4,7 @@ import useEnVivo from './useEnVivo'
 import { ahoraServidorMs, sincronizarReloj } from '../services/tiempoService'
 import { TODOS_LOS_PERIODOS } from '../services/periodoService'
 import { examenesControlGuardados, guardarExamenesControl } from '../services/controlOfflineService'
+import { prepararExamenesDelDia } from '../services/controlOfflinePreparationService'
 
 export const REFRESCO_MS = 30_000
 
@@ -25,6 +26,8 @@ export default function usePanelControl() {
       .then((lista) => {
         guardarExamenesControl(lista)
         if (vigente) setExamenes(lista.filter((e) => e.estado?.toLowerCase() !== 'cancelado'))
+        // Los de hoy quedan listos para trabajar sin conexión, sin tocar ningún botón.
+        void prepararExamenesDelDia(lista, ahoraServidorMs())
       })
       .catch(() => {
         if (!vigente) return

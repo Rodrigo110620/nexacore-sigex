@@ -298,6 +298,19 @@ describe('IdentificacionPage', () => {
     expect(mockedIdentificar).toHaveBeenCalledWith(7, 'codigo', '202104010')
   })
 
+  it('con el servidor caído (el celular sí tiene internet) usa lo preparado en el dispositivo', async () => {
+    localStorage.setItem('token', 'token-control')
+    mockedIdentificar.mockReset()
+    mockedIdentificar.mockRejectedValue(new AxiosError('Bad Gateway', 'ERR_BAD_RESPONSE', undefined, undefined,
+      { status: 502, data: '', statusText: 'Bad Gateway', headers: {}, config: {} } as AxiosResponse))
+    const { guardarEstudianteControl } = await import('../services/controlOfflineService')
+    guardarEstudianteControl(7, { ...estudiante('HABILITADO') })
+    renderPage()
+    buscar()
+    expect(await screen.findByText('María José González Flores')).toBeInTheDocument()
+    expect(mockedIdentificar).toHaveBeenCalledWith(7, 'codigo', '202104010')
+  })
+
   it('CA-59/60: Continuar consulta de nuevo la habilitación y sin conexión no la da por confirmada', async () => {
     mockedIdentificar.mockResolvedValue(estudiante('HABILITADO'))
     renderPage()

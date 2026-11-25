@@ -15,7 +15,7 @@ import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import IngresosRecientesCard from '../../components/control/IngresosRecientesCard'
 import { listarEstudiantesExamen, type OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
-import { prepararExamenSinConexion } from '../../services/controlOfflinePreparationService'
+import { marcarPreparado, prepararExamenSinConexion } from '../../services/controlOfflinePreparationService'
 
 export default function ControlExamenPage() {
   const idExamen = Number(useParams().idExamen)
@@ -47,7 +47,8 @@ export default function ControlExamenPage() {
     setPreparacionOffline(null)
     try {
       const resultado = await prepararExamenSinConexion(idExamen)
-      setPreparacionOffline(`Listo para trabajar sin conexión: ${resultado.estudiantes} estudiantes y sus fichas quedaron guardados en este dispositivo.`)
+      marcarPreparado(idExamen)
+      setPreparacionOffline(`Listo para trabajar sin conexión: ${resultado.estudiantes} estudiantes, sus fichas y ${resultado.fotos} ${resultado.fotos === 1 ? 'foto quedaron guardadas' : 'fotos quedaron guardadas'} en este dispositivo.`)
     } catch (err) {
       const r = (err as { response?: { status?: number; data?: { mensaje?: string } } }).response
       setPreparacionOffline(!r
