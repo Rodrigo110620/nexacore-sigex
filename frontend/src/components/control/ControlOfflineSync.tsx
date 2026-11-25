@@ -3,6 +3,8 @@ import { CheckCircle2, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
 import { eventoControlOffline, operacionesControlPendientes, sincronizarOperacionesControl } from '../../services/controlOfflineService'
 
 const DURACION_CONFIRMACION_MS = 5_000
+/** Si se cayó el servidor (no el internet del celular) no llega el evento «online»: se reintenta cada tanto. */
+export const REINTENTO_SINCRONIZACION_MS = 30_000
 
 export default function ControlOfflineSync() {
   const [operaciones, setOperaciones] = useState(operacionesControlPendientes)
@@ -25,8 +27,15 @@ export default function ControlOfflineSync() {
     const online = () => { void sincronizarOperacionesControl().finally(actualizar) }
     window.addEventListener(eventoControlOffline, actualizar)
     window.addEventListener('online', online)
+    // Al volver a la app (otra pestaña o el celular bloqueado) también se intenta.
+    const visible = () => { if (document.visibilityState === 'visible') online() }
+    document.addEventListener('visibilitychange', visible)
+    // Solo si hay pendientes: sin marcaciones guardadas no hace ninguna petición.
+    const reintento = setInterval(() => { if (operacionesControlPendientes().length > 0) online() }, REINTENTO_SINCRONIZACION_MS)
     void sincronizarOperacionesControl().finally(actualizar)
     return () => {
+      clearInterval(reintento)
+      document.removeEventListener('visibilitychange', visible)
       window.removeEventListener(eventoControlOffline, actualizar)
       window.removeEventListener('online', online)
       if (temporizadorConfirmacion.current) clearTimeout(temporizadorConfirmacion.current)
