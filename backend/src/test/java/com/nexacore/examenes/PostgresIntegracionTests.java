@@ -1849,32 +1849,46 @@ class PostgresIntegracionTests {
         jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ?", ana);
         jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
                 + "VALUES (?, ?, 'image/jpeg', NOW())", ana, new byte[]{(byte) 0xFF, (byte) 0xD8});
-        abrirControl(examenA);
-        abrirControl(examenB);
 
         var fechaB = jdbc.queryForObject("SELECT fecha FROM examen WHERE id_examen = ?", java.time.LocalDate.class, examenB);
         var horaB = jdbc.queryForObject("SELECT hora_inicio FROM examen WHERE id_examen = ?", java.time.LocalTime.class, examenB);
-        // Al programar el examen B se avisa que Ana ya tiene el A a esa hora.
+        
+        // 1. Al programar el examen B se avisa que Ana ya tiene el A a esa hora.
         assertThat(examenService.crucesDeEstudiantes(pB, fechaB, horaB, 90, examenB))
                 .singleElement().satisfies(c -> assertThat(c.otrosExamenes()).contains("Materia CRUCE-A"));
-
-        java.util.function.IntFunction<com.nexacore.examenes.dto.AutorizarIngresoRequest> ingreso = idExamen ->
-                new com.nexacore.examenes.dto.AutorizarIngresoRequest(ana, idExamen, null, true, List.of(), List.of(),
+        
+        // 2. Ahora abrimos el control
+        abrirControl(examenA);
+        abrirControl(examenB);
+        
+        // 3. Definimos el lambda con su tipo explícito para evitar que el IDE se confunda
+        java.util.function.IntFunction<com.nexacore.examenes.dto.AutorizarIngresoRequest> ingreso = (int idExamen) ->
+                new com.nexacore.examenes.dto.AutorizarIngresoRequest(ana, idExamen, null, true, java.util.List.of(), java.util.List.of(),
                         null, null, false, null);
-        assertThat(controlIngresoService.autorizar(ingreso.apply(examenA), "luis.paz@umss.edu").autorizado()).isTrue();
+        
+        com.nexacore.examenes.dto.AutorizarIngresoResponse primero = controlIngresoService.autorizar(ingreso.apply(examenA), "luis.paz@umss.edu");
+        assertThat(primero.autorizado()).isTrue();
+        
         sincronizar();
-        var segundo = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
+        
+        // 4. Tipado explícito para evitar el error del boolean
+        com.nexacore.examenes.dto.AutorizarIngresoResponse segundo = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
         assertThat(segundo.autorizado()).isFalse();
         assertThat(segundo.resultado()).isEqualTo("DENEGADO_OTRO_EXAMEN");
         assertThat(segundo.causa()).contains("Ya está rindiendo Materia CRUCE-A");
+        
         sincronizar();
+        
         // También queda como intento de ingreso incorrecto del examen B (Ingresos no autorizados y Reportes).
         assertThat(jdbc.queryForObject("SELECT observacion FROM intento_ingreso WHERE id_examen = ? AND id_estudiante = ?",
                 String.class, examenB, ana)).startsWith("Otro examen a la misma hora: Ya está rindiendo Materia CRUCE-A");
+        
         // Tras registrar su salida del examen A, puede ingresar al B.
         jdbc.update("UPDATE asistencia_examen SET fecha_hora_salida = NOW() WHERE id_estudiante = ? AND id_examen = ?", ana, examenA);
         sincronizar();
-        assertThat(controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu").autorizado()).isTrue();
+        
+        com.nexacore.examenes.dto.AutorizarIngresoResponse tercero = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
+        assertThat(tercero.autorizado()).isTrue();
     }
 
     // ---------------------------------------------------------------- Solo el control asignado controla
