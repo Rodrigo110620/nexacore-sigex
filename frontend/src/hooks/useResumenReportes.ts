@@ -6,6 +6,7 @@ import { listarExcepcionesNoHabilitado, listarExcepcionesTodas } from '../servic
 import { listarFotosReportadas, textoMotivoReporte } from '../services/fotoRevisionService'
 import { reporteModificacionesInhabilitados } from '../services/modificacionInhabilitadoService'
 import { reporteIngresos } from '../services/ingresoService'
+import { reporteUsoAmbientes } from '../services/usoAmbientesService'
 
 /** Motivo escrito a mano, corto para el gráfico (primera letra en mayúscula). */
 const recortar = (texto: string) => {
@@ -44,10 +45,10 @@ const TEXTO_TIPO_INTENTO: Record<string, string> = {
   OTRO_EXAMEN: 'Otro examen a la misma hora',
 }
 
-export type ClaveResumen = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
+export type ClaveResumen = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'| 'uso-ambientes'
 export type ResumenReportes = Record<ClaveResumen, Cifra | null>
 
-const VACIO: ResumenReportes = { intentos: null, expulsiones: null, excepciones: null, fotos: null, modificaciones: null, 'ingresos-qr': null, 'ingresos-manual': null }
+const VACIO: ResumenReportes = { intentos: null, expulsiones: null, excepciones: null, fotos: null, modificaciones: null, 'ingresos-qr': null, 'ingresos-manual': null, 'uso-ambientes': null }
 
 /** "2026-11-16" del día local, con {@code diasAtras} días antes. */
 function dia(diasAtras: number): string {
@@ -149,8 +150,15 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
         manual: cifraDe(manual, desde, manual.map(() => 'Ingreso Manual'))
       }
     })
+    const usoAmbientes = reporteUsoAmbientes(idExamen).then((l) => 
+      cifraDe(
+        l.map((u) => `${u.fecha}T${u.horaInicio}`), 
+        desde, 
+        l.map((u) => u.utilizado ? 'Utilizado' : 'Sin uso')
+      )
+    )
 
-    void Promise.allSettled([intentos, expulsiones, excepciones, fotos, modificaciones, ingresos]).then(([i, e, x, f, m, ing]) => {
+    void Promise.allSettled([intentos, expulsiones, excepciones, fotos, modificaciones, ingresos, usoAmbientes]).then(([i, e, x, f, m, ing, ua]) => {
       if (!vigente) return
       const valor = (r: PromiseSettledResult<Cifra>) => (r.status === 'fulfilled' ? r.value : null)
       const ingVal = (ing.status === 'fulfilled' && ing.value) ? ing.value : { qr: null, manual: null }
@@ -164,6 +172,7 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
           modificaciones: valor(m),
           'ingresos-qr': ingVal.qr,
           'ingresos-manual': ingVal.manual,
+          'uso-ambientes': valor(ua),
         }
       })
     })
