@@ -37,9 +37,16 @@ public class AforoService {
         return jdbc.query("""
                 SELECT am.id_ambiente, am.nombre, am.capacidad, MIN(au.orden) AS orden,
                        (SELECT COUNT(*) FROM asistencia_examen a
-                         WHERE a.id_examen = :examen AND a.id_ambiente_ingreso = am.id_ambiente AND a.fecha_hora_ingreso IS NOT NULL
+                         -- BUG-B02: en un examen conjunto (otro grupo de la misma materia y docente, a la misma hora)
+                         -- el aula la ocupan los dos grupos.
+                         WHERE a.id_examen IN (SELECT o.id_examen FROM examen x JOIN examen o
+                                                 ON o.fecha = x.fecha AND o.hora_inicio = x.hora_inicio
+                                                AND o.duracion_minutos = x.duracion_minutos AND o.id_materia = x.id_materia
+                                                AND o.id_docente = x.id_docente AND COALESCE(o.estado, 'programado') <> 'cancelado'
+                                               WHERE x.id_examen = :examen)
+                           AND a.id_ambiente_ingreso = am.id_ambiente AND a.fecha_hora_ingreso IS NOT NULL
                            AND NOT EXISTS (SELECT 1 FROM expulsion x
-                                            WHERE x.id_examen = :examen AND x.id_estudiante = a.id_estudiante
+                                            WHERE x.id_examen = a.id_examen AND x.id_estudiante = a.id_estudiante
                                               AND x.anulada_en IS NULL AND x.fecha_hora > :desde))
                 FROM (SELECT id_ambiente, 0 AS orden FROM examen WHERE id_examen = :examen
                       UNION SELECT id_ambiente, orden FROM examen_aula WHERE id_examen = :examen

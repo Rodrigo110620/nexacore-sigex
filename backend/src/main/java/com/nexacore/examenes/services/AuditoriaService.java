@@ -72,7 +72,21 @@ public class AuditoriaService {
         insertar(idUsuario, accion, detalles);
     }
 
-    private void insertar(Integer idUsuario, String accion, Map<String, Object> detalles) {
+    /** Sesiones por dispositivo (V62): cada operación queda con el navegador y dispositivo desde el que se hizo. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.SesionUsuarioRepository sesionUsuarioRepository;
+
+    private void insertar(Integer idUsuario, String accion, Map<String, Object> detallesOriginales) {
+        Map<String, Object> detalles = detallesOriginales;
+        String idSesion = SesionActual.idSesion();
+        if (idSesion != null && sesionUsuarioRepository != null && (detalles == null || !detalles.containsKey("dispositivo"))) {
+            String dispositivo = sesionUsuarioRepository.findById(idSesion)
+                    .map(com.nexacore.examenes.models.SesionUsuario::getDispositivo).orElse(null);
+            if (dispositivo != null) {
+                detalles = new java.util.LinkedHashMap<>(detalles == null ? Map.of() : detalles);
+                detalles.put("dispositivo", dispositivo);
+            }
+        }
         String json;
         try {
             json = objectMapper.writeValueAsString(detalles);

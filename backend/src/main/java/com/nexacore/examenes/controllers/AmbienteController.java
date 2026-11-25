@@ -77,8 +77,10 @@ public class AmbienteController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
             @RequestParam int duracionMinutos,
             @RequestParam(required = false) Integer idExamenExcluido,
-            @RequestParam(required = false) Integer idParaleloExcluido) {
-        return ResponseEntity.ok(
-                ambienteService.disponibilidad(fecha, horaInicio, duracionMinutos, idExamenExcluido, idParaleloExcluido));
+            @RequestParam(required = false) Integer idParaleloExcluido,
+            @RequestParam(required = false) Integer idMateria,
+            @RequestParam(required = false) Integer idDocente) {
+        return ResponseEntity.ok(ambienteService.disponibilidad(fecha, horaInicio, duracionMinutos, idExamenExcluido,
+                idParaleloExcluido, idMateria, idDocente));
     }
 }

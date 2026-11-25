@@ -91,6 +91,9 @@ public class ControlIngresoController {
                     "manual", request.ingresoManual() ? true : null, "motivo", request.ingresoManual() ? request.justificacionManual() : null));
             return ResponseEntity.ok(response);
         }
+        // El sistema denegó el ingreso (no habilitado, ya ingresó, rinde otro examen a la misma hora): también se registra.
+        auditoria.registrar("INGRESO_DENEGADO", com.nexacore.examenes.services.AuditoriaService.datos("idExamen", request.idExamen(),
+                "idEstudiante", request.idEstudiante(), "motivo", response.causa(), "automatico", true));
         if ("DENEGADO_DUPLICADO".equals(response.resultado())) {
             return ResponseEntity.status(409).body(response);
         }

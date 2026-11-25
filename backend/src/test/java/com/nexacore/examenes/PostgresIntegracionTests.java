@@ -1998,4 +1998,66 @@ class PostgresIntegracionTests {
         // Cortada: ya no se le puede enviar nada.
         assertThatThrownBy(() -> emitter.send("hola")).isInstanceOf(IllegalStateException.class);
     }
+
+    // ---------------------------------------------------------------- BUG-B01 / BUG-B02 (Sprint 4, 2.º reporte)
+    @Autowired com.nexacore.examenes.services.RepartoAulasService repartoAulas;
+
+    @Test
+    void elDocenteNoCruzaMateriasPeroSiTomaJuntosASusGruposEnLaMismaAula() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("CONJ-A");
+        Integer materiaA = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        jdbc.update("UPDATE paralelo SET nombre_grupo = 'G1' WHERE id_paralelo = ?", g1);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G2')", materiaA, idDocente);
+        Integer g2 = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND nombre_grupo = 'G2'", Integer.class, materiaA);
+        int otra = materiaYParalelo("CONJ-B");
+        Integer materiaB = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, otra);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?), (?, ?)", idDocente, materiaA, idDocente, materiaB);
+        List<Integer> aulas = jdbc.queryForList("SELECT id_ambiente FROM ambiente ORDER BY id_ambiente LIMIT 3", Integer.class);
+        int compartida = aulas.get(0), extra = aulas.get(1), libre = aulas.get(2);
+        jdbc.update("UPDATE ambiente SET capacidad = 3 WHERE id_ambiente = ?", compartida);
+        jdbc.update("UPDATE ambiente SET capacidad = 10 WHERE id_ambiente IN (?, ?)", extra, libre);
+        sincronizar();
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(6);
+        var ocho = java.time.LocalTime.of(8, 0);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            var examenG1 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz", fecha, ocho,
+                    90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(), null, g1));
+            // BUG-B01: otra materia a la misma hora, aunque sea en otra aula, no.
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-B", "Luis Paz",
+                    fecha, java.time.LocalTime.of(8, 30), 60, libre, List.of(), List.of(), materiaB, idDocente, List.of(), null, otra)))
+                    .hasMessageContaining("no puede tomar dos exámenes de materias distintas a la vez");
+            // BUG-B02: con otra hora de inicio no se comparte el aula…
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, java.time.LocalTime.of(8, 30), 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(), null, g2)))
+                    .hasMessageContaining("usa la misma hora de inicio y la misma duración");
+            // …a la misma hora y duración, el G2 comparte el aula del G1 (con un aula adicional por si no caben).
+            var examenG2 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2));
+            assertThat(examenG2.idParalelo()).isEqualTo(g2);
+
+            // Aforo compartido: el aula tiene 3 lugares; el G1 usa 2 y al G2 le queda 1.
+            int a1 = estudiante("209940001", "Ana"), a2 = estudiante("209940002", "Bruno");
+            int b1 = estudiante("209940003", "Carla"), b2 = estudiante("209940004", "Dario");
+            for (int[] f : new int[][]{{a1, examenG1.idExamen(), g1}, {a2, examenG1.idExamen(), g1}, {b1, examenG2.idExamen(), g2}, {b2, examenG2.idExamen(), g2}}) {
+                jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado) VALUES (?, ?, ?, TRUE)", f[0], f[1], f[2]);
+            }
+            sincronizar();
+            var idG2 = new com.nexacore.examenes.models.ExamenId();
+            idG2.setIdExamen(examenG2.idExamen());
+            idG2.setIdParalelo(g2);
+            var entidadG2 = examenRepositorio.findById(idG2).orElseThrow();
+            var reparto = repartoAulas.repartir(entidadG2, asistenciaExamenRepository.listarDelExamen(examenG2.idExamen(), g2));
+            assertThat(reparto.asignados().get(compartida)).isEqualTo(1);
+            assertThat(reparto.asignados().get(extra)).isEqualTo(1);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepositorio;
 }

@@ -24,14 +24,15 @@ const RANGOS: { texto: string; desde: () => string; hasta: () => string }[] = [
 ]
 
 // El backend compara sin tildes: se mandan las etiquetas tal cual.
-const MODULOS = ['Usuarios', 'Roles', 'Estudiantes', 'Exámenes', 'Control', 'Ambientes', 'Configuración']
+const MODULOS = ['Usuarios', 'Roles', 'Estudiantes', 'Exámenes', 'Control', 'Ambientes', 'Sesiones', 'Mesa de ayuda', 'Configuración']
 // Agrupadas para que la lista se lea rápido.
 const OPERACIONES: [string, string[]][] = [
   ['Datos', ['Crear', 'Editar', 'Eliminar', 'Importar', 'Asignar', 'Activar', 'Desactivar']],
   ['Exámenes', ['Reprogramar', 'Cancelar', 'Asociar', 'Habilitación', 'Quitar']],
   ['Control de ingreso', ['Autorizar', 'Denegar', 'Salida', 'Expulsar', 'Anular', 'Trasladar', 'Excepción', 'Incidencia', 'Evidencia']],
   ['Fotos', ['Aprobar', 'Rechazar', 'Descartar']],
-  ['Sistema', ['Respaldo']],
+  ['Sesiones', ['Iniciar sesión', 'Cerrar sesión', 'Bloqueo']],
+  ['Sistema', ['Respaldo', 'Atender']],
 ]
 const FORMATOS: FormatoDescarga[] = ['pdf']
 

@@ -96,6 +96,10 @@ public class AmbienteService {
                 ambiente.getCapacidad(), ambiente.getPabellon());
     }
 
+    /** Para saber el docente de la sesión; por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.UsuarioRepository usuarioRepositorio;
+
     /**
      * Todas las aulas con disponible=false si alguna está ocupada en ese horario, como aula principal
      * o adicional de otro examen. Dos consultas en total (exámenes del día y sus aulas adicionales),
@@ -105,8 +109,26 @@ public class AmbienteService {
     public List<AmbienteDisponibilidadResponse> disponibilidad(
             LocalDate fecha, LocalTime horaInicio, int duracionMinutos,
             Integer idExamenExcluido, Integer idParaleloExcluido) {
+        return disponibilidad(fecha, horaInicio, duracionMinutos, idExamenExcluido, idParaleloExcluido, null, null);
+    }
+
+    /**
+     * Con materia (y docente; si no viene, el de la sesión): el aula del examen conjunto de otro grupo de la misma
+     * materia y docente, a la misma hora y duración, sigue disponible para compartirla (BUG-B02).
+     */
+    @Transactional(readOnly = true)
+    public List<AmbienteDisponibilidadResponse> disponibilidad(
+            LocalDate fecha, LocalTime horaInicio, int duracionMinutos,
+            Integer idExamenExcluido, Integer idParaleloExcluido, Integer idMateria, Integer idDocente) {
+        Integer docente = idDocente != null ? idDocente
+                : idMateria == null || usuarioRepositorio == null ? null
+                : usuarioRepositorio.findByEmail(com.nexacore.examenes.security.SesionActual.email())
+                        .map(com.nexacore.examenes.models.Usuario::getId).orElse(null);
         LocalTime horaFin = horaInicio.plusMinutes(duracionMinutos);
         List<Examen> queSeCruzan = examenRepository.findVigentesEnFecha(fecha).stream()
+                .filter(e -> idMateria == null || docente == null || !(idMateria.equals(e.getIdMateria())
+                        && docente.equals(e.getIdDocente()) && horaInicio.equals(e.getHoraInicio())
+                        && Integer.valueOf(duracionMinutos).equals(e.getDuracionMinutos())))
                 .filter(e -> !(e.getId().getIdExamen().equals(idExamenExcluido)
                         && e.getId().getIdParalelo().equals(idParaleloExcluido))) // el propio examen al editar
                 .filter(e -> {

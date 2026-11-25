@@ -35,6 +35,9 @@ export interface DisponibilidadParams {
   duracionMinutos: number
   idExamenExcluido?: number
   idParaleloExcluido?: number
+  /** Para dejar disponible el aula del otro grupo de la misma materia a la misma hora (examen conjunto). */
+  idMateria?: number | null
+  idDocente?: number | null
 }
 
 export async function listarAmbientesConDisponibilidad(

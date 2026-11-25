@@ -265,6 +265,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
         duracionMinutos: dur,
         idExamenExcluido: examen.idExamen,
         idParaleloExcluido: examen.idParalelo,
+        idMateria: examen.idMateria,
+        idDocente: examen.idDocente,
       })
         .then((data) => { if (!cancelled) setAmbientes(data) })
         .catch(() => { /* silencioso */ })
