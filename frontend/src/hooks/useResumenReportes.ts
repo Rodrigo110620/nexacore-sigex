@@ -99,7 +99,8 @@ export function desdePeriodo(periodo: Periodo): string | undefined {
  * (del examen elegido o de todos los que el usuario puede ver) y cuántos llegaron hoy y ayer. Se
  * recalcula en vivo con cada cambio que afecte a esos exámenes.
  */
-export default function useResumenReportes(idExamen: number | null, desde?: string): ResumenReportes {
+/** verAmbientes: el reporte de Uso de Ambientes es solo del ADMIN; para el resto no se consulta. */
+export default function useResumenReportes(idExamen: number | null, desde?: string, verAmbientes = true): ResumenReportes {
   const [recarga, setRecarga] = useState(0)
   const [resultado, setResultado] = useState<{ clave: string; resumen: ResumenReportes }>()
   const clave = `${idExamen ?? 'todos'}|${desde ?? ''}`
@@ -150,11 +151,11 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
         manual: cifraDe(manual, desde, manual.map(() => 'Ingreso Manual'))
       }
     })
-    const usoAmbientes = reporteUsoAmbientes(idExamen).then((l) => 
+    const usoAmbientes = !verAmbientes ? Promise.reject(new Error('sin acceso')) : reporteUsoAmbientes(idExamen).then((l) =>
       cifraDe(
-        l.map((u) => `${u.fecha}T${u.horaInicio}`), 
-        desde, 
-        l.map((u) => u.utilizado ? 'Utilizado' : 'Sin uso')
+        l.map((u) => `${u.fecha}T${u.horaInicio}`),
+        desde,
+        l.map((u) => u.estado === 'UTILIZADO' ? 'Utilizado' : u.estado === 'PENDIENTE' ? 'Pendiente' : 'Sin uso')
       )
     )
 
@@ -178,7 +179,7 @@ export default function useResumenReportes(idExamen: number | null, desde?: stri
     })
 
     return () => { vigente = false }
-  }, [idExamen, desde, clave, recarga])
+  }, [idExamen, desde, clave, recarga, verAmbientes])
 
   // Al cambiar de examen se conserva el anterior hasta tener el nuevo, salvo que sea de otro examen.
   return resultado?.clave === clave ? resultado.resumen : VACIO

@@ -33,6 +33,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
   const [resultado, setResultado] = useState<{ clave: string; datos?: ReporteUsoAmbiente[]; error?: string }>()
   const [filtro, setFiltro] = useState<Filtro>('TODOS')
   const [pagina, setPagina] = useState(0)
+  const [docente, setDocente] = useState('')
   
   const clave = `${idExamen ?? 'todos'}`
 
@@ -60,8 +61,9 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
     d.grupo.toLowerCase().includes(buscar.toLowerCase())
   )
 
-  // 2. Filtro de estado (Utilizados / Sin Uso)
-  const filtrados = filtradosBusqueda.filter((d) => {
+  // 2. Filtro por docente y de estado (Utilizados / Sin uso / Pendientes)
+  const docentes = [...new Set(datos.map((d) => d.docente))].sort((a, b) => a.localeCompare(b, 'es'))
+  const filtrados = filtradosBusqueda.filter((d) => !docente || d.docente === docente).filter((d) => {
     if (filtro === 'UTILIZADOS') return d.estado === 'UTILIZADO'
     if (filtro === 'SIN_USO') return d.estado === 'SIN_USO'
     if (filtro === 'PENDIENTES') return d.estado === 'PENDIENTE'
@@ -74,12 +76,11 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
   const visibles = filtrados.slice(paginaActual * TAMANO_PAGINA, (paginaActual + 1) * TAMANO_PAGINA)
 
   // 3. Contadores para los botones de filtro (basados en la búsqueda actual)
-  const totalRegistros = filtradosBusqueda.length
-  const totalUtilizados = filtradosBusqueda.filter((d) => d.estado === 'UTILIZADO').length
-  const totalSinUso = filtradosBusqueda.filter((d) => d.estado === 'SIN_USO').length
-  const totalPendientes = filtradosBusqueda.filter((d) => d.estado === 'PENDIENTE').length
-  // El docente solo ve sus exámenes: si todas las filas son del mismo docente, la columna sobra.
-  const variosDocentes = new Set(datos.map((d) => d.docente)).size > 1
+  const delDocente = filtradosBusqueda.filter((d) => !docente || d.docente === docente)
+  const totalRegistros = delDocente.length
+  const totalUtilizados = delDocente.filter((d) => d.estado === 'UTILIZADO').length
+  const totalSinUso = delDocente.filter((d) => d.estado === 'SIN_USO').length
+  const totalPendientes = delDocente.filter((d) => d.estado === 'PENDIENTE').length
 
   return (
     <section aria-label="Uso de Ambientes" className="rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-5">
@@ -125,6 +126,17 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
         </div>
       </div>
 
+      {docentes.length > 1 && (
+        <label className="mt-3 flex flex-col gap-1 text-xs font-semibold text-[#45628D] sm:flex-row sm:items-center sm:gap-2">
+          Docente
+          <select value={docente} onChange={(e) => { setDocente(e.target.value); setPagina(0) }}
+            className="h-9 rounded-md border border-[#C9D7EC] bg-white px-2 text-[13px] font-normal text-[#011140] sm:w-64">
+            <option value="">Todos los docentes</option>
+            {docentes.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+      )}
+
       {filtrados.length === 0 ? (
         <p className="mt-6 rounded-lg bg-[#F8FAFC] p-6 text-center text-sm text-[#627A9B]">
           No hay ambientes que coincidan con la búsqueda o el filtro.
@@ -139,7 +151,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
                   <th className="px-3 py-2">Ambiente</th>
                   <th className="px-3 py-2">Materia</th>
                   <th className="px-3 py-2">Grupo</th>
-                  {variosDocentes && <th className="px-3 py-2">Docente</th>}
+                  <th className="px-3 py-2">Docente</th>
                   <th className="px-3 py-2">Fecha</th>
                   <th className="px-3 py-2">Horario</th>
                   <th className="px-3 py-2 text-right">Ingresos</th>
@@ -154,7 +166,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
                     </td>
                     <td className="px-3 py-2.5 text-[#334155]">{d.materia}</td>
                     <td className="px-3 py-2.5"><span className="rounded-md bg-[#EEF3FF] px-2 py-0.5 text-xs font-bold text-[#0439D9]">{d.grupo}</span></td>
-                    {variosDocentes && <td className="px-3 py-2.5 text-[#334155]">{d.docente}</td>}
+                    <td className="px-3 py-2.5 text-[#334155]">{d.docente}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[#45628D]">{formatFecha(d.fecha)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-[#45628D]">{d.horaInicio.slice(0, 5)} – {d.horaFin.slice(0, 5)}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
@@ -182,7 +194,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
                 <p className="mt-1 truncate text-[13px] font-semibold text-[#011140]">
                   {d.materia} <span className="font-bold text-[#0439D9]">· {d.grupo}</span>
                 </p>
-                {variosDocentes && <p className="truncate text-[11px] text-[#627A9B]">{d.docente}</p>}
+                <p className="truncate text-[11px] text-[#627A9B]">{d.docente}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs tabular-nums text-[#45628D]">
                   <span>{formatFecha(d.fecha)}</span>
                   <span aria-hidden="true">·</span>
