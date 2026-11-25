@@ -2102,6 +2102,38 @@ class PostgresIntegracionTests {
         com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(20, 15), 90);
     }
 
+    @Autowired com.nexacore.examenes.services.ReporteUsoAmbientesService reporteUsoAmbientes;
+
+    @Test
+    void elUsoDeAmbientesSeparaLosDatosYNoDaPorSinUsoLoQueAunNoPasa() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("USO-A");
+        int futuro = examen(paralelo, "08:00", 90);
+        int pasado = examen(paralelo, "10:00", 90);
+        int conIngreso = examen(paralelo, "12:00", 90);
+        int cancelado = examen(paralelo, "14:00", 90);
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 3 WHERE id_examen IN (?, ?, ?)", pasado, conIngreso, cancelado);
+        jdbc.update("UPDATE examen SET estado = 'cancelado' WHERE id_examen = ?", cancelado);
+        int est = estudiante("209950001", "Uma");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) "
+                + "VALUES (?, ?, ?, TRUE, CURRENT_TIMESTAMP, ?)", est, conIngreso, paralelo, idAmbiente);
+        sincronizar();
+
+        var filas = reporteUsoAmbientes.listar(null, null).stream().filter(f -> "Materia USO-A".equals(f.materia())).toList();
+        assertThat(filas).extracting(f -> f.idExamen()).containsExactlyInAnyOrder(futuro, pasado, conIngreso).doesNotContain(cancelado);
+        assertThat(filas).filteredOn(f -> f.idExamen() == futuro).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("PENDIENTE");
+            assertThat(f.grupo()).isEqualTo("1");
+            assertThat(f.horaInicio()).isEqualTo(java.time.LocalTime.of(8, 0));
+            assertThat(f.horaFin()).isEqualTo(java.time.LocalTime.of(9, 30));
+        });
+        assertThat(filas).filteredOn(f -> f.idExamen() == pasado).singleElement().satisfies(f -> assertThat(f.estado()).isEqualTo("SIN_USO"));
+        assertThat(filas).filteredOn(f -> f.idExamen() == conIngreso).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("UTILIZADO");
+            assertThat(f.ingresos()).isEqualTo(1);
+        });
+    }
+
     // ---------------------------------------------------------------- BUG-B01 / BUG-B02 (Sprint 4, 2.º reporte)
     @Autowired com.nexacore.examenes.services.RepartoAulasService repartoAulas;
 

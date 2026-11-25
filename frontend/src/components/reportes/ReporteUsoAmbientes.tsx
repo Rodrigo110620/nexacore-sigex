@@ -1,14 +1,30 @@
 import { useEffect, useState } from 'react'
 import { reporteUsoAmbientes, type ReporteUsoAmbiente } from '../../services/usoAmbientesService'
 import { formatFecha } from '../../utils/examenFormat'
-import { CheckCircle2, XCircle, MapPin } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, MapPin } from 'lucide-react'
+import type { EstadoUsoAmbiente } from '../../services/usoAmbientesService'
 
 interface Props {
   idExamen: number | null
   buscar: string
 }
 
-type Filtro = 'TODOS' | 'UTILIZADOS' | 'SIN_USO'
+type Filtro = 'TODOS' | 'UTILIZADOS' | 'SIN_USO' | 'PENDIENTES'
+
+const ESTADO: Record<EstadoUsoAmbiente, { texto: string; clase: string; Icono: typeof CheckCircle2 }> = {
+  UTILIZADO: { texto: 'Utilizado', clase: 'bg-[#DCFCE7] text-[#15803D]', Icono: CheckCircle2 },
+  SIN_USO: { texto: 'Sin uso', clase: 'bg-[#FEE2E2] text-[#B91C1C]', Icono: XCircle },
+  PENDIENTE: { texto: 'Pendiente', clase: 'bg-[#EEF3FF] text-[#45628D]', Icono: Clock },
+}
+
+function EstadoChip({ estado }: { estado: EstadoUsoAmbiente }) {
+  const { texto, clase, Icono } = ESTADO[estado] ?? ESTADO.SIN_USO
+  return (
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${clase}`}>
+      <Icono size={12} aria-hidden="true" /> {texto}
+    </span>
+  )
+}
 
 export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
   const [resultado, setResultado] = useState<{ clave: string; datos?: ReporteUsoAmbiente[]; error?: string }>()
@@ -36,20 +52,25 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
     !buscar || 
     d.ambiente.toLowerCase().includes(buscar.toLowerCase()) || 
     d.docente.toLowerCase().includes(buscar.toLowerCase()) ||
-    d.materiaGrupo.toLowerCase().includes(buscar.toLowerCase())
+    d.materia.toLowerCase().includes(buscar.toLowerCase()) ||
+    d.grupo.toLowerCase().includes(buscar.toLowerCase())
   )
 
   // 2. Filtro de estado (Utilizados / Sin Uso)
   const filtrados = filtradosBusqueda.filter((d) => {
-    if (filtro === 'UTILIZADOS') return d.utilizado
-    if (filtro === 'SIN_USO') return !d.utilizado
+    if (filtro === 'UTILIZADOS') return d.estado === 'UTILIZADO'
+    if (filtro === 'SIN_USO') return d.estado === 'SIN_USO'
+    if (filtro === 'PENDIENTES') return d.estado === 'PENDIENTE'
     return true
   })
 
   // 3. Contadores para los botones de filtro (basados en la búsqueda actual)
   const totalRegistros = filtradosBusqueda.length
-  const totalUtilizados = filtradosBusqueda.filter(d => d.utilizado).length
-  const totalSinUso = filtradosBusqueda.filter(d => !d.utilizado).length
+  const totalUtilizados = filtradosBusqueda.filter((d) => d.estado === 'UTILIZADO').length
+  const totalSinUso = filtradosBusqueda.filter((d) => d.estado === 'SIN_USO').length
+  const totalPendientes = filtradosBusqueda.filter((d) => d.estado === 'PENDIENTE').length
+  // El docente solo ve sus exámenes: si todas las filas son del mismo docente, la columna sobra.
+  const variosDocentes = new Set(datos.map((d) => d.docente)).size > 1
 
   return (
     <section aria-label="Uso de Ambientes" className="rounded-xl border border-[#D8E3F5] bg-white p-3 sm:p-5">
@@ -61,7 +82,7 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
         <div>
           <h2 className="text-base font-bold text-[#011140]">Uso de Ambientes</h2>
           <p className=" max-w-2xl text-[13px] text-[#627A9B]">
-            Historial de aulas, laboratorios y auditorios reservados para exámenes, y si se registraron ingresos en ellos.
+            Aulas reservadas para cada examen y cuántos estudiantes ingresaron en cada una. «Pendiente»: el examen aún no termina.
           </p>
         </div>
 
@@ -70,7 +91,8 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
           {[
             { id: 'TODOS', texto: 'Todos', cantidad: totalRegistros },
             { id: 'UTILIZADOS', texto: 'Utilizados', cantidad: totalUtilizados },
-            { id: 'SIN_USO', texto: 'Sin Uso', cantidad: totalSinUso }
+            { id: 'SIN_USO', texto: 'Sin uso', cantidad: totalSinUso },
+            ...(totalPendientes > 0 ? [{ id: 'PENDIENTES', texto: 'Pendientes', cantidad: totalPendientes }] : []),
           ].map(({ id, texto, cantidad }) => {
             const activo = filtro === id;
             return (
@@ -100,16 +122,18 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
         </p>
       ) : (
         <>
-          {/* VISTA DE PC (Tabla) */}
+          {/* VISTA DE PC (Tabla): cada dato en su columna */}
           <div className="mt-4 hidden overflow-x-auto xl:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-[#F8FAFC] text-[11px] uppercase tracking-wide text-[#627A9B]">
                 <tr>
                   <th className="px-3 py-2">Ambiente</th>
-                  <th className="px-3 py-2">Docente</th>
-                  <th className="px-3 py-2">Examen / Materia</th>
-                  <th className="px-3 py-2">Fecha y hora</th>
-                  <th className="px-3 py-2">Ingresos</th>
+                  <th className="px-3 py-2">Materia</th>
+                  <th className="px-3 py-2">Grupo</th>
+                  {variosDocentes && <th className="px-3 py-2">Docente</th>}
+                  <th className="px-3 py-2">Fecha</th>
+                  <th className="px-3 py-2">Horario</th>
+                  <th className="px-3 py-2 text-right">Ingresos</th>
                   <th className="px-3 py-2">Estado</th>
                 </tr>
               </thead>
@@ -117,27 +141,19 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
                 {filtrados.map((d, i) => (
                   <tr key={`${d.idExamen}-${d.ambiente}-${i}`} className="border-b border-[#EDF1F7] transition-colors hover:bg-[#F8FAFC]">
                     <td className="px-3 py-2.5 font-bold text-[#011140]">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={14} className="text-[#0439D9]" /> {d.ambiente}
-                      </div>
+                      <span className="flex items-center gap-1.5"><MapPin size={14} className="text-[#0439D9]" aria-hidden="true" /> {d.ambiente}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-[#334155]">{d.docente}</td>
-                    <td className="px-3 py-2.5 text-[#334155]">{d.materiaGrupo}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-[#45628D]">
-                      {formatFecha(d.fecha)} · {d.horaInicio.slice(0, 5)}
-                    </td>
-                    <td className="px-3 py-2.5 font-semibold text-[#011140]">{d.ingresos} est.</td>
-                    <td className="px-3 py-2.5">
-                      {d.utilizado ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
-                          <CheckCircle2 size={12} /> Utilizado
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
-                          <XCircle size={12} /> Sin uso
-                        </span>
+                    <td className="px-3 py-2.5 text-[#334155]">{d.materia}</td>
+                    <td className="px-3 py-2.5"><span className="rounded-md bg-[#EEF3FF] px-2 py-0.5 text-xs font-bold text-[#0439D9]">{d.grupo}</span></td>
+                    {variosDocentes && <td className="px-3 py-2.5 text-[#334155]">{d.docente}</td>}
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[#45628D]">{formatFecha(d.fecha)}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-[#45628D]">{d.horaInicio.slice(0, 5)} – {d.horaFin.slice(0, 5)}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
+                      {d.estado === 'PENDIENTE' ? <span className="text-[#94A3B8]">—</span> : (
+                        <><span className="font-semibold text-[#011140]">{d.ingresos}</span>{d.capacidad ? <span className="text-[#94A3B8]"> / {d.capacidad}</span> : null}</>
                       )}
                     </td>
+                    <td className="px-3 py-2.5"><EstadoChip estado={d.estado} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -147,44 +163,29 @@ export default function ReporteUsoAmbientes({ idExamen, buscar }: Props) {
           {/* VISTA DE CELULAR (Tarjetas) */}
           <ul className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden">
             {filtrados.map((d, i) => (
-              <li key={`${d.idExamen}-${d.ambiente}-${i}`} className="relative flex flex-col min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm transition-all hover:shadow-md">
-                
-                {/* Cabecera: Ambiente y Estado */}
+              <li key={`${d.idExamen}-${d.ambiente}-${i}`} className="flex min-w-0 flex-col rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-bold text-[#011140] flex items-center gap-1.5">
-                      <MapPin size={16} className="text-[#0439D9]" /> {d.ambiente}
-                    </p>
-                    <p className="mt-1 text-xs text-[#627A9B]">{d.docente}</p>
-                  </div>
-                  <div className="shrink-0">
-                    {d.utilizado ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
-                        <CheckCircle2 size={12} /> Utilizado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#FEE2E2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
-                        <XCircle size={12} /> Sin uso
-                      </span>
-                    )}
-                  </div>
+                  <p className="flex min-w-0 items-center gap-1.5 break-words text-sm font-bold text-[#011140]">
+                    <MapPin size={16} className="shrink-0 text-[#0439D9]" aria-hidden="true" /> {d.ambiente}
+                  </p>
+                  <EstadoChip estado={d.estado} />
                 </div>
-
-                {/* Datos */}
                 <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
-                  <dt className="font-semibold text-[#627A9B]">Examen</dt>
-                  <dd className="min-w-0 text-right break-words font-bold text-[#011140]">
-                    {d.materiaGrupo}
-                  </dd>
-                  
+                  <dt className="font-semibold text-[#627A9B]">Materia</dt>
+                  <dd className="min-w-0 break-words text-right font-bold text-[#011140]">{d.materia}</dd>
+                  <dt className="font-semibold text-[#627A9B]">Grupo</dt>
+                  <dd className="text-right font-semibold text-[#0439D9]">{d.grupo}</dd>
+                  {variosDocentes && (<>
+                    <dt className="font-semibold text-[#627A9B]">Docente</dt>
+                    <dd className="min-w-0 break-words text-right text-[#334155]">{d.docente}</dd>
+                  </>)}
                   <dt className="font-semibold text-[#627A9B]">Fecha</dt>
-                  <dd className="min-w-0 break-words text-right font-semibold text-[#334155]">
-                    {formatFecha(d.fecha)} · {d.horaInicio.slice(0, 5)}
-                  </dd>
-                  
+                  <dd className="text-right text-[#334155]">{formatFecha(d.fecha)}</dd>
+                  <dt className="font-semibold text-[#627A9B]">Horario</dt>
+                  <dd className="text-right tabular-nums text-[#334155]">{d.horaInicio.slice(0, 5)} – {d.horaFin.slice(0, 5)}</dd>
                   <dt className="font-semibold text-[#627A9B]">Ingresos</dt>
-                  <dd className="min-w-0 break-words text-right font-bold text-[#0F766E]">
-                    {d.ingresos} estudiantes
+                  <dd className="text-right tabular-nums font-bold text-[#011140]">
+                    {d.estado === 'PENDIENTE' ? '—' : `${d.ingresos}${d.capacidad ? ` / ${d.capacidad}` : ''}`}
                   </dd>
                 </dl>
               </li>
