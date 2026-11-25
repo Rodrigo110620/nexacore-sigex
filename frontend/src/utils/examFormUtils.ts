@@ -66,6 +66,26 @@ export function todayISO(): string {
   return `${y}-${m}-${d}`
 }
 
+/**
+ * Hora mínima para elegir el inicio: si la fecha es hoy, la próxima hora en pasos de 5 minutos; otro día, sin mínimo.
+ * Si ya no quedan horas hoy, «24:00» (no hay ninguna disponible).
+ */
+export function horaMinimaInicio(fecha: string, ahora: Date = new Date()): string | undefined {
+  if (!fecha || fecha !== todayISO()) return undefined
+  const minutos = Math.ceil((ahora.getHours() * 60 + ahora.getMinutes() + 1) / 5) * 5
+  if (minutos >= 24 * 60) return '24:00'
+  return `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`
+}
+
+/** Hora mínima para el fin: 5 minutos después del inicio (si el inicio está completo). */
+export function horaMinimaFin(inicio: string): string | undefined {
+  const a = parseHora24(inicio)
+  if (!a) return undefined
+  const minutos = a.h * 60 + a.m + 5
+  if (minutos >= 24 * 60) return '24:00'
+  return `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`
+}
+
 export function formatFechaDisplay(iso: string): string {
   const [year, month, day] = (iso ?? '').split('-')
   if (!year || !month || !day) return ''

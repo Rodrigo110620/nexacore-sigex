@@ -8,6 +8,8 @@ export interface AmbienteDto {
   capacidad?: number | null
   pabellon?: string | null
   disponible?: boolean  // presente solo cuando se consulta disponibilidad
+  /** Si está ocupado: con qué examen choca («Base de Datos I · G1 · 18:35–20:05»). */
+  ocupadoPor?: string | null
 }
 
 export async function listarAmbientes(): Promise<AmbienteDto[]> {

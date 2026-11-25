@@ -16,6 +16,7 @@ import IngresosRecientesCard from '../../components/control/IngresosRecientesCar
 import { listarEstudiantesExamen, type OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
 import { marcarPreparado, prepararExamenSinConexion } from '../../services/controlOfflinePreparationService'
+import { miAsignacion } from '../../services/personalControlService'
 
 export default function ControlExamenPage() {
   const idExamen = Number(useParams().idExamen)
@@ -40,6 +41,14 @@ export default function ControlExamenPage() {
   // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
   const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
   const [preparandoOffline, setPreparandoOffline] = useState(false)
+  // V66: el aula a cargo de este control cuando el examen se reparte en varias.
+  const [miAula, setMiAula] = useState<string | null>(null)
+  useEffect(() => {
+    if (!idValido) return
+    let vigente = true
+    miAsignacion(idExamen).then((a) => { if (vigente) setMiAula(a?.ambiente ?? null) }).catch(() => undefined)
+    return () => { vigente = false }
+  }, [idExamen, idValido])
   const [preparacionOffline, setPreparacionOffline] = useState<string | null>(null)
   const prepararOffline = async () => {
     if (!idValido || preparandoOffline) return
@@ -196,6 +205,13 @@ export default function ControlExamenPage() {
             </div>
           )}
         </section>
+
+        {miAula && (examen?.aulas?.length ?? 0) > 1 && (
+          <p role="status" className="flex items-center gap-2 rounded-xl border border-[#B8CBEF] bg-[#EEF3FF] px-3 py-2 text-sm text-[#011140]">
+            <span className="rounded-md bg-[#0439D9] px-2 py-0.5 text-xs font-bold text-white">Tu aula: {miAula}</span>
+            <span className="text-xs text-[#45628D]">El examen se reparte en {examen?.aulas?.length} aulas; controlas el ingreso de esta.</span>
+          </p>
+        )}
 
         <section className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-[#23406f] sm:flex-row sm:items-center sm:justify-between">
           <div>

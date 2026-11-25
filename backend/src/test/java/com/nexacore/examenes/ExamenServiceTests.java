@@ -455,8 +455,10 @@ class ExamenServiceTests {
     }
 
     private static CrearExamenRequest crearConAulas(List<Integer> adicionales) {
+        // Con aulas adicionales hace falta personal de control: uno por cada una.
+        List<Integer> personal = java.util.stream.IntStream.range(0, adicionales.size()).mapToObj(i -> 900 + i).toList();
         return new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA, LocalTime.of(9, 0), 90, AMBIENTE,
-                List.of(), List.of(), MATERIA, DOCENTE, adicionales);
+                List.of(), List.of(), MATERIA, DOCENTE, adicionales, null, null, personal);
     }
 
     private static Ambiente conAforo(Ambiente ambiente, int capacidad) {

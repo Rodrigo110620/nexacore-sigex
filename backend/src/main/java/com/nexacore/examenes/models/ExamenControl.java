@@ -18,7 +18,16 @@ public class ExamenControl {
     @EmbeddedId
     private ExamenControlId id;
 
+    /** El aula a su cargo cuando el examen se reparte en varias (V66); null: sin aula fija. */
+    @jakarta.persistence.Column(name = "id_ambiente")
+    private Integer idAmbiente;
+
     public ExamenControl(Integer idExamen, Integer idUsuario) {
         this.id = new ExamenControlId(idExamen, idUsuario);
+    }
+
+    public ExamenControl(Integer idExamen, Integer idUsuario, Integer idAmbiente) {
+        this(idExamen, idUsuario);
+        this.idAmbiente = idAmbiente;
     }
 }

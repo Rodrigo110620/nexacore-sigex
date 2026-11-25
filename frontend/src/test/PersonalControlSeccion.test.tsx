@@ -32,7 +32,7 @@ describe('Personal de control del examen (V53)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
     const asignados = await screen.findByRole('list', { name: 'Personal de control asignado' })
     expect(within(asignados).getByText('René Paz')).toBeInTheDocument()
-    expect(asignarPersonal).toHaveBeenCalledWith(7, [30, 31])
+    expect(asignarPersonal).toHaveBeenCalledWith(7, [30, 31], undefined)
   })
 
   it('sin personal asignado lo dice', async () => {
@@ -51,8 +51,25 @@ describe('Personal de control del examen (V53)', () => {
     render(<PersonalControlSeccion idExamen={7} puedeAsignar />)
     fireEvent.click(await screen.findByRole('button', { name: /Asignar/ }))
     const opciones = await screen.findByRole('list', { name: 'Personal de control disponible' })
-    expect(within(opciones).getByRole('checkbox', { name: /Carla Rojas/ })).toBeDisabled()
-    expect(within(opciones).getByText(/Ocupado 20:00–21:00/)).toBeInTheDocument()
+    // Solo los disponibles se pueden marcar; los ocupados quedan aparte, con el examen con el que chocan.
+    expect(within(opciones).queryByRole('checkbox', { name: /Carla Rojas/ })).not.toBeInTheDocument()
     expect(within(opciones).getByRole('checkbox', { name: /René Paz/ })).toBeEnabled()
+    expect(screen.getByText('1 ocupado a esa hora')).toBeInTheDocument()
+    expect(screen.getByText(/Carla Rojas · Ocupado 20:00–21:00/)).toBeInTheDocument()
+  })
+
+  it('con varias aulas muestra el aula de cada control y avisa del aula sin control (V66)', async () => {
+    vi.mocked(personalDelExamen).mockResolvedValue([{ ...carla, idAmbiente: 1, ambiente: '607' }])
+    render(<PersonalControlSeccion idExamen={7} puedeAsignar aulas={[{ idAmbiente: 1, nombre: '607' }, { idAmbiente: 2, nombre: '608' }]} />)
+    expect(await screen.findByText('Aula 607')).toBeInTheDocument()
+    expect(screen.getByText(/El aula 608 no tiene personal de control/)).toBeInTheDocument()
+
+    vi.mocked(asignarPersonal).mockResolvedValue([{ ...carla, idAmbiente: 2, ambiente: '608' }])
+    fireEvent.click(screen.getByRole('button', { name: /Cambiar/ }))
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Aula de Carla Rojas' }), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    const asignados = await screen.findByRole('list', { name: 'Personal de control asignado' })
+    expect(within(asignados).getByText('Aula 608')).toBeInTheDocument()
+    expect(asignarPersonal).toHaveBeenCalledWith(7, [30], { 30: 2 })
   })
 })

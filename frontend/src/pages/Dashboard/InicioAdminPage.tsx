@@ -18,6 +18,7 @@ import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraN
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import IncidenciasHoyModal from '../../components/inicio/IncidenciasHoyModal'
+import AlertaSinPersonalControl from '../../components/inicio/AlertaSinPersonalControl'
 import { EnVivo } from '../../components/inicio/Comun'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
 import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
@@ -133,6 +134,7 @@ export default function InicioAdminPage() {
         <div className="flex w-full flex-col gap-4 sm:gap-5">
           {error && <ErrorCarga mensaje={error} onReintentar={() => setRecarga((n) => n + 1)} />}
           <Banner nombre={primerNombre} fecha={fechaTexto} datos={datos} hora={ahora} />
+          {(tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS') || tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS')) && <AlertaSinPersonalControl />}
           {!datos ? (
             <p className="py-16 text-center text-sm text-[#627A9B]">Cargando el resumen del día…</p>
           ) : (

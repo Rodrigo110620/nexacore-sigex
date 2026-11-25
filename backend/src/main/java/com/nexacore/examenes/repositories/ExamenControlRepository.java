@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ExamenControlRepository extends JpaRepository<ExamenControl, ExamenControlId> {
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM ExamenControl c WHERE c.id.idExamen = :idExamen")
     void quitarDelExamen(@Param("idExamen") Integer idExamen);
 
