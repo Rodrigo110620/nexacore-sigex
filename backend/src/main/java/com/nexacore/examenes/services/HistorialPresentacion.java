@@ -275,14 +275,15 @@ class HistorialPresentacion {
             case "MATERIA_CARRERAS" -> new Vista(texto(d, "materia"), d.path("carreras").isEmpty()
                     ? "Dejó la materia sin carreras (no restringe)"
                     : "Definió las carreras de la materia: " + String.join(", ", textos(d.path("carreras"))), null, List.of());
-            case "MATERIA_CREADA" -> new Vista(texto(d, "materia") + " (" + texto(d, "sigla") + ")", "Creó la materia", null, List.of());
+            case "MATERIA_CREADA" -> new Vista(texto(d, "materia") + " (" + texto(d, "sigla") + ")", d.path("siglaProvisional").asBoolean()
+                    ? "Creó la materia con una sigla provisional sugerida por SIGEX" : "Creó la materia", null, List.of());
             case "MATERIA_EDITADA" -> new Vista(texto(d, "materia") + " (" + texto(d, "sigla") + ")",
                     "Editó la materia" + (texto(d, "antes") == null ? "" : " (antes: " + texto(d, "antes") + ")"), null, List.of());
             case "MATERIA_ACTIVADA" -> new Vista(texto(d, "materia"), "Volvió a activar la materia", null, List.of());
             case "MATERIA_DESACTIVADA" -> new Vista(texto(d, "materia"),
                     "Desactivó la materia: ya no se ofrece para nuevos exámenes", null, List.of());
             case "MATERIAS_IMPORTADAS" -> new Vista("Catálogo de materias", "Importó " + plural(d.path("creadas").asInt(), "materia", "materias")
-                    + (d.has("existentes") ? "; " + d.path("existentes").asInt() + " ya existían" : "")
+                    + (d.has("actualizadas") ? "; actualizó " + d.path("actualizadas").asInt() : "")
                     + (d.has("errores") ? "; " + d.path("errores").asInt() + " con errores" : ""), null, List.of());
             case "HABILITACION_FALLIDA" -> new Vista(examen(d), "Intentó cambiar la habilitación y no se aplicó",
                     texto(d, "motivo"), List.of());

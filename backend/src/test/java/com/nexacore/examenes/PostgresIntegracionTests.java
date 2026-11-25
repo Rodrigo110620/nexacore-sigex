@@ -2078,6 +2078,15 @@ class PostgresIntegracionTests {
         assertThat(materiaCatalogoService.editar(creada.idMateria(),
                 new com.nexacore.examenes.dto.MateriaRequest("CAT-101", "Teoría de Grafos I", null)).nombre()).isEqualTo("Teoría de Grafos I");
 
+        // Sin sigla: SIGEX sugiere una a partir del nombre y la marca provisional hasta que se ponga la oficial.
+        var sinSigla = materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest("  ", "Teoría de la Computación", null));
+        assertThat(sinSigla.sigla()).matches("[A-Z]{2,4}-1\\d\\d");
+        assertThat(sinSigla.siglaProvisional()).isTrue();
+        var corregida = materiaCatalogoService.editar(sinSigla.idMateria(),
+                new com.nexacore.examenes.dto.MateriaRequest("2010210", "Teoría de la Computación", null));
+        assertThat(corregida.sigla()).isEqualTo("2010210");
+        assertThat(corregida.siglaProvisional()).isFalse();
+
         // Desactivada: no aparece al buscar para programar exámenes ni se asigna a un docente nuevo.
         materiaCatalogoService.cambiarEstado(creada.idMateria(), false);
         sincronizar();
@@ -2092,16 +2101,30 @@ class PostgresIntegracionTests {
         String csv = """
                 sigla;nombre;carreras
                 CAT-201;Compiladores;Ingeniería de Sistemas|Ingeniería Informática
-                CAT-101;Repetida;
+                CAT-101;Teoría de Grafos I;
                 CAT-202;Lógica;Carrera que no existe
                 ;Sin sigla;
                 CAT-203;Autómatas;
+                2010210;"Teoría de la Computación, avanzada";Ingeniería de Sistemas
+                CAT-201;Repetida en el archivo;
                 """;
-        var r = materiaCatalogoService.importar(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var r = materiaCatalogoService.importar(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8), "materias.csv");
         assertThat(r.creadas()).isEqualTo(2);
-        assertThat(r.existentes()).containsExactly("CAT-101");
-        assertThat(r.errores()).hasSize(2).anySatisfy(e -> assertThat(e).startsWith("Fila 4:").contains("no existe la carrera"))
-                .anySatisfy(e -> assertThat(e).startsWith("Fila 5:").contains("sigla es obligatoria"));
+        assertThat(r.sinCambios()).containsExactly("CAT-101");
+        assertThat(r.actualizadas()).containsExactly("2010210");
+        assertThat(r.errores()).hasSize(3).anySatisfy(e -> assertThat(e).startsWith("Fila 4:").contains("no existe la carrera"))
+                .anySatisfy(e -> assertThat(e).startsWith("Fila 5:").contains("sigla es obligatoria"))
+                .anySatisfy(e -> assertThat(e).startsWith("Fila 8:").contains("repetida en el archivo"));
+        assertThat(jdbc.queryForObject("SELECT nombre FROM materia WHERE sigla = '2010210'", String.class))
+                .isEqualTo("Teoría de la Computación, avanzada");
+        assertThatThrownBy(() -> materiaCatalogoService.importar("x".getBytes(), "materias.pdf")).hasMessageContaining("CSV (.csv) o Excel (.xlsx)");
+        assertThatThrownBy(() -> materiaCatalogoService.importar("sigla;nombre\n".getBytes(), "materias.csv")).hasMessageContaining("solo tiene el encabezado");
+        // La plantilla y el catálogo se pueden volver a importar tal cual.
+        assertThat(new String(materiaCatalogoService.plantillaCsv(), java.nio.charset.StandardCharsets.UTF_8)).contains("sigla;nombre;carreras");
+        var reimport = materiaCatalogoService.importar(materiaCatalogoService.catalogoCsv(), "materias.csv");
+        assertThat(reimport.errores()).isEmpty();
+        assertThat(reimport.creadas()).isZero();
+        assertThat(materiaCatalogoService.catalogoXlsx()).isNotEmpty();
         sincronizar();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM materia_carrera mc JOIN materia m ON m.id_materia = mc.id_materia WHERE m.sigla = 'CAT-201'",
                 Integer.class)).isEqualTo(2);

@@ -73,7 +73,35 @@ public class MateriaController {
     @org.springframework.web.bind.annotation.PostMapping(value = "/importar", consumes = "multipart/form-data")
     public ResponseEntity<com.nexacore.examenes.dto.ImportacionMateriasResponse> importar(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws java.io.IOException {
-        return ResponseEntity.ok(materiaCatalogoService.importar(file.getBytes()));
+        return ResponseEntity.ok(materiaCatalogoService.importar(file.getBytes(), file.getOriginalFilename()));
+    }
+
+    @Operation(summary = "Plantilla para importar materias", description = "csv o xlsx, con dos filas de ejemplo. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/plantilla.{formato}")
+    public ResponseEntity<byte[]> plantilla(@org.springframework.web.bind.annotation.PathVariable String formato) {
+        return archivo(formato, materiaCatalogoService.plantillaCsv(), materiaCatalogoService::plantillaXlsx, "plantilla_materias");
+    }
+
+    @Operation(summary = "Descargar el catálogo de materias", description = "csv o xlsx, para editarlo y volver a importarlo. Solo ADMIN.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/catalogo.{formato}")
+    public ResponseEntity<byte[]> catalogo(@org.springframework.web.bind.annotation.PathVariable String formato) {
+        return archivo(formato, materiaCatalogoService.catalogoCsv(), materiaCatalogoService::catalogoXlsx, "plantilla_materias");
+    }
+
+    private static ResponseEntity<byte[]> archivo(String formato, byte[] csv, java.util.function.Supplier<byte[]> xlsx, String nombre) {
+        boolean excel = "xlsx".equalsIgnoreCase(formato);
+        if (!excel && !"csv".equalsIgnoreCase(formato)) {
+            throw new IllegalArgumentException("El formato debe ser csv o xlsx.");
+        }
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, org.springframework.http.ContentDisposition
+                        .attachment().filename(nombre + (excel ? ".xlsx" : ".csv")).build().toString())
+                .contentType(excel ? org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        : org.springframework.http.MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(excel ? xlsx.get() : csv);
     }
 
     @Operation(summary = "Carreras de una materia", description = "Deja la materia con esas carreras; vacío = sin restricción. Solo ADMIN.")

@@ -71,7 +71,8 @@ public class MateriaCarreraService {
                                 .sorted(Comparator.comparing(Carrera::getNombre))
                                 .map(c -> new MateriaConCarrerasResponse.CarreraDeMateria(c.getId().getIdCarrera(), c.getNombre()))
                                 .toList(),
-                        m.isActiva(), oferta.getOrDefault(m.getId(), new int[2])[0], oferta.getOrDefault(m.getId(), new int[2])[1]))
+                        m.isActiva(), oferta.getOrDefault(m.getId(), new int[2])[0], oferta.getOrDefault(m.getId(), new int[2])[1],
+                        m.isSiglaProvisional()))
                 .toList();
     }
 
@@ -117,6 +118,11 @@ public class MateriaCarreraService {
             if (suyas.stream().noneMatch(carrerasMateria::contains)) fuera.add(id);
         }
         return fuera;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Integer> idsCarrera(Integer idMateria) {
+        return repository.idsCarrera(idMateria);
     }
 
     /** «Ing. de Sistemas, Ing. Informática»: las carreras de la materia, para los mensajes. */

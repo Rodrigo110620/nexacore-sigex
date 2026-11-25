@@ -12,6 +12,8 @@ export interface MateriaConCarreras {
   activa: boolean
   gruposEnPeriodo: number
   docentesEnPeriodo: number
+  /** La sigla la sugirió SIGEX: falta reemplazarla por la oficial. */
+  siglaProvisional?: boolean
 }
 
 export interface MateriaPayload {
@@ -23,7 +25,10 @@ export interface MateriaPayload {
 
 export interface ImportacionMaterias {
   creadas: number
-  existentes: string[]
+  /** Siglas que ya existían y cambiaron (nombre o carreras). */
+  actualizadas: string[]
+  /** Siglas que ya existían y estaban igual. */
+  sinCambios: string[]
   errores: string[]
 }
 

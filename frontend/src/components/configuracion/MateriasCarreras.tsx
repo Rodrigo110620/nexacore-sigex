@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, CircleAlert, CircleCheck, FileUp, LoaderCircle, Pencil, Plus, Power, Search, X } from 'lucide-react'
+import { BookOpen, CircleAlert, CircleCheck, FileUp, LoaderCircle, Pencil, Plus, Power, Search } from 'lucide-react'
 import {
-  cambiarEstadoMateria, crearMateria, editarMateria, importarMaterias, listarMateriasConCarreras,
-  type ImportacionMaterias, type MateriaConCarreras,
+  cambiarEstadoMateria, listarMateriasConCarreras, type MateriaConCarreras,
 } from '../../services/materiaCarreraService'
 import { listarPeriodos } from '../../services/periodoService'
 import { getCarreras } from '../../services/estudianteService'
 import type { CarreraOption } from '../../types/estudiante'
 import { contiene } from '../../utils/textoBusqueda'
+import MateriaFormModal from './MateriaFormModal'
+import ImportarMateriasModal from './ImportarMateriasModal'
 
 type Vista = 'periodo' | 'todas' | 'inactivas'
-const SIGLA = /^[A-Za-z0-9][A-Za-z0-9-]{1,14}$/
 
 function mensajeDe(err: unknown, porDefecto: string): string {
   const data = (err as { response?: { data?: { mensaje?: string; errores?: Record<string, string> } } }).response?.data
@@ -28,13 +28,10 @@ export default function MateriasCarreras() {
   const [periodo, setPeriodo] = useState('')
   const [vista, setVista] = useState<Vista>('todas')
   const [buscar, setBuscar] = useState('')
+  const [facultad, setFacultad] = useState('')
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null)
-  // Formulario de alta o edición (null: cerrado; idMateria null: nueva).
-  const [form, setForm] = useState<{ idMateria: number | null; sigla: string; nombre: string; carreras: Set<number> } | null>(null)
-  const [errorForm, setErrorForm] = useState('')
-  const [guardando, setGuardando] = useState(false)
-  const [importando, setImportando] = useState(false)
-  const [resultado, setResultado] = useState<ImportacionMaterias | null>(null)
+  // Formulario: undefined cerrado; null nueva materia; una materia: editarla.
+  const [formulario, setFormulario] = useState<MateriaConCarreras | null | undefined>(undefined)
   const [verImportar, setVerImportar] = useState(false)
 
   const cargar = useCallback(() => {
@@ -47,6 +44,9 @@ export default function MateriasCarreras() {
     listarPeriodos().then((l) => setPeriodo(l.find((p) => p.activo)?.nombre ?? '')).catch(() => undefined)
   }, [cargar])
 
+  const facultadDe = useMemo(() => new Map(carreras.map((c) => [c.idCarrera, c.nombreFacultad])), [carreras])
+  const facultades = useMemo(() => [...new Set(carreras.map((c) => c.nombreFacultad))].sort((a, b) => a.localeCompare(b, 'es')), [carreras])
+
   const conteo = useMemo(() => ({
     periodo: (materias ?? []).filter((m) => m.activa && m.gruposEnPeriodo > 0).length,
     todas: (materias ?? []).filter((m) => m.activa).length,
@@ -55,48 +55,21 @@ export default function MateriasCarreras() {
 
   const visibles = useMemo(() => (materias ?? [])
     .filter((m) => vista === 'inactivas' ? !m.activa : m.activa && (vista === 'todas' || m.gruposEnPeriodo > 0))
+    .filter((m) => !facultad || m.carreras.some((c) => facultadDe.get(c.idCarrera) === facultad))
     .filter((m) => !buscar.trim() || contiene(`${m.nombre} ${m.sigla ?? ''} ${m.carreras.map((c) => c.nombre).join(' ')}`, buscar)),
-  [materias, vista, buscar])
+  [materias, vista, buscar, facultad, facultadDe])
   const sinCarreras = (materias ?? []).filter((m) => m.activa && m.carreras.length === 0).length
+  const provisionales = (materias ?? []).filter((m) => m.activa && m.siglaProvisional).length
 
-  const abrirNueva = () => { setForm({ idMateria: null, sigla: '', nombre: '', carreras: new Set() }); setErrorForm(''); setAviso(null) }
-  const abrirEditar = (m: MateriaConCarreras) => {
-    setForm({ idMateria: m.idMateria, sigla: m.sigla ?? '', nombre: m.nombre, carreras: new Set(m.carreras.map((c) => c.idCarrera)) })
-    setErrorForm(''); setAviso(null)
-  }
-  const alternarCarrera = (id: number) => setForm((f) => {
-    if (!f) return f
-    const nuevo = new Set(f.carreras)
-    if (nuevo.has(id)) nuevo.delete(id)
-    else nuevo.add(id)
-    return { ...f, carreras: nuevo }
-  })
 
-  const validarForm = (): string => {
-    if (!form) return ''
-    if (!form.sigla.trim()) return 'La sigla es obligatoria.'
-    if (!SIGLA.test(form.sigla.trim())) return 'La sigla debe tener de 2 a 15 letras, números o guiones (p. ej. 2010017 o INF-112).'
-    if (form.nombre.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres.'
-    return ''
-  }
 
-  const guardar = async () => {
-    if (!form || guardando) return
-    const error = validarForm()
-    if (error) { setErrorForm(error); return }
-    setGuardando(true)
-    try {
-      const payload = { sigla: form.sigla.trim(), nombre: form.nombre.trim(), idsCarrera: [...form.carreras] }
-      const m = form.idMateria === null ? await crearMateria(payload) : await editarMateria(form.idMateria, payload)
-      setAviso({ ok: true, texto: `${m.nombre} (${m.sigla}) ${form.idMateria === null ? 'creada' : 'guardada'}.` })
-      setForm(null)
-      cargar()
-    } catch (err) {
-      setErrorForm(mensajeDe(err, 'No se pudo guardar la materia. Revisa tu conexión e intenta de nuevo.'))
-    } finally {
-      setGuardando(false)
-    }
-  }
+
+
+
+
+
+  const abrirNueva = () => { setFormulario(null); setAviso(null) }
+  const abrirEditar = (m: MateriaConCarreras) => { setFormulario(m); setAviso(null) }
 
   const cambiarEstado = async (m: MateriaConCarreras) => {
     const activar = !m.activa
@@ -110,41 +83,25 @@ export default function MateriasCarreras() {
     }
   }
 
-  const importar = async (archivo: File | undefined) => {
-    if (!archivo) return
-    setImportando(true)
-    setResultado(null)
-    try {
-      const r = await importarMaterias(archivo)
-      setResultado(r)
-      cargar()
-    } catch (err) {
-      setResultado({ creadas: 0, existentes: [], errores: [mensajeDe(err, 'No se pudo importar el archivo.')] })
-    } finally {
-      setImportando(false)
-    }
-  }
+
 
   const campo = 'h-11 w-full rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm text-[#011140] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0439D9]/30'
-  const pestanas: [Vista, string][] = [['todas', 'Activas'], ['periodo', `Ofertadas en ${periodo || 'el periodo'}`], ['inactivas', 'Desactivadas']]
+  const pestanas: [Vista, string][] = [['todas', 'Activas'], ['periodo', periodo || 'Del periodo'], ['inactivas', 'Desactivadas']]
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-[#011140]">Materias</h2>
-          <p className="max-w-3xl text-sm text-[#627A9B]">
-            El catálogo es el mismo todos los semestres. Lo que cambia por periodo es la oferta: los grupos de cada
-            materia y su docente, que se asignan en Usuarios. Una materia desactivada ya no se ofrece, pero conserva su historial.
-          </p>
+          <p className="text-sm text-[#627A9B]">Catálogo de materias y sus carreras. Los grupos de cada semestre se asignan en Usuarios.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => { setVerImportar(true); setResultado(null) }}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <button type="button" onClick={() => setVerImportar(true)}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-3 text-sm font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
             <FileUp size={16} aria-hidden="true" /> Importar
           </button>
           <button type="button" onClick={abrirNueva}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2]">
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2]">
             <Plus size={16} aria-hidden="true" /> Nueva materia
           </button>
         </div>
@@ -157,6 +114,12 @@ export default function MateriasCarreras() {
           {aviso.texto}
         </p>
       )}
+      {provisionales > 0 && (
+        <p className="flex items-start gap-2 rounded-lg bg-[#FFFAEB] px-3 py-2 text-xs text-[#7A2E0E]">
+          <CircleAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+          {provisionales === 1 ? '1 materia tiene' : `${provisionales} materias tienen`} una sigla provisional sugerida por SIGEX: reemplázala por la sigla oficial del plan de estudios con «Editar».
+        </p>
+      )}
       {sinCarreras > 0 && (
         <p className="flex items-start gap-2 rounded-lg bg-[#FFFAEB] px-3 py-2 text-xs text-[#7A2E0E]">
           <CircleAlert size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -165,20 +128,26 @@ export default function MateriasCarreras() {
       )}
 
       <section className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-[#D8E3F5]">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="Materias" className="flex flex-wrap gap-1.5">
+        <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div role="tablist" aria-label="Materias" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:pb-0">
             {pestanas.map(([id, texto]) => (
               <button key={id} type="button" role="tab" aria-selected={vista === id} onClick={() => setVista(id)}
-                className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold ${vista === id ? 'bg-[#0439D9] text-white' : 'border border-[#D8E3F5] text-[#45628D] hover:bg-[#F1F6FF]'}`}>
+                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold ${vista === id ? 'bg-[#0439D9] text-white' : 'border border-[#D8E3F5] text-[#45628D] hover:bg-[#F1F6FF]'}`}>
                 {texto}
                 <span className={`rounded-full px-1.5 tabular-nums ${vista === id ? 'bg-white/20' : 'bg-[#EDF2FE]'}`}>{conteo[id]}</span>
               </button>
             ))}
           </div>
-          <div className="relative min-w-0 flex-1 basis-56">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#45628D]" aria-hidden="true" />
-            <input type="search" value={buscar} onChange={(e) => setBuscar(e.target.value)} aria-label="Buscar materia o carrera"
-              placeholder="Buscar materia, sigla o carrera…" className={`${campo} h-10 pl-9`} />
+          <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[1fr_14rem]">
+            <div className="relative min-w-0">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#45628D]" aria-hidden="true" />
+              <input type="search" value={buscar} onChange={(e) => setBuscar(e.target.value)} aria-label="Buscar materia o carrera"
+                placeholder="Buscar materia, sigla o carrera…" className={`${campo} h-10 pl-9`} />
+            </div>
+            <select value={facultad} onChange={(e) => setFacultad(e.target.value)} aria-label="Filtrar por facultad" className={`${campo} h-10 truncate`}>
+              <option value="">Todas las facultades</option>
+              {facultades.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
           </div>
         </div>
         {materias === null ? (
@@ -191,12 +160,13 @@ export default function MateriasCarreras() {
         ) : (
           <ul className="divide-y divide-[#EEF2F8]">
             {visibles.map((m) => (
-              <li key={m.idMateria} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+              <li key={m.idMateria} className="flex items-start justify-between gap-2 py-3">
                 <div className="flex min-w-0 items-start gap-2.5">
                   <BookOpen size={18} className={`mt-0.5 shrink-0 ${m.activa ? 'text-[#45628D]' : 'text-[#B8C4D4]'}`} aria-hidden="true" />
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold ${m.activa ? 'text-[#011140]' : 'text-[#8BA0BF]'}`}>
                       {m.nombre} {m.sigla && <span className="font-normal text-[#627A9B]">· {m.sigla}</span>}
+                      {m.siglaProvisional && <span className="ml-2 rounded-full bg-[#FEF0C7] px-2 py-0.5 text-[11px] font-semibold text-[#93370D]" title="Sugerida por SIGEX: reemplázala por la oficial">Sigla provisional</span>}
                       {!m.activa && <span className="ml-2 rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-semibold text-[#64748B]">Desactivada</span>}
                     </p>
                     <p className="text-xs text-[#627A9B]">
@@ -213,14 +183,15 @@ export default function MateriasCarreras() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
-                  <button type="button" onClick={() => abrirEditar(m)} aria-label={`Editar ${m.nombre}`}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#B8CBEF] px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF]">
-                    <Pencil size={14} aria-hidden="true" /> Editar
+                <div className="flex shrink-0 gap-1">
+                  <button type="button" onClick={() => abrirEditar(m)} aria-label={`Editar ${m.nombre}`} title="Editar"
+                    className="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border border-[#B8CBEF] px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] sm:px-3">
+                    <Pencil size={14} aria-hidden="true" /> <span className="hidden sm:inline">Editar</span>
                   </button>
                   <button type="button" onClick={() => void cambiarEstado(m)} aria-label={`${m.activa ? 'Desactivar' : 'Activar'} ${m.nombre}`}
-                    className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold ${m.activa ? 'text-[#B42318] hover:bg-[#FEF3F2]' : 'text-[#05603A] hover:bg-[#ECFDF3]'}`}>
-                    <Power size={14} aria-hidden="true" /> {m.activa ? 'Desactivar' : 'Activar'}
+                    title={m.activa ? 'Desactivar' : 'Activar'}
+                    className={`inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold sm:px-3 ${m.activa ? 'border-[#FDA29B] text-[#B42318] hover:bg-[#FEF3F2]' : 'border-[#A6F4C5] text-[#05603A] hover:bg-[#ECFDF3]'}`}>
+                    <Power size={14} aria-hidden="true" /> <span className="hidden sm:inline">{m.activa ? 'Desactivar' : 'Activar'}</span>
                   </button>
                 </div>
               </li>
@@ -229,95 +200,17 @@ export default function MateriasCarreras() {
         )}
       </section>
 
-      {form && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#011140]/40 p-4" role="dialog" aria-modal="true" aria-labelledby="materia-form-titulo">
-          <section className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            <header className="flex items-start justify-between gap-3 border-b border-[#E6EAF0] p-4">
-              <div>
-                <h3 id="materia-form-titulo" className="text-base font-bold text-[#011140]">{form.idMateria === null ? 'Nueva materia' : `Editar ${form.nombre}`}</h3>
-                <p className="text-xs text-[#627A9B]">Usa la sigla y el nombre del plan de estudios. Marca todas las carreras que la llevan.</p>
-              </div>
-              <button type="button" onClick={() => setForm(null)} aria-label="Cerrar" className="rounded-lg p-1 text-[#45628D] hover:bg-[#F1F6FF]"><X size={18} /></button>
-            </header>
-            <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
-                <div>
-                  <label htmlFor="materia-sigla" className="mb-1 block text-xs font-medium text-[#011140]">Sigla</label>
-                  <input id="materia-sigla" value={form.sigla} maxLength={15} placeholder="2010017"
-                    onChange={(e) => setForm({ ...form, sigla: e.target.value })} className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="materia-nombre" className="mb-1 block text-xs font-medium text-[#011140]">Nombre</label>
-                  <input id="materia-nombre" value={form.nombre} maxLength={100} placeholder="Base de Datos I"
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })} className={campo} />
-                </div>
-              </div>
-              <fieldset>
-                <legend className="mb-1 text-xs font-medium text-[#011140]">Carreras ({form.carreras.size})</legend>
-                <ul className="max-h-60 overflow-y-auto rounded-lg border border-[#E6EAF0] p-1">
-                  {carreras.map((c) => (
-                    <li key={c.idCarrera}>
-                      <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-[#011140] hover:bg-[#F8FAFF]">
-                        <input type="checkbox" checked={form.carreras.has(c.idCarrera)} onChange={() => alternarCarrera(c.idCarrera)} />
-                        {c.nombre} <span className="text-xs text-[#8BA0BF]">· {c.nombreFacultad}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </fieldset>
-              {errorForm && <p role="alert" className="text-xs text-[#B42318]">{errorForm}</p>}
-            </div>
-            <footer className="flex justify-end gap-2 border-t border-[#E6EAF0] p-4">
-              <button type="button" onClick={() => setForm(null)} className="min-h-10 rounded-lg border border-[#D8E3F5] px-4 text-sm font-semibold text-[#45628D]">Cancelar</button>
-              <button type="button" onClick={() => void guardar()} disabled={guardando}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white hover:bg-[#0027a2] disabled:opacity-50">
-                {guardando && <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />}
-                {form.idMateria === null ? 'Crear materia' : 'Guardar'}
-              </button>
-            </footer>
-          </section>
-        </div>
+      {formulario !== undefined && (
+        <MateriaFormModal materia={formulario} carreras={carreras} onClose={() => setFormulario(undefined)}
+          onGuardada={(m) => {
+            setAviso({ ok: true, texto: `${m.nombre} (${m.sigla}) ${formulario === null ? 'registrada' : 'guardada'}.`
+              + (m.siglaProvisional ? ' La sigla es provisional: reemplázala por la oficial cuando la tengas.' : '') })
+            setFormulario(undefined)
+            cargar()
+          }} />
       )}
 
-      {verImportar && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#011140]/40 p-4" role="dialog" aria-modal="true" aria-labelledby="materia-importar-titulo">
-          <section className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            <header className="flex items-start justify-between gap-3 border-b border-[#E6EAF0] p-4">
-              <div>
-                <h3 id="materia-importar-titulo" className="text-base font-bold text-[#011140]">Importar materias</h3>
-                <p className="text-xs text-[#627A9B]">Un archivo CSV con una materia por fila. Las siglas que ya existen no se modifican.</p>
-              </div>
-              <button type="button" onClick={() => setVerImportar(false)} aria-label="Cerrar" className="rounded-lg p-1 text-[#45628D] hover:bg-[#F1F6FF]"><X size={18} /></button>
-            </header>
-            <div className="flex-1 space-y-3 overflow-y-auto p-4 text-sm">
-              <div className="rounded-lg bg-[#F8FAFF] p-3 text-xs text-[#45628D]">
-                <p className="font-semibold text-[#011140]">Formato</p>
-                <pre className="mt-1 overflow-x-auto whitespace-pre font-mono text-[11px] text-[#011140]">{`sigla;nombre;carreras
-2010017;Base de Datos I;Ingeniería de Sistemas|Ingeniería Informática
-2008019;Cálculo I;Ingeniería de Sistemas|Ingeniería Civil`}</pre>
-                <p className="mt-1">Las carreras van por nombre (o código) y separadas por «|». Si no pones carreras, la materia no restringe.</p>
-              </div>
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[#B8CBEF] p-5 text-center hover:bg-[#F8FAFF]">
-                {importando ? <LoaderCircle size={22} className="animate-spin text-[#0439D9]" aria-hidden="true" /> : <FileUp size={22} className="text-[#0439D9]" aria-hidden="true" />}
-                <span className="font-semibold text-[#0439D9]">{importando ? 'Importando…' : 'Elegir archivo CSV'}</span>
-                <input type="file" accept=".csv,text/csv" className="sr-only" disabled={importando}
-                  onChange={(e) => { void importar(e.target.files?.[0]); e.target.value = '' }} />
-              </label>
-              {resultado && (
-                <div role="status" className="space-y-1.5">
-                  <p className="font-semibold text-[#05603A]">{resultado.creadas === 1 ? '1 materia creada' : `${resultado.creadas} materias creadas`}.</p>
-                  {resultado.existentes.length > 0 && <p className="text-xs text-[#45628D]">Ya existían (no se tocaron): {resultado.existentes.join(', ')}</p>}
-                  {resultado.errores.length > 0 && (
-                    <ul className="max-h-40 list-inside list-disc overflow-y-auto rounded-lg bg-[#FEF3F2] p-2 text-xs text-[#B42318]">
-                      {resultado.errores.map((e) => <li key={e}>{e}</li>)}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
+      {verImportar && <ImportarMateriasModal onClose={() => setVerImportar(false)} onImportado={cargar} />}
     </div>
   )
 }

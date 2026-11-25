@@ -729,7 +729,8 @@ public class ExamenService {
                 || compacta.startsWith(compactaNombre.substring(0, Math.min(8, compactaNombre.length())));
     }
 
-    private String siglaUnicaDesdeNombre(String nombre) {
+    /** Sigla sugerida y libre a partir del nombre: «Teoría de Grafos» → TG-101 (la usa también el catálogo de materias). */
+    public String siglaUnicaDesdeNombre(String nombre) {
         String prefijo = prefijoDesdeNombre(nombre);
         int n = 101;
         String candidata = prefijo + "-" + n;

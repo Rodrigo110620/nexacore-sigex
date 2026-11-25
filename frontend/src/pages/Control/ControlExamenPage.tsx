@@ -48,8 +48,13 @@ export default function ControlExamenPage() {
     try {
       const resultado = await prepararExamenSinConexion(idExamen)
       setPreparacionOffline(`Listo para trabajar sin conexión: ${resultado.estudiantes} estudiantes y sus fichas quedaron guardados en este dispositivo.`)
-    } catch {
-      setPreparacionOffline('No se pudo completar la preparación. Verifica la conexión e inténtalo nuevamente.')
+    } catch (err) {
+      const r = (err as { response?: { status?: number; data?: { mensaje?: string } } }).response
+      setPreparacionOffline(!r
+        ? 'No se pudo completar la preparación: no hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.'
+        : r.status === 401 || r.status === 403
+          ? 'No se pudo completar la preparación: tu cuenta no tiene acceso al control de este examen.'
+          : `No se pudo completar la preparación${r.data?.mensaje ? `: ${r.data.mensaje}` : ' por un error del servidor'}. Inténtalo de nuevo.`)
     } finally {
       setPreparandoOffline(false)
     }
