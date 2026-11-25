@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ReporteUsoAmbientes from '../components/reportes/ReporteUsoAmbientes'
 import { reporteUsoAmbientes, type ReporteUsoAmbiente } from '../services/usoAmbientesService'
@@ -19,16 +19,19 @@ describe('Uso de Ambientes', () => {
     render(<ReporteUsoAmbientes idExamen={null} buscar="" />)
     const tabla = await screen.findByRole('table')
     const encabezados = within(tabla).getAllByRole('columnheader').map((th) => th.textContent)
-    expect(encabezados).toEqual(['Ambiente', 'Materia', 'Grupo', 'Fecha', 'Horario', 'Ingresos', 'Estado'])
+    expect(encabezados).toEqual(['Ambiente', 'Materia', 'Grupo', 'Docente', 'Fecha', 'Horario', 'Ingresos', 'Estado'])
     expect(within(tabla).getAllByText('20:04 – 21:34')).toHaveLength(2)
     expect(within(tabla).getByText('Pendiente')).toBeInTheDocument()
     expect(within(tabla).queryByText('Sin uso')).not.toBeInTheDocument()
   })
 
-  it('con exámenes de varios docentes muestra la columna Docente', async () => {
-    vi.mocked(reporteUsoAmbientes).mockResolvedValue([fila({}), fila({ idExamen: 3, docente: 'Ana Rojas' })])
+  it('filtra por docente', async () => {
+    vi.mocked(reporteUsoAmbientes).mockResolvedValue([fila({}), fila({ idExamen: 3, ambiente: '608', docente: 'Ana Rojas' })])
     render(<ReporteUsoAmbientes idExamen={null} buscar="" />)
     const tabla = await screen.findByRole('table')
-    expect(within(tabla).getByRole('columnheader', { name: 'Docente' })).toBeInTheDocument()
+    expect(within(tabla).getAllByRole('row')).toHaveLength(3)
+    fireEvent.change(screen.getByRole('combobox', { name: 'Docente' }), { target: { value: 'Ana Rojas' } })
+    expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByRole('table')).getByText('608')).toBeInTheDocument()
   })
 })

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Objects;
 
 @Tag(name = "Reportes", description = "Uso y reserva de aulas/laboratorios")
 @RestController
@@ -25,15 +24,12 @@ public class ReporteUsoAmbientesController {
         this.acceso = acceso;
     }
 
-    @PreAuthorize("@permisos.alguno(authentication, 'REPORTES_VER', 'CONTROL_INGRESO_PROPIOS')")
+    /** Solo el ADMIN (REPORTES_VER): sirve para planificar la reserva de aulas; el docente ve lo suyo en el detalle del examen. */
+    @PreAuthorize("@permisos.tiene(authentication, 'REPORTES_VER')")
     @GetMapping("/reportes/uso-ambientes")
     public List<ReporteUsoAmbienteResponse> listar(
             @RequestParam(required = false) Integer idExamen,
             Authentication authentication) {
-        
-        Integer soloDe = acceso.veTodosLosReportes(authentication) ? null
-                : Objects.requireNonNullElse(acceso.idUsuario(authentication), -1);
-                
-        return service.listar(idExamen, soloDe);
+        return service.listar(idExamen, null);
     }
 }

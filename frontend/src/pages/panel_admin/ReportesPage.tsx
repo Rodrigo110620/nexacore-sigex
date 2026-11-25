@@ -237,7 +237,7 @@ export default function ReportesPage() {
   // Resumen en vivo: total, hoy y ayer de cada tipo (también da los números de las pestañas).
   const [periodo, setPeriodo] = useState<Periodo>('todo')
   const desde = desdePeriodo(periodo)
-  const resumen = useResumenReportes(idExamen, desde)
+  const resumen = useResumenReportes(idExamen, desde, !soloMios)
   // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
   const [buscar, setBuscar] = useState('')
   const [buscarIntentos, setBuscarIntentos] = useState('')
@@ -389,7 +389,7 @@ export default function ReportesPage() {
 
             <div role="tablist" aria-label="Tipo de reporte"
               className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-4 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0 xl:gap-6 xl:overflow-visible">
-              {PESTANAS.map((p) => (
+              {PESTANAS.filter((p) => p.id !== 'uso-ambientes' || !soloMios).map((p) => (
                 <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
                   aria-label={resumen[p.id] ? `${p.texto} (${resumen[p.id]!.total})` : p.texto} onClick={() => setPestana(p.id)}
                   className={`min-h-11 flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] transition-colors sm:min-h-0 sm:flex-none sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
@@ -413,7 +413,7 @@ export default function ReportesPage() {
               {pestana === 'modificaciones' && <ReporteModificaciones idExamen={idExamen} buscar={buscar} desde={desde} />}
               {pestana === 'ingresos-qr' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="QR" />}
               {pestana === 'ingresos-manual' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="MANUAL" />}
-              {pestana === 'uso-ambientes' && <ReporteUsoAmbientes idExamen={idExamen} buscar={buscar} />}
+              {pestana === 'uso-ambientes' && !soloMios && <ReporteUsoAmbientes idExamen={idExamen} buscar={buscar} />}
             </div>
           </div>
         </section>
