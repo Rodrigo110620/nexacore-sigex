@@ -36,10 +36,12 @@ export default function DescargarReporte({ pestana, filtros, onError }: {
   return (
     <div ref={caja} className="relative">
       <button type="button" onClick={() => setAbierto((v) => !v)} disabled={descargando !== null} aria-haspopup="menu" aria-expanded={abierto}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#B8CBEF] bg-white px-3 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] disabled:opacity-60">
+        title="Descargar en Excel o PDF"
+        className="inline-flex h-10 w-10 items-center justify-center gap-1.5 rounded-lg border border-[#B8CBEF] bg-white text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] disabled:opacity-60 sm:h-9 sm:w-auto sm:px-3">
         {descargando ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : <Download size={14} aria-hidden="true" />}
-        {descargando ? 'Descargando…' : 'Descargar'}
-        <ChevronDown size={13} aria-hidden="true" />
+        {/* En el celular solo el ícono: no le quita espacio a las pestañas. */}
+        <span className="sr-only sm:not-sr-only">{descargando ? 'Descargando…' : 'Descargar'}</span>
+        <ChevronDown size={13} aria-hidden="true" className="hidden sm:block" />
       </button>
       {abierto && (
         <div role="menu" aria-label="Formato de descarga" className="absolute right-0 z-30 mt-1.5 w-60 overflow-hidden rounded-xl border border-[#D8E3F5] bg-white py-1 shadow-lg">
