@@ -8,7 +8,7 @@ import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
 import useResumenReportes, { desdePeriodo, type Periodo } from '../../hooks/useResumenReportes'
-import GraficoPorHora from '../../components/reportes/GraficoPorHora'
+import MotivosCompacto from '../../components/reportes/MotivosCompacto'
 import ResumenReportes from '../../components/reportes/ResumenReportes'
 import DescargarReporte from '../../components/reportes/DescargarReporte'
 import EtiquetaNuevo from '../../components/reportes/EtiquetaNuevo'
@@ -23,7 +23,7 @@ import ReporteIngresos from '../../components/reportes/ReporteIngresos'
 import ReporteUsoAmbientes from '../../components/reportes/ReporteUsoAmbientes'
 
 
-import { ChartColumn, ChevronDown, Download, Lock, Search, X } from 'lucide-react'
+import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
@@ -34,7 +34,7 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
-  { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
+  { id: 'modificaciones', texto: 'Modificaciones', corto: 'Modificaciones' },
   { id: 'ingresos-qr', texto: 'Ingresos QR', corto: 'Ing. QR' },
   { id: 'ingresos-manual', texto: 'Ingresos Manuales', corto: 'Ing. Manual' },
   { id: 'uso-ambientes', texto: 'Uso de Ambientes', corto: 'Ambientes' },
@@ -48,10 +48,6 @@ const GRUPOS: { id: Grupo; texto: string; pestanas: Pestana[] }[] = [
 ]
 const grupoDe = (p: Pestana): Grupo => GRUPOS.find((g) => g.pestanas.includes(p))?.id ?? 'incidencias'
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales','uso-ambientes': 'Uso de Ambientes'  }
-const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos'], 'uso-ambientes': ['ambiente', 'ambientes'] 
-}
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
 
@@ -252,8 +248,6 @@ export default function ReportesPage() {
   // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
   const [buscar, setBuscar] = useState('')
   const [buscarIntentos, setBuscarIntentos] = useState('')
-  // El gráfico por hora va plegado: así la tabla aparece arriba.
-  const [verGrafico, setVerGrafico] = useState(false)
   useEffect(() => {
     const t = setTimeout(() => setBuscarIntentos(buscar), 300)
     return () => clearTimeout(t)
@@ -400,19 +394,6 @@ export default function ReportesPage() {
               </p>
             )}
 
-            {resumen[pestana] && (
-              <button type="button" onClick={() => setVerGrafico((v) => !v)} aria-expanded={verGrafico}
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0439D9] hover:underline">
-                <ChartColumn size={14} aria-hidden="true" /> {verGrafico ? 'Ocultar el gráfico por hora' : 'Ver el gráfico por hora y por motivo'}
-              </button>
-            )}
-            {resumen[pestana] && verGrafico && (
-              <div className="mt-2">
-                <GraficoPorHora porHora={resumen[pestana]!.porHora} porHoraAyer={resumen[pestana]!.porHoraAyer} ultimoHoy={resumen[pestana]!.ultimoHoy}
-                  horaActual={new Date().getHours()} porMotivo={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]}
-                  titulo={`${TITULO_GRAFICO[pestana]} · hoy y ayer, por hora`} unidad={UNIDAD[pestana]} />
-              </div>
-            )}
 
             {/* Pestañas y «Descargar» en la misma fila: el botón no ocupa una fila propia. */}
             <div className="mt-4 flex items-center gap-2 sm:block sm:border-b sm:border-[#D8E3F5]">
@@ -446,7 +427,7 @@ export default function ReportesPage() {
                     return (
                       <button key={id} type="button" role="radio" aria-checked={activo} onClick={() => setPestana(id)}
                         aria-label={resumen[id] ? `${p.texto} (${resumen[id]!.total})` : p.texto}
-                        className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold transition-colors ${activo ? 'border-[#0439D9] bg-[#EEF3FF] text-[#0439D9]' : 'border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F8FAFF]'}`}>
+                        className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold transition-colors ${activo ? 'border-[#0439D9] bg-[#EEF3FF] text-[#0439D9]' : 'border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F8FAFF]'} ${!activo && resumen[id]?.total === 0 ? 'opacity-55' : ''}`}>
                         {p.texto}
                         {resumen[id] && <span className={`rounded-full px-1.5 text-[10px] font-bold tabular-nums ${activo ? 'bg-[#0439D9] text-white' : 'bg-[#EDF2FE] text-[#45628D]'}`}>{resumen[id]!.total}</span>}
                       </button>
@@ -455,6 +436,7 @@ export default function ReportesPage() {
                 </div>
               )
             })()}
+            {resumen[pestana] && <MotivosCompacto motivos={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]} />}
             <div className="mt-4">
               {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} desde={desde} />}
               {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} desde={desde} />}
