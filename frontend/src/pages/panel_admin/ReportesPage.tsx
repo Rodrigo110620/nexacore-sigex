@@ -60,10 +60,11 @@ const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   OTRO_EXAMEN: 'Rinde otro examen a la misma hora',
 }
 
-function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {
+/** envolver: en el celular el motivo puede ser largo; se parte en líneas en vez de cortarse o empujar al nombre. */
+function EtiquetaTipo({ intento, envolver = false }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'>; envolver?: boolean }) {
   return (
-    <span className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_TIPO[intento.tipo] ?? COLOR_TIPO.NO_CORRESPONDE}`}>
-      <span className="truncate">{intento.etiqueta || TEXTO_TIPO[intento.tipo] || 'Intento incorrecto'}</span>
+    <span className={`inline-flex max-w-full ${envolver ? 'rounded-lg' : 'rounded-full'} px-2 py-0.5 text-[11px] font-semibold ${COLOR_TIPO[intento.tipo] ?? COLOR_TIPO.NO_CORRESPONDE}`}>
+      <span className={envolver ? 'break-words [overflow-wrap:anywhere]' : 'truncate'}>{intento.etiqueta || TEXTO_TIPO[intento.tipo] || 'Intento incorrecto'}</span>
     </span>
   )
 }
@@ -165,17 +166,18 @@ function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number
               <li key={i.idIntento} className={`relative flex flex-col min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm transition-all hover:shadow-md ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
                 
                 {/* Cabecera: Estudiante y SIS */}
-                <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-bold text-[#011140]">
-                      {i.estudiante ?? 'No identificado'}
-                      {nuevas.has(i.idIntento) && <EtiquetaNuevo />}
-                    </p>
-                    <p className="mt-1 inline-block rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[11px] font-bold text-[#0439D9]">
+                {/* El nombre ocupa todo el ancho; el motivo (que puede ser largo) va debajo y se parte en líneas. */}
+                <div className="min-w-0 border-b border-[#EDF1F7] pb-3">
+                  <p className="break-words text-sm font-bold text-[#011140]">
+                    {i.estudiante ?? 'No identificado'}
+                    {nuevas.has(i.idIntento) && <EtiquetaNuevo />}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[11px] font-bold text-[#0439D9]">
                       {i.codigoSis ? `SIS ${i.codigoSis}` : `ID ${i.identificador}`}
-                    </p>
+                    </span>
+                    <EtiquetaTipo intento={i} envolver />
                   </div>
-                  <div className="shrink-0"><EtiquetaTipo intento={i} /></div>
                 </div>
 
                 {/* Detalle del error (más visible) */}

@@ -28,7 +28,7 @@ it.each(['ADMIN', 'CONTROL', 'DOCENTE'])('consulta real y registro solo lectura 
   const { container } = render(<AuthProvider><MemoryRouter><EstudiantesExamenLista idExamen={20} estudiantes={datos.contenido} /></MemoryRouter></AuthProvider>)
   for (const selector of ['table', 'ul']) {
     const vista = within(container.querySelector(selector)!)
-    expect(vista.getByText('EXPULSADO')).toHaveClass('text-[#B91C1C]')
+    expect(vista.getByText('Expulsado')).toHaveClass('text-[#B91C1C]')
     expect(vista.queryByRole('button', { name: 'Expulsar' })).not.toBeInTheDocument()
     fireEvent.click(vista.getByText('Ver registro de expulsión'))
     expect(vista.getByText('Uso de celular')).toBeVisible()

@@ -149,12 +149,12 @@ function EstadoIngresoBadge({ ingresado, expulsado, salida }: { ingresado: boole
   return (
     <span
       className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 ${
-        salida && !expulsado ? 'shrink-0 whitespace-nowrap text-xs font-bold tabular-nums' : 'text-[9px] font-semibold'
+        salida && !expulsado ? 'shrink-0 whitespace-nowrap text-xs font-bold tabular-nums' : 'text-[11px] font-semibold'
       } ${
         expulsado ? 'bg-[#FDECEC] text-[#B91C1C]' : salida ? 'bg-[#E1ECFF] text-[#011140]' : ingresado ? 'bg-[#DCFCE7] text-[#166534]' : 'bg-[#FEF3C7] text-[#92400E]'
       }`}
     >
-      {expulsado ? 'EXPULSADO' : salida ? `SALIÓ ${salida.slice(11, 19)}` : ingresado ? 'INGRESÓ' : 'NO INGRESÓ'}
+      {expulsado ? 'Expulsado' : salida ? `Salió ${salida.slice(11, 19)}` : ingresado ? 'Ingresó' : 'No ingresó'}
     </span>
   )
 }
