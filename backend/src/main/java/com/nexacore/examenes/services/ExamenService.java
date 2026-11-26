@@ -77,6 +77,13 @@ public class ExamenService {
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
     private final ExamenAulaRepository examenAulaRepository;
+    /** Para asignar el personal de control al registrar (por setter: no cambia el constructor que usan las pruebas). */
+    private ExamenControlService examenControlService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setExamenControlService(ExamenControlService examenControlService) {
+        this.examenControlService = examenControlService;
+    }
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
             "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "AL", "PARA", "POR", "CON");
@@ -262,6 +269,7 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         validarNoPasado(request.fecha(), request.horaInicio());
+        validarJornada(request.horaInicio(), request.duracionMinutos());
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocenteParaRegistro(request);
         // IMP-12: el docente solo programa exámenes de sus materias.
@@ -272,6 +280,12 @@ public class ExamenService {
         validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), null, conjunto);
+        // Con varias aulas, al menos un personal de control por aula adicional (el docente no está en todas las puertas).
+        int personalPedido = request.idsPersonalControl() == null ? 0 : (int) request.idsPersonalControl().stream()
+                .filter(java.util.Objects::nonNull).distinct().count();
+        if (!adicionales.isEmpty() && personalPedido < adicionales.size()) {
+            throw new IllegalArgumentException(ExamenControlService.minimoPorAulas(adicionales.size() + 1));
+        }
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
         validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         validarNoExisteExamenDuplicado(materia.getId(), paralelo.getId().getIdParalelo(),
@@ -303,6 +317,13 @@ public class ExamenService {
                 "idExamen", guardado.getId().getIdExamen(),
                 "idParalelo", guardado.getId().getIdParalelo(),
                 "examen", resumen(guardado)));
+        // El personal de control elegido en el registro: en la misma transacción (si alguien está ocupado, no se crea).
+        if (request.idsPersonalControl() != null && !request.idsPersonalControl().isEmpty() && examenControlService != null) {
+            var personal = examenControlService.asignar(idExamen, request.idsPersonalControl());
+            auditoriaService.registrar("PERSONAL_CONTROL_ASIGNADO", AuditoriaService.datos("idExamen", idExamen,
+                    "personal", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList(),
+                    "agregados", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList()));
+        }
         return toResponse(guardado);
     }
 
@@ -328,6 +349,10 @@ public class ExamenService {
                 || !request.horaInicio().equals(examen.getHoraInicio());
         if (cambiaHorario) {
             validarNoPasado(request.fecha(), request.horaInicio());
+        }
+        // Solo si cambia el horario o la duración: un examen antiguo fuera de la jornada se puede seguir editando.
+        if (cambiaHorario || !request.duracionMinutos().equals(examen.getDuracionMinutos())) {
+            validarJornada(request.horaInicio(), request.duracionMinutos());
         }
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
@@ -372,6 +397,11 @@ public class ExamenService {
 
         Examen guardado = examenRepository.save(examen);
         guardarAulasAdicionales(idExamen, adicionales);
+        // El personal de control: sin cruces con el nuevo horario y en aulas que sigan siendo del examen.
+        if (examenControlService != null) {
+            examenRepository.flush();
+            examenControlService.revisarTrasCambio(idExamen);
+        }
         auditoriaService.registrar("EXAMEN_MODIFICADO", Map.of(
                 "idExamen", idExamen,
                 "idParaleloAnterior", idParalelo,
@@ -466,6 +496,7 @@ public class ExamenService {
                     : "Solo se reprograma un examen que ya finalizó; para cambiar la fecha antes, edítalo.");
         }
         validarNoPasado(request.fecha(), request.horaInicio());
+        validarJornada(request.horaInicio(), request.duracionMinutos());
         String motivo = MotivoReprogramacion.validar(request.motivo());
         Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
@@ -488,6 +519,10 @@ public class ExamenService {
         examen.setHoraInicio(request.horaInicio());
         examen.setDuracionMinutos(request.duracionMinutos());
         Examen guardado = examenRepository.save(examen);
+        if (examenControlService != null) {
+            examenRepository.flush();
+            examenControlService.revisarTrasCambio(idExamen);
+        }
         auditoriaService.registrar("EXAMEN_REPROGRAMADO", Map.of(
                 "idExamen", idExamen,
                 "sesionArchivada", sesion,
@@ -679,6 +714,22 @@ public class ExamenService {
 
     private static LocalTime finDe(Examen examen) {
         return examen.getHoraInicio().plusMinutes(examen.getDuracionMinutos());
+    }
+
+    /** La jornada de la universidad: los exámenes empiezan desde las 06:45 y terminan a más tardar a las 21:45. */
+    static final LocalTime HORA_APERTURA = LocalTime.of(6, 45);
+    static final LocalTime HORA_CIERRE = LocalTime.of(21, 45);
+
+    public static void validarJornada(LocalTime horaInicio, Integer duracionMinutos) {
+        if (horaInicio == null || duracionMinutos == null) return;
+        if (horaInicio.isBefore(HORA_APERTURA)) {
+            throw new IllegalArgumentException("El examen no puede empezar antes de las 06:45.");
+        }
+        LocalTime fin = horaInicio.plusMinutes(duracionMinutos);
+        // Si pasa de la medianoche, el fin «da la vuelta» y queda antes del inicio.
+        if (fin.isAfter(HORA_CIERRE) || fin.isBefore(horaInicio)) {
+            throw new IllegalArgumentException("El examen debe terminar a más tardar a las 21:45.");
+        }
     }
 
     private void validarNoPasado(java.time.LocalDate fecha, LocalTime horaInicio) {

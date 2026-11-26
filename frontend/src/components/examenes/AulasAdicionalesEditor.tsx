@@ -56,7 +56,7 @@ export default function AulasAdicionalesEditor({
   const opciones = ambientes
     .filter((a) => a.id !== principal.id && !value.includes(a.id))
     // Las ocupadas a esa hora se muestran, pero no se pueden elegir.
-    .map((a) => ({ value: String(a.id), label: a.nombre, deshabilitada: a.disponible === false ? 'Ocupada' : undefined }))
+    .map((a) => ({ value: String(a.id), label: a.nombre, deshabilitada: a.disponible === false ? (a.ocupadoPor ? `Ocupada · ${a.ocupadoPor}` : 'Ocupada') : undefined }))
   const hayVarias = elegidas.length > 0
 
   const guardarAforo = async (aula: AmbienteDto) => {

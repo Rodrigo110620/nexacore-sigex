@@ -46,6 +46,13 @@ class PersonalControlTests {
     }
 
     @Test
+    void elUsoDeAmbientesEsSoloDelAdmin() throws Exception {
+        // El ADMIN sí entra: su consulta (SQL de PostgreSQL) se prueba en PostgresIntegracionTests.
+        mockMvc.perform(get("/reportes/uso-ambientes").with(user("d@umss.edu").roles("DOCENTE"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/reportes/uso-ambientes").with(user("c@umss.edu").roles("CONTROL"))).andExpect(status().isForbidden());
+    }
+
+    @Test
     void lasFotosReportadasSonDeSusExamenesYSoloSeRevisanLasDeSusExamenes() throws Exception {
         mockMvc.perform(get("/reportes/fotos").with(user("e@est.umss.edu").roles("ESTUDIANTE"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/reportes/fotos").with(user("x@umss.edu").roles("DOCENTE"))).andExpect(status().isOk());

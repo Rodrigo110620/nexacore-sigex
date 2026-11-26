@@ -1,3 +1,4 @@
+import AlertaSinPersonalControl from '../../components/inicio/AlertaSinPersonalControl'
 import { useEffect, useState } from 'react'
 import { BookOpen, Info, LoaderCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -98,6 +99,8 @@ export default function InicioDocentePage() {
               <BannerDocente nombre={primerNombre} fecha={fechaConDia(hoy, true)} horaActual={horaActual} saludo={saludo}
                 materias={panelDocente?.materias.length ?? 0} examenesHoy={examenesHoy.length} enCurso={enCurso}
                 ingresados={totalHoy.ingresados} habilitados={totalHoy.habilitados} puedeProgramar={puedeProgramar} />
+
+              {puedeProgramar && <AlertaSinPersonalControl />}
 
               {panelDocente && (
                 <IndicadoresDocente datos={panelDocente} examenesHoy={examenesHoy.length} enCurso={enCurso}

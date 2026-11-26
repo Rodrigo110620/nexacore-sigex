@@ -39,6 +39,8 @@ public class Notificacion {
     public static final String EXPULSION_ANULADA = "EXPULSION_ANULADA";
     /** DASH-03: un aula del examen llegó a su capacidad. */
     public static final String AULA_LLENA = "AULA_LLENA";
+    /** Un examen de mañana todavía no tiene personal de control asignado. */
+    public static final String SIN_PERSONAL_CONTROL = "SIN_PERSONAL_CONTROL";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
