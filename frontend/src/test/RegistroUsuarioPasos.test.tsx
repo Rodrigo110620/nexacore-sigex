@@ -15,7 +15,10 @@ vi.mock('../services/materiaService', async (original) => ({
 vi.mock('../hooks/useRoles', () => ({ useRoles: () => ({ roles: ROLES_OPTIONS, cargando: false }) }))
 
 const montar = (onSuccess = vi.fn()) => render(<MemoryRouter><RegisterUserModal isOpen onClose={vi.fn()} onSuccess={onSuccess} /></MemoryRouter>)
-const siguiente = () => fireEvent.click(screen.getByRole('button', { name: /Siguiente paso/ }))
+const siguiente = async () => {
+  fireEvent.click(screen.getByRole('button', { name: /Siguiente paso/ }))
+  await act(() => vi.advanceTimersByTimeAsync(100))
+}
 const escribir = (placeholder: string, valor: string) => fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value: valor } })
 
 function llenarDatos() {
@@ -41,11 +44,11 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     montar(onSuccess)
     expect(screen.getByText('Paso 1 de 4')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Docente/i }))
-    siguiente()
+    await siguiente()
 
     expect(screen.getByText('Paso 2 de 4')).toBeInTheDocument()
     llenarDatos()
-    siguiente()
+    await siguiente()
 
     expect(screen.getByText('Paso 3 de 4')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Materias del docente' })).toBeInTheDocument()
@@ -53,7 +56,7 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Lic.' } })
     fireEvent.change(screen.getByLabelText('Especialidad'), { target: { value: 'Bases de datos' } })
     fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: 'TITULAR' } })
-    siguiente()
+    await siguiente()
     expect(screen.getAllByText('Elige al menos una materia para el docente.').length).toBeGreaterThan(0)
     expect(screen.getByText('Paso 3 de 4')).toBeInTheDocument()
 
@@ -72,7 +75,7 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     // En el navegador, si «Siguiente» se reutilizara como «Registrar» (submit) durante el mismo clic, el
     // formulario se enviaría solo. Tienen que ser botones distintos.
     const botonSiguiente = screen.getByRole('button', { name: /Siguiente paso/ })
-    siguiente()
+    await siguiente()
     expect(screen.getByRole('button', { name: /Registrar docente/ })).not.toBe(botonSiguiente)
     expect(botonSiguiente.isConnected).toBe(false)
 
@@ -96,9 +99,9 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     vi.mocked(gruposOcupados).mockResolvedValue(['G1', 'G2'])
     montar()
     fireEvent.click(screen.getByRole('button', { name: /Docente/i }))
-    siguiente()
+    await siguiente()
     llenarDatos()
-    siguiente()
+    await siguiente()
     fireEvent.change(screen.getByPlaceholderText(/Busca por nombre o sigla/), { target: { value: 'prog' } })
     await act(() => vi.advanceTimersByTimeAsync(300))
     const encontradas = await screen.findByRole('list', { name: 'Materias encontradas' })
@@ -114,15 +117,15 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
   it('el ADMIN confirma el acceso total y no se envían materias', async () => {
     montar()
     fireEvent.click(screen.getByRole('button', { name: /Administrador/i }))
-    siguiente()
+    await siguiente()
     llenarDatos()
-    siguiente()
+    await siguiente()
 
     expect(screen.getByRole('heading', { name: 'Acceso de administrador' })).toBeInTheDocument()
-    siguiente()
+    await siguiente()
     expect(screen.getAllByText('Confirma que esta persona debe tener acceso total al sistema.').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo que esta persona/ }))
-    siguiente()
+    await siguiente()
     expect(screen.getByText('Paso 4 de 4')).toBeInTheDocument()
     await act(() => vi.advanceTimersByTimeAsync(50))
     expect(api.post).not.toHaveBeenCalled()
@@ -130,8 +133,8 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     // Desde el resumen se puede volver a corregir un dato.
     fireEvent.click(screen.getByRole('button', { name: 'Cambiar correo' }))
     expect(screen.getByText('Paso 2 de 4')).toBeInTheDocument()
-    siguiente()
-    siguiente()
+    await siguiente()
+    await siguiente()
     fireEvent.click(screen.getByRole('button', { name: /Registrar administrador/ }))
     await waitFor(() => expect(api.post).toHaveBeenCalled())
     expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty('idMaterias')
@@ -141,11 +144,11 @@ describe('Registrar usuario en 4 pasos (IMP-12)', () => {
     vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 400, data: { campos: { email: 'Ya existe un usuario con este correo.' } } } })
     montar()
     fireEvent.click(screen.getByRole('button', { name: /Control/i }))
-    siguiente()
+    await siguiente()
     llenarDatos()
-    siguiente()
+    await siguiente()
     expect(screen.getByRole('heading', { name: 'Control de ingreso' })).toBeInTheDocument()
-    siguiente()
+    await siguiente()
     fireEvent.click(screen.getByRole('button', { name: /Registrar control/ }))
     await waitFor(() => expect(screen.getByText('Paso 2 de 4')).toBeInTheDocument())
   })
