@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import AuthLayout from '../../components/layout/AuthLayout';
 import Login_Information from './Login_Information';
 import Login_Sesion from './Login_Sesion';
@@ -9,10 +8,9 @@ import { PIE_CORTO } from '../../utils/version'
 /** Desvanece los bordes de la ilustración para que se funda con el fondo. */
 const MASCARA_ILUSTRACION = 'radial-gradient(ellipse 50% 50% at 50% 50%, #000 72%, transparent 100%)';
 
-/** '/' y '/login' muestran el mismo formulario. */
+/** '/' y '/login' muestran la misma pantalla pública. */
 export default function LoginPage() {
   const isMobile = useIsMobileDevice();
-  const { pathname } = useLocation();
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,7 +47,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {pathname === '/' && <Login_Information />}
+          <Login_Information />
 
           {isMobile && (
             <p className="mt-auto text-center text-xs leading-5 text-[#627A9B]">

@@ -9,8 +9,7 @@ const nombre = (p: PersonalControl) => `${p.nombre} ${p.apellidos}`.trim()
 
 /**
  * Personal de control del examen (V53). Lo ven el ADMIN, el CONTROL y el docente del examen; lo cambian el
- * ADMIN y su docente. El CONTROL recibe reportes y avisos solo de sus exámenes asignados; puede controlar otro
- * como reemplazo, y ese registro queda marcado.
+ * ADMIN y su docente. El personal con rol CONTROL debe estar asignado al examen para registrar ingresos.
  */
 export default function PersonalControlSeccion({ idExamen, puedeAsignar, aulas = [] }: {
   idExamen: number
@@ -27,7 +26,8 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar, aulas =
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [aulaDe, setAulaDe] = useState<Record<number, number>>({})
-  const variasAulas = aulas.length > 1
+  const minimo = aulas.length - 1
+  const variasAulas = minimo > 0
 
   useEffect(() => {
     let vigente = true
@@ -83,6 +83,11 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar, aulas =
         )}
       </div>
 
+      {variasAulas && (
+        <p className="mb-2 text-sm text-[#627A9B]">
+          El examen se reparte en {aulas.length} aulas: requiere al menos {minimo} {minimo === 1 ? 'persona' : 'personas'} de control (una por cada aula adicional).
+        </p>
+      )}
       {error ? (
         <ErrorCarga mensaje="No se pudo cargar el personal de control." onReintentar={() => setRecarga((n) => n + 1)} />
       ) : !asignados ? (
@@ -130,7 +135,11 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar, aulas =
           </div>
         </div>
       ) : asignados.length === 0 ? (
-        <p className="text-sm text-[#627A9B]">Sin personal de control asignado. Cualquier control puede registrar el ingreso.</p>
+        <p className="text-sm text-[#627A9B]">
+          Sin personal de control asignado.{' '}
+          {!variasAulas && 'El docente responsable puede realizar el control de su examen. '}
+          El personal de control debe estar asignado para registrar ingresos.
+        </p>
       ) : (
         <ul className="flex flex-wrap gap-2" aria-label="Personal de control asignado">
           {asignados.map((p) => (

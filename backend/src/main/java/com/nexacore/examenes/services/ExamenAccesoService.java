@@ -45,7 +45,7 @@ public class ExamenAccesoService {
 
     /**
      * "Sus" exámenes, para reportes y notificaciones: los que tiene como docente o en los que está asignado
-     * como personal de control (V53). Controlar otro examen como reemplazo no lo vuelve suyo.
+     * como personal de control (V53).
      */
     public boolean esMio(Integer idExamen, Authentication authentication) {
         Integer yo = idUsuario(authentication);

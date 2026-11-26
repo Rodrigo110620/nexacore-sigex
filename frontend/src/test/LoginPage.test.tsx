@@ -46,6 +46,20 @@ describe('LoginPage', () => {
     expect(screen.getByRole('dialog')).toBeVisible()
   })
 
+  it.each(['/', '/login'])('en "%s" muestra el formulario y la información de acceso', (ruta) => {
+    renderEn(ruta)
+
+    expect(screen.getByRole('button', { name: 'INGRESAR' })).toBeVisible()
+    const tarjetas = screen.getAllByRole('heading', { level: 3 })
+    expect(tarjetas.map((tarjeta) => tarjeta.textContent)).toEqual([
+      'VERIFICACIÓN DE IDENTIDAD',
+      'AUDITORÍA EN TIEMPO REAL',
+      'INTEGRIDAD DEL PROCESO',
+    ])
+    tarjetas.forEach((tarjeta) => expect(tarjeta).toBeVisible())
+    expect(screen.getByText(/El acceso a este portal es solo para usuarios registrados por la institución/)).toBeVisible()
+  })
+
   it('al enviar campos vacíos muestra el error junto a cada campo', async () => {
     renderEn('/login')
     await userEvent.click(screen.getByRole('button', { name: 'INGRESAR' }))

@@ -35,11 +35,26 @@ describe('Personal de control del examen (V53)', () => {
     expect(asignarPersonal).toHaveBeenCalledWith(7, [30, 31], undefined)
   })
 
-  it('sin personal asignado lo dice', async () => {
+  it('en una sola aula sin personal explica quién puede registrar ingresos', async () => {
     vi.mocked(personalDelExamen).mockResolvedValue([])
-    render(<PersonalControlSeccion idExamen={7} puedeAsignar />)
-    expect(await screen.findByText(/Sin personal de control asignado/)).toBeInTheDocument()
+    render(<PersonalControlSeccion idExamen={7} puedeAsignar aulas={[{ idAmbiente: 1, nombre: '607' }]} />)
+    expect(await screen.findByText('Sin personal de control asignado. El docente responsable puede realizar el control de su examen. El personal de control debe estar asignado para registrar ingresos.')).toBeVisible()
+    expect(screen.queryByText(/una por cada aula adicional/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Asignar/ })).toBeInTheDocument()
+  })
+
+  it.each([[2, '1 persona'], [3, '2 personas']])('en %i aulas informa que se requiere como mínimo %s', async (cantidad, personal) => {
+    vi.mocked(personalDelExamen).mockResolvedValue([])
+    const aulas = Array.from({ length: cantidad }, (_, i) => ({ idAmbiente: i + 1, nombre: String(607 + i) }))
+    render(<PersonalControlSeccion idExamen={7} puedeAsignar aulas={aulas} />)
+    const requisito = `El examen se reparte en ${cantidad} aulas: requiere al menos ${personal} de control (una por cada aula adicional).`
+    expect(await screen.findByText('Sin personal de control asignado. El personal de control debe estar asignado para registrar ingresos.')).toBeVisible()
+    expect(screen.getByText(requisito)).toBeVisible()
+    expect(screen.queryByText(/El docente responsable puede realizar el control/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Asignar' }))
+    expect(await screen.findByRole('list', { name: 'Personal de control disponible' })).toBeVisible()
+    expect(screen.getByText(requisito)).toBeVisible()
   })
 
   it('deshabilita al personal ocupado en un examen que se cruza y muestra su horario', async () => {
