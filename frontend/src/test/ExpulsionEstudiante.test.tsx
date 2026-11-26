@@ -66,7 +66,7 @@ it('un estudiante que ya marcó salida no muestra los botones de expulsar ni rea
     const vista = within(container.querySelector(selector)!)
     expect(vista.queryByRole('button', { name: 'Expulsar' })).not.toBeInTheDocument()
     expect(vista.queryByRole('button', { name: 'Reasignar' })).not.toBeInTheDocument()
-    expect(vista.getByText('SALIÓ 15:58')).toBeInTheDocument()
+    expect(vista.getByText('SALIÓ 15:58:00')).toBeInTheDocument()
   }
 })
 

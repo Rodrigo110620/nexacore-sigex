@@ -306,8 +306,8 @@ public class NotificacionService {
                             && asistenciaRepository.existsByIdIdEstudianteAndIdIdExamen(s.idEstudiante(), c.idExamen()));
             } else {
                 // Un cambio general (sin examen) es para todo el personal: solo provoca una recarga.
-                // Quien puede controlar o ver cualquier examen recibe todos los cambios (solo recargan
-                // contadores): así el CONTROL que reemplaza en un examen no asignado ve los datos al día.
+                // Los permisos generales pueden recibir todos los cambios para refrescar la interfaz.
+                // Cada petición de datos o de registro valida el acceso al examen por separado.
                 recibe = s.veTodo() || s.cambiosDeTodos() || c.idExamen() == null
                         || examenRepository.perteneceADocente(c.idExamen(), s.idUsuario());
             }
