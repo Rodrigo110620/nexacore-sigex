@@ -56,6 +56,19 @@ class ExportacionReporteTests {
     }
 
     @Test
+    void todoElGrupoVaEnUnaHojaPorTipoYEnUnSoloPdf() throws Exception {
+        var grupo = new com.nexacore.examenes.dto.ExportarGrupoRequest("Incidencias", List.of("Examen: Todos los exámenes"), List.of(
+                REPORTE, new ExportarReporteRequest("Excepciones", List.of(), List.of("Estudiante"), List.of(List.of("Carla")))));
+        try (var libro = new XSSFWorkbook(new ByteArrayInputStream(service.excel(grupo, "Sofía Salazar")))) {
+            assertThat(libro.getNumberOfSheets()).isEqualTo(2);
+            assertThat(libro.getSheetName(0)).isEqualTo("Expulsiones");
+            assertThat(libro.getSheetName(1)).isEqualTo("Excepciones");
+            assertThat(libro.getSheetAt(1).getRow(1).getCell(0).getStringCellValue()).isEqualTo("Examen: Todos los exámenes");
+        }
+        assertThat(new String(service.pdf(grupo, "Sofía Salazar"), 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+    }
+
+    @Test
     void loDescarganQuienesExportanReportesYNoElControl() throws Exception {
         String cuerpo = """
                 {"titulo":"Expulsiones","filtros":[],"columnas":["Estudiante"],"filas":[["Ana"]]}

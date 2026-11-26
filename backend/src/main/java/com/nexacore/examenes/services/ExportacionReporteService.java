@@ -14,6 +14,7 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfPageEventHelper;
 import com.lowagie.text.pdf.PdfWriter;
+import com.nexacore.examenes.dto.ExportarGrupoRequest;
 import com.nexacore.examenes.dto.ExportarReporteRequest;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -55,8 +56,22 @@ public class ExportacionReporteService {
 
     /** Excel: una hoja con el título, los filtros, quién lo generó y la tabla (encabezado fijo y filtros de columna). */
     public byte[] excel(ExportarReporteRequest r, String generadoPor) {
+        return excel(List.of(r), generadoPor);
+    }
+
+    /** Todo un grupo: una hoja por tipo de reporte, cada una con su encabezado. */
+    public byte[] excel(ExportarGrupoRequest g, String generadoPor) {
+        return excel(g.secciones().stream().map(sec -> new ExportarReporteRequest(sec.titulo(),
+                g.filtros(), sec.columnas(), sec.filas())).toList(), generadoPor);
+    }
+
+    private byte[] excel(List<ExportarReporteRequest> reportes, String generadoPor) {
         try (XSSFWorkbook libro = new XSSFWorkbook(); ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
-            Sheet hoja = libro.createSheet(nombreHoja(r.titulo()));
+            java.util.Set<String> usados = new java.util.HashSet<>();
+            for (ExportarReporteRequest r : reportes) {
+            String nombre = nombreHoja(r.titulo());
+            for (int n = 2; !usados.add(nombre); n++) nombre = nombreHoja(r.titulo()).substring(0, Math.min(28, nombreHoja(r.titulo()).length())) + " " + n;
+            Sheet hoja = libro.createSheet(nombre);
             var negrita = libro.createFont(); negrita.setBold(true);
             var tituloFuente = libro.createFont(); tituloFuente.setBold(true); tituloFuente.setFontHeightInPoints((short) 14);
             CellStyle titulo = libro.createCellStyle(); titulo.setFont(tituloFuente);
@@ -99,6 +114,7 @@ public class ExportacionReporteService {
             if (!r.filas().isEmpty()) {
                 hoja.setAutoFilter(new CellRangeAddress(filaCabecera, fila - 1, 0, r.columnas().size() - 1));
             }
+            }
             libro.write(salida);
             return salida.toByteArray();
         } catch (IOException e) {
@@ -108,6 +124,16 @@ public class ExportacionReporteService {
 
     /** PDF horizontal: encabezado con el logo, título y filtros; la tabla repite su cabecera en cada página. */
     public byte[] pdf(ExportarReporteRequest r, String generadoPor) {
+        return pdf(r.titulo(), r.filtros(), List.of(r), false, generadoPor);
+    }
+
+    /** Todo un grupo: un solo encabezado y una sección por tipo de reporte, cada una con su tabla. */
+    public byte[] pdf(ExportarGrupoRequest g, String generadoPor) {
+        return pdf(g.titulo(), g.filtros(), g.secciones(), true, generadoPor);
+    }
+
+    private byte[] pdf(String tituloDoc, List<String> filtrosDoc, List<ExportarReporteRequest> secciones, boolean conSecciones, String generadoPor) {
+        ExportarReporteRequest r = new ExportarReporteRequest(tituloDoc, filtrosDoc, List.of("-"), List.of());
         try (ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
             Document documento = new Document(PageSize.A4.rotate(), 30, 30, 30, 36);
             PdfWriter escritor = PdfWriter.getInstance(documento, salida);
@@ -147,16 +173,25 @@ public class ExportacionReporteService {
             datos.setSpacingBefore(4);
             datos.setSpacingAfter(8);
             for (String f : filtros(r)) datos.add(new Phrase(f + "\n", new Font(base, 8.5f, Font.NORMAL, TINTA)));
-            datos.add(new Phrase("Generado por " + generadoPor + " el " + ahora() + " · " + r.filas().size()
-                    + (r.filas().size() == 1 ? " registro" : " registros"), new Font(base, 8.5f, Font.NORMAL, SUAVE)));
+            int registros = secciones.stream().mapToInt(x -> x.filas().size()).sum();
+            datos.add(new Phrase("Generado por " + generadoPor + " el " + ahora() + " · " + registros
+                    + (registros == 1 ? " registro" : " registros"), new Font(base, 8.5f, Font.NORMAL, SUAVE)));
             documento.add(datos);
 
-            PdfPTable tabla = new PdfPTable(r.columnas().size());
+            for (ExportarReporteRequest sec : secciones) {
+            if (conSecciones) {
+                Paragraph titulo = new Paragraph(sec.titulo() + " (" + sec.filas().size() + ")", new Font(negrita, 11.5f, Font.BOLD, PRIMARIO));
+                titulo.setSpacingBefore(10);
+                titulo.setSpacingAfter(5);
+                documento.add(titulo);
+            }
+
+            PdfPTable tabla = new PdfPTable(sec.columnas().size());
             tabla.setWidthPercentage(100);
             tabla.setHeaderRows(1);
             Font fCab = new Font(negrita, 8, Font.BOLD, Color.WHITE);
             Font fCelda = new Font(base, 8, Font.NORMAL, TINTA);
-            for (String c : r.columnas()) {
+            for (String c : sec.columnas()) {
                 PdfPCell celda = new PdfPCell(new Phrase(c, fCab));
                 celda.setBackgroundColor(TINTA);
                 celda.setBorderColor(TINTA);
@@ -164,9 +199,9 @@ public class ExportacionReporteService {
                 tabla.addCell(celda);
             }
             int n = 0;
-            for (List<String> fila : r.filas()) {
+            for (List<String> fila : sec.filas()) {
                 Color fondo = n++ % 2 == 1 ? FONDO : Color.WHITE;
-                for (int c = 0; c < r.columnas().size(); c++) {
+                for (int c = 0; c < sec.columnas().size(); c++) {
                     String v = c < fila.size() && fila.get(c) != null ? fila.get(c) : "";
                     PdfPCell celda = new PdfPCell(new Phrase(v, fCelda));
                     celda.setBackgroundColor(fondo);
@@ -175,14 +210,15 @@ public class ExportacionReporteService {
                     tabla.addCell(celda);
                 }
             }
-            if (r.filas().isEmpty()) {
+            if (sec.filas().isEmpty()) {
                 PdfPCell vacio = new PdfPCell(new Phrase("Sin registros con estos filtros.", fCelda));
-                vacio.setColspan(r.columnas().size());
+                vacio.setColspan(sec.columnas().size());
                 vacio.setPadding(8);
                 vacio.setBorderColor(BORDE);
                 tabla.addCell(vacio);
             }
             documento.add(tabla);
+            }
             documento.close();
             return salida.toByteArray();
         } catch (Exception e) {

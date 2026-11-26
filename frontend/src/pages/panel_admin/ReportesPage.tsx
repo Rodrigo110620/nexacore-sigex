@@ -296,7 +296,8 @@ export default function ReportesPage() {
     <DescargarReporte pestana={pestana}
       filtros={{ idExamen, examen: etiqueta, periodo: PERIODOS.find(([id]) => id === periodo)?.[1], desde,
         buscar: pestana === 'intentos' ? buscarIntentos : buscar, nombresExamen }}
-      onError={(mensaje) => setResultadoDescarga({ tipo: 'error', mensaje })} />
+      onError={(mensaje) => setResultadoDescarga({ tipo: 'error', mensaje })}
+      grupo={(() => { const g = GRUPOS.find((x) => x.id === grupoDe(pestana))!; return { texto: g.texto, pestanas: g.pestanas.filter((p) => p !== 'uso-ambientes' || !soloMios) } })()} />
   ) : null
 
   return (
