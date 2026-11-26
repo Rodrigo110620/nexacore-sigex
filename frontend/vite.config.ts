@@ -1,7 +1,30 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
+import type { Plugin } from 'vite'
 import { resolve } from 'node:path'
+
+/** Genera /sw.js con la lista de archivos del build: la app abre aunque el servidor esté caído. */
+function serviceWorkerSigex(): Plugin {
+  return {
+    name: 'sigex-service-worker',
+    apply: 'build',
+    generateBundle(_opciones, bundle) {
+      const archivos = Object.keys(bundle)
+        // El detector de rostro y los mapas no hacen falta para trabajar sin conexión.
+        .filter((f) => !f.endsWith('.map') && !/mediapipe|wasm/i.test(f))
+        .map((f) => `/${f}`)
+      const publicos = ['/favicon.png', '/favicon.ico', '/logo_app.png', '/logo_app_sidebar.png', '/apple-touch-icon.png']
+      const plantilla = readFileSync(resolve(__dirname, 'src/pwa/sw-plantilla.js'), 'utf8')
+      const version = Date.now().toString(36)
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sw.js',
+        source: plantilla.replace('__VERSION__', version).replace('__ARCHIVOS__', JSON.stringify([...archivos, ...publicos])),
+      })
+    },
+  }
+}
 
 export default defineConfig(({ command, mode, isPreview }) => {
   // Lee .env de la raíz del monorepo (junto a docker-compose)
@@ -28,7 +51,7 @@ export default defineConfig(({ command, mode, isPreview }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), serviceWorkerSigex()],
     envDir,
     build: {
       rollupOptions: {

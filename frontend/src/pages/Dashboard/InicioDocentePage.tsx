@@ -1,3 +1,4 @@
+import AlertaSinPersonalControl from '../../components/inicio/AlertaSinPersonalControl'
 import { useEffect, useState } from 'react'
 import { BookOpen, Info, LoaderCircle } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
@@ -14,6 +15,7 @@ import { obtenerInicioDocente, type InicioDocente } from '../../services/inicioS
 import { BannerDocente, ExamenesHoyDocente, IndicadoresDocente, MisMaterias, RegistrosDocente } from '../../components/inicio/PanelDocente'
 import { tienePermiso } from '../../utils/permisos'
 import { ordenarPorFase, tiempoExamen } from '../../utils/tiempoExamen'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 export default function InicioDocentePage() {
   const auth = useAuth()
@@ -45,7 +47,7 @@ export default function InicioDocentePage() {
 
   useEffect(() => {
     let vigente = true
-    listarExamenes()
+    listarExamenes(TODOS_LOS_PERIODOS)
       .then((listaExamenes) => {
         if (!vigente) return
         setError('')
@@ -97,6 +99,8 @@ export default function InicioDocentePage() {
               <BannerDocente nombre={primerNombre} fecha={fechaConDia(hoy, true)} horaActual={horaActual} saludo={saludo}
                 materias={panelDocente?.materias.length ?? 0} examenesHoy={examenesHoy.length} enCurso={enCurso}
                 ingresados={totalHoy.ingresados} habilitados={totalHoy.habilitados} puedeProgramar={puedeProgramar} />
+
+              {puedeProgramar && <AlertaSinPersonalControl />}
 
               {panelDocente && (
                 <IndicadoresDocente datos={panelDocente} examenesHoy={examenesHoy.length} enCurso={enCurso}

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Check, DatabaseBackup, History, Lightbulb, Lock, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X, CalendarRange, BookOpen } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { PLANTILLAS_ROL, permisosFaltantes, sugerirPlantillas } from '../../utils/plantillasRol'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import RespaldoBase from '../../components/configuracion/RespaldoBase'
+import PeriodosAcademicos from '../../components/configuracion/PeriodosAcademicos'
+import MateriasCarreras from '../../components/configuracion/MateriasCarreras'
 import HistorialOperaciones from '../../components/configuracion/HistorialOperaciones'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -58,13 +60,9 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
     setError('')
   }
 
-  // Al abrirse, se muestra y enfoca en su lugar (dentro de la tarjeta del rol que se edita).
+  // Al abrirse, enfoca el primer campo editable.
   useEffect(() => {
-    const el = seccion.current
-    if (!el) return
-    const suave = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView?.({ behavior: suave ? 'smooth' : 'auto', block: 'start' })
-    el.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus({ preventScroll: true })
+    seccion.current?.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus({ preventScroll: true })
   }, [])
 
   const alternar = (codigo: string) => setElegidos((prev) => {
@@ -94,24 +92,33 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
   }
 
   return (
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-[#011140]/25 pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:z-50 sm:items-center sm:bg-black/45 sm:p-4"
+      role="dialog" aria-modal="true" aria-labelledby="rol-form-titulo">
     <section ref={seccion} aria-label={rol ? `Editar el rol ${rol.nombre}` : 'Nuevo rol'}
-      className="scroll-mt-4 rounded-xl border border-[#B8CBEF] bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-[#011140]">{rol ? `Editar ${rol.nombre}` : 'Nuevo rol'}</h2>
-        <button type="button" onClick={onCancelar} aria-label="Cerrar formulario" className="rounded-full p-1.5 text-[#627A9B] hover:bg-[#F1F6FF]"><X size={16} /></button>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      className="flex max-h-[calc(100dvh-4.5rem)] w-full min-w-0 flex-col overflow-hidden rounded-t-xl border border-[#D8E3F5] bg-white shadow-xl sm:max-h-[92vh] sm:max-w-3xl sm:rounded-2xl sm:shadow-2xl">
+      <header className="flex items-start justify-between border-b border-[#D8E3F5] px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E9F1FF] text-[#0439D9]"><ShieldCheck size={19} aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <h2 id="rol-form-titulo" className="font-bold text-[#011140]">{rol ? `Editar rol ${rol.nombre}` : 'Registrar Rol'}</h2>
+            <p className="mt-1 text-xs text-[#627A9B]">Elija los permisos que tendrán los usuarios con este rol.</p>
+          </div>
+        </div>
+        <button type="button" onClick={onCancelar} aria-label="Cerrar formulario" className="rounded p-1 text-[#627A9B] hover:bg-gray-100"><X size={18} /></button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+      <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs font-semibold text-[#011140]">
-          Nombre del rol
+          Nombre del rol <b className="text-red-500">*</b>
           <input value={nombre} disabled={!!rol} maxLength={30} placeholder="Ej.: AUXILIAR"
             onChange={(e) => { setNombre(e.target.value.toUpperCase().replace(/[^A-Z_]/g, '')); setError('') }}
-            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/20 uppercase text-[#011140] disabled:bg-[#F1F5F9]" />
+            className="mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] font-normal text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF] uppercase disabled:bg-[#F1F5F9]" />
         </label>
         <label className="text-xs font-semibold text-[#011140]">
           Descripción
           <input value={descripcion} maxLength={200} placeholder="Ej.: apoya al control en la puerta del aula"
             onChange={(e) => { setDescripcion(e.target.value); setError('') }}
-            className="mt-1 h-11 w-full rounded-lg border border-[#B8CBEF] px-3 text-sm outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#0439D9]/20 text-[#011140]" />
+            className="mt-1 h-10 w-full rounded-md border border-[#C9D7EC] bg-white px-3 text-[13px] font-normal text-[#011140] outline-none focus:border-[#0439D9] focus:ring-2 focus:ring-[#DCE7FF]" />
         </label>
       </div>
       {!rol && (
@@ -188,14 +195,16 @@ function FormularioRol({ rol, catalogo, onCancelar, onGuardado }: {
         </ul>
       )}
       {error && <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-        <button type="button" onClick={onCancelar} className="min-h-11 rounded-lg border border-[#D8E3F5] px-4 text-sm font-semibold text-[#45628D]">Cancelar</button>
-        <button type="button" disabled={guardando} onClick={() => void guardar()}
-          className="min-h-11 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white disabled:opacity-50">
-          {guardando ? 'Guardando…' : rol ? 'Guardar cambios' : 'Crear rol'}
-        </button>
       </div>
+      <footer className="[&>*]:min-w-0 [&>*]:flex-1 sm:[&>*]:flex-none flex flex-row gap-2 border-t border-[#D8E3F5] px-4 py-3 sm:justify-between sm:px-5">
+        <button type="button" onClick={onCancelar} className="h-10 rounded-md border border-[#C9D7EC] px-5 text-sm font-semibold text-[#45628D]">Cancelar</button>
+        <button type="button" disabled={guardando} onClick={() => void guardar()}
+          className="h-10 rounded-md bg-[#0439D9] px-6 text-sm font-bold text-white shadow-md disabled:opacity-60">
+          {guardando ? 'Guardando…' : rol ? 'Guardar cambios' : 'Registrar Rol'}
+        </button>
+      </footer>
     </section>
+    </div>
   )
 }
 
@@ -219,8 +228,8 @@ export default function ConfiguracionPage() {
   }, [recarga])
 
   const esAdmin = useAuth().roles.includes('ADMIN')
-  type Pestana = 'roles' | 'respaldo' | 'historial'
-  const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : 'roles'
+  type Pestana = 'roles' | 'periodos' | 'materias' | 'respaldo' | 'historial'
+  const deHash = (hash: string): Pestana => hash === '#respaldo' ? 'respaldo' : hash === '#historial' ? 'historial' : hash === '#periodos' ? 'periodos' : hash === '#materias' ? 'materias' : 'roles'
   // La pestaña sale de la dirección (#respaldo, #historial): así el menú lateral y las pestañas siempre coinciden.
   const { hash } = useLocation()
   const navigate = useNavigate()
@@ -251,17 +260,21 @@ export default function ConfiguracionPage() {
             <h1 id="configuracion-titulo" className="sr-only">Configuración</h1>
             {esAdmin && (
               <div role="tablist" aria-label="Secciones de Configuración"
-                className={`mb-4 gap-2 overflow-x-auto ${pestana === 'historial' ? 'hidden min-[960px]:flex' : 'flex'}`}>
-                {([['roles', 'Roles y permisos', ShieldCheck], ['respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', History]] as const).map(([id, texto, Icono]) => (
-                  <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => cambiarPestana(id)}
-                    className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
+                className="-mx-3 mb-4 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:px-0 sm:pb-0">
+                {([['roles', 'Roles y permisos', 'Roles', ShieldCheck], ['periodos', 'Periodos', 'Periodos', CalendarRange], ['materias', 'Materias', 'Materias', BookOpen], ['respaldo', 'Respaldo', 'Respaldo', DatabaseBackup], ['historial', 'Historial de operaciones', 'Historial', History]] as const).map(([id, texto, corto, Icono]) => (
+                  <button key={id} type="button" role="tab" aria-selected={pestana === id} onClick={() => cambiarPestana(id)} aria-label={texto}
+                    className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors sm:min-h-10 sm:gap-2 sm:px-4 sm:text-sm ${
                       pestana === id ? 'bg-[#0439D9] text-white shadow-sm' : 'border border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F1F6FF]'}`}>
-                    <Icono size={16} aria-hidden="true" /> {texto}
+                    <Icono size={16} aria-hidden="true" /> <span className="sm:hidden">{corto}</span><span className="hidden sm:inline">{texto}</span>
                   </button>
                 ))}
               </div>
             )}
-            {esAdmin && pestana === 'historial' ? (
+            {esAdmin && pestana === 'periodos' ? (
+              <PeriodosAcademicos />
+            ) : esAdmin && pestana === 'materias' ? (
+              <MateriasCarreras />
+            ) : esAdmin && pestana === 'historial' ? (
               <HistorialOperaciones />
             ) : esAdmin && pestana === 'respaldo' ? (
               // El respaldo contiene toda la base: solo el ADMIN, no un rol extra con permiso de roles.
@@ -274,7 +287,7 @@ export default function ConfiguracionPage() {
                   ADMIN, DOCENTE y CONTROL son del sistema y no cambian. Crea roles extra, como un auxiliar, con los permisos que necesite.
                 </p>
               </div>
-              {editando === null && (
+              {(
                 <button type="button" onClick={() => { setEditando('nuevo'); setAviso('') }}
                   className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 text-sm font-semibold text-white sm:w-auto">
                   <Plus size={16} aria-hidden="true" /> Nuevo rol
@@ -284,22 +297,19 @@ export default function ConfiguracionPage() {
 
             {aviso && <p role="status" className="mt-3 rounded-lg bg-[#EEF3FF] p-3 text-sm text-[#334E7A]">{aviso}</p>}
             {editando === 'nuevo' && (
-              <div className="mt-4">
-                <FormularioRol key="nuevo" rol={null} catalogo={catalogo} onCancelar={() => setEditando(null)}
-                  onGuardado={() => { setAviso('Rol creado. Ya puedes asignarlo en Usuarios.'); setEditando(null); setRecarga((n) => n + 1) }} />
-              </div>
+              <FormularioRol key="nuevo" rol={null} catalogo={catalogo} onCancelar={() => setEditando(null)}
+                onGuardado={() => { setAviso('Rol creado. Ya puedes asignarlo en Usuarios.'); setEditando(null); setRecarga((n) => n + 1) }} />
+            )}
+            {editando !== null && editando !== 'nuevo' && (
+              <FormularioRol key={editando.id} rol={editando} catalogo={catalogo} onCancelar={() => setEditando(null)}
+                onGuardado={() => { const id = editando.id; setAviso(''); setGuardadoId(id); setEditando(null); setRecarga((n) => n + 1) }} />
             )}
 
             {error && <ErrorCarga className="mt-4" mensaje={error} onReintentar={() => { setError(''); setRecarga((n) => n + 1) }} />}
             {!roles && !error && <p role="status" className="mt-4 text-sm text-[#627A9B]">Cargando roles…</p>}
             {roles && (
               <ul className="mt-4 grid gap-3 lg:grid-cols-2">
-                {roles.map((rol) => editando !== null && editando !== 'nuevo' && editando.id === rol.id ? (
-                  <li key={rol.id} className="lg:col-span-2">
-                    <FormularioRol rol={rol} catalogo={catalogo} onCancelar={() => setEditando(null)}
-                      onGuardado={() => { setAviso(''); setGuardadoId(rol.id); setEditando(null); setRecarga((n) => n + 1) }} />
-                  </li>
-                ) : (
+                {roles.map((rol) => (
                   <li key={rol.id} className="rounded-xl border border-[#D8E3F5] bg-white p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <ShieldCheck size={18} className={rol.delSistema ? 'text-[#0439D9]' : 'text-[#15803D]'} aria-hidden="true" />

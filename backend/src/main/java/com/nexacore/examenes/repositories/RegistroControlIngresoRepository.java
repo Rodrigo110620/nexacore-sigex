@@ -80,4 +80,16 @@ public interface RegistroControlIngresoRepository
             @Param("verificaciones") String verificaciones,
             @Param("observaciones") String observaciones,
             @Param("fechaHora") LocalDateTime fechaHora);
+
+    /** Sesión y dispositivo desde el que se hizo el último registro de ese control para el estudiante (V62). */
+    @Modifying
+    @Query(value = """
+            UPDATE registro_control_ingreso SET id_sesion = :idSesion, dispositivo = :dispositivo
+            WHERE id_control = (SELECT MAX(r.id_control) FROM registro_control_ingreso r
+                                WHERE r.id_examen = :idExamen AND r.id_estudiante = :idEstudiante
+                                  AND r.id_usuario_control = :idUsuarioControl AND r.id_sesion IS NULL)
+            """, nativeQuery = true)
+    int marcarSesion(@Param("idExamen") Integer idExamen, @Param("idEstudiante") Integer idEstudiante,
+                     @Param("idUsuarioControl") Integer idUsuarioControl, @Param("idSesion") String idSesion,
+                     @Param("dispositivo") String dispositivo);
 }

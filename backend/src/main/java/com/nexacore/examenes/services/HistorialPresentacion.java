@@ -76,6 +76,20 @@ class HistorialPresentacion {
         tipo("AMBIENTE_AFORO_CAMBIADO", "Ambientes", "Editar");
         tipo("AYUDA_ATENDIDA", "Mesa de ayuda", "Atender");
         tipo("RESPALDO_DESCARGADO", "Configuración", "Respaldo");
+        tipo("HABILITACION_FALLIDA", "Exámenes", "Habilitación");
+        tipo("PERIODO_CREADO", "Configuración", "Crear");
+        tipo("PERIODO_ACTIVADO", "Configuración", "Activar");
+        tipo("MATERIA_CARRERAS", "Configuración", "Editar");
+        tipo("MATERIA_CREADA", "Configuración", "Crear");
+        tipo("MATERIA_EDITADA", "Configuración", "Editar");
+        tipo("MATERIA_ACTIVADA", "Configuración", "Activar");
+        tipo("MATERIA_DESACTIVADA", "Configuración", "Desactivar");
+        tipo("MATERIAS_IMPORTADAS", "Configuración", "Importar");
+        tipo("SESION_INICIADA", "Sesiones", "Iniciar sesión");
+        tipo("SESION_CERRADA", "Sesiones", "Cerrar sesión");
+        tipo("SESIONES_CERRADAS", "Sesiones", "Cerrar sesión");
+        tipo("CUENTA_BLOQUEADA_INTENTOS", "Sesiones", "Bloqueo");
+        tipo("CONTRASENA_RESTABLECIDA", "Usuarios", "Editar");
     }
 
     private static void tipo(String accion, String modulo, String operacion) {
@@ -136,7 +150,11 @@ class HistorialPresentacion {
     Vista vista(String accion, JsonNode d) {
         Vista v = vistaBase(accion, d);
         int idExamen = d.path("idExamen").asInt();
-        return idExamen == 0 ? v : new Vista(v.objetivo(), v.resumen(), v.motivo(), v.diferencias(), contextoExamen(d));
+        List<Dato> contexto = new ArrayList<>(idExamen == 0 ? v.examen() : contextoExamen(d));
+        // Desde qué navegador y dispositivo se hizo (V62).
+        if (texto(d, "dispositivo") != null) contexto.add(new Dato("Dispositivo", texto(d, "dispositivo")));
+        if (texto(d, "ip") != null) contexto.add(new Dato("IP", texto(d, "ip")));
+        return new Vista(v.objetivo(), v.resumen(), v.motivo(), v.diferencias(), contexto);
     }
 
     private Vista vistaBase(String accion, JsonNode d) {
@@ -197,7 +215,8 @@ class HistorialPresentacion {
             case "FOTO_REPORTE_DESCARTADO" -> deEstudiante(d, "Descartó el reporte de la foto: la foto es correcta");
             case "INGRESO_AUTORIZADO" -> enExamen(d, d.path("manual").asBoolean()
                     ? "Autorizó el ingreso manual de " : "Autorizó el ingreso de ");
-            case "INGRESO_DENEGADO" -> enExamen(d, "Denegó el ingreso de ");
+            case "INGRESO_DENEGADO" -> enExamen(d, d.path("automatico").asBoolean()
+                    ? "El sistema denegó el ingreso de " : "Denegó el ingreso de ");
             case "SALIDA_REGISTRADA" -> enExamen(d, "Registró la salida de ");
             case "EXPULSION_REGISTRADA" -> enExamen(d, "Expulsó a ");
             case "EXPULSION_ANULADA" -> enExamen(d, "Anuló la expulsión de ");
@@ -237,6 +256,37 @@ class HistorialPresentacion {
                     datos(d, "capacidad", "Aforo", "ubicacion", "Ubicación"));
             case "AMBIENTE_AFORO_CAMBIADO" -> new Vista("Aula " + texto(d, "nombre"), "Registró el aforo del aula", null,
                     datos(d, "capacidad", "Aforo"));
+            case "SESION_INICIADA" -> new Vista("Su cuenta", d.path("otrasSesiones").isArray() && !d.path("otrasSesiones").isEmpty()
+                    ? "Inició sesión; su cuenta ya estaba abierta en " + String.join(", ", textos(d.path("otrasSesiones")))
+                    : "Inició sesión", null, List.of());
+            case "SESION_CERRADA" -> d.path("propia").asBoolean()
+                    ? new Vista("Su cuenta", "Cerró su sesión", null, List.of())
+                    : new Vista("Su cuenta", "Cerró su sesión abierta en " + texto(d, "sesionCerrada"), null, List.of());
+            case "SESIONES_CERRADAS" -> new Vista("Su cuenta", "Cerró sus otras sesiones abiertas ("
+                    + plural(d.path("cantidad").asInt(), "sesión", "sesiones") + ")", null, List.of());
+            case "CUENTA_BLOQUEADA_INTENTOS" -> new Vista("Su cuenta", "La cuenta se bloqueó " + d.path("minutos").asInt()
+                    + " minutos por " + d.path("intentos").asInt() + " contraseñas incorrectas seguidas", null, List.of());
+            case "CONTRASENA_RESTABLECIDA" -> new Vista("Su cuenta",
+                    "Restableció su contraseña con el enlace del correo; se cerraron todas sus sesiones", null, List.of());
+            case "PERIODO_CREADO" -> new Vista("Periodo " + texto(d, "periodo"),
+                    d.path("activo").asBoolean() ? "Creó el periodo y lo dejó activo" : "Creó el periodo", null, List.of());
+            case "PERIODO_ACTIVADO" -> new Vista("Periodo " + texto(d, "periodo"), "Activó el periodo"
+                    + (texto(d, "anterior") == null ? "" : " (antes: " + texto(d, "anterior") + ")"), null, List.of());
+            case "MATERIA_CARRERAS" -> new Vista(texto(d, "materia"), d.path("carreras").isEmpty()
+                    ? "Dejó la materia sin carreras (no restringe)"
+                    : "Definió las carreras de la materia: " + String.join(", ", textos(d.path("carreras"))), null, List.of());
+            case "MATERIA_CREADA" -> new Vista(texto(d, "materia") + " (" + texto(d, "sigla") + ")", d.path("siglaProvisional").asBoolean()
+                    ? "Creó la materia con una sigla provisional sugerida por SIGEX" : "Creó la materia", null, List.of());
+            case "MATERIA_EDITADA" -> new Vista(texto(d, "materia") + " (" + texto(d, "sigla") + ")",
+                    "Editó la materia" + (texto(d, "antes") == null ? "" : " (antes: " + texto(d, "antes") + ")"), null, List.of());
+            case "MATERIA_ACTIVADA" -> new Vista(texto(d, "materia"), "Volvió a activar la materia", null, List.of());
+            case "MATERIA_DESACTIVADA" -> new Vista(texto(d, "materia"),
+                    "Desactivó la materia: ya no se ofrece para nuevos exámenes", null, List.of());
+            case "MATERIAS_IMPORTADAS" -> new Vista("Catálogo de materias", "Importó " + plural(d.path("creadas").asInt(), "materia", "materias")
+                    + (d.has("actualizadas") ? "; actualizó " + d.path("actualizadas").asInt() : "")
+                    + (d.has("errores") ? "; " + d.path("errores").asInt() + " con errores" : ""), null, List.of());
+            case "HABILITACION_FALLIDA" -> new Vista(examen(d), "Intentó cambiar la habilitación y no se aplicó",
+                    texto(d, "motivo"), List.of());
             default -> new Vista(null, capital(accion.replace('_', ' ')), texto(d, "motivo"), List.of());
         };
     }
@@ -497,5 +547,11 @@ class HistorialPresentacion {
         String nuevo = d.path("personal").isEmpty() ? "Sin personal" : lista(d.path("personal"));
         return new Vista(examen(d), String.join(" · ", partes), null,
                 List.of(new Diferencia("Personal de control", anterior, nuevo)));
+    }
+
+    private static List<String> textos(JsonNode arreglo) {
+        List<String> r = new ArrayList<>();
+        for (JsonNode n : arreglo) r.add(n.asText());
+        return r;
     }
 }

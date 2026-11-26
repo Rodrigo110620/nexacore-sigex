@@ -34,4 +34,8 @@ public class Paralelo {
     @NotNull
     @Column(name = "nombre_grupo", nullable = false)
     private String nombreGrupo;
+
+    /** Periodo académico del grupo (V61). En la base es obligatorio: si no se indica, toma el activo. */
+    @Column(name = "id_periodo")
+    private Integer idPeriodo;
 }

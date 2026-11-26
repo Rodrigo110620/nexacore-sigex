@@ -47,11 +47,14 @@ import {
   EXAM_SECTION_CARD_CLASS,
   aulasSinAforo,
   aulasAdicionalesOcupadas,
+  horaMinimaFin,
+  horaMinimaInicio,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import EstudianteNormaAutocomplete, { type OpcionEstudiante } from './EstudianteNormaAutocomplete'
 import HoraSelector from './HoraSelector'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import FechaInput from './FechaInput'
 import { gestionaSoloPropios, tienePermiso } from '../../utils/permisos'
@@ -265,6 +268,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
         duracionMinutos: dur,
         idExamenExcluido: examen.idExamen,
         idParaleloExcluido: examen.idParalelo,
+        idMateria: examen.idMateria,
+        idDocente: examen.idDocente,
       })
         .then((data) => { if (!cancelled) setAmbientes(data) })
         .catch(() => { /* silencioso */ })
@@ -615,6 +620,8 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     label="Hora de inicio"
                     value={form.horaInicio}
                     error={errors.horaInicio}
+                    minimo={horaMinimaInicio(form.fecha, new Date(ahoraServidorMs()))}
+                    maximo="21:40"
                     onChange={(v) => handleChange('horaInicio', v)}
                   />
                   {errors.horaInicio && <p className="mt-1 text-[10px] text-red-500">{errors.horaInicio}</p>}
@@ -628,6 +635,7 @@ export default function EditExamenModal({ isOpen, examen, onClose, onSuccess }: 
                     label="Hora de fin"
                     value={form.horaFin}
                     error={errors.horaFin}
+                    minimo={horaMinimaFin(form.horaInicio)}
                     onChange={(v) => handleChange('horaFin', v)}
                   />
                   {duracion !== null && <p className="mt-1 text-[10px] text-gray-500">{duracion} minutos</p>}

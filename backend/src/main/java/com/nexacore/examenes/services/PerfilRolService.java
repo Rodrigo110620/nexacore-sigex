@@ -74,6 +74,7 @@ public class PerfilRolService {
                 FROM docente_materia dm
                 JOIN materia m ON m.id_materia = dm.id_materia
                 LEFT JOIN paralelo pa ON pa.id_materia = m.id_materia AND pa.id_docente = dm.id_docente
+                     AND """ + PeriodoService.delPeriodoActivo("pa") + """
                 WHERE dm.id_docente = :yo
                 ORDER BY m.nombre, pa.nombre_grupo
                 """, p, rs -> {

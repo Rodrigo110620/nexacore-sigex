@@ -33,7 +33,7 @@ public class MesaAyudaService {
     static final Map<String, String> TIPOS = Map.of(
             "CUENTA", "No tengo cuenta / no puedo entrar", "CONTRASENA", "Olvidé mi contraseña",
             "ACTIVACION", "Activar mi cuenta de estudiante", "QR", "Mi código QR", "FOTO", "Mi foto",
-            "EXAMEN", "Un examen", "OTRO", "Otro");
+            "EXAMEN", "Un examen", "CRUCE_HORARIO", "Dos exámenes a la misma hora", "OTRO", "Otro");
 
     private final SolicitudAyudaRepository repository;
     private final UsuarioRepository usuarioRepository;

@@ -22,7 +22,8 @@ import {
   type RegisterExamenFormState,
 } from '../../types/examen.types'
 import { crearAmbiente, listarAmbientes, listarAmbientesConDisponibilidad, type AmbienteDto } from '../../services/ambienteService'
-import { crearExamen, type ModoReparto } from '../../services/examenService'
+import PersonalControlRegistro from './PersonalControlRegistro'
+import { crearExamen, crucesDeEstudiantes, type CruceEstudianteDto, type ModoReparto } from '../../services/examenService'
 import {
   detalleAmbiente,
   formatAmPm,
@@ -46,12 +47,15 @@ import {
   EXAM_SECTION_CARD_CLASS,
   aulasSinAforo,
   aulasAdicionalesOcupadas,
+  horaMinimaFin,
+  horaMinimaInicio,
 } from '../../utils/examFormUtils'
 import AsignaturaAutocomplete from './AsignaturaAutocomplete'
 import { gruposDeMateria, type GrupoDto } from '../../services/materiaService'
 import DocenteAutocomplete from './DocenteAutocomplete'
 import AulasAdicionalesEditor from './AulasAdicionalesEditor'
 import HoraSelector from './HoraSelector'
+import { ahoraServidorMs } from '../../services/tiempoService'
 import { ConfirmDiscardDialog, NormaTexto, OfflineDialog } from './ExamFormDialogs'
 import { useAuth } from '../../context/AuthContext'
 import FechaInput from './FechaInput'
@@ -204,6 +208,23 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
     }
   }, [isOpen, recargaAmbientes])
 
+  // Estudiantes del grupo con otro examen a esa hora (aviso al revisar, paso 3): el docente puede cambiar el horario.
+  const [cruces, setCruces] = useState<{ clave: string; lista: CruceEstudianteDto[] } | null>(null)
+  // Personal de control elegido al registrar; sin nadie, se avisa una vez antes de guardar.
+  const [personalControl, setPersonalControl] = useState<number[]>([])
+  const [avisoSinControl, setAvisoSinControl] = useState(false)
+  const claveCruces = `${idParalelo ?? ''}|${form.fecha}|${form.horaInicio}|${form.horaFin}`
+  useEffect(() => {
+    const dur = minutesBetween(form.horaInicio, form.horaFin)
+    if (step !== 3 || !idParalelo || !form.fecha || !form.horaInicio || dur === null) return
+    let cancelled = false
+    const clave = `${idParalelo}|${form.fecha}|${form.horaInicio}|${form.horaFin}`
+    crucesDeEstudiantes({ idParalelo, fecha: form.fecha, horaInicio: form.horaInicio, duracionMinutos: dur })
+      .then((lista) => { if (!cancelled) setCruces({ clave, lista }) })
+      .catch(() => { /* solo es un aviso: si falla, no impide registrar */ })
+    return () => { cancelled = true }
+  }, [step, idParalelo, form.fecha, form.horaInicio, form.horaFin])
+
   // Refrescar disponibilidad cuando cambian fecha, hora o duración
   useEffect(() => {
     const dur = minutesBetween(form.horaInicio, form.horaFin)
@@ -214,16 +235,20 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
         fecha: form.fecha,
         horaInicio: form.horaInicio.length === 5 ? `${form.horaInicio}:00` : form.horaInicio,
         duracionMinutos: dur,
+        // El aula del otro grupo de la misma materia a la misma hora se puede compartir (examen conjunto).
+        idMateria,
+        idDocente,
       })
         .then((data) => { if (!cancelled) setAmbientes(data) })
         .catch(() => { /* silencioso: ya tenemos la lista base */ })
     }, 400)
     return () => { cancelled = true; window.clearTimeout(handle) }
-  }, [form.fecha, form.horaInicio, form.horaFin])
+  }, [form.fecha, form.horaInicio, form.horaFin, idMateria, idDocente])
 
   if (!isOpen) return null
 
   const duracion = minutesBetween(form.horaInicio, form.horaFin)
+  const crucesVigentes = cruces && cruces.clave === claveCruces ? cruces.lista : []
   const ambienteSeleccionado = ambientes.find((a) => String(a.id) === form.idAmbiente)
   // Si el aula principal pasa a ser una de las adicionales, deja de contarse dos veces.
   const adicionalesVigentes = aulasAdicionales.filter((idAula) => String(idAula) !== form.idAmbiente)
@@ -253,6 +278,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
 
   const resetAll = () => {
     setStep(1)
+    setPersonalControl([])
+    setAvisoSinControl(false)
     setForm(INITIAL_EXAMEN_FORM)
     setGrupos([])
     setIdParalelo(null)
@@ -400,6 +427,17 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
       return
     }
 
+    // Con aulas adicionales, al menos un personal de control por cada una (el docente no está en todas las puertas).
+    if (adicionalesVigentes.length > 0 && personalControl.length < adicionalesVigentes.length) {
+      const aulas = adicionalesVigentes.length + 1
+      setGeneralError(`El examen se reparte en ${aulas} aulas: asigna al menos ${adicionalesVigentes.length} ${adicionalesVigentes.length === 1 ? 'persona' : 'personas'} de control (una por cada aula adicional).`)
+      return
+    }
+    if (personalControl.length === 0 && !avisoSinControl) {
+      setAvisoSinControl(true)
+      return
+    }
+
     submittingRef.current = true
     setSaving(true)
     setGeneralError('')
@@ -419,6 +457,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
         idParalelo,
         idAmbientesAdicionales: adicionalesVigentes,
         modoReparto,
+        idsPersonalControl: personalControl,
       })
       setSuccess(true)
       onSuccess?.()
@@ -699,6 +738,8 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                     label="Hora de inicio"
                     value={form.horaInicio}
                     error={errors.horaInicio}
+                    minimo={horaMinimaInicio(form.fecha, new Date(ahoraServidorMs()))}
+                    maximo="21:40"
                     onChange={(v) => handleChange('horaInicio', v)}
                   />
                   {errors.horaInicio && (
@@ -714,6 +755,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                     label="Hora de fin"
                     value={form.horaFin}
                     error={errors.horaFin}
+                    minimo={horaMinimaFin(form.horaInicio)}
                     onChange={(v) => handleChange('horaFin', v)}
                   />
                   {duracion !== null && (
@@ -875,6 +917,9 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                                 )}
                               </div>
                               <span className="text-[10px] text-gray-500">{detalleAmbiente(a)}</span>
+                              {a.disponible === false && a.ocupadoPor && (
+                                <span className="text-[10px] font-semibold text-red-600">Ocupado por {a.ocupadoPor}</span>
+                              )}
                             </button>
                           </li>
                         ))
@@ -893,7 +938,7 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
                   <p className="mt-1 text-[10px] text-red-500">{errors.idAmbiente}</p>
                 ) : ambienteOcupado && (
                   <p className="mt-1 text-[10px] text-red-500">
-                    El ambiente está ocupado en ese horario. Elige otro ambiente u horario.
+                    El ambiente está ocupado en ese horario{ambienteSeleccionado?.ocupadoPor ? ` por ${ambienteSeleccionado.ocupadoPor}` : ''}. Elige otro ambiente u horario.
                   </p>
                 )}
                 <AulasAdicionalesEditor
@@ -915,6 +960,37 @@ export default function RegisterExamenModal({ isOpen, onClose, onSuccess, materi
 
             {step === 3 && (
             <>
+            {crucesVigentes.length > 0 && (
+              <section role="alert" className="rounded-xl border border-[#FEC84B] bg-[#FFFAEB] p-4 text-xs text-[#7A2E0E]">
+                <p className="flex items-start gap-2 font-semibold">
+                  <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  {crucesVigentes.length === 1 ? '1 estudiante inscrito tiene' : `${crucesVigentes.length} estudiantes inscritos tienen`} otro
+                  examen a esa hora. No podrán rendir los dos: en la puerta solo se permite el ingreso a uno.
+                </p>
+                <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto pl-6">
+                  {crucesVigentes.slice(0, 50).map((c) => (
+                    <li key={c.idEstudiante}>
+                      <span className="font-semibold">{c.nombre}</span>{c.codigoSis ? ` (${c.codigoSis})` : ''}: {c.otrosExamenes}
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" onClick={() => { setGeneralError(''); setStep(2) }}
+                  className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#FEC84B] bg-white px-3 font-semibold text-[#7A2E0E] hover:bg-[#FEF0C7]">
+                  Cambiar el horario
+                </button>
+              </section>
+            )}
+            <PersonalControlRegistro fecha={form.fecha} horaInicio={form.horaInicio}
+              duracionMinutos={minutesBetween(form.horaInicio, form.horaFin)} idMateria={idMateria} idDocente={idDocente}
+              minimo={adicionalesVigentes.length}
+              elegidos={personalControl} onChange={(ids) => { setPersonalControl(ids); setAvisoSinControl(false) }} />
+            {avisoSinControl && (
+              <p role="alert" className="flex items-start gap-2 rounded-xl border border-[#FEC84B] bg-[#FFFAEB] p-3 text-xs text-[#7A2E0E]">
+                <CircleAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>El examen quedará <b>sin personal de control</b>. Puedes asignarlo después en el detalle del examen.
+                  Toca <b>Registrar</b> otra vez para continuar así.</span>
+              </p>
+            )}
             <section className="rounded-xl border border-[#D8E3F5] bg-white p-4">
               <h3 className="mb-3 flex items-center gap-2 text-xs font-bold tracking-wide text-[#011140]">
                 <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#0439D9]" aria-hidden="true" />

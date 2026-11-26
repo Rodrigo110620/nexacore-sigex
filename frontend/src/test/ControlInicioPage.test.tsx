@@ -5,7 +5,7 @@ import { AuthProvider } from '../context/AuthContext'
 import ControlInicioPage from '../pages/Control/ControlInicioPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import { obtenerResumenExamen } from '../services/controlExamenService'
-import { listarExamenes, type ExamenDto } from '../services/examenService'
+import { listarMisExamenes, type ExamenDto } from '../services/examenService'
 import { obtenerInicioControl, type InicioControl } from '../services/inicioService'
 import { aperturaControl } from '../utils/tiempoExamen'
 
@@ -24,7 +24,7 @@ const examenes = vi.hoisted(() => {
 })
 
 vi.mock('../services/controlExamenService')
-vi.mock('../services/examenService', () => ({ listarExamenes: vi.fn().mockResolvedValue(examenes) }))
+vi.mock('../services/examenService', () => ({ listarMisExamenes: vi.fn().mockResolvedValue(examenes) }))
 vi.mock('../services/inicioService', () => ({ obtenerInicioControl: vi.fn() }))
 
 function Destino() {
@@ -72,7 +72,7 @@ describe('ControlInicioPage (sección 17 de Figma)', () => {
     localStorage.clear()
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date(2026, 9, 15, 10, 30)) // hora local: Cálculo I (10:00, 120 min) está en curso
-    vi.mocked(listarExamenes).mockClear()
+    vi.mocked(listarMisExamenes).mockClear()
     vi.mocked(obtenerResumenExamen).mockReset()
     vi.mocked(obtenerResumenExamen).mockResolvedValue({ total: 45, habilitados: 42, noHabilitados: 3, ingresados: 9 })
     vi.mocked(obtenerInicioControl).mockReset()

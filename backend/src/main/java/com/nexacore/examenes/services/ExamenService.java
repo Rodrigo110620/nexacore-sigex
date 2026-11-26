@@ -77,6 +77,13 @@ public class ExamenService {
     private final AsistenciaExamenRepository asistenciaExamenRepository;
     private final ObjectMapper objectMapper;
     private final ExamenAulaRepository examenAulaRepository;
+    /** Para asignar el personal de control al registrar (por setter: no cambia el constructor que usan las pruebas). */
+    private ExamenControlService examenControlService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setExamenControlService(ExamenControlService examenControlService) {
+        this.examenControlService = examenControlService;
+    }
 
     private static final Set<String> PALABRAS_VACIAS = Set.of(
             "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "AL", "PARA", "POR", "CON");
@@ -87,6 +94,73 @@ public class ExamenService {
     /** Personal de control asignado (V53), solo para listarMios; por campo para no cambiar el constructor. */
     @org.springframework.beans.factory.annotation.Autowired
     private com.nexacore.examenes.repositories.ExamenControlRepository examenControlRepository;
+
+    /** Periodo académico activo (V61); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PeriodoService periodoService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.InscripcionParaleloRepository inscripcionParaleloRepository;
+
+    /**
+     * Estudiantes del grupo (inscritos y, al editar, los ya asociados al examen) que tienen otro examen ese día que se
+     * cruza con el horario elegido. Solo avisa: el docente decide si cambia el horario.
+     */
+    @Transactional(readOnly = true)
+    public List<com.nexacore.examenes.dto.CruceEstudianteResponse> crucesDeEstudiantes(
+            Integer idParalelo, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos, Integer idExamen) {
+        if (fecha == null || inicio == null || duracionMinutos <= 0) return List.of();
+        // Un docente solo consulta sus propios grupos y exámenes: los nombres de otros grupos no son suyos.
+        if (SesionActual.gestionaSoloPropios()) {
+            Integer yo = usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);
+            boolean grupoAjeno = idParalelo != null && paraleloRepository.findAllByIdParalelos(List.of(idParalelo)).stream()
+                    .noneMatch(p -> yo.equals(p.getId().getIdDocente()));
+            boolean examenAjeno = idExamen != null && !examenRepository.perteneceADocente(idExamen, yo);
+            if (grupoAjeno || examenAjeno) {
+                throw new org.springframework.security.access.AccessDeniedException("Solo puedes consultar tus propios grupos.");
+            }
+        }
+        Set<Integer> ids = new java.util.LinkedHashSet<>();
+        if (idParalelo != null && inscripcionParaleloRepository != null) {
+            ids.addAll(inscripcionParaleloRepository.idsInscritosDelGrupo(idParalelo));
+        }
+        if (idExamen != null) {
+            ids.addAll(asistenciaExamenRepository.idsEstudiantesDelExamen(idExamen));
+        }
+        if (ids.isEmpty()) return List.of();
+        LocalTime fin = inicio.plusMinutes(duracionMinutos);
+        java.util.Map<Integer, List<String>> porEstudiante = new java.util.LinkedHashMap<>();
+        for (AsistenciaExamenRepository.OtroExamen otro : asistenciaExamenRepository.otrosExamenesDelDia(
+                ids, fecha, idExamen == null ? -1 : idExamen)) {
+            if ("cancelado".equalsIgnoreCase(otro.estado()) || otro.horaInicio() == null || otro.duracionMinutos() == null) {
+                continue;
+            }
+            LocalTime otroFin = otro.horaInicio().plusMinutes(otro.duracionMinutos());
+            if (inicio.isBefore(otroFin) && otro.horaInicio().isBefore(fin)) {
+                porEstudiante.computeIfAbsent(otro.idEstudiante(), k -> new ArrayList<>())
+                        .add(otro.materia() + " (" + otro.horaInicio() + "–" + otroFin + ")");
+            }
+        }
+        if (porEstudiante.isEmpty()) return List.of();
+        java.util.Map<Integer, com.nexacore.examenes.models.Estudiante> estudiantes = new java.util.HashMap<>();
+        estudianteRepository.findAllById(porEstudiante.keySet()).forEach(e -> estudiantes.put(e.getId(), e));
+        return porEstudiante.entrySet().stream().map(e -> {
+            var est = estudiantes.get(e.getKey());
+            String nombre = est == null ? "" : (java.util.Objects.toString(est.getNombre(), "") + " "
+                    + java.util.Objects.toString(est.getApellidos(), "")).trim();
+            return new com.nexacore.examenes.dto.CruceEstudianteResponse(e.getKey(), est == null ? null : est.getCodigoSis(),
+                    nombre, String.join("; ", e.getValue()));
+        }).sorted(java.util.Comparator.comparing(com.nexacore.examenes.dto.CruceEstudianteResponse::nombre)).toList();
+    }
+
+    private Integer periodoActivo() {
+        return periodoService == null ? null : periodoService.idActivo();
+    }
+
+    /** true si el grupo es del periodo (sin periodo, en una base sin periodos, no se filtra). */
+    private static boolean delPeriodo(Paralelo p, Integer idPeriodo) {
+        return idPeriodo == null || p == null || p.getIdPeriodo() == null || idPeriodo.equals(p.getIdPeriodo());
+    }
 
     public ExamenService(
             ExamenRepository examenRepository,
@@ -123,7 +197,14 @@ public class ExamenService {
 
     @Transactional(readOnly = true)
     public List<ExamenResponse> listar() {
-        List<Examen> examenes = examenesVisibles();
+        return listar(null);
+    }
+
+    /** Los exámenes del periodo pedido (por defecto, el activo). */
+    @Transactional(readOnly = true)
+    public List<ExamenResponse> listar(Integer idPeriodo) {
+        Integer periodo = periodoService == null ? null : periodoService.resolver(idPeriodo);
+        List<Examen> examenes = examenesVisibles().stream().filter(e -> delPeriodo(e.getParalelo(), periodo)).toList();
         Catalogos catalogos = catalogosDe(examenes);
         return examenes.stream()
                 .map(examen -> toResponse(examen, catalogos))
@@ -136,15 +217,22 @@ public class ExamenService {
      */
     @Transactional(readOnly = true)
     public List<ExamenResponse> listarMios() {
+        return listarMios(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExamenResponse> listarMios(Integer idPeriodo) {
         if (com.nexacore.examenes.security.Permisos.tiene(
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication(),
                 com.nexacore.examenes.security.Permiso.REPORTES_VER)) {
-            return listar();
+            return listar(idPeriodo);
         }
+        Integer periodo = periodoService == null ? null : periodoService.resolver(idPeriodo);
         Integer yo = usuarioRepository.findByEmail(SesionActual.email()).map(Usuario::getId).orElse(-1);
         java.util.Set<Integer> asignados = new java.util.HashSet<>(examenControlRepository.examenesDe(yo));
         List<Examen> examenes = examenRepository.findAllByOrderByFechaDescHoraInicioDesc().stream()
                 .filter(e -> yo.equals(e.getIdDocente()) || asignados.contains(e.getId().getIdExamen()))
+                .filter(e -> delPeriodo(e.getParalelo(), periodo))
                 .toList();
         Catalogos catalogos = catalogosDe(examenes);
         return examenes.stream().map(examen -> toResponse(examen, catalogos)).toList();
@@ -181,15 +269,23 @@ public class ExamenService {
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente indicado no existe"));
 
         validarNoPasado(request.fecha(), request.horaInicio());
-        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
-                null);
-
+        validarJornada(request.horaInicio(), request.duracionMinutos());
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         Docente docente = resolverDocenteParaRegistro(request);
         // IMP-12: el docente solo programa exámenes de sus materias.
         docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
+        Conjunto conjunto = new Conjunto(materia.getId(), docente.getIdUsuario());
+        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(),
+                null, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, request.idAmbientesAdicionales(),
-                request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), null, conjunto);
+        // Con varias aulas, al menos un personal de control por aula adicional (el docente no está en todas las puertas).
+        int personalPedido = request.idsPersonalControl() == null ? 0 : (int) request.idsPersonalControl().stream()
+                .filter(java.util.Objects::nonNull).distinct().count();
+        if (!adicionales.isEmpty() && personalPedido < adicionales.size()) {
+            throw new IllegalArgumentException(ExamenControlService.minimoPorAulas(adicionales.size() + 1));
+        }
         Paralelo paralelo = resolverParalelo(materia, docente, request.idParalelo());
         validarGrupoSinCruce(paralelo.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), null);
         validarNoExisteExamenDuplicado(materia.getId(), paralelo.getId().getIdParalelo(),
@@ -221,6 +317,13 @@ public class ExamenService {
                 "idExamen", guardado.getId().getIdExamen(),
                 "idParalelo", guardado.getId().getIdParalelo(),
                 "examen", resumen(guardado)));
+        // El personal de control elegido en el registro: en la misma transacción (si alguien está ocupado, no se crea).
+        if (request.idsPersonalControl() != null && !request.idsPersonalControl().isEmpty() && examenControlService != null) {
+            var personal = examenControlService.asignar(idExamen, request.idsPersonalControl());
+            auditoriaService.registrar("PERSONAL_CONTROL_ASIGNADO", AuditoriaService.datos("idExamen", idExamen,
+                    "personal", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList(),
+                    "agregados", personal.stream().map(p -> (p.nombre() + " " + p.apellidos()).trim()).toList()));
+        }
         return toResponse(guardado);
     }
 
@@ -247,10 +350,10 @@ public class ExamenService {
         if (cambiaHorario) {
             validarNoPasado(request.fecha(), request.horaInicio());
         }
-
-        // Validar conflicto excluyendo el propio examen
-        validarSinConflicto(
-                request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        // Solo si cambia el horario o la duración: un examen antiguo fuera de la jornada se puede seguir editando.
+        if (cambiaHorario || !request.duracionMinutos().equals(examen.getDuracionMinutos())) {
+            validarJornada(request.horaInicio(), request.duracionMinutos());
+        }
 
         Materia materia = resolverMateria(request.idMateria(), request.asignatura().trim());
         // Como al crearlo: el DOCENTE no puede pasarle su examen a otro docente.
@@ -262,12 +365,16 @@ public class ExamenService {
         if (!materia.getId().equals(examen.getIdMateria())) {
             docenteMateriaService.exigirQueSeaSuya(docente.getIdUsuario(), materia.getId());
         }
+        // Validar conflictos excluyendo el propio examen.
+        Conjunto conjunto = new Conjunto(materia.getId(), docente.getIdUsuario());
+        validarSinConflicto(request.idAmbiente(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         // null conserva las aulas adicionales que ya tenía; igual se revalidan con el nuevo horario.
         List<Integer> idsAdicionales = request.idAmbientesAdicionales() != null
                 ? request.idAmbientesAdicionales()
                 : examenAulaRepository.adicionalesDe(idExamen).stream().map(ea -> ea.getId().getIdAmbiente()).toList();
         List<Ambiente> adicionales = validarAulasAdicionales(ambiente, idsAdicionales,
-                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+                request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
 
         Map<String, Object> antes = resumen(examen);
         normasExamenService.actualizar(examen, request.normasGenerales(), request.normasParticulares());
@@ -290,6 +397,11 @@ public class ExamenService {
 
         Examen guardado = examenRepository.save(examen);
         guardarAulasAdicionales(idExamen, adicionales);
+        // El personal de control: sin cruces con el nuevo horario y en aulas que sigan siendo del examen.
+        if (examenControlService != null) {
+            examenRepository.flush();
+            examenControlService.revisarTrasCambio(idExamen);
+        }
         auditoriaService.registrar("EXAMEN_MODIFICADO", Map.of(
                 "idExamen", idExamen,
                 "idParaleloAnterior", idParalelo,
@@ -384,17 +496,20 @@ public class ExamenService {
                     : "Solo se reprograma un examen que ya finalizó; para cambiar la fecha antes, edítalo.");
         }
         validarNoPasado(request.fecha(), request.horaInicio());
+        validarJornada(request.horaInicio(), request.duracionMinutos());
         String motivo = MotivoReprogramacion.validar(request.motivo());
         Ambiente ambiente = ambienteRepository.bloquear(examen.getIdAmbiente())
                 .orElseThrow(() -> new IllegalArgumentException("El ambiente del examen no existe"));
-        validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
+        Conjunto conjunto = new Conjunto(examen.getIdMateria(), examen.getIdDocente());
+        validarSinConflicto(ambiente.getId(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen, conjunto);
+        validarDocenteSinCruce(conjunto, request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         validarGrupoSinCruce(examen.getId().getIdParalelo(), request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         validarNoExisteExamenDuplicado(examen.getIdMateria(), examen.getId().getIdParalelo(),
                 request.fecha(), request.horaInicio(), request.duracionMinutos(), idExamen);
         List<Integer> idsAdicionales = examenAulaRepository.adicionalesDe(idExamen).stream()
                 .map(ea -> ea.getId().getIdAmbiente()).toList();
         validarAulasAdicionales(ambiente, idsAdicionales, request.fecha(), request.horaInicio(),
-                request.duracionMinutos(), idExamen);
+                request.duracionMinutos(), idExamen, conjunto);
 
         Integer idUsuario = usuarioRepository.findByEmail(emailUsuario).map(Usuario::getId).orElse(null);
         Map<String, Object> antes = resumen(examen);
@@ -404,6 +519,10 @@ public class ExamenService {
         examen.setHoraInicio(request.horaInicio());
         examen.setDuracionMinutos(request.duracionMinutos());
         Examen guardado = examenRepository.save(examen);
+        if (examenControlService != null) {
+            examenRepository.flush();
+            examenControlService.revisarTrasCambio(idExamen);
+        }
         auditoriaService.registrar("EXAMEN_REPROGRAMADO", Map.of(
                 "idExamen", idExamen,
                 "sesionArchivada", sesion,
@@ -415,11 +534,34 @@ public class ExamenService {
         return toResponse(guardado);
     }
 
+    /**
+     * Materia y docente del examen que se valida. Un aula solo se comparte en un examen conjunto: la misma materia y
+     * el mismo docente con otro de sus grupos (G1 y G2), a la misma hora de inicio y con la misma duración (BUG-B02).
+     */
+    record Conjunto(Integer idMateria, Integer idDocente) {
+        boolean con(Examen otro, LocalTime inicio, int duracionMinutos) {
+            return idMateria.equals(otro.getIdMateria()) && idDocente.equals(otro.getIdDocente())
+                    && inicio.equals(otro.getHoraInicio()) && Integer.valueOf(duracionMinutos).equals(otro.getDuracionMinutos());
+        }
+
+        boolean mismaMateriaYDocente(Examen otro) {
+            return idMateria.equals(otro.getIdMateria()) && idDocente.equals(otro.getIdDocente());
+        }
+    }
+
     private void validarSinConflicto(
             Integer idAmbiente, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido) {
-        Examen otro = primerSolapado(examenRepository.findByAmbienteAndFecha(idAmbiente, fecha),
-                inicio, duracionMinutos, idExamenExcluido);
+            Integer idExamenExcluido, Conjunto conjunto) {
+        List<Examen> enElAula = examenRepository.findByAmbienteAndFecha(idAmbiente, fecha).stream()
+                .filter(e -> conjunto == null || !conjunto.con(e, inicio, duracionMinutos))
+                .toList();
+        Examen otro = primerSolapado(enElAula, inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null && conjunto != null && conjunto.mismaMateriaYDocente(otro)) {
+            String nombre = ambienteRepository.findById(idAmbiente).map(Ambiente::getNombre).orElse("indicado");
+            throw new ConflictoExamenException("El aula " + nombre + " ya tiene el examen de otro de tus grupos de esta materia ("
+                    + otro.getHoraInicio() + " – " + finDe(otro) + "). Para tomarlo junto en la misma aula, usa la misma "
+                    + "hora de inicio y la misma duración.");
+        }
         if (otro != null) {
             String nombre = ambienteRepository.findById(idAmbiente).map(Ambiente::getNombre).orElse("indicado");
             throw new ConflictoExamenException(
@@ -451,6 +593,25 @@ public class ExamenService {
                                 + otro.getHoraInicio().plusMinutes(otro.getDuracionMinutos())
                                 + ". No se pueden crear exámenes duplicados en el mismo horario.");
             }
+        }
+    }
+
+    /**
+     * BUG-B01: un docente no toma a la vez exámenes de materias distintas (no puede estar en dos aulas). Sí puede
+     * tomar a la misma hora los de varios grupos de la misma materia (examen conjunto, BUG-B02).
+     */
+    private void validarDocenteSinCruce(Conjunto conjunto, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
+                                        Integer idExamenExcluido) {
+        List<Examen> deOtraMateria = examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(conjunto.idDocente()).stream()
+                .filter(e -> fecha.equals(e.getFecha()) && !"cancelado".equalsIgnoreCase(e.getEstado())
+                        && !conjunto.idMateria().equals(e.getIdMateria()))
+                .toList();
+        Examen otro = primerSolapado(deOtraMateria, inicio, duracionMinutos, idExamenExcluido);
+        if (otro != null) {
+            String materia = otro.getParalelo() != null && otro.getParalelo().getMateria() != null
+                    ? otro.getParalelo().getMateria().getNombre() : "otra materia";
+            throw new ConflictoExamenException("El docente ya tiene el examen de " + materia + " el " + fecha + " entre "
+                    + otro.getHoraInicio() + " y " + finDe(otro) + ": no puede tomar dos exámenes de materias distintas a la vez.");
         }
     }
 
@@ -487,7 +648,7 @@ public class ExamenService {
      */
     private List<Ambiente> validarAulasAdicionales(
             Ambiente principal, List<Integer> ids, java.time.LocalDate fecha, LocalTime inicio, int duracionMinutos,
-            Integer idExamenExcluido) {
+            Integer idExamenExcluido, Conjunto conjunto) {
         List<Integer> lista = listaSegura(ids);
         if (lista.size() > MAX_AULAS_ADICIONALES) {
             throw new IllegalArgumentException(
@@ -507,7 +668,7 @@ public class ExamenService {
         }
         List<Ambiente> aulas = lista.stream().map(bloqueados::get).toList();
         for (Ambiente aula : aulas) {
-            validarSinConflicto(aula.getId(), fecha, inicio, duracionMinutos, idExamenExcluido);
+            validarSinConflicto(aula.getId(), fecha, inicio, duracionMinutos, idExamenExcluido, conjunto);
         }
         if (!aulas.isEmpty()) {
             List<String> sinAforo = Stream.concat(Stream.of(principal), aulas.stream())
@@ -555,6 +716,22 @@ public class ExamenService {
         return examen.getHoraInicio().plusMinutes(examen.getDuracionMinutos());
     }
 
+    /** La jornada de la universidad: los exámenes empiezan desde las 06:45 y terminan a más tardar a las 21:45. */
+    static final LocalTime HORA_APERTURA = LocalTime.of(6, 45);
+    static final LocalTime HORA_CIERRE = LocalTime.of(21, 45);
+
+    public static void validarJornada(LocalTime horaInicio, Integer duracionMinutos) {
+        if (horaInicio == null || duracionMinutos == null) return;
+        if (horaInicio.isBefore(HORA_APERTURA)) {
+            throw new IllegalArgumentException("El examen no puede empezar antes de las 06:45.");
+        }
+        LocalTime fin = horaInicio.plusMinutes(duracionMinutos);
+        // Si pasa de la medianoche, el fin «da la vuelta» y queda antes del inicio.
+        if (fin.isAfter(HORA_CIERRE) || fin.isBefore(horaInicio)) {
+            throw new IllegalArgumentException("El examen debe terminar a más tardar a las 21:45.");
+        }
+    }
+
     private void validarNoPasado(java.time.LocalDate fecha, LocalTime horaInicio) {
         java.time.LocalDate hoy = java.time.LocalDate.now();
         if (fecha.isBefore(hoy)) {
@@ -573,7 +750,7 @@ public class ExamenService {
                             "La asignatura seleccionada no existe en el catálogo institucional."));
         }
         String texto = nombre == null ? "" : nombre.trim();
-        return materiaRepository.findByNombreIgnoreCase(texto)
+        return materiaRepository.findFirstByNombreIgnoreCaseOrderByIdAsc(texto)
                 .or(() -> materiaRepository.findBySiglaIgnoreCase(texto))
                 .map(this::corregirSiglaSiEsNombre)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -603,7 +780,8 @@ public class ExamenService {
                 || compacta.startsWith(compactaNombre.substring(0, Math.min(8, compactaNombre.length())));
     }
 
-    private String siglaUnicaDesdeNombre(String nombre) {
+    /** Sigla sugerida y libre a partir del nombre: «Teoría de Grafos» → TG-101 (la usa también el catálogo de materias). */
+    public String siglaUnicaDesdeNombre(String nombre) {
         String prefijo = prefijoDesdeNombre(nombre);
         int n = 101;
         String candidata = prefijo + "-" + n;
@@ -692,7 +870,9 @@ public class ExamenService {
      * el docente en la materia. Con varios grupos (G1, G2…) hay que elegir uno. Sin ninguno, se crea el G1.
      */
     private Paralelo resolverParalelo(Materia materia, Docente docente, Integer idParalelo) {
-        List<Paralelo> grupos = paraleloRepository.deMateriaYDocente(materia.getId(), docente.getIdUsuario());
+        Integer periodo = periodoActivo();
+        List<Paralelo> grupos = paraleloRepository.deMateriaYDocente(materia.getId(), docente.getIdUsuario()).stream()
+                .filter(p -> delPeriodo(p, periodo)).toList();
         if (idParalelo != null) {
             return grupos.stream().filter(p -> p.getId().getIdParalelo().equals(idParalelo)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("El grupo elegido no es de esta materia y este docente."));
@@ -713,6 +893,7 @@ public class ExamenService {
                     p.setId(pid);
                     p.setMateria(materia);
                     p.setDocente(docente);
+                    p.setIdPeriodo(periodo);
                     // Cada grupo de una materia tiene un solo docente: si el G1 ya es de otro, toma el primero libre.
                     p.setNombreGrupo(primerGrupoLibre(materia.getId()));
                     return paraleloRepository.save(p);
@@ -722,8 +903,9 @@ public class ExamenService {
     /** El primer grupo (G1…G20) de la materia que todavía no tiene docente. */
     private String primerGrupoLibre(Integer idMateria) {
         java.util.Set<String> ocupados = new java.util.HashSet<>();
+        Integer periodo = periodoActivo();
         for (Paralelo otro : paraleloRepository.findByIdIdMateria(idMateria)) {
-            if (otro.getNombreGrupo() != null) {
+            if (otro.getNombreGrupo() != null && delPeriodo(otro, periodo)) {
                 String g = otro.getNombreGrupo().trim().toUpperCase(java.util.Locale.ROOT);
                 ocupados.add(g.matches("\\d{1,2}") ? "G" + g : g);
             }

@@ -64,7 +64,7 @@ export default function PanelTopBar({
       : isReportes
         ? 'Intentos de ingreso incorrectos, expulsiones y excepciones de los exámenes.'
         : isConfiguracion
-          ? 'Roles, permisos, respaldo e historial de operaciones.'
+          ? 'Roles, permisos, periodos, materias, respaldo e historial de operaciones.'
           : 'Administra y audita las cuentas del sistema, asignación de roles y estados de acceso.'
   const effectiveTitle = title ?? pageTitle
   const effectiveDescription = description ?? pageSubtitle

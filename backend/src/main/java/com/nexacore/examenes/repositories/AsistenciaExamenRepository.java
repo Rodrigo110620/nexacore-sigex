@@ -126,6 +126,35 @@ public interface AsistenciaExamenRepository extends JpaRepository<AsistenciaExam
                                                @Param("fecha") java.time.LocalDate fecha,
                                                @Param("idExamen") Integer idExamen);
 
+    /** Examen en el que el estudiante ya está dentro (ingresó, no salió y no fue expulsado), ese día. */
+    record IngresoEnCurso(Integer idExamen, java.time.LocalTime horaInicio, Integer duracionMinutos, String materia,
+                          String aula, java.time.LocalDateTime fechaHoraIngreso) {}
+
+    /**
+     * Otros exámenes del día en los que el estudiante está dentro, para no dejarlo ingresar a la vez a otro que se cruza
+     * en horario. Una expulsión anulada no cuenta (el estudiante sigue dentro).
+     */
+    @Query("""
+            SELECT new com.nexacore.examenes.repositories.AsistenciaExamenRepository$IngresoEnCurso(
+                   ex.id.idExamen, ex.horaInicio, ex.duracionMinutos, m.nombre, amb.nombre, a.fechaHoraIngreso)
+            FROM AsistenciaExamen a
+            JOIN a.examen ex
+            JOIN ex.paralelo p
+            JOIN p.materia m
+            LEFT JOIN a.ambienteIngreso amb
+            WHERE a.id.idEstudiante = :idEstudiante
+              AND a.id.idExamen <> :idExamen
+              AND ex.fecha = :fecha
+              AND a.fechaHoraIngreso IS NOT NULL
+              AND a.fechaHoraSalida IS NULL
+              AND LOWER(COALESCE(ex.estado, '')) <> 'cancelado'
+              AND NOT EXISTS (SELECT 1 FROM Expulsion x WHERE x.idEstudiante = a.id.idEstudiante
+                              AND x.idExamen = ex.id.idExamen AND x.anuladaEn IS NULL)
+            """)
+    List<IngresoEnCurso> ingresosEnCursoDelDia(@Param("idEstudiante") Integer idEstudiante,
+                                               @Param("idExamen") Integer idExamen,
+                                               @Param("fecha") java.time.LocalDate fecha);
+
     /** Registros del control de ingreso del estudiante en el examen (autorizaciones, intentos, incidencias). */
     @Query(value = """
             SELECT (SELECT COUNT(*) FROM registro_control_ingreso WHERE id_examen = :idExamen AND id_estudiante = :idEstudiante)

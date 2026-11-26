@@ -68,8 +68,42 @@ public class RepartoAulasService {
         this.examenAulaRepository = examenAulaRepository;
     }
 
-    /** Aula principal y adicionales del examen, en el orden en que se llenan. */
+    /** Exámenes conjuntos (BUG-B02); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.ExamenRepository examenRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.nexacore.examenes.repositories.AsistenciaExamenRepository asistenciaExamenRepository;
+
+    /**
+     * Aula principal y adicionales del examen, en el orden en que se llenan. Si comparte aulas con un examen conjunto
+     * anterior (otro grupo de la misma materia y docente, a la misma hora), el aforo que le queda es el que aquel no usó.
+     */
     public List<Aula> aulasDe(Examen examen) {
+        return descontarConjuntos(examen, aulasPropias(examen), 0);
+    }
+
+    private List<Aula> descontarConjuntos(Examen examen, List<Aula> aulas, int nivel) {
+        if (examenRepository == null || asistenciaExamenRepository == null || nivel > 6 || examen.getId() == null
+                || examen.getFecha() == null || examen.getHoraInicio() == null) {
+            return aulas;
+        }
+        List<Examen> anteriores = examenRepository.conjuntosAnteriores(examen.getIdMateria(), examen.getIdDocente(),
+                examen.getFecha(), examen.getHoraInicio(), examen.getDuracionMinutos(), examen.getId().getIdExamen());
+        if (anteriores.isEmpty()) return aulas;
+        Map<Integer, Integer> usados = new HashMap<>();
+        for (Examen otro : anteriores) {
+            List<Aula> suyas = descontarConjuntos(otro, aulasPropias(otro), nivel + 1);
+            Reparto r = calcular(suyas, candidatos(asistenciaExamenRepository.listarDelExamen(
+                    otro.getId().getIdExamen(), otro.getId().getIdParalelo())));
+            r.asignados().forEach((idAula, n) -> usados.merge(idAula, n, Integer::sum));
+        }
+        return aulas.stream().map(a -> a.capacidad() == null || !usados.containsKey(a.idAmbiente()) ? a
+                : new Aula(a.idAmbiente(), a.nombre(), Math.max(0, a.capacidad() - usados.get(a.idAmbiente())), a.orden()))
+                .toList();
+    }
+
+    private List<Aula> aulasPropias(Examen examen) {
         List<Aula> aulas = new ArrayList<>();
         Ambiente principal = examen.getAmbiente();
         aulas.add(principal != null
@@ -84,7 +118,16 @@ public class RepartoAulasService {
 
     /** Reparto con los asociados del examen (asistencia_examen), según su modo. */
     public Reparto repartir(Examen examen, List<AsistenciaExamen> asistencias) {
-        List<Candidato> candidatos = asistencias.stream().map(a -> {
+        List<Candidato> candidatos = candidatos(asistencias);
+        List<Aula> aulas = aulasDe(examen);
+        // Con una sola aula el modo no cambia nada: todos van a ella.
+        return examen.repartePorLlegada() && aulas.size() > 1
+                ? porLlegada(aulas, candidatos)
+                : calcular(aulas, candidatos);
+    }
+
+    private static List<Candidato> candidatos(List<AsistenciaExamen> asistencias) {
+        return asistencias.stream().map(a -> {
             Estudiante e = a.getEstudiante();
             Integer aulaIngreso = a.getFechaHoraIngreso() != null ? a.getIdAmbienteIngreso() : null;
             // Regla de negocio (2.º test run): el aforo se llena solo con los habilitados. Los no habilitados y los
@@ -92,11 +135,6 @@ public class RepartoAulasService {
             return new Candidato(e.getId(), e.getApellidos(), e.getNombre(),
                     !Boolean.TRUE.equals(a.getHabilitado()), aulaIngreso);
         }).toList();
-        List<Aula> aulas = aulasDe(examen);
-        // Con una sola aula el modo no cambia nada: todos van a ella.
-        return examen.repartePorLlegada() && aulas.size() > 1
-                ? porLlegada(aulas, candidatos)
-                : calcular(aulas, candidatos);
     }
 
     /**

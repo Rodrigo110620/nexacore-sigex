@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ControlIngresoPage from '../pages/Control/ControlIngresoPage'
 import * as service from '../services/controlIngresoService'
 import type { ContextoControlIngreso } from '../types/controlIngreso'
+import { operacionesControlPendientes } from '../services/controlOfflineService'
 
 vi.mock('../components/layout/PanelLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -173,6 +174,7 @@ describe('ControlIngresoPage', () => {
   })
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     vi.mocked(service.obtenerHistorialControl).mockResolvedValue([])
   })
 
@@ -250,7 +252,7 @@ describe('ControlIngresoPage', () => {
     expect(obs).toHaveValue(texto)
   })
 
-  it('CA-88 a 92: sin conexión no autoriza, avisa y conserva lo ingresado', async () => {
+  it('sin conexión guarda la autorización para sincronizarla después', async () => {
     renderPage()
     await screen.findByText('Laura Paredes')
     const obs = screen.getByPlaceholderText('Estudiante ingresa con credencial oficial en regla')
@@ -259,36 +261,27 @@ describe('ControlIngresoPage', () => {
     sinConexion()
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
 
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('No se pudo autorizar ni registrar el ingreso')
+    expect(screen.getByRole('dialog', { name: 'Resultado del control' })).toHaveTextContent('Guardado sin conexión')
+    expect(screen.getByRole('dialog', { name: 'Resultado del control' })).toHaveTextContent('se enviará automáticamente')
     expect(service.autorizarIngreso).not.toHaveBeenCalled()
-    expect(screen.queryByText('Ingreso autorizado')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
-    expect(obs).toHaveValue('Sin novedades en el control')
-    expect(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado')).toBeChecked()
+    expect(operacionesControlPendientes()).toHaveLength(1)
+    expect(operacionesControlPendientes()[0]).toMatchObject({ tipo: 'AUTORIZAR', payload: { idEstudiante: 10, idExamen: 20 } })
   })
 
-  it('CA-93/94: si la conexión se corta durante el envío avisa y permite reintentar', async () => {
+  it('si la conexión se corta durante el envío conserva una sola marcación pendiente', async () => {
     vi.mocked(service.autorizarIngreso)
       .mockRejectedValueOnce(errorDeRed())
-      .mockResolvedValueOnce({
-        autorizado: true, resultado: 'AUTORIZADO', causa: null,
-        fechaHoraIngreso: '2026-09-26T18:00:00Z', autorizadoPor: 'Carla Control',
-      })
     renderPage()
     await screen.findByText('Laura Paredes')
     fireEvent.click(screen.getByLabelText('Identidad biométrica cotejada / Carnet físico verificado'))
     fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
 
-    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Sin conexión a Internet')
-    expect(screen.queryByText('Ingreso autorizado')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Autorizar Ingreso' }))
-    expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
-    expect(service.autorizarIngreso).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Guardado sin conexión')).toBeInTheDocument()
+    expect(operacionesControlPendientes()).toHaveLength(1)
+    expect(service.autorizarIngreso).toHaveBeenCalledTimes(1)
   })
 
-  it('CA-150 a 153: sin conexión no deniega y mantiene abierto el formulario con sus datos', async () => {
+  it('sin conexión guarda la denegación para sincronizarla después', async () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: 'Denegar' }))
     fireEvent.change(screen.getByLabelText(/Razón de denegación/), { target: { value: 'Suplantación' } })
@@ -296,12 +289,10 @@ describe('ControlIngresoPage', () => {
     sinConexion()
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar Denegación' }))
 
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('No se pudo registrar la denegación')
+    expect(screen.getByRole('dialog', { name: 'Resultado del control' })).toHaveTextContent('Guardado sin conexión')
     expect(service.denegarIngreso).not.toHaveBeenCalled()
-    expect(screen.queryByText('Ingreso denegado')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }))
-    expect(screen.getByRole('dialog', { name: 'Denegar ingreso' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Detalle adicional/)).toHaveValue('No coincide la foto')
+    expect(operacionesControlPendientes()).toHaveLength(1)
+    expect(operacionesControlPendientes()[0]).toMatchObject({ tipo: 'DENEGAR', payload: { detalleDenegacion: 'No coincide la foto' } })
   })
 
   it('sin conexión al cargar avisa y permite reintentar', async () => {
@@ -417,7 +408,7 @@ describe('ControlIngresoPage', () => {
       fechaHoraDispositivo: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/),
     }))
     expect(await screen.findByText('Ingreso autorizado')).toBeInTheDocument()
-    expect(screen.getByText('Autorizado por')).toBeInTheDocument()
+    expect(screen.getByText('Registrado por')).toBeInTheDocument()
     expect(screen.getByText('Carla Control')).toBeInTheDocument()
     expect(screen.getByText('Fecha y hora oficial')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Registrar siguiente estudiante/ })).toBeInTheDocument()

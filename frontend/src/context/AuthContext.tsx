@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { setLogoutCallback } from '../utils/navigate'
+import { avisarCierreDeSesion } from '../services/sesionService'
 
 interface AuthContextType {
   token: string | null
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    avisarCierreDeSesion(localStorage.getItem('token'))
     localStorage.removeItem('token')
     localStorage.removeItem('nombre')
     localStorage.removeItem('roles')

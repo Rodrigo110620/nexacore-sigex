@@ -74,4 +74,29 @@ class HistorialPresentacionTests {
         assertThat(HistorialPresentacion.tipoDe("HABILITACION_ACTUALIZADA").operacion()).isEqualTo("Habilitación");
         assertThat(HistorialPresentacion.casoSql(false)).contains("WHEN 'USUARIO_DESBLOQUEADO' THEN 'ACTIVAR'");
     }
+
+    @Test
+    void lasSesionesSeNombranYMuestranElDispositivo() throws Exception {
+        var p = presentacion();
+        var otra = p.vista("SESION_CERRADA", leer("""
+                {"sesionCerrada":"Chrome en Android","propia":false,"dispositivo":"Firefox en Windows"}"""));
+        assertThat(otra.resumen()).isEqualTo("Cerró su sesión abierta en Chrome en Android");
+        assertThat(otra.examen()).extracting(d -> d.campo() + ": " + d.valor()).containsExactly("Dispositivo: Firefox en Windows");
+        assertThat(p.vista("SESION_CERRADA", leer("{\"propia\":true}")).resumen()).isEqualTo("Cerró su sesión");
+        assertThat(p.vista("SESION_INICIADA", leer("""
+                {"dispositivo":"Chrome en Linux","ip":"10.0.0.5","otrasSesiones":["Chrome en Android"]}""")).resumen())
+                .isEqualTo("Inició sesión; su cuenta ya estaba abierta en Chrome en Android");
+        assertThat(p.vista("CUENTA_BLOQUEADA_INTENTOS", leer("{\"intentos\":3,\"minutos\":15}")).resumen())
+                .isEqualTo("La cuenta se bloqueó 15 minutos por 3 contraseñas incorrectas seguidas");
+        assertThat(HistorialPresentacion.tipoDe("SESION_CERRADA").modulo()).isEqualTo("Sesiones");
+        assertThat(HistorialPresentacion.tipoDe("PERIODO_ACTIVADO").operacion()).isEqualTo("Activar");
+    }
+
+    @Test
+    void elRechazoAutomaticoDiceQueLoDenegoElSistema() throws Exception {
+        var v = presentacion().vista("INGRESO_DENEGADO", leer("""
+                {"idExamen":2,"idEstudiante":6,"automatico":true,"motivo":"Ya está rindiendo Cálculo II"}"""));
+        assertThat(v.resumen()).isEqualTo("El sistema denegó el ingreso de Ana Pérez");
+        assertThat(v.motivo()).isEqualTo("Ya está rindiendo Cálculo II");
+    }
 }

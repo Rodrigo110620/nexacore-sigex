@@ -459,7 +459,7 @@ export default function InformacionIngresoPage() {
                         `Estudiante ${registro.idEstudiante}`}{" "}
                       · Fecha y hora: {fechaHora(registro.fechaHora)}
                       {registro.usuarioControl
-                        ? ` · Autorizado por: ${registro.usuarioControl}`
+                        ? ` · Autorizado por: ${registro.usuarioControl}${registro.dispositivo ? ` (${registro.dispositivo})` : ''}`
                         : ""}
                     </p>
                     <button type="button" aria-expanded={registroExpandido === registro.idRegistro} onClick={() => setRegistroExpandido(registroExpandido === registro.idRegistro ? null : registro.idRegistro)} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-[#D8E3F5] bg-white px-3 py-1.5 text-xs font-bold text-[#0439D9] shadow-sm hover:bg-[#F4F7FB]">
@@ -473,6 +473,7 @@ export default function InformacionIngresoPage() {
                       {registro.tipoIngreso === 'MANUAL' && <p className="whitespace-pre-wrap break-words"><strong>Justificación:</strong> {registro.justificacionManual}</p>}
                       <p><strong>Fecha y hora:</strong> {fechaHora(registro.fechaHora)}</p>
                       <p><strong>Autorizado por:</strong> {registro.usuarioControl || 'No registrado'}</p>
+                      {registro.dispositivo && <p><strong>Desde:</strong> {registro.dispositivo}</p>}
                       {registro.observaciones && <p className="whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {registro.observaciones}</p>}
                       {registro.verificacionesAdicionales.length > 0 && <p><strong>Verificaciones:</strong> {registro.verificacionesAdicionales.join(' · ')}</p>}
                       {!!registro.incidencias?.length && <div><strong>Incidencias:</strong><ul className="mt-1 list-disc space-y-1 pl-5">{registro.incidencias.map((incidencia, i) => <li key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{incidencia.tipo.replace(/_/g, ' ')}{incidencia.descripcion && incidencia.descripcion !== incidencia.tipo ? `: ${incidencia.descripcion}` : ''}</li>)}</ul></div>}

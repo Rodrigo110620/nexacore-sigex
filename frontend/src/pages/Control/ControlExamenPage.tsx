@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock } from 'lucide-react'
+import { ArrowRight, Building2, DoorOpen, ScanLine, TriangleAlert, Download, CalendarDays, Clock, User, Lock, CloudDownload, CheckCircle2 } from 'lucide-react'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
 import ResumenExamenCards from '../../components/control/ResumenExamenCards'
@@ -15,6 +15,8 @@ import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
 import IngresosRecientesCard from '../../components/control/IngresosRecientesCard'
 import { listarEstudiantesExamen, type OcupacionAula } from '../../services/controlExamenService'
 import { addMinutes, formatFecha, horaCorta, materiaYGrupo } from '../../utils/examenFormat'
+import { marcarPreparado, prepararExamenSinConexion } from '../../services/controlOfflinePreparationService'
+import { miAsignacion } from '../../services/personalControlService'
 
 export default function ControlExamenPage() {
   const idExamen = Number(useParams().idExamen)
@@ -38,6 +40,35 @@ export default function ControlExamenPage() {
   // DASH-04 (acta en PDF) y DASH-05 (asistencia en Excel), como en la sección 12 del diseño.
   // Antes de descargar se ve la vista previa (el PDF tal cual; el Excel, sus primeras filas).
   const [previa, setPrevia] = useState<'pdf' | 'xlsx' | null>(null)
+  const [preparandoOffline, setPreparandoOffline] = useState(false)
+  // V66: el aula a cargo de este control cuando el examen se reparte en varias.
+  const [miAula, setMiAula] = useState<string | null>(null)
+  useEffect(() => {
+    if (!idValido) return
+    let vigente = true
+    miAsignacion(idExamen).then((a) => { if (vigente) setMiAula(a?.ambiente ?? null) }).catch(() => undefined)
+    return () => { vigente = false }
+  }, [idExamen, idValido])
+  const [preparacionOffline, setPreparacionOffline] = useState<string | null>(null)
+  const prepararOffline = async () => {
+    if (!idValido || preparandoOffline) return
+    setPreparandoOffline(true)
+    setPreparacionOffline(null)
+    try {
+      const resultado = await prepararExamenSinConexion(idExamen)
+      marcarPreparado(idExamen)
+      setPreparacionOffline(`Listo para trabajar sin conexión: ${resultado.estudiantes} estudiantes, sus fichas y ${resultado.fotos} ${resultado.fotos === 1 ? 'foto quedaron guardadas' : 'fotos quedaron guardadas'} en este dispositivo.`)
+    } catch (err) {
+      const r = (err as { response?: { status?: number; data?: { mensaje?: string } } }).response
+      setPreparacionOffline(!r
+        ? 'No se pudo completar la preparación: no hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.'
+        : r.status === 401 || r.status === 403
+          ? 'No se pudo completar la preparación: tu cuenta no tiene acceso al control de este examen.'
+          : `No se pudo completar la preparación${r.data?.mensaje ? `: ${r.data.mensaje}` : ' por un error del servidor'}. Inténtalo de nuevo.`)
+    } finally {
+      setPreparandoOffline(false)
+    }
+  }
   // La tabla completa va oculta: el panel muestra solo «Ingresos recientes» (sección 11).
   // Desde «Incidencias de hoy» (?estudiante=): la tabla se abre en la página de ese estudiante y lo resalta.
   const estudianteFoco = Number(useSearchParams()[0].get('estudiante')) || null
@@ -174,6 +205,29 @@ export default function ControlExamenPage() {
             </div>
           )}
         </section>
+
+        {miAula && (examen?.aulas?.length ?? 0) > 1 && (
+          <p role="status" className="flex items-center gap-2 rounded-xl border border-[#B8CBEF] bg-[#EEF3FF] px-3 py-2 text-sm text-[#011140]">
+            <span className="rounded-md bg-[#0439D9] px-2 py-0.5 text-xs font-bold text-white">Tu aula: {miAula}</span>
+            <span className="text-xs text-[#45628D]">El examen se reparte en {examen?.aulas?.length} aulas; controlas el ingreso de esta.</span>
+          </p>
+        )}
+
+        <section className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-[#23406f] sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">Preparación para una caída de Internet</p>
+            <p className="mt-0.5">Descarga previamente los estudiantes, sus fichas y las incidencias de este examen.</p>
+          </div>
+          <button type="button" onClick={() => void prepararOffline()} disabled={!idValido || preparandoOffline}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-4 py-2 font-semibold text-white disabled:opacity-60">
+            <CloudDownload size={16} aria-hidden="true" />
+            {preparandoOffline ? 'Preparando…' : 'Preparar sin conexión'}
+          </button>
+        </section>
+        {preparacionOffline && <p role="status" className={`flex items-start gap-2 rounded-lg border p-3 text-xs font-semibold ${preparacionOffline.startsWith('Listo') ? 'border-green-300 bg-green-50 text-green-800' : 'border-red-300 bg-red-50 text-red-800'}`}>
+          {preparacionOffline.startsWith('Listo') && <CheckCircle2 size={16} className="shrink-0" aria-hidden="true" />}
+          {preparacionOffline}
+        </p>}
 
         {examen && <CronometroExamen examen={examen} />}
         

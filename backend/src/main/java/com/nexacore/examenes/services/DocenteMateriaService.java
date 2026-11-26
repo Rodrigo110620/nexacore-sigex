@@ -76,6 +76,13 @@ public class DocenteMateriaService {
             throw new IllegalArgumentException("El usuario no está registrado como DOCENTE.");
         }
         Set<Integer> ids = validar(idMaterias);
+        // V64: una materia desactivada no se asigna de nuevo (la que el docente ya tenía se conserva).
+        Set<Integer> yaTenia = new java.util.HashSet<>(docenteMateriaRepository.idsDeMaterias(idDocente));
+        for (Materia m : materiaRepository.findAllById(ids)) {
+            if (!m.isActiva() && !yaTenia.contains(m.getId())) {
+                throw new IllegalArgumentException("La materia " + m.getNombre() + " está desactivada: no se puede asignar.");
+            }
+        }
         Map<Integer, Set<String>> porMateria = validarGrupos(idDocente, ids, grupos);
         docenteMateriaRepository.borrarDelDocente(idDocente);
         docenteMateriaRepository.flush();
@@ -117,6 +124,7 @@ public class DocenteMateriaService {
                         SELECT TRIM(COALESCE(u.nombre, '') || ' ' || COALESCE(u.apellidos, ''))
                         FROM paralelo p LEFT JOIN usuario u ON u.id_usuario = p.id_docente
                         WHERE p.id_materia = :materia AND UPPER(TRIM(p.nombre_grupo)) IN (:grupo, :numero)
+                          AND """ + PeriodoService.delPeriodoActivo("p") + """
                           AND (:docente IS NULL OR p.id_docente <> :docente)
                         """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("materia", idMateria)
                         .addValue("grupo", g).addValue("numero", g.substring(1)).addValue("docente", idDocente, java.sql.Types.INTEGER), (rs, i) -> rs.getString(1));
@@ -133,7 +141,8 @@ public class DocenteMateriaService {
     private void sincronizarGrupos(Integer idDocente, Integer idMateria, Set<String> nombres) {
         var p = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("docente", idDocente).addValue("materia", idMateria);
         Map<String, Integer> actuales = new java.util.HashMap<>();
-        jdbc.query("SELECT id_paralelo, nombre_grupo FROM paralelo WHERE id_docente = :docente AND id_materia = :materia", p,
+        jdbc.query("SELECT id_paralelo, nombre_grupo FROM paralelo p WHERE id_docente = :docente AND id_materia = :materia AND "
+                + PeriodoService.delPeriodoActivo("p"), p,
                 rs -> { actuales.put(normalizarSiSePuede(rs.getString(2)), rs.getInt(1)); });
         String materia = materiaRepository.findById(idMateria).map(Materia::getNombre).orElse("la materia");
         for (var actual : actuales.entrySet()) {
@@ -151,8 +160,9 @@ public class DocenteMateriaService {
         }
         // Los grupos antiguos guardados como «1» pasan a «G1», el mismo formato que los nuevos.
         jdbc.update("""
-                UPDATE paralelo SET nombre_grupo = 'G' || TRIM(nombre_grupo)
-                WHERE id_docente = :docente AND id_materia = :materia AND TRIM(nombre_grupo) IN ('1','2','3','4','5','6','7','8','9','10',
+                UPDATE paralelo p SET nombre_grupo = 'G' || TRIM(nombre_grupo)
+                WHERE id_docente = :docente AND id_materia = :materia AND """ + PeriodoService.delPeriodoActivo("p") + """
+                  AND TRIM(nombre_grupo) IN ('1','2','3','4','5','6','7','8','9','10',
                       '11','12','13','14','15','16','17','18','19','20')
                 """, p);
         for (String g : nombres) {
@@ -175,7 +185,8 @@ public class DocenteMateriaService {
     @Transactional(readOnly = true)
     public List<com.nexacore.examenes.dto.MateriaConGruposResponse> materiasConGrupos(Integer idDocente) {
         Map<Integer, List<String>> grupos = new java.util.HashMap<>();
-        jdbc.query("SELECT id_materia, nombre_grupo FROM paralelo WHERE id_docente = :docente",
+        jdbc.query("SELECT id_materia, nombre_grupo FROM paralelo p WHERE id_docente = :docente AND "
+                        + PeriodoService.delPeriodoActivo("p"),
                 new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("docente", idDocente),
                 rs -> { grupos.computeIfAbsent(rs.getInt(1), k -> new java.util.ArrayList<>()).add(rs.getString(2)); });
         Comparator<String> porNumero = Comparator.comparing((String g) -> g.replaceAll("\\D", "").length()).thenComparing(Comparator.naturalOrder());
@@ -204,6 +215,7 @@ public class DocenteMateriaService {
         return jdbc.query("""
                 SELECT DISTINCT UPPER(TRIM(p.nombre_grupo)) FROM paralelo p
                 WHERE p.id_materia = :materia AND p.id_docente IS NOT NULL
+                  AND """ + PeriodoService.delPeriodoActivo("p") + """
                   AND (:docente IS NULL OR p.id_docente <> :docente)
                 """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("materia", idMateria)
                 .addValue("docente", exceptoDocente, java.sql.Types.INTEGER), (rs, i) -> rs.getString(1))
@@ -220,6 +232,7 @@ public class DocenteMateriaService {
                 SELECT p.id_paralelo, p.nombre_grupo,
                        (SELECT COUNT(*) FROM inscripcion_paralelo i WHERE i.id_paralelo = p.id_paralelo AND LOWER(i.estado) = 'inscrito')
                 FROM paralelo p WHERE p.id_docente = :docente AND p.id_materia = :materia
+                  AND """ + PeriodoService.delPeriodoActivo("p") + """
                 ORDER BY p.nombre_grupo
                 """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("docente", idDocente).addValue("materia", idMateria),
                 (rs, i) -> new com.nexacore.examenes.dto.GrupoResponse(rs.getInt(1), rs.getString(2), rs.getLong(3)));

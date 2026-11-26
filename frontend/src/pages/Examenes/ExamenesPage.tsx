@@ -9,6 +9,7 @@ import UserPagination from '../../components/users/TablePagination'
 import { getUserAvatarPalette } from '../../components/users/userAvatar.utils'
 import { useAuth } from '../../context/AuthContext'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { listarPeriodos, type PeriodoDto } from '../../services/periodoService'
 import { addMinutes, fechaLocal, formatFecha, horaCorta, initialsOfName } from '../../utils/examenFormat'
 import useEnVivo from '../../hooks/useEnVivo'
 import EstadoExamenBadge from '../../components/examenes/EstadoExamenBadge'
@@ -103,17 +104,24 @@ export default function ExamenesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Periodo académico: por defecto, el activo; los anteriores quedan como historial.
+  const [periodos, setPeriodos] = useState<PeriodoDto[]>([])
+  const [idPeriodo, setIdPeriodo] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    listarPeriodos().then(setPeriodos).catch(() => undefined)
+  }, [])
+
   const load = useCallback(async (opciones?: { silencioso?: boolean }) => {
     if (!opciones?.silencioso) setLoading(true)
     setError('')
     try {
-      setExamenes(await listarExamenes())
+      setExamenes(await listarExamenes(idPeriodo))
     } catch {
       setError('No se pudo cargar la lista de exámenes.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [idPeriodo])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -217,6 +225,15 @@ export default function ExamenesPage() {
           {docentes.map((d) => <option key={d} value={d}>{d}</option>)}
         </FiltroSelect>
       )}
+      {periodos.length > 0 && (
+        // Por defecto, el periodo activo; los anteriores quedan como historial.
+        <FiltroSelect etiqueta="Periodo" value={idPeriodo === undefined ? '' : String(idPeriodo)}
+          className={filtraDocente ? 'col-span-2 min-[960px]:col-span-1' : ''}
+          onChange={(v) => { setIdPeriodo(v === '' ? undefined : Number(v)); setPage(0) }}>
+          <option value="">{periodos.find((p) => p.activo)?.nombre ?? 'Activo'} (activo)</option>
+          {periodos.filter((p) => !p.activo).map((p) => <option key={p.idPeriodo} value={p.idPeriodo}>{p.nombre}</option>)}
+        </FiltroSelect>
+      )}
     </>
   )
 
@@ -279,7 +296,7 @@ export default function ExamenesPage() {
                 <div className="grid w-full grid-cols-2 gap-2 min-[960px]:hidden">
                   {filtrosExamen}
                 </div>
-                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9rem_13rem] items-center' : 'grid-cols-[minmax(12rem,1fr)_12rem_10rem_10.5rem] items-center'}`}>
+                <div className={`hidden min-w-0 flex-1 gap-2 min-[960px]:grid ${filtraDocente ? 'grid-cols-[minmax(11rem,1fr)_10rem_9rem_8rem_12rem_10rem] items-center' : 'grid-cols-[minmax(12rem,1fr)_11rem_10rem_9.5rem_10rem] items-center'}`}>
                   <div className="relative">
                     <Search
                       size={17}
@@ -311,6 +328,7 @@ export default function ExamenesPage() {
                 </div>
               </div>
             </div>
+
 
             <div className="mb-3 flex items-end justify-between gap-3 border-b border-[#D8E3F5]">
             <div role="tablist" aria-label="Exámenes por estado" className="grid min-w-0 flex-1 grid-cols-3 sm:flex sm:flex-none sm:gap-2">

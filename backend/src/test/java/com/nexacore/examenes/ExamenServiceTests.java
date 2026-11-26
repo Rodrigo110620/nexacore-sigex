@@ -130,6 +130,8 @@ class ExamenServiceTests {
 
     @Test
     void crearRechazaSiElAmbienteYaTieneUnExamenQueSeCruza() {
+        prepararCatalogo();
+        prepararRegistro();
         when(ambienteRepository.bloquear(AMBIENTE)).thenReturn(Optional.of(ambiente(AMBIENTE)));
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA))
                 .thenReturn(List.of(examen(90, AMBIENTE, 30, LocalTime.of(8, 0), 120)));
@@ -141,12 +143,30 @@ class ExamenServiceTests {
     }
 
     @Test
-    void elMismoDocentePuedeTenerOtroExamenALaMismaHoraEnOtraAula() {
-        // Otra materia, misma hora, otra aula: solo se verifica que el aula esté libre.
+    void elMismoDocenteNoTomaOtraMateriaALaMismaHoraAunqueSeaEnOtraAula() {
+        // BUG-B01: el docente no puede estar en dos aulas a la vez con materias distintas.
+        prepararCatalogo();
+        prepararRegistro();
+        when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        Examen deOtraMateria = examen(77, OTRO_AMBIENTE, DOCENTE, LocalTime.of(9, 30), 60);
+        deOtraMateria.setIdMateria(MATERIA + 1);
+        when(examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(DOCENTE)).thenReturn(List.of(deOtraMateria));
+
+        assertThatThrownBy(() -> service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90)))
+                .isInstanceOf(ConflictoExamenException.class)
+                .hasMessageContaining("no puede tomar dos exámenes de materias distintas a la vez");
+        verify(examenRepository, never()).save(any());
+    }
+
+    @Test
+    void elMismoDocentePuedeTenerOtroExamenDeLaMismaMateriaALaMismaHoraEnOtraAula() {
+        // BUG-B02: otro grupo de la misma materia a la misma hora sí (examen conjunto).
         prepararCatalogo();
         prepararRespuesta();
         prepararRegistro();
         when(examenRepository.findByAmbienteAndFecha(AMBIENTE, FECHA)).thenReturn(List.of());
+        when(examenRepository.findByIdDocenteOrderByFechaDescHoraInicioDesc(DOCENTE))
+                .thenReturn(List.of(examen(77, OTRO_AMBIENTE, DOCENTE, LocalTime.of(9, 0), 90)));
 
         ExamenResponse creado = service.crear(crearRequest(AMBIENTE, LocalTime.of(9, 0), 90));
 
@@ -435,8 +455,10 @@ class ExamenServiceTests {
     }
 
     private static CrearExamenRequest crearConAulas(List<Integer> adicionales) {
+        // Con aulas adicionales hace falta personal de control: uno por cada una.
+        List<Integer> personal = java.util.stream.IntStream.range(0, adicionales.size()).mapToObj(i -> 900 + i).toList();
         return new CrearExamenRequest("Cálculo I", "Ana Rojas", FECHA, LocalTime.of(9, 0), 90, AMBIENTE,
-                List.of(), List.of(), MATERIA, DOCENTE, adicionales);
+                List.of(), List.of(), MATERIA, DOCENTE, adicionales, null, null, personal);
     }
 
     private static Ambiente conAforo(Ambiente ambiente, int capacidad) {

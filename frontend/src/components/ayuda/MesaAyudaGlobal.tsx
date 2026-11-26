@@ -7,15 +7,15 @@ import { EVENTO_MESA_AYUDA } from '../../utils/mesaAyuda'
  * menú de la cuenta…) la abren con abrirMesaAyuda(): así nunca quedan dos abiertas a la vez (2.º test run).
  */
 export default function MesaAyudaGlobal() {
-  const [abierta, setAbierta] = useState<{ nombreInicial: string } | null>(null)
+  const [abierta, setAbierta] = useState<{ nombreInicial: string; temaInicial?: string } | null>(null)
   useEffect(() => {
     const abrir = (e: Event) => {
-      const nombre = (e as CustomEvent<{ nombreInicial?: string }>).detail?.nombreInicial ?? ''
-      setAbierta((actual) => actual ?? { nombreInicial: nombre })
+      const detalle = (e as CustomEvent<{ nombreInicial?: string; temaInicial?: string }>).detail
+      setAbierta((actual) => actual ?? { nombreInicial: detalle?.nombreInicial ?? '', temaInicial: detalle?.temaInicial })
     }
     window.addEventListener(EVENTO_MESA_AYUDA, abrir)
     return () => window.removeEventListener(EVENTO_MESA_AYUDA, abrir)
   }, [])
   if (!abierta) return null
-  return <MesaAyudaModal open nombreInicial={abierta.nombreInicial} onClose={() => setAbierta(null)} />
+  return <MesaAyudaModal open nombreInicial={abierta.nombreInicial} temaInicial={abierta.temaInicial} onClose={() => setAbierta(null)} />
 }

@@ -3,6 +3,7 @@ import { CalendarDays, Download, X } from 'lucide-react'
 import FiltroSelect from '../ui/FiltroSelect'
 import { listarHistorial, type AutorHistorial, type FiltrosHistorial } from '../../services/historialOperacionService'
 import { listarExamenes, type ExamenDto } from '../../services/examenService'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 import { formatFecha } from '../../utils/examenFormat'
 
 const fechaIso = (fecha: Date) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
@@ -56,7 +57,7 @@ export default function DescargaHistorialDialog({ open, inicial, autores, onClos
   useEffect(() => {
     if (!open) return
     let vigente = true
-    listarExamenes().then((l) => { if (vigente) setExamenes(l) }).catch(() => undefined)
+    listarExamenes(TODOS_LOS_PERIODOS).then((l) => { if (vigente) setExamenes(l) }).catch(() => undefined)
     cerrar.current?.focus()
     const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', alTeclear)

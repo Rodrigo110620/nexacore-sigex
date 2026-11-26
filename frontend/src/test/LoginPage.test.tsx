@@ -81,7 +81,7 @@ describe('LoginPage', () => {
   it.each([
     ['El correo no está registrado', 'Credenciales no válidas', 'Revisa tus credenciales e intenta de nuevo.'],
     ['La contraseña es incorrecta', 'Credenciales no válidas', 'Revisa tus credenciales e intenta de nuevo.'],
-    ['Usuario o contrasena incorrectos', 'Credenciales no válidas'],
+    ['Usuario o contraseña incorrectos', 'Credenciales no válidas'],
     ['La cuenta se encuentra inactiva. Contacte al administrador.', 'Cuenta inactiva'],
     ['Cuenta bloqueada temporalmente por intentos fallidos.', 'Cuenta bloqueada temporalmente'],
     ['No se pudo conectar con el servidor. Intenta más tarde.', 'Sin conexión al servidor'],

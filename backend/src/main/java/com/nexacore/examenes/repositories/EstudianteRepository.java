@@ -15,6 +15,15 @@ import java.util.Optional;
 
 public interface EstudianteRepository extends JpaRepository<Estudiante, Integer> {
 
+    /**
+     * Bloquea al estudiante mientras se autoriza su ingreso: dos controles en exámenes distintos que se cruzan no
+     * pueden dejarlo entrar a ambos a la vez.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Estudiante e WHERE e.id = :idEstudiante")
+    java.util.Optional<Estudiante> bloquearParaIngreso(@Param("idEstudiante") Integer idEstudiante);
+
+
     boolean existsByCodigoSisIgnoreCase(String codigoSis);
 
     boolean existsByCiIgnoreCase(String ci);
@@ -218,6 +227,7 @@ boolean esDelDocente(@Param("idEstudiante") Integer idEstudiante, @Param("idDoce
         SELECT new com.nexacore.examenes.dto.MateriaDocenteResponse(
             p.id.idMateria, p.materia.nombre, p.id.idParalelo, p.nombreGrupo)
         FROM Paralelo p WHERE p.id.idDocente = :idDocente
+          AND (p.idPeriodo IS NULL OR p.idPeriodo = (SELECT pa.id FROM PeriodoAcademico pa WHERE pa.activo = TRUE))
         ORDER BY p.materia.nombre, p.nombreGrupo
         """)
 List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelDocente(@Param("idDocente") Integer idDocente);
@@ -225,9 +235,10 @@ List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelDocente(@Param
 @Query("""
         SELECT new com.nexacore.examenes.dto.MateriaDocenteResponse(
             i.id.idMateria, i.paralelo.materia.nombre, i.id.idParalelo, i.paralelo.nombreGrupo)
-        FROM InscripcionParalelo i
+        FROM InscripcionParalelo i JOIN i.paralelo p
         WHERE i.id.idDocente = :idDocente AND i.id.idEstudiante = :idEstudiante
           AND LOWER(i.estado) = 'inscrito'
+          AND (p.idPeriodo IS NULL OR p.idPeriodo = (SELECT pa.id FROM PeriodoAcademico pa WHERE pa.activo = TRUE))
         ORDER BY i.paralelo.materia.nombre, i.paralelo.nombreGrupo
         """)
 List<com.nexacore.examenes.dto.MateriaDocenteResponse> materiasDelEstudiante(

@@ -16,6 +16,7 @@ const RESUMEN: ResumenReportesData = {
   modificaciones: { total: 0, hoy: 0, ayer: 0, ...C },
   'ingresos-qr': null,      
   'ingresos-manual': null,
+  'uso-ambientes': null,
 }
 
 describe('Resumen de Reportes', () => {

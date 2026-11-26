@@ -12,10 +12,17 @@ public record AsociacionLoteResponse(
         List<String> noEncontrados,
         List<EstudianteHabilitacionResponse> estudiantes,
         /** No matriculados (inactivos): no se asocian a exámenes (2.º test run). */
-        List<String> noMatriculados
+        List<String> noMatriculados,
+        /** V63: de una carrera a la que no pertenece la materia (y sin inscripción oficial en el grupo): no se asocian. */
+        List<String> deOtraCarrera
 ) {
     public AsociacionLoteResponse(int asociados, List<String> yaAsociados, List<String> noEncontrados,
                                   List<EstudianteHabilitacionResponse> estudiantes) {
-        this(asociados, yaAsociados, noEncontrados, estudiantes, List.of());
+        this(asociados, yaAsociados, noEncontrados, estudiantes, List.of(), List.of());
+    }
+
+    public AsociacionLoteResponse(int asociados, List<String> yaAsociados, List<String> noEncontrados,
+                                  List<EstudianteHabilitacionResponse> estudiantes, List<String> noMatriculados) {
+        this(asociados, yaAsociados, noEncontrados, estudiantes, noMatriculados, List.of());
     }
 }

@@ -1806,4 +1806,503 @@ class PostgresIntegracionTests {
         var hace = ahora.minusMinutes(minutos);
         return hace.isBefore(limite) ? limite : hace;
     }
+
+    // ---------------------------------------------------------------- V61: periodos académicos
+    @Test
+    void cadaGrupoEsDelPeriodoActivoYElMismoGrupoPuedeRepetirseEnOtroPeriodo() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("PER-01");
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        Integer ii2026 = jdbc.queryForObject("SELECT id_periodo FROM periodo_academico WHERE activo", Integer.class);
+        assertThat(jdbc.queryForObject("SELECT id_periodo FROM paralelo WHERE id_paralelo = ?", Integer.class, g1)).isEqualTo(ii2026);
+        // En el mismo periodo, «G1» y «1» son el mismo grupo: no se repite.
+        assertThat(errorSql("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (" + idMateria + ", " + idDocente + ", 'G1')"))
+                .contains("ux_paralelo_materia_periodo_grupo");
+
+        jdbc.update("UPDATE periodo_academico SET activo = FALSE");
+        Integer i2027 = jdbc.queryForObject("""
+                INSERT INTO periodo_academico (nombre, fecha_inicio, fecha_fin, activo)
+                VALUES ('I-2027', DATE '2027-01-01', DATE '2027-06-30', TRUE) RETURNING id_periodo
+                """, Integer.class);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G1')", idMateria, idDocente);
+        Integer nuevo = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND id_periodo = ?",
+                Integer.class, idMateria, i2027);
+        sincronizar();
+        // Las listas del docente muestran solo los grupos del periodo activo.
+        assertThat(docenteMateriaService.gruposDe(idDocente, idMateria)).extracting(g -> g.idParalelo()).containsExactly(nuevo);
+        // Solo puede haber un periodo activo.
+        assertThat(errorSql("UPDATE periodo_academico SET activo = TRUE WHERE id_periodo = " + ii2026))
+                .contains("ux_periodo_academico_activo");
+    }
+
+    // ---------------------------------------------------------------- Exámenes que se cruzan
+    @Test
+    void elEstudianteNoIngresaADosExamenesQueSeCruzanHastaRegistrarSuSalida() {
+        prepararCatalogo();
+        int pA = materiaYParalelo("CRUCE-A");
+        int pB = materiaYParalelo("CRUCE-B");
+        int examenA = examen(pA, "08:00", 90);
+        int examenB = examen(pB, "08:00", 90);
+        int ana = estudiante("209960001", "Ana");
+        habilitacionService.asociar(examenA, pA, "209960001");
+        habilitacionService.asociar(examenB, pB, "209960001");
+        jdbc.update("UPDATE asistencia_examen SET habilitado = TRUE WHERE id_estudiante = ?", ana);
+        jdbc.update("INSERT INTO estudiante_foto (id_estudiante, contenido, tipo_contenido, actualizado_en) "
+                + "VALUES (?, ?, 'image/jpeg', NOW())", ana, new byte[]{(byte) 0xFF, (byte) 0xD8});
+
+        var fechaB = jdbc.queryForObject("SELECT fecha FROM examen WHERE id_examen = ?", java.time.LocalDate.class, examenB);
+        var horaB = jdbc.queryForObject("SELECT hora_inicio FROM examen WHERE id_examen = ?", java.time.LocalTime.class, examenB);
+        
+        // 1. Al programar el examen B se avisa que Ana ya tiene el A a esa hora.
+        assertThat(examenService.crucesDeEstudiantes(pB, fechaB, horaB, 90, examenB))
+                .singleElement().satisfies(c -> assertThat(c.otrosExamenes()).contains("Materia CRUCE-A"));
+        
+        // 2. Ahora abrimos el control
+        abrirControl(examenA);
+        abrirControl(examenB);
+        
+        // 3. Definimos el lambda con su tipo explícito para evitar que el IDE se confunda
+        java.util.function.IntFunction<com.nexacore.examenes.dto.AutorizarIngresoRequest> ingreso = (int idExamen) ->
+                new com.nexacore.examenes.dto.AutorizarIngresoRequest(ana, idExamen, null, true, java.util.List.of(), java.util.List.of(),
+                        null, null, false, null);
+        
+        com.nexacore.examenes.dto.AutorizarIngresoResponse primero = controlIngresoService.autorizar(ingreso.apply(examenA), "luis.paz@umss.edu");
+        assertThat(primero.autorizado()).isTrue();
+        
+        sincronizar();
+        
+        // 4. Tipado explícito para evitar el error del boolean
+        com.nexacore.examenes.dto.AutorizarIngresoResponse segundo = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
+        assertThat(segundo.autorizado()).isFalse();
+        assertThat(segundo.resultado()).isEqualTo("DENEGADO_OTRO_EXAMEN");
+        assertThat(segundo.causa()).contains("Ya está rindiendo Materia CRUCE-A");
+        
+        sincronizar();
+        
+        // También queda como intento de ingreso incorrecto del examen B (Ingresos no autorizados y Reportes).
+        assertThat(jdbc.queryForObject("SELECT observacion FROM intento_ingreso WHERE id_examen = ? AND id_estudiante = ?",
+                String.class, examenB, ana)).startsWith("Otro examen a la misma hora: Ya está rindiendo Materia CRUCE-A");
+        
+        // Tras registrar su salida del examen A, puede ingresar al B.
+        jdbc.update("UPDATE asistencia_examen SET fecha_hora_salida = NOW() WHERE id_estudiante = ? AND id_examen = ?", ana, examenA);
+        sincronizar();
+        
+        com.nexacore.examenes.dto.AutorizarIngresoResponse tercero = controlIngresoService.autorizar(ingreso.apply(examenB), "luis.paz@umss.edu");
+        assertThat(tercero.autorizado()).isTrue();
+    }
+
+    // ---------------------------------------------------------------- Solo el control asignado controla
+    @Autowired com.nexacore.examenes.services.ExamenAccesoService examenAccesoService;
+
+    @Test
+    void soloElControlAsignadoPuedeControlarElExamen() {
+        prepararCatalogo();
+        int examen = examen(materiaYParalelo("ASIG-01"), "08:00", 90);
+        int asignado = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Carla','Asignada','71000001','carla.asignada@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Dario','Libre','71000002','dario.libre@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO examen_control (id_examen, id_usuario) VALUES (?, ?)", examen, asignado);
+        sincronizar();
+        java.util.function.Function<String, org.springframework.security.core.Authentication> como = (email) ->
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(email, null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CONTROL")));
+        assertThat(examenAccesoService.puedeControlar(examen, como.apply("carla.asignada@umss.edu"))).isTrue();
+        assertThat(examenAccesoService.puedeControlar(examen, como.apply("dario.libre@umss.edu"))).isFalse();
+        assertThat(examenAccesoService.puedeVerControl(examen, como.apply("dario.libre@umss.edu"))).isFalse();
+        // El docente del examen sí lo controla.
+        var docente = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")));
+        assertThat(examenAccesoService.puedeControlar(examen, docente)).isTrue();
+    }
+
+    // ---------------------------------------------------------------- V62: sesiones por dispositivo
+    @Autowired com.nexacore.examenes.services.SesionService sesionService;
+    @Autowired com.nexacore.examenes.repositories.SesionUsuarioRepository sesionUsuarioRepository;
+
+    @Test
+    void cadaInicioDeSesionQuedaConSuDispositivoYAvisaSiLaCuentaYaEstabaAbierta() {
+        prepararCatalogo();
+        var usuario = usuarioRepository.findByEmail("luis.paz@umss.edu").orElseThrow();
+        String primera = sesionService.iniciar(usuario);
+        String segunda = sesionService.iniciar(usuario);
+        sincronizar();
+        assertThat(sesionService.validarYRegistrarActividad(primera)).isTrue();
+        // La segunda sesión avisa al usuario que su cuenta ya estaba abierta.
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notificacion WHERE id_destinatario = ? AND tipo = 'SESION_NUEVA'",
+                Integer.class, usuario.getId())).isEqualTo(1);
+        // Al restablecer la contraseña se cierran todas: sus tokens dejan de servir.
+        sesionService.cerrarTodasDe(usuario.getId(), "CONTRASENA_RESTABLECIDA");
+        sincronizar();
+        assertThat(sesionUsuarioRepository.estaAbierta(primera)).isFalse();
+        assertThat(sesionUsuarioRepository.estaAbierta(segunda)).isFalse();
+        assertThat(sesionService.validarYRegistrarActividad(segunda)).isFalse();
+    }
+
+    // ---------------------------------------------------------------- V63: materias por carrera
+    @Test
+    void unEstudianteDeOtraCarreraNoSeAgregaAMenosQueEsteInscritoEnElGrupo() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("CARR-01");
+        int examen = examen(paralelo, "08:00", 90);
+        Integer idMateria = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, paralelo);
+        Integer sistemas = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería de Sistemas'", Integer.class);
+        Integer civil = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería Civil'", Integer.class);
+        Integer facultad = jdbc.queryForObject("SELECT id_facultad FROM carrera WHERE id_carrera = ?", Integer.class, sistemas);
+        int deSistemas = estudiante("209950001", "Sara");
+        int deCivil = estudiante("209950002", "Carlos");
+        int deCivilInscrito = estudiante("209950003", "Ines");
+        for (int[] ec : new int[][]{{deSistemas, sistemas}, {deCivil, civil}, {deCivilInscrito, civil}}) {
+            jdbc.update("INSERT INTO estudiante_carrera (id_estudiante, id_carrera, id_facultad) VALUES (?, ?, ?)", ec[0], ec[1], facultad);
+        }
+        jdbc.update("INSERT INTO inscripcion_paralelo (id_estudiante, id_paralelo, id_materia, id_docente) VALUES (?, ?, ?, ?)",
+                deCivilInscrito, paralelo, idMateria, idDocente);
+        sincronizar();
+
+        // Sin carreras definidas, la materia no restringe a nadie.
+        habilitacionService.asociar(examen, paralelo, "209950002");
+        jdbc.update("DELETE FROM asistencia_examen WHERE id_estudiante = ?", deCivil);
+        jdbc.update("DELETE FROM inscripcion_paralelo WHERE id_estudiante = ?", deCivil);
+
+        // La materia es de Sistemas.
+        jdbc.update("INSERT INTO materia_carrera (id_materia, id_carrera, id_facultad) VALUES (?, ?, ?)", idMateria, sistemas, facultad);
+        sincronizar();
+        habilitacionService.asociar(examen, paralelo, "209950001");
+        assertThatThrownBy(() -> habilitacionService.asociar(examen, paralelo, "209950002"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("es de Ingeniería Civil y Materia CARR-01 es de Ingeniería de Sistemas");
+        // En lote: el de otra carrera vuelve en el resultado; el inscrito oficialmente sí se asocia.
+        var lote = habilitacionService.asociarLote(examen, paralelo, List.of("209950002", "209950003"));
+        assertThat(lote.deOtraCarrera()).containsExactly("209950002");
+        assertThat(lote.asociados()).isEqualTo(1);
+    }
+
+    @Test
+    void unDocenteNoConsultaLosCrucesDeUnGrupoAjeno() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("CRUCE-AJENO");
+        Integer otro = jdbc.queryForObject("INSERT INTO usuario (nombre,apellidos,ci,email,password,estado) "
+                + "VALUES ('Otra','Docente','71000009','otra.docente@umss.edu','x','activo') RETURNING id_usuario", Integer.class);
+        jdbc.update("INSERT INTO docente (id_usuario, categoria) VALUES (?, 'INTERINO')", otro);
+        sincronizar();
+        var contexto = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        try {
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "otra.docente@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThatThrownBy(() -> examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+            contexto.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    "luis.paz@umss.edu", null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+            assertThat(examenService.crucesDeEstudiantes(paralelo, java.time.LocalDate.now(), java.time.LocalTime.of(8, 0), 60, null)).isEmpty();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Autowired com.nexacore.examenes.services.NotificacionService notificacionEnVivoService;
+
+    @Test
+    void alCerrarLasSesionesSeCortaLaConexionEnVivo() throws Exception {
+        prepararCatalogo();
+        sincronizar();
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE")));
+        var emitter = notificacionEnVivoService.suscribir(auth);
+        notificacionEnVivoService.cortarConexiones(idDocente, null, null);
+        // Cortada: ya no se le puede enviar nada.
+        assertThatThrownBy(() -> emitter.send("hola")).isInstanceOf(IllegalStateException.class);
+    }
+
+    // ---------------------------------------------------------------- Personal de control al registrar el examen
+    @Test
+    void alRegistrarElExamenSeAsignaElPersonalDeControlLibreYPuedeTomarJuntosLosGrupos() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("PCR-A");
+        Integer materiaA = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        jdbc.update("UPDATE paralelo SET nombre_grupo = 'G1' WHERE id_paralelo = ?", g1);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G2')", materiaA, idDocente);
+        Integer g2 = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND nombre_grupo = 'G2'", Integer.class, materiaA);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)", idDocente, materiaA);
+        List<Integer> aulas = jdbc.queryForList("SELECT id_ambiente FROM ambiente ORDER BY id_ambiente LIMIT 2", Integer.class);
+        jdbc.update("UPDATE ambiente SET capacidad = 40 WHERE id_ambiente IN (?, ?)", aulas.get(0), aulas.get(1));
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Pia", "Control", "7100001", "pia.control@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl, rolControl);
+        sincronizar();
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(7);
+        var ocho = java.time.LocalTime.of(8, 0);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            // Libre antes de registrar; se asigna en el mismo guardado del examen.
+            assertThat(examenControlService.disponiblesEnHorario(fecha, ocho, 90, materiaA, idDocente))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement().satisfies(p -> assertThat(p.disponible()).isTrue());
+            var examenG1 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia PCR-A", "Luis Paz", fecha, ocho,
+                    90, aulas.get(0), List.of(), List.of(), materiaA, idDocente, List.of(), null, g1, List.of(ctrl)));
+            assertThat(examenControlService.delExamen(examenG1.idExamen())).extracting(p -> p.idUsuario()).containsExactly(ctrl);
+
+            // Ya no está libre para otra materia que se cruza…
+            assertThat(examenControlService.disponiblesEnHorario(fecha, java.time.LocalTime.of(9, 0), 60, null, null))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement()
+                    .satisfies(p -> { assertThat(p.disponible()).isFalse(); assertThat(p.conflictoHorario()).contains("08:00"); });
+            // …pero sí para el G2 que se toma junto (misma materia, docente, hora y duración).
+            assertThat(examenControlService.disponiblesEnHorario(fecha, ocho, 90, materiaA, idDocente))
+                    .filteredOn(p -> p.idUsuario().equals(ctrl)).singleElement().satisfies(p -> assertThat(p.disponible()).isTrue());
+            var examenG2 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia PCR-A", "Luis Paz", fecha, ocho,
+                    90, aulas.get(0), List.of(), List.of(), materiaA, idDocente, List.of(), null, g2, List.of(ctrl)));
+            assertThat(examenControlService.delExamen(examenG2.idExamen())).extracting(p -> p.idUsuario()).containsExactly(ctrl);
+
+            // V66: con dos aulas, cada control queda a cargo de una (en orden, o la que se elija).
+            String usuario2 = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+            Integer ctrl2 = jdbc.queryForObject(usuario2, Integer.class, "Ivo", "Control", "7100002", "ivo.control@umss.edu");
+            jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl2, rolControl);
+            jdbc.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, ?, 1)", examenG1.idExamen(), aulas.get(1));
+            var repartidos = examenControlService.asignar(examenG1.idExamen(), List.of(ctrl, ctrl2), null);
+            assertThat(repartidos).extracting(p -> p.idAmbiente()).containsExactlyInAnyOrder(aulas.get(0), aulas.get(1));
+            var elegidos = examenControlService.asignar(examenG1.idExamen(), List.of(ctrl, ctrl2), java.util.Map.of(ctrl, aulas.get(1), ctrl2, aulas.get(1)));
+            assertThat(elegidos).extracting(p -> p.idAmbiente()).containsOnly(aulas.get(1));
+            assertThat(examenControlService.asignacionDe(examenG1.idExamen(), "ivo.control@umss.edu").idAmbiente()).isEqualTo(aulas.get(1));
+            Integer ajena = jdbc.queryForObject("SELECT id_ambiente FROM ambiente WHERE id_ambiente NOT IN (?, ?) LIMIT 1", Integer.class, aulas.get(0), aulas.get(1));
+            assertThatThrownBy(() -> examenControlService.asignar(examenG1.idExamen(), List.of(ctrl), java.util.Map.of(ctrl, ajena)))
+                    .hasMessageContaining("no es de este examen");
+
+            // Ocupado a otra hora que se cruza: no se registra el examen (todo o nada).
+            long antes = jdbc.queryForObject("SELECT count(*) FROM examen", Long.class);
+            jdbc.update("UPDATE examen SET hora_inicio = '08:30' WHERE id_examen = ?", examenG2.idExamen());
+            sincronizar();
+            assertThatThrownBy(() -> examenControlService.asignar(examenG2.idExamen(), List.of(ctrl)))
+                    .hasMessageContaining("Pia Control ya tiene un examen el");
+            // Al reprogramar, se revisa otra vez a su personal: con el G2 a las 08:30 ya no es conjunto y Pia queda cruzada.
+            assertThatThrownBy(() -> examenControlService.revisarTrasCambio(examenG2.idExamen()))
+                    .hasMessageContaining("No se puede cambiar el horario: Pia Control ya tiene un examen el");
+            jdbc.update("UPDATE examen SET hora_inicio = '08:00' WHERE id_examen = ?", examenG2.idExamen());
+            sincronizar();
+            // Si se quita el aula adicional del G1, sus controles quedan en las aulas que siguen siendo del examen.
+            jdbc.update("DELETE FROM examen_aula WHERE id_examen = ?", examenG1.idExamen());
+            examenControlService.revisarTrasCambio(examenG1.idExamen());
+            assertThat(examenControlService.delExamen(examenG1.idExamen())).extracting(p -> p.idAmbiente()).containsOnly(aulas.get(0));
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM examen", Long.class)).isEqualTo(antes);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void laJornadaDeExamenesEsDe0645A2145() {
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(6, 30), 60))
+                .hasMessageContaining("antes de las 06:45");
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(21, 0), 60))
+                .hasMessageContaining("a más tardar a las 21:45");
+        assertThatThrownBy(() -> com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(23, 0), 120))
+                .hasMessageContaining("a más tardar a las 21:45");
+        com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(6, 45), 90);
+        com.nexacore.examenes.services.ExamenService.validarJornada(java.time.LocalTime.of(20, 15), 90);
+    }
+
+    @Test
+    void losExamenesSinPersonalDeControlSeAvisanYConVariasAulasEsObligatorio() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("SPC-A");
+        int manana = examen(paralelo, "08:00", 90);
+        int conPersonal = examen(paralelo, "10:00", 90);
+        String usuario = "INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) VALUES (?, ?, ?, ?, 'x', 'activo') RETURNING id_usuario";
+        Integer ctrl = jdbc.queryForObject(usuario, Integer.class, "Leo", "Control", "7200001", "leo.control@umss.edu");
+        Integer rolControl = jdbc.queryForObject("SELECT id_rol FROM rol WHERE nombre = 'CONTROL'", Integer.class);
+        jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (?, ?)", ctrl, rolControl);
+        // «Mañana» en Bolivia, aunque la base use otra zona horaria.
+        jdbc.update("UPDATE examen SET fecha = CAST(timezone('America/La_Paz', clock_timestamp()) AS date) + 1 WHERE id_examen IN (?, ?)",
+                manana, conPersonal);
+        examenControlService.asignar(conPersonal, List.of(ctrl));
+        sincronizar();
+
+        // El panel los lista; el docente solo ve los suyos.
+        assertThat(examenControlService.sinPersonal(7, null)).extracting(e -> e.idExamen()).contains(manana).doesNotContain(conPersonal);
+        assertThat(examenControlService.sinPersonal(7, -1)).isEmpty();
+        // Un día antes se avisa una sola vez.
+        assertThat(examenControlService.avisarExamenesDeMananaSinPersonal()).isGreaterThanOrEqualTo(1);
+        assertThat(examenControlService.avisarExamenesDeMananaSinPersonal()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notificacion WHERE tipo = 'SIN_PERSONAL_CONTROL' AND id_examen = ?",
+                Integer.class, manana)).isEqualTo(1);
+
+        // Con dos aulas, al menos uno por aula adicional: sin nadie no se puede.
+        Integer otraAula = jdbc.queryForObject("SELECT id_ambiente FROM ambiente WHERE id_ambiente <> ? LIMIT 1", Integer.class, idAmbiente);
+        jdbc.update("INSERT INTO examen_aula (id_examen, id_ambiente, orden) VALUES (?, ?, 1)", manana, otraAula);
+        sincronizar();
+        assertThatThrownBy(() -> examenControlService.asignar(manana, List.of()))
+                .hasMessageContaining("asigna al menos 1 persona de control");
+        assertThat(examenControlService.asignar(manana, List.of(ctrl))).hasSize(1);
+    }
+
+    @Autowired com.nexacore.examenes.services.ReporteUsoAmbientesService reporteUsoAmbientes;
+
+    @Test
+    void elUsoDeAmbientesSeparaLosDatosYNoDaPorSinUsoLoQueAunNoPasa() {
+        prepararCatalogo();
+        int paralelo = materiaYParalelo("USO-A");
+        int futuro = examen(paralelo, "08:00", 90);
+        int pasado = examen(paralelo, "10:00", 90);
+        int conIngreso = examen(paralelo, "12:00", 90);
+        int cancelado = examen(paralelo, "14:00", 90);
+        jdbc.update("UPDATE examen SET fecha = CURRENT_DATE - 3 WHERE id_examen IN (?, ?, ?)", pasado, conIngreso, cancelado);
+        jdbc.update("UPDATE examen SET estado = 'cancelado' WHERE id_examen = ?", cancelado);
+        int est = estudiante("209950001", "Uma");
+        jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado, fecha_hora_ingreso, id_ambiente_ingreso) "
+                + "VALUES (?, ?, ?, TRUE, CURRENT_TIMESTAMP, ?)", est, conIngreso, paralelo, idAmbiente);
+        sincronizar();
+
+        var filas = reporteUsoAmbientes.listar(null, null).stream().filter(f -> "Materia USO-A".equals(f.materia())).toList();
+        assertThat(filas).extracting(f -> f.idExamen()).containsExactlyInAnyOrder(futuro, pasado, conIngreso).doesNotContain(cancelado);
+        assertThat(filas).filteredOn(f -> f.idExamen() == futuro).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("PENDIENTE");
+            assertThat(f.grupo()).isEqualTo("1");
+            assertThat(f.horaInicio()).isEqualTo(java.time.LocalTime.of(8, 0));
+            assertThat(f.horaFin()).isEqualTo(java.time.LocalTime.of(9, 30));
+        });
+        assertThat(filas).filteredOn(f -> f.idExamen() == pasado).singleElement().satisfies(f -> assertThat(f.estado()).isEqualTo("SIN_USO"));
+        assertThat(filas).filteredOn(f -> f.idExamen() == conIngreso).singleElement().satisfies(f -> {
+            assertThat(f.estado()).isEqualTo("UTILIZADO");
+            assertThat(f.ingresos()).isEqualTo(1);
+        });
+    }
+
+    // ---------------------------------------------------------------- BUG-B01 / BUG-B02 (Sprint 4, 2.º reporte)
+    @Autowired com.nexacore.examenes.services.RepartoAulasService repartoAulas;
+
+    @Test
+    void elDocenteNoCruzaMateriasPeroSiTomaJuntosASusGruposEnLaMismaAula() {
+        prepararCatalogo();
+        int g1 = materiaYParalelo("CONJ-A");
+        Integer materiaA = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, g1);
+        jdbc.update("UPDATE paralelo SET nombre_grupo = 'G1' WHERE id_paralelo = ?", g1);
+        jdbc.update("INSERT INTO paralelo (id_materia, id_docente, nombre_grupo) VALUES (?, ?, 'G2')", materiaA, idDocente);
+        Integer g2 = jdbc.queryForObject("SELECT id_paralelo FROM paralelo WHERE id_materia = ? AND nombre_grupo = 'G2'", Integer.class, materiaA);
+        int otra = materiaYParalelo("CONJ-B");
+        Integer materiaB = jdbc.queryForObject("SELECT id_materia FROM paralelo WHERE id_paralelo = ?", Integer.class, otra);
+        jdbc.update("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?), (?, ?)", idDocente, materiaA, idDocente, materiaB);
+        List<Integer> aulas = jdbc.queryForList("SELECT id_ambiente FROM ambiente ORDER BY id_ambiente LIMIT 3", Integer.class);
+        int compartida = aulas.get(0), extra = aulas.get(1), libre = aulas.get(2);
+        jdbc.update("UPDATE ambiente SET capacidad = 3 WHERE id_ambiente = ?", compartida);
+        jdbc.update("UPDATE ambiente SET capacidad = 10 WHERE id_ambiente IN (?, ?)", extra, libre);
+        sincronizar();
+
+        var fecha = asistenciaExamenRepository.obtenerFechaHoraServidor().toLocalDate().plusDays(6);
+        var ocho = java.time.LocalTime.of(8, 0);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("luis.paz@umss.edu", null,
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_DOCENTE"))));
+        try {
+            var examenG1 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz", fecha, ocho,
+                    90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(), null, g1));
+            // BUG-B01: otra materia a la misma hora, aunque sea en otra aula, no.
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-B", "Luis Paz",
+                    fecha, java.time.LocalTime.of(8, 30), 60, libre, List.of(), List.of(), materiaB, idDocente, List.of(), null, otra)))
+                    .hasMessageContaining("no puede tomar dos exámenes de materias distintas a la vez");
+            // BUG-B02: con otra hora de inicio no se comparte el aula…
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, java.time.LocalTime.of(8, 30), 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(), null, g2)))
+                    .hasMessageContaining("usa la misma hora de inicio y la misma duración");
+            // …a la misma hora y duración, el G2 comparte el aula del G1 (con un aula adicional por si no caben).
+            // Con un aula adicional hace falta al menos un personal de control.
+            Integer ctrlConj = jdbc.queryForObject("INSERT INTO usuario (nombre, apellidos, ci, email, password, estado) "
+                    + "VALUES ('Eva', 'Control', '7300001', 'eva.control@umss.edu', 'x', 'activo') RETURNING id_usuario", Integer.class);
+            jdbc.update("INSERT INTO usuario_rol (id_usuario, id_rol) SELECT ?, id_rol FROM rol WHERE nombre = 'CONTROL'", ctrlConj);
+            assertThatThrownBy(() -> examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2)))
+                    .hasMessageContaining("asigna al menos 1 persona de control");
+            var examenG2 = examenService.crear(new com.nexacore.examenes.dto.CrearExamenRequest("Materia CONJ-A", "Luis Paz",
+                    fecha, ocho, 90, compartida, List.of(), List.of(), materiaA, idDocente, List.of(extra), null, g2, List.of(ctrlConj)));
+            assertThat(examenG2.idParalelo()).isEqualTo(g2);
+
+            // Aforo compartido: el aula tiene 3 lugares; el G1 usa 2 y al G2 le queda 1.
+            int a1 = estudiante("209940001", "Ana"), a2 = estudiante("209940002", "Bruno");
+            int b1 = estudiante("209940003", "Carla"), b2 = estudiante("209940004", "Dario");
+            for (int[] f : new int[][]{{a1, examenG1.idExamen(), g1}, {a2, examenG1.idExamen(), g1}, {b1, examenG2.idExamen(), g2}, {b2, examenG2.idExamen(), g2}}) {
+                jdbc.update("INSERT INTO asistencia_examen (id_estudiante, id_examen, id_paralelo, habilitado) VALUES (?, ?, ?, TRUE)", f[0], f[1], f[2]);
+            }
+            sincronizar();
+            var idG2 = new com.nexacore.examenes.models.ExamenId();
+            idG2.setIdExamen(examenG2.idExamen());
+            idG2.setIdParalelo(g2);
+            var entidadG2 = examenRepositorio.findById(idG2).orElseThrow();
+            var reparto = repartoAulas.repartir(entidadG2, asistenciaExamenRepository.listarDelExamen(examenG2.idExamen(), g2));
+            assertThat(reparto.asignados().get(compartida)).isEqualTo(1);
+            assertThat(reparto.asignados().get(extra)).isEqualTo(1);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Autowired com.nexacore.examenes.repositories.ExamenRepository examenRepositorio;
+
+    // ---------------------------------------------------------------- V64: catálogo de materias
+    @Autowired com.nexacore.examenes.services.MateriaCatalogoService materiaCatalogoService;
+
+    @Test
+    void elAdminCreaEditaDesactivaEImportaMaterias() {
+        prepararCatalogo();
+        Integer sistemas = jdbc.queryForObject("SELECT id_carrera FROM carrera WHERE nombre = 'Ingeniería de Sistemas'", Integer.class);
+        var creada = materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest(" cat-101 ", "teoría de grafos", List.of(sistemas)));
+        assertThat(creada.sigla()).isEqualTo("CAT-101");
+        assertThat(creada.nombre()).isEqualTo("Teoría de grafos");
+        assertThat(creada.carreras()).extracting(c -> c.nombre()).containsExactly("Ingeniería de Sistemas");
+        // No se repiten sigla ni nombre.
+        assertThatThrownBy(() -> materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest("CAT-101", "Otra", null)))
+                .hasMessageContaining("Ya existe la materia con sigla CAT-101");
+        assertThat(materiaCatalogoService.editar(creada.idMateria(),
+                new com.nexacore.examenes.dto.MateriaRequest("CAT-101", "Teoría de Grafos I", null)).nombre()).isEqualTo("Teoría de Grafos I");
+
+        // Sin sigla: SIGEX sugiere una a partir del nombre y la marca provisional hasta que se ponga la oficial.
+        var sinSigla = materiaCatalogoService.crear(new com.nexacore.examenes.dto.MateriaRequest("  ", "Teoría de la Computación", null));
+        assertThat(sinSigla.sigla()).matches("[A-Z]{2,4}-1\\d\\d");
+        assertThat(sinSigla.siglaProvisional()).isTrue();
+        var corregida = materiaCatalogoService.editar(sinSigla.idMateria(),
+                new com.nexacore.examenes.dto.MateriaRequest("2010210", "Teoría de la Computación", null));
+        assertThat(corregida.sigla()).isEqualTo("2010210");
+        assertThat(corregida.siglaProvisional()).isFalse();
+
+        // Desactivada: no aparece al buscar para programar exámenes ni se asigna a un docente nuevo.
+        materiaCatalogoService.cambiarEstado(creada.idMateria(), false);
+        sincronizar();
+        assertThat(materiaRepository.buscar("grafos")).isEmpty();
+        assertThatThrownBy(() -> docenteMateriaService.asignar(idDocente, List.of(creada.idMateria())))
+                .hasMessageContaining("está desactivada");
+        materiaCatalogoService.cambiarEstado(creada.idMateria(), true);
+        sincronizar();
+        assertThat(materiaRepository.buscar("grafos")).hasSize(1);
+
+        // Importar: crea las nuevas, respeta las existentes e informa los errores por fila.
+        String csv = """
+                sigla;nombre;carreras
+                CAT-201;Compiladores;Ingeniería de Sistemas|Ingeniería Informática
+                CAT-101;Teoría de Grafos I;
+                CAT-202;Lógica;Carrera que no existe
+                ;Sin sigla;
+                CAT-203;Autómatas;
+                2010210;"Teoría de la Computación, avanzada";Ingeniería de Sistemas
+                CAT-201;Repetida en el archivo;
+                """;
+        var r = materiaCatalogoService.importar(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8), "materias.csv");
+        assertThat(r.creadas()).isEqualTo(2);
+        assertThat(r.sinCambios()).containsExactly("CAT-101");
+        assertThat(r.actualizadas()).containsExactly("2010210");
+        assertThat(r.errores()).hasSize(3).anySatisfy(e -> assertThat(e).startsWith("Fila 4:").contains("no existe la carrera"))
+                .anySatisfy(e -> assertThat(e).startsWith("Fila 5:").contains("sigla es obligatoria"))
+                .anySatisfy(e -> assertThat(e).startsWith("Fila 8:").contains("repetida en el archivo"));
+        assertThat(jdbc.queryForObject("SELECT nombre FROM materia WHERE sigla = '2010210'", String.class))
+                .isEqualTo("Teoría de la Computación, avanzada");
+        assertThatThrownBy(() -> materiaCatalogoService.importar("x".getBytes(), "materias.pdf")).hasMessageContaining("CSV (.csv) o Excel (.xlsx)");
+        assertThatThrownBy(() -> materiaCatalogoService.importar("sigla;nombre\n".getBytes(), "materias.csv")).hasMessageContaining("solo tiene el encabezado");
+        // La plantilla y el catálogo se pueden volver a importar tal cual.
+        assertThat(new String(materiaCatalogoService.plantillaCsv(), java.nio.charset.StandardCharsets.UTF_8)).contains("sigla;nombre;carreras");
+        var reimport = materiaCatalogoService.importar(materiaCatalogoService.catalogoCsv(), "materias.csv");
+        assertThat(reimport.errores()).isEmpty();
+        assertThat(reimport.creadas()).isZero();
+        assertThat(materiaCatalogoService.catalogoXlsx()).isNotEmpty();
+        sincronizar();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM materia_carrera mc JOIN materia m ON m.id_materia = mc.id_materia WHERE m.sigla = 'CAT-201'",
+                Integer.class)).isEqualTo(2);
+    }
 }

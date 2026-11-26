@@ -19,13 +19,15 @@ import { reporteIntentos, type IntentoReporte, type PaginaIntentos } from '../..
 import { fechaHoraNumerica, formatFecha, materiaYGrupo } from '../../utils/examenFormat'
 import ReporteModificaciones from '../../components/reportes/ReporteModificaciones'
 import ReporteIngresos from '../../components/reportes/ReporteIngresos'
+import ReporteUsoAmbientes from '../../components/reportes/ReporteUsoAmbientes'
 
 
 import { ChevronDown, Download, Lock, Search, X } from 'lucide-react'
 import ResultadoModal, { type Resultado } from '../../components/ui/ResultadoModal'
 import VistaPreviaExamen from '../../components/examenes/VistaPreviaExamen'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
-type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'
+type Pestana = 'intentos' | 'expulsiones' | 'excepciones' | 'fotos' | 'modificaciones' | 'ingresos-qr' | 'ingresos-manual'| 'uso-ambientes'
 const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'intentos', texto: 'Intentos incorrectos', corto: 'Intentos' },
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
@@ -34,11 +36,12 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
   { id: 'ingresos-qr', texto: 'Ingresos QR', corto: 'Ing. QR' },
   { id: 'ingresos-manual', texto: 'Ingresos Manuales', corto: 'Ing. Manual' },
+  { id: 'uso-ambientes', texto: 'Uso de Ambientes', corto: 'Ambientes' },
 ]
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales' }
+const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales','uso-ambientes': 'Uso de Ambientes'  }
 const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos']
+  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos'], 'uso-ambientes': ['ambiente', 'ambientes'] 
 }
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
@@ -50,9 +53,11 @@ const COLOR_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]',
   AULA_INCORRECTA: 'bg-[#FFEDD5] text-[#9A3412] border border-[#FDBA74]',
   NO_HABILITADO: 'bg-[#E0E7FF] text-[#3730A3] border border-[#A5B4FC]',
+  OTRO_EXAMEN: 'bg-[#F3E8FF] text-[#6B21A8] border border-[#D8B4FE]',
 }
 const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   NO_CORRESPONDE: 'No inscrito en la materia', AULA_INCORRECTA: 'Aula incorrecta', NO_HABILITADO: 'No habilitado',
+  OTRO_EXAMEN: 'Rinde otro examen a la misma hora',
 }
 
 function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {
@@ -232,7 +237,7 @@ export default function ReportesPage() {
   // Resumen en vivo: total, hoy y ayer de cada tipo (también da los números de las pestañas).
   const [periodo, setPeriodo] = useState<Periodo>('todo')
   const desde = desdePeriodo(periodo)
-  const resumen = useResumenReportes(idExamen, desde)
+  const resumen = useResumenReportes(idExamen, desde, !soloMios)
   // BUG-G04: buscar por nombre o código SIS en las cuatro pestañas (los intentos, en el servidor).
   const [buscar, setBuscar] = useState('')
   const [buscarIntentos, setBuscarIntentos] = useState('')
@@ -243,7 +248,7 @@ export default function ReportesPage() {
 
   useEffect(() => {
     let vigente = true
-      ; (soloMios ? listarMisExamenes() : listarExamenes())
+      ; (soloMios ? listarMisExamenes(TODOS_LOS_PERIODOS) : listarExamenes(TODOS_LOS_PERIODOS))
         .then((lista) => {
           if (!vigente) return
           setExamenes([...lista].sort((a, b) => `${b.fecha} ${b.horaInicio}`.localeCompare(`${a.fecha} ${a.horaInicio}`)))
@@ -384,7 +389,7 @@ export default function ReportesPage() {
 
             <div role="tablist" aria-label="Tipo de reporte"
               className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-4 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0 xl:gap-6 xl:overflow-visible">
-              {PESTANAS.map((p) => (
+              {PESTANAS.filter((p) => p.id !== 'uso-ambientes' || !soloMios).map((p) => (
                 <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
                   aria-label={resumen[p.id] ? `${p.texto} (${resumen[p.id]!.total})` : p.texto} onClick={() => setPestana(p.id)}
                   className={`min-h-11 flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] transition-colors sm:min-h-0 sm:flex-none sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
@@ -408,6 +413,7 @@ export default function ReportesPage() {
               {pestana === 'modificaciones' && <ReporteModificaciones idExamen={idExamen} buscar={buscar} desde={desde} />}
               {pestana === 'ingresos-qr' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="QR" />}
               {pestana === 'ingresos-manual' && <ReporteIngresos idExamen={idExamen} buscar={buscar} tipo="MANUAL" />}
+              {pestana === 'uso-ambientes' && !soloMios && <ReporteUsoAmbientes idExamen={idExamen} buscar={buscar} />}
             </div>
           </div>
         </section>

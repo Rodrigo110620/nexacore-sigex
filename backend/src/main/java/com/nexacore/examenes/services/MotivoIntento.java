@@ -24,6 +24,9 @@ public final class MotivoIntento {
     public static final String NO_HABILITADO = "NO_HABILITADO";
     /** Ingreso denegado por llegar fuera del horario (razón «Fuera de tiempo» del control). */
     public static final String FUERA_HORARIO = "FUERA_HORARIO";
+    /** Ya estaba rindiendo otro examen que se cruza en horario: no puede estar en dos a la vez. */
+    public static final String OTRO_EXAMEN = "OTRO_EXAMEN";
+    public static final String MARCA_OTRO_EXAMEN = "Otro examen a la misma hora";
 
     static final String MARCA_AULA = "Ambiente incorrecto";
     static final String MARCA_NO_HABILITADO = "Intento ingresar no habilitado ###";
@@ -38,6 +41,10 @@ public final class MotivoIntento {
             Matcher a = AULAS.matcher(m);
             return new Clasificacion(AULA_INCORRECTA,
                     a.find() ? "Aula incorrecta: se presentó en " + a.group(1).strip() + " · su aula es " + a.group(2).strip() : "Aula incorrecta", null);
+        }
+        if (m.startsWith(MARCA_OTRO_EXAMEN)) {
+            String detalle = m.substring(MARCA_OTRO_EXAMEN.length()).replaceFirst("^\\s*:\\s*", "").strip();
+            return new Clasificacion(OTRO_EXAMEN, "Rinde otro examen a la misma hora", detalle.isEmpty() ? null : detalle);
         }
         if (m.startsWith(MARCA_NO_HABILITADO)) {
             Map<String, String> partes = partes(m.substring(MARCA_NO_HABILITADO.length()));

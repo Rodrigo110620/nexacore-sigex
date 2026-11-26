@@ -25,6 +25,8 @@ export interface CrearExamenPayload {
   /** Aulas que se suman a la principal cuando los estudiantes no caben; se llenan en este orden. */
   idAmbientesAdicionales?: number[]
   modoReparto?: ModoReparto
+  /** Personal de control asignado junto con el examen (opcional). */
+  idsPersonalControl?: number[]
 }
 
 /** Aula de un examen en el orden en que se llena (0 = principal). capacidad null: aforo sin registrar. */
@@ -59,14 +61,42 @@ export interface ExamenDto {
   modoReparto?: ModoReparto
 }
 
-export async function listarExamenes(): Promise<ExamenDto[]> {
-  const { data } = await api.get<ExamenDto[]>('/examenes')
+/** Sin periodo: los del periodo activo; con TODOS_LOS_PERIODOS (periodoService), de todos. */
+export async function listarExamenes(idPeriodo?: number): Promise<ExamenDto[]> {
+  const { data } = await api.get<ExamenDto[]>('/examenes', idPeriodo === undefined ? undefined : { params: { idPeriodo } })
   return data
 }
 
 /** Exámenes para Reportes: el ADMIN, todos; el DOCENTE, los suyos; el CONTROL, en los que está asignado. */
-export async function listarMisExamenes(): Promise<ExamenDto[]> {
-  const { data } = await api.get<ExamenDto[]>('/examenes/mios')
+export async function listarMisExamenes(idPeriodo?: number): Promise<ExamenDto[]> {
+  const { data } = await api.get<ExamenDto[]>('/examenes/mios', idPeriodo === undefined ? undefined : { params: { idPeriodo } })
+  return data
+}
+
+/** Estudiante del grupo que ya tiene otro examen que se cruza con el horario elegido (solo aviso). */
+export interface CruceEstudianteDto {
+  idEstudiante: number
+  codigoSis: string | null
+  nombre: string
+  otrosExamenes: string
+}
+
+export async function crucesDeEstudiantes(params: {
+  idParalelo?: number | null
+  fecha: string
+  horaInicio: string
+  duracionMinutos: number
+  idExamen?: number | null
+}): Promise<CruceEstudianteDto[]> {
+  const { data } = await api.get<CruceEstudianteDto[]>('/examenes/cruces-estudiantes', {
+    params: {
+      idParalelo: params.idParalelo ?? undefined,
+      fecha: params.fecha,
+      horaInicio: params.horaInicio.length === 5 ? `${params.horaInicio}:00` : params.horaInicio,
+      duracionMinutos: params.duracionMinutos,
+      idExamen: params.idExamen ?? undefined,
+    },
+  })
   return data
 }
 

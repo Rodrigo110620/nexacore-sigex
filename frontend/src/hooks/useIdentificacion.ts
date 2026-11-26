@@ -7,6 +7,7 @@ import {
   type TipoIdentificacion,
 } from '../services/identificacionService'
 import { isNetworkError, isOffline } from '../utils/examFormUtils'
+import { estudianteControlGuardado } from '../services/controlOfflineService'
 
 export type BusquedaEstudiante =
   | { status: 'idle' }
@@ -45,11 +46,14 @@ export default function useIdentificacion(idExamen: number) {
   const buscar = useCallback(
     async (tipo: TipoIdentificacion, valor: string) => {
       const id = ++ultimaBusqueda.current
-      // Sin conexión no se intenta la búsqueda; el método y el dato quedan en pantalla para reintentar.
-      if (isOffline()) {
-        setBusqueda({ status: 'error', mensaje: SIN_CONEXION_IDENTIFICAR })
-        return
+      // Sin internet, o con el servidor caído: se busca en lo que se preparó en el dispositivo.
+      const desdeGuardado = () => {
+        const estudiante = estudianteControlGuardado(idExamen, tipo, valor)
+        setBusqueda(estudiante
+          ? { status: estudiante.estado === 'NO_VINCULADO' ? 'no_vinculado' : 'encontrado', estudiante }
+          : { status: 'error', mensaje: 'Sin conexión: este estudiante no fue cargado previamente en el dispositivo.' })
       }
+      if (isOffline()) { desdeGuardado(); return }
       setBusqueda({ status: 'loading' })
       try {
         const estudiante = await identificarEstudiante(idExamen, tipo, valor)
@@ -57,7 +61,9 @@ export default function useIdentificacion(idExamen: number) {
         const status = estudiante.estado === 'NO_VINCULADO' ? 'no_vinculado' : 'encontrado'
         setBusqueda({ status, estudiante })
       } catch (error) {
-        if (id === ultimaBusqueda.current) setBusqueda(busquedaFallida(error))
+        if (id !== ultimaBusqueda.current) return
+        if (isNetworkError(error)) desdeGuardado()
+        else setBusqueda(busquedaFallida(error))
       }
     },
     [idExamen],

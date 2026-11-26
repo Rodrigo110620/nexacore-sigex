@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight, Ban, BarChart3, BookCheck, CalendarDays, CircleCheck, ClipboardCheck, Clock3, GraduationCap, Hourglass, ImageIcon,
-  MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon,
-} from 'lucide-react'
+  MapPin, QrCode, ScanLine, Settings, TriangleAlert, UserRound, UserX, UsersRound, type LucideIcon, CalendarClock } from 'lucide-react'
 import { iconoAviso, iconoOperacion } from '../../utils/iconosActividad'
 import PanelLayout from '../../components/layout/PanelLayout'
 import MobileBottomNav from '../../components/navigation/MobileBottomNav'
@@ -19,8 +18,10 @@ import { addMinutes, estadoDelExamen, etiquetaAulas, etiquetaDocente, fechaHoraN
 import { tienePermiso } from '../../utils/permisos'
 import ErrorCarga from '../../components/ui/ErrorCarga'
 import IncidenciasHoyModal from '../../components/inicio/IncidenciasHoyModal'
+import AlertaSinPersonalControl from '../../components/inicio/AlertaSinPersonalControl'
 import { EnVivo } from '../../components/inicio/Comun'
 import { DIAS_LARGOS, TARJETA, formatoPct, porcentaje, saludo } from '../../utils/inicio'
+import { TODOS_LOS_PERIODOS } from '../../services/periodoService'
 
 const CAMBIOS = new Set(['INGRESO', 'HABILITACION', 'EXAMEN', 'FOTO', 'AUDITORIA'])
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -31,6 +32,7 @@ const ESTILO_MOTIVO: Record<string, [string, string, string, string, LucideIcon]
   NO_HABILITADO: ['#FBBF24', '#D97706', '#FEF3C7', 'text-[#D97706]', Ban],
   QR_DUPLICADO: ['#A78BFA', '#7C3AED', '#EDE9FE', 'text-[#7C3AED]', QrCode],
   FUERA_HORARIO: ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3],
+  OTRO_EXAMEN: ['#C084FC', '#9333EA', '#F3E8FF', 'text-[#9333EA]', CalendarClock],
 }
 const ESTILO_OTRO: [string, string, string, string, LucideIcon] = ['#94A3B8', '#64748B', '#F1F5F9', 'text-[#64748B]', Clock3]
 
@@ -82,7 +84,7 @@ export default function InicioAdminPage() {
   useEffect(() => {
     let vigente = true
     const historial = listarHistorial({ search: '', modulo: '', operacion: '', desde: '', hasta: '' }, 0, 5)
-    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(), listarNotificaciones(), historial]).then(([resumen, lista, avisos, ops]) => {
+    Promise.allSettled([obtenerInicioAdmin(), listarExamenes(TODOS_LOS_PERIODOS), listarNotificaciones(), historial]).then(([resumen, lista, avisos, ops]) => {
       if (!vigente) return
       if (resumen.status === 'fulfilled') {
         setDatos(resumen.value)
@@ -132,6 +134,7 @@ export default function InicioAdminPage() {
         <div className="flex w-full flex-col gap-4 sm:gap-5">
           {error && <ErrorCarga mensaje={error} onReintentar={() => setRecarga((n) => n + 1)} />}
           <Banner nombre={primerNombre} fecha={fechaTexto} datos={datos} hora={ahora} />
+          {(tienePermiso(auth, 'EXAMENES_GESTIONAR_TODOS') || tienePermiso(auth, 'EXAMENES_GESTIONAR_PROPIOS')) && <AlertaSinPersonalControl />}
           {!datos ? (
             <p className="py-16 text-center text-sm text-[#627A9B]">Cargando el resumen del día…</p>
           ) : (

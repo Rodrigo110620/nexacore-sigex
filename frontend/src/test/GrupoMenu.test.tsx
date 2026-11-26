@@ -11,9 +11,11 @@ const montar = (ruta: string, contraido = false) => {
 }
 
 describe('Configuración con subopciones en el menú lateral', () => {
-  it('el ADMIN tiene Roles y permisos, Respaldo e Historial; un rol extra solo los roles (sin desplegable)', () => {
+  it('el ADMIN tiene Roles y permisos, Periodos, Respaldo e Historial; un rol extra solo los roles (sin desplegable)', () => {
     expect(configuracion(['ADMIN']).hijos?.map((h) => [h.label, h.to])).toEqual([
       ['Roles y permisos', '/dashboard/configuracion'],
+      ['Periodos', '/dashboard/configuracion#periodos'],
+      ['Materias', '/dashboard/configuracion#materias'],
       ['Respaldo', '/dashboard/configuracion#respaldo'],
       ['Historial', '/dashboard/configuracion#historial'],
     ])

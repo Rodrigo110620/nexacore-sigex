@@ -52,6 +52,35 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
+    /** Sesiones por dispositivo (V62); por campo para no cambiar el constructor. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private SesionService sesionService;
+
+    /** Historial de operaciones: bloqueos por intentos y contraseñas restablecidas (pasan sin sesión). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AuditoriaService auditoria;
+
+    private static jakarta.servlet.http.HttpServletRequest peticion() {
+        return org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+                instanceof org.springframework.web.context.request.ServletRequestAttributes a ? a.getRequest() : null;
+    }
+
+    private static String userAgent() {
+        var r = peticion();
+        return r == null ? null : r.getHeader("User-Agent");
+    }
+
+    private static String ipCliente() {
+        var r = peticion();
+        if (r == null) return null;
+        String xff = r.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            String[] partes = xff.split(",");
+            return partes[partes.length - 1].trim();
+        }
+        return r.getRemoteAddr();
+    }
     private final EmailService emailService;
     private final int resetExpirationMinutes;
     private final int maxIntentosFallidos;
@@ -109,7 +138,8 @@ public class AuthService {
         }
 
         List<String> roles = obtenerRoles(usuario);
-        String token = jwtService.generarToken(usuario.getEmail(), roles);
+        String idSesion = sesionService == null ? null : sesionService.iniciar(usuario);
+        String token = jwtService.generarToken(usuario.getEmail(), roles, idSesion);
         String nombreCompleto = usuario.getNombre() + " " + usuario.getApellidos();
 
         return new AuthResponse(token, nombreCompleto, roles);
@@ -122,6 +152,11 @@ public class AuthService {
             usuario.setIntentosFallidos(0);
             usuario.setBloqueadoHasta(ahora.plusMinutes(minutosBloqueo));
             usuarioRepository.save(usuario);
+            if (auditoria != null) {
+                auditoria.registrarComo(usuario.getId(), "CUENTA_BLOQUEADA_INTENTOS", AuditoriaService.datos(
+                        "intentos", maxIntentosFallidos, "minutos", minutosBloqueo,
+                        "dispositivo", SesionService.describir(userAgent()), "ip", ipCliente()));
+            }
             throw new CuentaBloqueadaException(minutosBloqueo);
         }
         usuario.setIntentosFallidos(intentos);
@@ -173,6 +208,8 @@ public class AuthService {
 
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
+        // Las demás sesiones abiertas (otros dispositivos) se cierran; esta sigue.
+        if (sesionService != null) sesionService.cerrarOtrasDe(usuario.getId(), "CONTRASENA_CAMBIADA");
     }
 
     /** La cuenta de un estudiante sigue la misma regla que al activarla: sin su nombre, SIS ni CI. */
@@ -255,6 +292,11 @@ public class AuthService {
 
         usuario.setPassword(passwordEncoder.encode(request.passwordNueva()));
         usuarioRepository.save(usuario);
+        if (sesionService != null) sesionService.cerrarTodasDe(usuario.getId(), "CONTRASENA_RESTABLECIDA");
+        if (auditoria != null) {
+            auditoria.registrarComo(usuario.getId(), "CONTRASENA_RESTABLECIDA", AuditoriaService.datos(
+                    "dispositivo", SesionService.describir(userAgent()), "ip", ipCliente()));
+        }
 
         token.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(token);

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { LoaderCircle, Pencil, ShieldCheck, UserRound } from 'lucide-react'
 import ErrorCarga from '../ui/ErrorCarga'
-import { asignarPersonal, personalDelExamen, personalDisponible, type PersonalControl } from '../../services/personalControlService'
+import { ListaPersonal } from './PersonalControlRegistro'
+import { asignarPersonal, personalDelExamen, personalDisponibleParaExamen, type PersonalControl } from '../../services/personalControlService'
 
 const nombre = (p: PersonalControl) => `${p.nombre} ${p.apellidos}`.trim()
 
@@ -11,7 +12,12 @@ const nombre = (p: PersonalControl) => `${p.nombre} ${p.apellidos}`.trim()
  * ADMIN y su docente. El CONTROL recibe reportes y avisos solo de sus exámenes asignados; puede controlar otro
  * como reemplazo, y ese registro queda marcado.
  */
-export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idExamen: number; puedeAsignar: boolean }) {
+export default function PersonalControlSeccion({ idExamen, puedeAsignar, aulas = [] }: {
+  idExamen: number
+  puedeAsignar: boolean
+  /** Aulas del examen (principal y adicionales): con más de una, cada control queda a cargo de una (V66). */
+  aulas?: { idAmbiente: number; nombre: string }[]
+}) {
   const [asignados, setAsignados] = useState<PersonalControl[] | null>(null)
   const [error, setError] = useState(false)
   const [recarga, setRecarga] = useState(0)
@@ -20,6 +26,8 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
   const [elegidos, setElegidos] = useState<Set<number>>(new Set())
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const [aulaDe, setAulaDe] = useState<Record<number, number>>({})
+  const variasAulas = aulas.length > 1
 
   useEffect(() => {
     let vigente = true
@@ -33,7 +41,8 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
     setEditando(true)
     setMensaje('')
     setElegidos(new Set((asignados ?? []).map((p) => p.idUsuario)))
-    personalDisponible().then(setDisponibles).catch(() => setMensaje('No se pudo cargar el personal de control.'))
+    setAulaDe(Object.fromEntries((asignados ?? []).filter((p) => p.idAmbiente).map((p) => [p.idUsuario, p.idAmbiente as number])))
+    personalDisponibleParaExamen(idExamen).then(setDisponibles).catch(() => setMensaje('No se pudo verificar el horario del personal. Intenta nuevamente.'))
   }
 
   const alternar = (id: number) => setElegidos((prev) => {
@@ -47,7 +56,9 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
     setGuardando(true)
     setMensaje('')
     try {
-      setAsignados(await asignarPersonal(idExamen, [...elegidos]))
+      // Solo las aulas elegidas a mano; las demás las reparte el servidor (una por aula).
+      const aulasElegidas = Object.fromEntries(Object.entries(aulaDe).filter(([id]) => elegidos.has(Number(id))))
+      setAsignados(await asignarPersonal(idExamen, [...elegidos], variasAulas ? aulasElegidas : undefined))
       setEditando(false)
     } catch (err) {
       setMensaje((axios.isAxiosError(err) && err.response?.data?.mensaje) || 'No se pudo guardar el personal de control.')
@@ -84,16 +95,31 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
           ) : disponibles && disponibles.length === 0 ? (
             <p className="mt-2 text-xs text-[#627A9B]">No hay usuarios activos con el rol CONTROL.</p>
           ) : (
-            <ul className="mt-2 grid gap-1.5 sm:grid-cols-2" aria-label="Personal de control disponible">
-              {(disponibles ?? []).map((p) => (
-                <li key={p.idUsuario}>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#E2E8F0] px-3 text-sm text-[#011140] has-[:checked]:border-[#0439D9] has-[:checked]:bg-[#F1F6FF]">
-                    <input type="checkbox" checked={elegidos.has(p.idUsuario)} onChange={() => alternar(p.idUsuario)} className="h-4 w-4 accent-[#0439D9]" />
-                    <span className="min-w-0"><span className="block truncate font-semibold">{nombre(p)}</span><span className="block truncate text-[11px] text-[#627A9B]">{p.email}</span></span>
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <ListaPersonal personal={disponibles ?? []} elegidos={[...elegidos]} alternar={alternar} deshabilitado={guardando} />
+          )}
+          {variasAulas && elegidos.size > 0 && disponibles && (
+            <div className="mt-3 rounded-md border border-[#D8E3F5] bg-[#F8FAFC] p-3">
+              <p className="text-xs font-semibold text-[#011140]">Aula de cada uno</p>
+              <p className="text-[11px] text-[#627A9B]">El examen se reparte en {aulas.length} aulas. Si no eliges, se asigna uno por aula, en orden.</p>
+              <ul className="mt-2 space-y-1.5">
+                {(disponibles ?? []).filter((p) => elegidos.has(p.idUsuario)).map((p) => (
+                  <li key={p.idUsuario} className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                    <span className="truncate font-semibold text-[#011140]">{nombre(p)}</span>
+                    <select aria-label={`Aula de ${nombre(p)}`} value={aulaDe[p.idUsuario] ?? ''} disabled={guardando}
+                      onChange={(e) => setAulaDe((prev) => {
+                        const nuevo = { ...prev }
+                        if (e.target.value) nuevo[p.idUsuario] = Number(e.target.value)
+                        else delete nuevo[p.idUsuario]
+                        return nuevo
+                      })}
+                      className="h-9 rounded-md border border-[#C9D7EC] bg-white px-2 text-xs text-[#011140] sm:w-44">
+                      <option value="">Automática</option>
+                      {aulas.map((a) => <option key={a.idAmbiente} value={a.idAmbiente}>Aula {a.nombre}</option>)}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {mensaje && <p role="alert" className="mt-2 text-xs font-medium text-[#B91C1C]">{mensaje}</p>}
           <div className="mt-3 flex justify-end gap-2">
@@ -111,10 +137,21 @@ export default function PersonalControlSeccion({ idExamen, puedeAsignar }: { idE
             <li key={p.idUsuario} className="inline-flex items-center gap-2 rounded-lg bg-[#F1F6FF] px-3 py-2 text-sm text-[#011140]">
               <UserRound size={15} className="text-[#0439D9]" aria-hidden="true" />
               <span><span className="font-semibold">{nombre(p)}</span><span className="block text-[11px] text-[#627A9B]">{p.email}</span></span>
+              {p.ambiente && <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[#0439D9]">Aula {p.ambiente}</span>}
             </li>
           ))}
         </ul>
       )}
+      {!editando && asignados && variasAulas && (() => {
+        // Aulas del examen que nadie controla (con personal asignado).
+        const cubiertas = new Set(asignados.map((p) => p.idAmbiente))
+        const sinControl = asignados.length === 0 ? [] : aulas.filter((a) => !cubiertas.has(a.idAmbiente))
+        return sinControl.length > 0 && (
+          <p role="status" className="mt-2 rounded-md bg-[#FFFAEB] px-3 py-2 text-[11px] font-semibold text-[#7A2E0E]">
+            {sinControl.length === 1 ? `El aula ${sinControl[0].nombre} no tiene` : `Las aulas ${sinControl.map((a) => a.nombre).join(', ')} no tienen`} personal de control.
+          </p>
+        )
+      })()}
     </section>
   )
 }

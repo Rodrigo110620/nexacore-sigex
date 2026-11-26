@@ -36,6 +36,9 @@ function avisosEntre(antes: { examenes: MiExamen[]; perfil: MiPerfilEstudiante }
     } else if (p.habilitado !== false && e.habilitado === false) {
       avisos.push({ tipo: 'alerta', Icono: CircleX, titulo: `No estás habilitado para ${e.materia}`, detalle: e.motivoInhabilitacion ? `Razón: ${e.motivoInhabilitacion}.` : undefined })
     }
+    if (!p.cruceHorario && e.cruceHorario) {
+      avisos.push({ tipo: 'alerta', Icono: CalendarPlus, titulo: `${e.materia} se cruza con otro examen`, detalle: `Se cruza con ${e.cruceHorario}. Avisa a tus docentes o reclama en la mesa de ayuda.` })
+    }
     if (p.aula && e.aula && p.aula !== e.aula) {
       avisos.push({ tipo: 'info', Icono: MapPin, titulo: `Cambió tu aula para ${e.materia}`, detalle: `Ahora es el aula ${e.aula} (antes ${p.aula}).` })
     } else if (!p.aula && e.aula) {

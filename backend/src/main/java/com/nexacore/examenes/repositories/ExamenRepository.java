@@ -63,4 +63,20 @@ public interface ExamenRepository extends JpaRepository<Examen, ExamenId> {
               AND COALESCE(e.estado, 'programado') <> 'cancelado'
             """)
     List<Examen> delParaleloEnFecha(@Param("idParalelo") Integer idParalelo, @Param("fecha") LocalDate fecha);
+
+    /**
+     * Exámenes conjuntos anteriores (de id menor): misma materia, mismo docente, otro grupo, misma fecha, hora y
+     * duración, no cancelados. Comparten aulas: el de id menor llena primero (BUG-B02).
+     */
+    @Query("""
+            SELECT e FROM Examen e
+            WHERE e.idMateria = :idMateria AND e.idDocente = :idDocente AND e.fecha = :fecha
+              AND e.horaInicio = :horaInicio AND e.duracionMinutos = :duracion
+              AND e.id.idExamen < :idExamen
+              AND COALESCE(e.estado, 'programado') <> 'cancelado'
+            ORDER BY e.id.idExamen
+            """)
+    List<Examen> conjuntosAnteriores(@Param("idMateria") Integer idMateria, @Param("idDocente") Integer idDocente,
+                                     @Param("fecha") LocalDate fecha, @Param("horaInicio") java.time.LocalTime horaInicio,
+                                     @Param("duracion") Integer duracion, @Param("idExamen") Integer idExamen);
 }
