@@ -51,9 +51,9 @@ function Destino() {
   return <p>Destino {pathname + search}</p>
 }
 
-/** La tabla completa va oculta tras «Ver todos los estudiantes» de la tarjeta «Ingresos recientes». */
+/** La lista completa está en la pestaña «Estudiantes del examen» (la inicial es «Ingresos recientes»). */
 async function abrirTabla() {
-  fireEvent.click(await screen.findByRole('button', { name: /Ver todos los estudiantes/ }))
+  fireEvent.click(await screen.findByRole('tab', { name: 'Estudiantes del examen' }))
   return screen.findByRole('table')
 }
 
@@ -118,8 +118,8 @@ describe('ControlExamenPage', () => {
     expect(incidencias.getByText('2')).toBeInTheDocument()
     expect(incidencias.getByRole('link', { name: /Ver detalle/ })).toHaveAttribute('href', '/dashboard/control/7/informacion')
     expect(within(filas[1]).getByText('María Flores')).toBeInTheDocument()
-    expect(within(filas[1]).getByText('INGRESÓ')).toBeInTheDocument()
-    expect(within(filas[2]).getByText('NO INGRESÓ')).toBeInTheDocument()
+    expect(within(filas[1]).getByText('Ingresó')).toBeInTheDocument()
+    expect(within(filas[2]).getByText('No ingresó')).toBeInTheDocument()
     expect(within(filas[2]).getByText('7489212')).toBeInTheDocument()
     expect(listarEstudiantesExamen).toHaveBeenCalledWith(7, 'TODOS', 0, 5)
     expect(screen.getByRole('link', { name: /Iniciar control de ingreso/i })).toHaveAttribute('href', '/dashboard/control/7/identificar')

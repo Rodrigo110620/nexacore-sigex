@@ -85,6 +85,7 @@ class HistorialPresentacion {
         tipo("MATERIA_ACTIVADA", "Configuración", "Activar");
         tipo("MATERIA_DESACTIVADA", "Configuración", "Desactivar");
         tipo("MATERIAS_IMPORTADAS", "Configuración", "Importar");
+        tipo("REPORTE_EXPORTADO", "Reportes", "Descargar");
         tipo("SESION_INICIADA", "Sesiones", "Iniciar sesión");
         tipo("SESION_CERRADA", "Sesiones", "Cerrar sesión");
         tipo("SESIONES_CERRADAS", "Sesiones", "Cerrar sesión");
@@ -282,6 +283,8 @@ class HistorialPresentacion {
             case "MATERIA_ACTIVADA" -> new Vista(texto(d, "materia"), "Volvió a activar la materia", null, List.of());
             case "MATERIA_DESACTIVADA" -> new Vista(texto(d, "materia"),
                     "Desactivó la materia: ya no se ofrece para nuevos exámenes", null, List.of());
+            case "REPORTE_EXPORTADO" -> new Vista(d.path("reporte").asText("Reporte"), "Descargó el reporte en "
+                    + d.path("formato").asText("") + " (" + plural(d.path("registros").asInt(), "registro", "registros") + ")", null, List.of());
             case "MATERIAS_IMPORTADAS" -> new Vista("Catálogo de materias", "Importó " + plural(d.path("creadas").asInt(), "materia", "materias")
                     + (d.has("actualizadas") ? "; actualizó " + d.path("actualizadas").asInt() : "")
                     + (d.has("errores") ? "; " + d.path("errores").asInt() + " con errores" : ""), null, List.of());
