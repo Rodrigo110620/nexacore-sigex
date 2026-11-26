@@ -10,6 +10,7 @@ import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
 import useResumenReportes, { desdePeriodo, type Periodo } from '../../hooks/useResumenReportes'
 import GraficoPorHora from '../../components/reportes/GraficoPorHora'
 import ResumenReportes from '../../components/reportes/ResumenReportes'
+import DescargarReporte from '../../components/reportes/DescargarReporte'
 import EtiquetaNuevo from '../../components/reportes/EtiquetaNuevo'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
 import { useAuth } from '../../context/AuthContext'
@@ -405,6 +406,14 @@ export default function ReportesPage() {
               ))}
             </div>
 
+            {puedeExportar && (pestana !== 'uso-ambientes' || !soloMios) && (
+              <div className="mt-3 flex justify-end">
+                <DescargarReporte pestana={pestana}
+                  filtros={{ idExamen, examen: etiqueta, periodo: PERIODOS.find(([id]) => id === periodo)?.[1], desde,
+                    buscar: pestana === 'intentos' ? buscarIntentos : buscar, nombresExamen }}
+                  onError={(mensaje) => setResultadoDescarga({ tipo: 'error', mensaje })} />
+              </div>
+            )}
             <div className="mt-4">
               {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} desde={desde} />}
               {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} desde={desde} />}
