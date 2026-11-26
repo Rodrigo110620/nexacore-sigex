@@ -1,11 +1,12 @@
-import type { RegisterUserFormState, Rol } from '../../types/usuario.types';
+import type { FormErrors, RegisterUserFormState, Rol } from '../../types/usuario.types';
 import { DOMINIO_PERSONAL, FIELD_LIMITS } from '../../utils/validators';
 import RoleSelector from './RoleSelector';
 
 interface CredentialsSectionProps {
   form: RegisterUserFormState;
+  errors?: FormErrors;
   onChange: (field: keyof RegisterUserFormState, value: string | boolean | Rol) => void;
-  onBlur: (field: keyof RegisterUserFormState) => string;
+  onBlur: (field: keyof RegisterUserFormState) => Promise<string>;
   onFieldError?: (field: string, message: string) => void;
   showPasswordNotice?: boolean;
   /** Registro por pasos: solo el correo (el rol y el estado van en otros pasos). */
@@ -20,8 +21,8 @@ export default function CredentialsSection({
   showPasswordNotice = true,
   soloCorreo = false,
 }: CredentialsSectionProps) {
-  const handleBlurWithError = (field: keyof RegisterUserFormState) => {
-    const error = onBlur(field);
+  const handleBlurWithError = async (field: keyof RegisterUserFormState) => {
+    const error = await onBlur(field);
     if (error) {
       onFieldError?.(field, error);
     }
@@ -76,9 +77,15 @@ export default function CredentialsSection({
           )}
         </div>
 
-        <p className="hidden text-gray-600 text-xs sm:block">
-          Personal: @umss.edu (también se aceptan @umss.edu.bo y @est.umss.edu) · Máximo {FIELD_LIMITS.email.max} caracteres
-        </p>
+        {errors?.email ? (
+          <p className="text-red-500 text-xs mt-1 font-medium">
+            {errors.email}
+          </p>
+        ) : (
+          <p className="hidden text-gray-600 text-xs sm:block">
+            Personal: @umss.edu (también se aceptan @umss.edu.bo y @est.umss.edu) · Máximo {FIELD_LIMITS.email.max} caracteres
+          </p>
+        )}
       </div>
 
       {!soloCorreo && <>

@@ -5,7 +5,7 @@ interface PersonalInfoSectionProps {
   form: RegisterUserFormState;
   errors?: FormErrors;
   onChange: (field: keyof RegisterUserFormState, value: string) => void;
-  onBlur: (field: keyof RegisterUserFormState) => string;
+  onBlur: (field: keyof RegisterUserFormState) => Promise<string>;
   onFieldError?: (field: string, message: string) => void;
 }
 
@@ -16,8 +16,8 @@ export default function PersonalInfoSection({
   onBlur,
   onFieldError,
 }: PersonalInfoSectionProps) {
-  const handleBlurWithError = (field: keyof RegisterUserFormState) => {
-    const error = onBlur(field);
+  const handleBlurWithError = async (field: keyof RegisterUserFormState) => {
+    const error = await onBlur(field);
     if (error) {
       onFieldError?.(field, error);
     }
@@ -96,9 +96,15 @@ export default function PersonalInfoSection({
           autoFocus
           className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className=" text-gray-600 text-xs">
-          Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
-        </p>
+        {errors?.nombre ? (
+          <p className="text-red-500 text-xs mt-1 font-medium">
+            {errors.nombre}
+          </p>
+        ) : (
+          <p className="hidden text-gray-600 text-xs sm:block">
+            Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
+          </p>
+        )}
       </div>
 
       {/* Apellidos */}
@@ -133,9 +139,15 @@ export default function PersonalInfoSection({
           autoCapitalize="words"
           className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className=" text-gray-600 text-xs">
-          Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
-        </p>
+        {errors?.apellidos ? (
+          <p className="text-red-500 text-xs mt-1 font-medium">
+            {errors.apellidos}
+          </p>
+        ) : (
+          <p className="hidden text-gray-600 text-xs sm:block">
+            Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
+          </p>
+        )}
       </div>
 
       {/* Documento */}

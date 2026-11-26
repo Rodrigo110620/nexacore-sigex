@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 /**
  * Gestión de usuarios del sistema.
  *
@@ -130,6 +131,25 @@ public class UsuarioController {
     public ResponseEntity<List<Rol>> listarRoles() {
         return ResponseEntity.ok(usuarioService.listarRoles());
     }
+
+    /**
+     * Verifica si un CI o un correo electrónico ya están registrados en un usuario del personal.
+     * Se usa para validar paso a paso en el formulario de registro, antes de enviar el formulario completo.
+     * Devuelve un mapa con claves "ciExistente" y/o "emailExistente" según los parámetros recibidos.
+     * Solo ADMIN.
+     */
+    @Operation(summary = "Verificar disponibilidad de CI y correo",
+            description = "Indica si un CI o un correo electrónico ya están registrados en un usuario del personal. " +
+                    "Se usa para validar paso a paso en el formulario de registro. Solo ADMIN.")
+    @PreAuthorize("@permisos.tiene(authentication, 'USUARIOS_GESTIONAR')")
+    @GetMapping("/verificar")
+    public ResponseEntity<Map<String, Boolean>> verificar(
+            @RequestParam(required = false) String ci,
+            @RequestParam(required = false) String email) {
+        Map<String, Boolean> resultado = usuarioService.verificarDisponibilidad(ci, email);
+        return ResponseEntity.ok(resultado);
+    }
+
     @Operation(summary = "Crear rol", description = "Crea un nuevo rol en el sistema. Solo ADMIN.")
     @PreAuthorize("@permisos.tiene(authentication, 'ROLES_GESTIONAR')")
     @PostMapping("/roles")

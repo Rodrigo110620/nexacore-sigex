@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../../services/api';
 import { gruposPorMateria, type MateriaDto } from '../../services/materiaService';
+import { verificarDuplicados } from '../../services/userService';
 import {
   INITIAL_FORM_STATE,
   type RegisterUserFormState,
@@ -40,8 +41,8 @@ export interface UseRegisterUserFormResult {
   success: boolean;
   registeredEmail: string;
   handleChange: (field: keyof RegisterUserFormState, value: string | boolean | Rol) => void;
-  handleBlur: (field: keyof RegisterUserFormState) => string;
-  goNext: () => FormErrors | null;
+  handleBlur: (field: keyof RegisterUserFormState) => Promise<string>;
+  goNext: () => Promise<FormErrors | null>;
   goBack: () => void;
   /** Vuelve a un paso anterior (desde el resumen, para corregir un dato). */
   irAPaso: (paso: PasoRegistro) => void;
@@ -92,7 +93,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (errors.confirmaAdmin) setErrors({ ...errors, confirmaAdmin: undefined });
   };
 
-  const handleBlur = (field: keyof RegisterUserFormState): string => {
+  const handleBlur = async (field: keyof RegisterUserFormState): Promise<string> => {
     const value = form[field];
     if (typeof value !== 'string') return '';
 
@@ -108,7 +109,28 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (field === 'email') error = validateEmail(value);
     if (field === 'rol') error = validateRol(value);
 
-    setErrors((prev) => ({ ...prev, [field]: undefined }));
+    // Verificar unicidad de CI y correo al salir del campo, solo si el formato es válido.
+    if (!error && (field === 'documento' || field === 'email') && value.trim()) {
+      try {
+        const duplicados = await verificarDuplicados(
+          field === 'documento' ? value.trim() : undefined,
+          field === 'email' ? value.trim() : undefined
+        );
+        if ((field === 'documento' && duplicados.ciExistente) ||
+            (field === 'email' && duplicados.emailExistente)) {
+          error = field === 'documento'
+            ? 'El C.I. ya está registrado en el sistema.'
+            : 'El correo electrónico ya está registrado en el sistema.';
+        }
+      } catch {
+        // Si el backend no responde, no bloqueamos el campo: dejamos que el submit final valide.
+        error = '';
+      }
+    }
+
+    if (!error) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
 
     return error;
   };
@@ -119,8 +141,8 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     return rolError ? { rol: rolError } : {};
   };
 
-  /** Paso 2: datos personales y correo. */
-  const validarDatos = (): FormErrors => {
+  /** Paso 2: datos personales y correo. Valida formato y también unicidad de CI y correo. */
+  const validarDatos = async (): Promise<FormErrors> => {
     const next: FormErrors = {};
     const nombreError = validateNombre(form.nombre);
     const apellidosError = validateApellidos(form.apellidos);
@@ -130,6 +152,19 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (apellidosError) next.apellidos = apellidosError;
     if (documentoError) next.documento = documentoError;
     if (emailError) next.email = emailError;
+
+    // Verificar unicidad de CI y correo solo si su formato es válido y hay algo que verificar.
+    const hayCiValido = !documentoError && form.documento.trim();
+    const hayEmailValido = !emailError && form.email.trim();
+    if (hayCiValido || hayEmailValido) {
+      const duplicados = await verificarDuplicados(
+        hayCiValido ? form.documento.trim() : undefined,
+        hayEmailValido ? form.email.trim() : undefined
+      );
+      if (duplicados.ciExistente) next.documento = 'El C.I. ya está registrado en el sistema.';
+      if (duplicados.emailExistente) next.email = 'El correo electrónico ya está registrado en el sistema.';
+    }
+
     return next;
   };
 
@@ -142,11 +177,15 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     return {};
   };
 
-  const VALIDAR: Record<1 | 2 | 3, () => FormErrors> = { 1: validarRol, 2: validarDatos, 3: validarDelRol };
+  const VALIDAR: Record<1 | 2 | 3, () => FormErrors | Promise<FormErrors>> = {
+    1: validarRol,
+    2: validarDatos,
+    3: validarDelRol,
+  };
 
-  const goNext = (): FormErrors | null => {
+  const goNext = async (): Promise<FormErrors | null> => {
     if (step === 4) return null;
-    const stepErrors = VALIDAR[step]();
+    const stepErrors = await VALIDAR[step]();
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
       return stepErrors;
@@ -186,7 +225,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     }
 
     for (const paso of [1, 2, 3] as const) {
-      const pasoErrores = VALIDAR[paso]();
+      const pasoErrores = await VALIDAR[paso]();
       if (Object.keys(pasoErrores).length > 0) {
         setErrors(pasoErrores);
         setStep(paso);

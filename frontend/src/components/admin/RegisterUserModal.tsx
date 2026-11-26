@@ -45,6 +45,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     setConfirmaAdmin,
     errors,
     generalError,
+    setGeneralError,
     loading,
     success,
     registeredEmail,
@@ -108,9 +109,13 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     }
   };
 
-  const handleNext = () => {
-    const stepErrors = goNext();
-    if (stepErrors) showFirstError(stepErrors);
+  const handleNext = async () => {
+    try {
+      const stepErrors = await goNext();
+      if (stepErrors) showFirstError(stepErrors);
+    } catch {
+      setGeneralError('No se pudo validar los datos. Intenta nuevamente.');
+    }
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
@@ -146,8 +151,8 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
 
             {step === 2 && (
               <div className="flex flex-col gap-5">
-                <PersonalInfoSection form={form} onChange={handleChange} onBlur={handleBlur} onFieldError={showFieldError} />
-                <CredentialsSection form={form} onChange={handleChange} onBlur={handleBlur} onFieldError={showFieldError} soloCorreo />
+                <PersonalInfoSection form={form} errors={errors} onChange={handleChange} onBlur={handleBlur} onFieldError={showFieldError} />
+                <CredentialsSection form={form} errors={errors} onChange={handleChange} onBlur={handleBlur} onFieldError={showFieldError} soloCorreo />
               </div>
             )}
 

@@ -47,6 +47,20 @@ export async function cambiarEstadoUsuario(id: number, activo: boolean): Promise
   return data
 }
 
+/** Verifica si un CI y/o correo ya están registrados en un usuario del personal. */
+export async function verificarDuplicados(
+  ci?: string,
+  email?: string
+): Promise<{ ciExistente?: boolean; emailExistente?: boolean }> {
+  const params: Record<string, string> = {}
+  if (ci) params.ci = ci
+  if (email) params.email = email
+  const { data } = await api.get<{ ciExistente?: boolean; emailExistente?: boolean }>('/usuarios/verificar', {
+    params,
+  })
+  return data
+}
+
 export interface ImportarUsuariosResponse {
   insertados: number
   ignorados: number

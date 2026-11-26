@@ -40,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -309,6 +310,24 @@ public class UsuarioService {
         return rolRepository.findAll().stream()
                 .filter(rol -> !Rol.ESTUDIANTE.equals(rol.getNombre()))
                 .toList();
+    }
+
+    /**
+     * Verifica si un CI o un correo electrónico ya están registrados en un usuario del personal.
+     * Se usa para validar paso a paso en el formulario de registro, antes de enviar el formulario completo.
+     * Los campos null o en blanco no se verifican.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Boolean> verificarDisponibilidad(String ci, String email) {
+        Map<String, Boolean> resultado = new HashMap<>();
+        if (ci != null && !ci.isBlank()) {
+            resultado.put("ciExistente", usuarioRepository.existsByCiIgnoreCase(ci.trim()));
+        }
+        if (email != null && !email.isBlank()) {
+            String emailNormalizado = email.trim().toLowerCase(Locale.ROOT);
+            resultado.put("emailExistente", usuarioRepository.existsByEmailIgnoreCase(emailNormalizado));
+        }
+        return resultado;
     }
 
     /**
