@@ -96,9 +96,13 @@ export default function PersonalInfoSection({
           autoFocus
           className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className=" text-gray-600 text-xs">
-          Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
-        </p>
+        {errors?.nombre ? (
+          <p className="text-red-500 text-xs mt-1 font-medium">{errors.nombre}</p>
+        ) : (
+          <p className=" text-gray-600 text-xs">
+            Formato: primera mayúscula · Máximo {FIELD_LIMITS.nombre.max} caracteres
+          </p>
+        )}
       </div>
 
       {/* Apellidos */}
@@ -133,9 +137,13 @@ export default function PersonalInfoSection({
           autoCapitalize="words"
           className="text-xs border border-gray-300 rounded-md py-2.5 px-3 transition-colors focus:border-[#0439D9] focus:outline-none focus:ring-2 focus:ring-[#DCE7FF]"
         />
-        <p className=" text-gray-600 text-xs">
-          Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
-        </p>
+        {errors?.apellidos ? (
+          <p className="text-red-500 text-xs mt-1 font-medium">{errors.apellidos}</p>
+        ) : (
+          <p className=" text-gray-600 text-xs">
+            Formato: primera mayúscula · Máximo {FIELD_LIMITS.apellidos.max} caracteres
+          </p>
+        )}
       </div>
 
       {/* Documento */}

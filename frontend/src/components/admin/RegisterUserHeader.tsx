@@ -1,4 +1,4 @@
-import { X, UserRoundPlus, Check } from 'lucide-react';
+import { X, UserRoundPlus, Check, AlertCircle } from 'lucide-react';
 import type { PasoRegistro } from './useRegisterUserForm';
 
 interface Props {
@@ -6,6 +6,8 @@ interface Props {
   /** Nombre del paso 3 según el rol: Materias (DOCENTE), Acceso (ADMIN) o Control. */
   pasoDelRol: string;
   onClose: () => void;
+  /** Cuando true, resalta visualmente el paso actual porque tiene errores de validación. */
+  currentStepHasErrors?: boolean;
 }
 
 const DESCRIPCION: Record<PasoRegistro, string> = {
@@ -16,7 +18,7 @@ const DESCRIPCION: Record<PasoRegistro, string> = {
 };
 
 /** Registro de usuario en 4 pasos: Rol · Datos · lo propio del rol · Confirmar. */
-export default function RegisterUserHeader({ step, pasoDelRol, onClose }: Props) {
+export default function RegisterUserHeader({ step, pasoDelRol, onClose, currentStepHasErrors = false }: Props) {
   const pasos = ['Rol', 'Datos', pasoDelRol, 'Confirmar'];
   return (
     <>
@@ -59,11 +61,20 @@ export default function RegisterUserHeader({ step, pasoDelRol, onClose }: Props)
           return (
             <li key={nombre} aria-current={actual ? 'step' : undefined} className={`flex min-w-0 items-center gap-1.5 ${actual ? '' : 'max-sm:shrink-0'}`}>
               <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                actual ? 'bg-gradient-to-br from-[#2563EB] to-[#6D28D9] text-white' : hecho ? 'bg-[#0439D9] text-white' : 'bg-[#E2E8F0] text-[#64748B]'
+                actual
+                  ? currentStepHasErrors
+                    ? 'bg-[#DC2626] text-white ring-2 ring-[#DC2626]/50'
+                    : 'bg-gradient-to-br from-[#2563EB] to-[#6D28D9] text-white'
+                  : hecho ? 'bg-[#0439D9] text-white' : 'bg-[#E2E8F0] text-[#64748B]'
               }`}>
                 {hecho ? <Check size={13} strokeWidth={3} aria-hidden="true" /> : num}
+                {actual && currentStepHasErrors && <AlertCircle size={10} aria-label="Este paso tiene errores" />}
               </span>
-              <span className={`truncate text-[11px] font-semibold ${actual ? 'text-[#011140]' : hecho ? 'text-[#011140] max-sm:hidden' : 'text-[#94A3B8] max-sm:hidden'}`}>
+              <span className={`truncate text-[11px] font-semibold ${
+                actual
+                  ? currentStepHasErrors ? 'text-[#DC2626]' : 'text-[#011140]'
+                  : hecho ? 'text-[#011140] max-sm:hidden' : 'text-[#94A3B8] max-sm:hidden'
+              }`}>
                 {nombre}
               </span>
               {i < pasos.length - 1 && <span aria-hidden="true" className={`h-0.5 w-4 shrink-0 rounded sm:w-6 ${hecho ? 'bg-[#0439D9]' : 'bg-[#E2E8F0]'}`} />}
