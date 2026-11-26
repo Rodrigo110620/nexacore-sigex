@@ -37,6 +37,7 @@ export interface UseRegisterUserFormResult {
   setConfirmaAdmin: (valor: boolean) => void;
   errors: FormErrors;
   generalError: string;
+  setGeneralError: (valor: string) => void;
   loading: boolean;
   success: boolean;
   registeredEmail: string;
@@ -57,7 +58,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
   const [datosDocente, setDatosDocente] = useState<DatosDocente>(DATOS_DOCENTE_INICIALES);
   const [confirmaAdmin, setConfirmaAdminEstado] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [generalError, setGeneralError] = useState('');
+  const [generalError, setGeneralErrorState] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
@@ -69,7 +70,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     setDatosDocente(DATOS_DOCENTE_INICIALES);
     setConfirmaAdminEstado(false);
     setErrors({});
-    setGeneralError('');
+    setGeneralErrorState('');
     setSuccess(false);
     setRegisteredEmail('');
   };
@@ -79,13 +80,13 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (errors[field as keyof FormErrors]) {
       setErrors({ ...errors, [field]: undefined });
     }
-    if (generalError) setGeneralError('');
+    if (generalError) setGeneralErrorState('');
   };
 
   const setMaterias = (lista: MateriaDto[]) => {
     setMateriasEstado(lista);
     if (errors.materias) setErrors({ ...errors, materias: undefined });
-    if (generalError) setGeneralError('');
+    if (generalError) setGeneralErrorState('');
   };
 
   const setConfirmaAdmin = (valor: boolean) => {
@@ -191,13 +192,13 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
       return stepErrors;
     }
     setErrors({});
-    setGeneralError('');
+    setGeneralErrorState('');
     setStep((step + 1) as PasoRegistro);
     return null;
   };
 
   const goBack = () => {
-    setGeneralError('');
+    setGeneralErrorState('');
     setErrors({});
     if (step > 1) setStep((step - 1) as PasoRegistro);
   };
@@ -205,7 +206,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
   const irAPaso = (paso: PasoRegistro) => {
     if (paso < step) {
       setErrors({});
-      setGeneralError('');
+      setGeneralErrorState('');
       setStep(paso);
     }
   };
@@ -233,7 +234,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
       }
     }
 
-    setGeneralError('');
+    setGeneralErrorState('');
     setSuccess(false);
 
     const cleanForm = {
@@ -284,7 +285,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
       const data = error.response?.data;
 
       if (status === 409) {
-        setGeneralError(data?.mensaje ?? 'El email ya está registrado.');
+        setGeneralErrorState(data?.mensaje ?? 'El email ya está registrado.');
       } else if (status === 400) {
         if (data?.campos) {
           const fieldErrors: FormErrors = {};
@@ -298,17 +299,17 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
           irAlPasoDe(fieldErrors);
           return fieldErrors;
         } else {
-          setGeneralError(data?.mensaje ?? 'Verifica los datos ingresados.');
+          setGeneralErrorState(data?.mensaje ?? 'Verifica los datos ingresados.');
         }
       } else if (status === 503) {
         // El correo con la clave temporal no salió: el backend no registró al usuario.
-        setGeneralError(data?.mensaje ?? 'No se pudo enviar el correo. El usuario no fue registrado.');
+        setGeneralErrorState(data?.mensaje ?? 'No se pudo enviar el correo. El usuario no fue registrado.');
       } else if (status === 403) {
-        setGeneralError('No tienes permisos para registrar usuarios.');
+        setGeneralErrorState('No tienes permisos para registrar usuarios.');
       } else if (status === 401) {
-        setGeneralError('Sesión expirada. Inicia sesión nuevamente.');
+        setGeneralErrorState('Sesión expirada. Inicia sesión nuevamente.');
       } else {
-        setGeneralError('No se pudo conectar con el servidor. Intenta más tarde.');
+        setGeneralErrorState('No se pudo conectar con el servidor. Intenta más tarde.');
       }
       return null;
     } finally {
@@ -327,6 +328,7 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     setConfirmaAdmin,
     errors,
     generalError,
+    setGeneralError: setGeneralErrorState,
     loading,
     success,
     registeredEmail,

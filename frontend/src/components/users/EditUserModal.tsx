@@ -115,7 +115,7 @@ export default function EditUserModal({ isOpen, onClose, user, onSaveSuccess }: 
     if (generalError) setGeneralError('');
   };
 
-  const handleBlur = (field: keyof RegisterUserFormState): string => {
+  const handleBlur = async (field: keyof RegisterUserFormState): Promise<string> => {
   const value = form[field];
   if (typeof value !== 'string' || !value.trim()) return '';
 

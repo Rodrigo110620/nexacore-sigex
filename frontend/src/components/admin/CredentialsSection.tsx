@@ -15,6 +15,7 @@ interface CredentialsSectionProps {
 
 export default function CredentialsSection({
   form,
+  errors,
   onChange,
   onBlur,
   onFieldError,
