@@ -129,10 +129,10 @@ export default function MateriasCarreras() {
 
       <section className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-[#D8E3F5]">
         <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
-          <div role="tablist" aria-label="Materias" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:pb-0">
+          <div role="tablist" aria-label="Materias" className="grid grid-cols-3 gap-1.5 lg:flex">
             {pestanas.map(([id, texto]) => (
               <button key={id} type="button" role="tab" aria-selected={vista === id} onClick={() => setVista(id)}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-semibold ${vista === id ? 'bg-[#0439D9] text-white' : 'border border-[#D8E3F5] text-[#45628D] hover:bg-[#F1F6FF]'}`}>
+                className={`inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-xs font-semibold sm:px-3 ${vista === id ? 'bg-[#0439D9] text-white' : 'border border-[#D8E3F5] text-[#45628D] hover:bg-[#F1F6FF]'}`}>
                 {texto}
                 <span className={`rounded-full px-1.5 tabular-nums ${vista === id ? 'bg-white/20' : 'bg-[#EDF2FE]'}`}>{conteo[id]}</span>
               </button>
@@ -160,39 +160,39 @@ export default function MateriasCarreras() {
         ) : (
           <ul className="divide-y divide-[#EEF2F8]">
             {visibles.map((m) => (
-              <li key={m.idMateria} className="flex items-start justify-between gap-2 py-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <BookOpen size={18} className={`mt-0.5 shrink-0 ${m.activa ? 'text-[#45628D]' : 'text-[#B8C4D4]'}`} aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className={`text-sm font-semibold ${m.activa ? 'text-[#011140]' : 'text-[#8BA0BF]'}`}>
-                      {m.nombre} {m.sigla && <span className="font-normal text-[#627A9B]">· {m.sigla}</span>}
-                      {m.siglaProvisional && <span className="ml-2 rounded-full bg-[#FEF0C7] px-2 py-0.5 text-[11px] font-semibold text-[#93370D]" title="Sugerida por SIGEX: reemplázala por la oficial">Sigla provisional</span>}
-                      {!m.activa && <span className="ml-2 rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-semibold text-[#64748B]">Desactivada</span>}
-                    </p>
-                    <p className="text-xs text-[#627A9B]">
-                      {m.gruposEnPeriodo > 0
-                        ? `${periodo}: ${m.gruposEnPeriodo} ${m.gruposEnPeriodo === 1 ? 'grupo' : 'grupos'} · ${m.docentesEnPeriodo} ${m.docentesEnPeriodo === 1 ? 'docente' : 'docentes'}`
-                        : `Sin grupos en ${periodo || 'el periodo activo'}`}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {m.carreras.length === 0
-                        ? <span className="text-xs text-[#B45309]">Sin carreras definidas</span>
-                        : m.carreras.map((c) => (
-                          <span key={c.idCarrera} className="rounded-full bg-[#EDF2FE] px-2 py-0.5 text-[11px] font-semibold text-[#1E3A8A]">{c.nombre}</span>
-                        ))}
-                    </div>
+              <li key={m.idMateria} className="py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${m.activa ? 'bg-[#EEF3FF] text-[#0439D9]' : 'bg-[#F1F5F9] text-[#8BA0BF]'}`}>
+                      <BookOpen size={12} aria-hidden="true" /> {m.sigla || 'Sin sigla'}
+                    </span>
+                    {m.siglaProvisional && <span className="whitespace-nowrap rounded-full bg-[#FEF0C7] px-2 py-0.5 text-[10px] font-semibold text-[#93370D]" title="Sugerida por SIGEX: reemplázala por la oficial">Sigla provisional</span>}
+                    {!m.activa && <span className="whitespace-nowrap rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[10px] font-semibold text-[#64748B]">Desactivada</span>}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button type="button" onClick={() => abrirEditar(m)} aria-label={`Editar ${m.nombre}`} title="Editar"
+                      className="inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-lg border border-[#B8CBEF] px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] sm:h-9 sm:px-3">
+                      <Pencil size={14} aria-hidden="true" /> <span className="hidden sm:inline">Editar</span>
+                    </button>
+                    <button type="button" onClick={() => void cambiarEstado(m)} aria-label={`${m.activa ? 'Desactivar' : 'Activar'} ${m.nombre}`}
+                      title={m.activa ? 'Desactivar' : 'Activar'}
+                      className={`inline-flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold sm:h-9 sm:px-3 ${m.activa ? 'border-[#FDA29B] text-[#B42318] hover:bg-[#FEF3F2]' : 'border-[#A6F4C5] text-[#05603A] hover:bg-[#ECFDF3]'}`}>
+                      <Power size={14} aria-hidden="true" /> <span className="hidden sm:inline">{m.activa ? 'Desactivar' : 'Activar'}</span>
+                    </button>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <button type="button" onClick={() => abrirEditar(m)} aria-label={`Editar ${m.nombre}`} title="Editar"
-                    className="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border border-[#B8CBEF] px-2 text-xs font-semibold text-[#0439D9] hover:bg-[#F1F6FF] sm:px-3">
-                    <Pencil size={14} aria-hidden="true" /> <span className="hidden sm:inline">Editar</span>
-                  </button>
-                  <button type="button" onClick={() => void cambiarEstado(m)} aria-label={`${m.activa ? 'Desactivar' : 'Activar'} ${m.nombre}`}
-                    title={m.activa ? 'Desactivar' : 'Activar'}
-                    className={`inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold sm:px-3 ${m.activa ? 'border-[#FDA29B] text-[#B42318] hover:bg-[#FEF3F2]' : 'border-[#A6F4C5] text-[#05603A] hover:bg-[#ECFDF3]'}`}>
-                    <Power size={14} aria-hidden="true" /> <span className="hidden sm:inline">{m.activa ? 'Desactivar' : 'Activar'}</span>
-                  </button>
+                <p className={`mt-1.5 break-words text-sm font-bold ${m.activa ? 'text-[#011140]' : 'text-[#8BA0BF]'}`}>{m.nombre}</p>
+                <p className={`text-xs ${m.gruposEnPeriodo > 0 ? 'text-[#45628D]' : 'text-[#94A3B8]'}`}>
+                  {m.gruposEnPeriodo > 0
+                    ? `${periodo}: ${m.gruposEnPeriodo} ${m.gruposEnPeriodo === 1 ? 'grupo' : 'grupos'} · ${m.docentesEnPeriodo} ${m.docentesEnPeriodo === 1 ? 'docente' : 'docentes'}`
+                    : `Sin grupos en ${periodo || 'el periodo activo'}`}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {m.carreras.length === 0
+                    ? <span className="text-xs text-[#B45309]">Sin carreras definidas</span>
+                    : m.carreras.map((c) => (
+                      <span key={c.idCarrera} className="rounded-full bg-[#F1F5FB] px-2 py-0.5 text-[11px] font-medium text-[#334E7A] ring-1 ring-[#E1E8F5]">{c.nombre}</span>
+                    ))}
                 </div>
               </li>
             ))}

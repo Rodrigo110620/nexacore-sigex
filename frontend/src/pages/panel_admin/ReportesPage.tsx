@@ -8,8 +8,9 @@ import TablePagination from '../../components/users/TablePagination'
 import useEnVivo from '../../hooks/useEnVivo'
 import useFilasNuevas, { CLASE_FILA_NUEVA } from '../../hooks/useFilasNuevas'
 import useResumenReportes, { desdePeriodo, type Periodo } from '../../hooks/useResumenReportes'
-import GraficoPorHora from '../../components/reportes/GraficoPorHora'
+import MotivosCompacto from '../../components/reportes/MotivosCompacto'
 import ResumenReportes from '../../components/reportes/ResumenReportes'
+import DescargarReporte from '../../components/reportes/DescargarReporte'
 import EtiquetaNuevo from '../../components/reportes/EtiquetaNuevo'
 import { listarExamenes, listarMisExamenes, type ExamenDto } from '../../services/examenService'
 import { useAuth } from '../../context/AuthContext'
@@ -33,16 +34,20 @@ const PESTANAS: { id: Pestana; texto: string; corto: string }[] = [
   { id: 'expulsiones', texto: 'Expulsiones', corto: 'Expulsiones' },
   { id: 'excepciones', texto: 'Excepciones', corto: 'Excepciones' },
   { id: 'fotos', texto: 'Fotos reportadas', corto: 'Fotos' },
-  { id: 'modificaciones', texto: 'Modificaciones a inhabilitados', corto: 'Modificac.' },
+  { id: 'modificaciones', texto: 'Modificaciones', corto: 'Modificaciones' },
   { id: 'ingresos-qr', texto: 'Ingresos QR', corto: 'Ing. QR' },
   { id: 'ingresos-manual', texto: 'Ingresos Manuales', corto: 'Ing. Manual' },
   { id: 'uso-ambientes', texto: 'Uso de Ambientes', corto: 'Ambientes' },
 ]
+/** Las 8 pestañas en 3 grupos: se leen de un vistazo y la fila entra en cualquier pantalla. */
+type Grupo = 'incidencias' | 'ingresos' | 'ambientes'
+const GRUPOS: { id: Grupo; texto: string; pestanas: Pestana[] }[] = [
+  { id: 'incidencias', texto: 'Incidencias', pestanas: ['intentos', 'expulsiones', 'excepciones', 'fotos', 'modificaciones'] },
+  { id: 'ingresos', texto: 'Ingresos', pestanas: ['ingresos-qr', 'ingresos-manual'] },
+  { id: 'ambientes', texto: 'Ambientes', pestanas: ['uso-ambientes'] },
+]
+const grupoDe = (p: Pestana): Grupo => GRUPOS.find((g) => g.pestanas.includes(p))?.id ?? 'incidencias'
 const PERIODOS: [Periodo, string][] = [['todo', 'Todo'], ['hoy', 'Hoy'], ['7d', 'Últimos 7 días'], ['mes', 'Este mes']]
-const TITULO_GRAFICO: Record<Pestana, string> = { intentos: 'Intentos incorrectos', expulsiones: 'Expulsiones', excepciones: 'Excepciones', fotos: 'Fotos reportadas', modificaciones: 'Modificaciones a inhabilitados', 'ingresos-qr': 'Ingresos QR', 'ingresos-manual': 'Ingresos Manuales','uso-ambientes': 'Uso de Ambientes'  }
-const UNIDAD: Record<Pestana, [string, string]> = {
-  intentos: ['intento', 'intentos'], expulsiones: ['expulsión', 'expulsiones'], excepciones: ['excepción', 'excepciones'], fotos: ['foto', 'fotos'], modificaciones: ['intento', 'intentos'], 'ingresos-qr': ['ingreso', 'ingresos'], 'ingresos-manual': ['ingreso', 'ingresos'], 'uso-ambientes': ['ambiente', 'ambientes'] 
-}
 // De 10 en 10, como Expulsiones, Excepciones y Fotos reportadas.
 const TAMANO = 10
 
@@ -60,10 +65,11 @@ const TEXTO_TIPO: Record<IntentoReporte['tipo'], string> = {
   OTRO_EXAMEN: 'Rinde otro examen a la misma hora',
 }
 
-function EtiquetaTipo({ intento }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'> }) {
+/** envolver: en el celular el motivo puede ser largo; se parte en líneas en vez de cortarse o empujar al nombre. */
+function EtiquetaTipo({ intento, envolver = false }: { intento: Pick<IntentoReporte, 'tipo' | 'etiqueta'>; envolver?: boolean }) {
   return (
-    <span className={`inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] font-semibold ${COLOR_TIPO[intento.tipo] ?? COLOR_TIPO.NO_CORRESPONDE}`}>
-      <span className="truncate">{intento.etiqueta || TEXTO_TIPO[intento.tipo] || 'Intento incorrecto'}</span>
+    <span className={`inline-flex max-w-full ${envolver ? 'rounded-lg' : 'rounded-full'} px-2 py-0.5 text-[11px] font-semibold ${COLOR_TIPO[intento.tipo] ?? COLOR_TIPO.NO_CORRESPONDE}`}>
+      <span className={envolver ? 'break-words [overflow-wrap:anywhere]' : 'truncate'}>{intento.etiqueta || TEXTO_TIPO[intento.tipo] || 'Intento incorrecto'}</span>
     </span>
   )
 }
@@ -165,17 +171,18 @@ function ReporteIntentos({ idExamen, examen, buscar, desde }: { idExamen: number
               <li key={i.idIntento} className={`relative flex flex-col min-w-0 rounded-xl border border-[#D8E3F5] bg-white p-4 shadow-sm transition-all hover:shadow-md ${nuevas.has(i.idIntento) ? CLASE_FILA_NUEVA : ''}`}>
                 
                 {/* Cabecera: Estudiante y SIS */}
-                <div className="flex items-start justify-between gap-2 border-b border-[#EDF1F7] pb-3">
-                  <div className="min-w-0">
-                    <p className="break-words text-sm font-bold text-[#011140]">
-                      {i.estudiante ?? 'No identificado'}
-                      {nuevas.has(i.idIntento) && <EtiquetaNuevo />}
-                    </p>
-                    <p className="mt-1 inline-block rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[11px] font-bold text-[#0439D9]">
+                {/* El nombre ocupa todo el ancho; el motivo (que puede ser largo) va debajo y se parte en líneas. */}
+                <div className="min-w-0 border-b border-[#EDF1F7] pb-3">
+                  <p className="break-words text-sm font-bold text-[#011140]">
+                    {i.estudiante ?? 'No identificado'}
+                    {nuevas.has(i.idIntento) && <EtiquetaNuevo />}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded bg-[#E9F1FF] px-1.5 py-0.5 text-[11px] font-bold text-[#0439D9]">
                       {i.codigoSis ? `SIS ${i.codigoSis}` : `ID ${i.identificador}`}
-                    </p>
+                    </span>
+                    <EtiquetaTipo intento={i} envolver />
                   </div>
-                  <div className="shrink-0"><EtiquetaTipo intento={i} /></div>
                 </div>
 
                 {/* Detalle del error (más visible) */}
@@ -285,6 +292,14 @@ export default function ReportesPage() {
     setPrevia('pdf')
   }
 
+  const descargarReporte = puedeExportar && (pestana !== 'uso-ambientes' || !soloMios) ? (
+    <DescargarReporte pestana={pestana}
+      filtros={{ idExamen, examen: etiqueta, periodo: PERIODOS.find(([id]) => id === periodo)?.[1], desde,
+        buscar: pestana === 'intentos' ? buscarIntentos : buscar, nombresExamen }}
+      onError={(mensaje) => setResultadoDescarga({ tipo: 'error', mensaje })}
+      grupo={(() => { const g = GRUPOS.find((x) => x.id === grupoDe(pestana))!; return { texto: g.texto, pestanas: g.pestanas.filter((p) => p !== 'uso-ambientes' || !soloMios) } })()} />
+  ) : null
+
   return (
     <PanelLayout compactDesktop>
       <div
@@ -337,6 +352,7 @@ export default function ReportesPage() {
                 </div>
               </div>
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+                {descargarReporte && <div className="hidden sm:block">{descargarReporte}</div>}
                 {idExamen != null && puedeExportar && (
                   <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                     {puedeExportar && (
@@ -347,7 +363,7 @@ export default function ReportesPage() {
                         className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0439D9] px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0027a2] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
                         <Download size={16} aria-hidden="true" />
-                        Descargar PDF
+                        Acta (PDF)
                       </button>
                     )}
                     {puedeExportar && (
@@ -358,7 +374,7 @@ export default function ReportesPage() {
                         className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[#B8CBEF] bg-white px-3 py-2.5 sm:flex-none sm:px-4 text-sm font-semibold text-[#0439D9] shadow-sm transition-colors hover:bg-[#F1F6FF] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none sm:w-auto"
                       >
                         <Download size={16} aria-hidden="true" />
-                        Descargar Excel
+                        Asistencia (Excel)
                       </button>
                     )}
                     {!iniciado && (
@@ -379,30 +395,49 @@ export default function ReportesPage() {
               </p>
             )}
 
-            {resumen[pestana] && (
-              <div className="mt-3">
-                <GraficoPorHora porHora={resumen[pestana]!.porHora} porHoraAyer={resumen[pestana]!.porHoraAyer} ultimoHoy={resumen[pestana]!.ultimoHoy}
-                  horaActual={new Date().getHours()} porMotivo={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]}
-                  titulo={`${TITULO_GRAFICO[pestana]} · hoy y ayer, por hora`} unidad={UNIDAD[pestana]} />
-              </div>
-            )}
 
+            {/* Pestañas y «Descargar» en la misma fila: el botón no ocupa una fila propia. */}
+            <div className="mt-4 flex items-center gap-2 sm:block sm:border-b sm:border-[#D8E3F5]">
             <div role="tablist" aria-label="Tipo de reporte"
-              className="mt-4 flex gap-1 overflow-x-auto rounded-xl bg-[#E9EFF8] p-1 [scrollbar-width:none] sm:gap-4 sm:rounded-none sm:border-b sm:border-[#D8E3F5] sm:bg-transparent sm:p-0 xl:gap-6 xl:overflow-visible">
-              {PESTANAS.filter((p) => p.id !== 'uso-ambientes' || !soloMios).map((p) => (
-                <button key={p.id} type="button" role="tab" aria-selected={pestana === p.id}
-                  aria-label={resumen[p.id] ? `${p.texto} (${resumen[p.id]!.total})` : p.texto} onClick={() => setPestana(p.id)}
-                  className={`min-h-11 flex-1 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] transition-colors sm:min-h-0 sm:flex-none sm:shrink-0 sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${pestana === p.id
-                    ? 'bg-white font-semibold text-[#0439D9] shadow-sm sm:border-[#0439D9] sm:bg-transparent sm:shadow-none'
-                    : 'font-medium text-[#627A9B] sm:border-transparent'}`}>
-                  <span className="sm:hidden">{p.corto}</span><span className="hidden sm:inline">{p.texto}</span>
-                  {resumen[p.id] && (
-                    <span className={`ml-1.5 inline-grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ${pestana === p.id ? 'bg-[#0439D9] text-white' : 'bg-[#E1E8F5] text-[#45628D]'}`}>{resumen[p.id]!.total}</span>
-                  )}
-                </button>
-              ))}
+              className="flex min-w-0 flex-1 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:gap-6 sm:rounded-none sm:bg-transparent sm:p-0">
+              {GRUPOS.filter((g) => g.id !== 'ambientes' || !soloMios).map((g) => {
+                const total = g.pestanas.reduce((n, p) => n + (resumen[p]?.total ?? 0), 0)
+                const activo = grupoDe(pestana) === g.id
+                return (
+                  <button key={g.id} type="button" role="tab" aria-selected={activo} onClick={() => { if (!activo) setPestana(g.pestanas[0]) }}
+                    className={`min-h-10 flex-1 whitespace-nowrap rounded-lg px-2 text-[13px] transition-colors sm:min-h-0 sm:flex-none sm:rounded-none sm:border-b-2 sm:px-0 sm:pb-2.5 sm:text-sm ${activo
+                      ? 'bg-white font-semibold text-[#0439D9] shadow-sm sm:border-[#0439D9] sm:bg-transparent sm:shadow-none'
+                      : 'font-medium text-[#627A9B] sm:border-transparent'}`}>
+                    {g.texto}
+                    <span className={`ml-1.5 inline-grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ${activo ? 'bg-[#0439D9] text-white' : 'bg-[#E1E8F5] text-[#45628D]'}`}>{total}</span>
+                  </button>
+                )
+              })}
             </div>
-
+            {/* En el celular, «Descargar» va junto a las pestañas (solo el ícono); en escritorio, en la barra de filtros. */}
+            {descargarReporte && <div className="shrink-0 sm:hidden">{descargarReporte}</div>}
+            </div>
+            {(() => {
+              const grupo = GRUPOS.find((g) => g.id === grupoDe(pestana))!
+              if (grupo.pestanas.length < 2) return null
+              return (
+                <div role="radiogroup" aria-label={`Reportes de ${grupo.texto.toLowerCase()}`} className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+                  {grupo.pestanas.map((id) => {
+                    const p = PESTANAS.find((x) => x.id === id)!
+                    const activo = pestana === id
+                    return (
+                      <button key={id} type="button" role="radio" aria-checked={activo} onClick={() => setPestana(id)}
+                        aria-label={resumen[id] ? `${p.texto} (${resumen[id]!.total})` : p.texto}
+                        className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold transition-colors ${activo ? 'border-[#0439D9] bg-[#EEF3FF] text-[#0439D9]' : 'border-[#D8E3F5] bg-white text-[#45628D] hover:bg-[#F8FAFF]'} ${!activo && resumen[id]?.total === 0 ? 'opacity-55' : ''}`}>
+                        {p.texto}
+                        {resumen[id] && <span className={`rounded-full px-1.5 text-[10px] font-bold tabular-nums ${activo ? 'bg-[#0439D9] text-white' : 'bg-[#EDF2FE] text-[#45628D]'}`}>{resumen[id]!.total}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+            {resumen[pestana] && <MotivosCompacto motivos={resumen[pestana]!.porMotivo} periodo={PERIODOS.find(([id]) => id === periodo)?.[1]} />}
             <div className="mt-4">
               {pestana === 'intentos' && <ReporteIntentos key={idExamen ?? 'todos'} idExamen={idExamen} examen={etiqueta} buscar={buscarIntentos} desde={desde} />}
               {pestana === 'fotos' && <FotosReportadasReporte idExamen={idExamen} examen={etiqueta} buscar={buscar} desde={desde} />}

@@ -73,7 +73,8 @@ export default function ControlExamenPage() {
   // Desde «Incidencias de hoy» (?estudiante=): la tabla se abre en la página de ese estudiante y lo resalta.
   const estudianteFoco = Number(useSearchParams()[0].get('estudiante')) || null
   const registra = registraControl(auth)
-  const [tablaAbierta, setTablaAbierta] = useState(estudianteFoco != null)
+  // Desde «Incidencias de hoy» (?estudiante=) se abre directo la lista con ese estudiante.
+  const [vistaPanel, setVistaPanel] = useState<'ingresos' | 'estudiantes'>(estudianteFoco != null ? 'estudiantes' : 'ingresos')
   const { setPage, pagina } = datos
   const [buscado, setBuscado] = useState<number | null>(null)
   useEffect(() => {
@@ -271,20 +272,26 @@ export default function ControlExamenPage() {
               <AvisoAforo aulas={datos.resumen?.aulas} />
               <ResumenExamenCards resumen={datos.resumen} idExamen={idExamen} />
             </div>
-            <IngresosRecientesCard idExamen={idExamen} tablaAbierta={tablaAbierta} onAlternarTabla={() => {
-              setTablaAbierta((abierta) => !abierta)
-              // Solo se desplaza el contenido (main): scrollIntoView movía también la ventana y el menú lateral.
-              if (!tablaAbierta) requestAnimationFrame(() => {
-                const tabla = document.getElementById('estudiantes-examen-tabla')
-                const main = tabla?.closest('main')
-                if (tabla && main?.scrollTo) main.scrollTo({ top: main.scrollTop + tabla.getBoundingClientRect().top - main.getBoundingClientRect().top - 16, behavior: 'smooth' })
-              })
-            }} />
-            {tablaAbierta && (
-              <div id="estudiantes-examen-tabla">
-                <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} resaltar={estudianteFoco} />
-              </div>
-            )}
+            {/* Dos pestañas al mismo nivel: lo último que pasó en la puerta y la lista completa del examen. */}
+            <div role="tablist" aria-label="Ingresos y estudiantes" className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-[#E9EFF8] p-1 sm:inline-grid sm:w-auto">
+              {([['ingresos', 'Ingresos recientes', 'Ingresos'], ['estudiantes', 'Estudiantes del examen', 'Estudiantes']] as const).map(([id, texto, corto]) => (
+                <button key={id} type="button" role="tab" id={`pestana-${id}`} aria-selected={vistaPanel === id} aria-controls={`panel-${id}`}
+                  onClick={() => setVistaPanel(id)}
+                  aria-label={texto}
+                  className={`min-h-10 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors sm:px-5 ${vistaPanel === id ? 'bg-white text-[#0439D9] shadow-sm' : 'text-[#45628D] hover:text-[#011140]'}`}>
+                  <span className="sm:hidden">{corto}</span><span className="hidden sm:inline">{texto}</span>
+                </button>
+              ))}
+            </div>
+            <div id={`panel-${vistaPanel}`} role="tabpanel" aria-labelledby={`pestana-${vistaPanel}`} className="mt-3">
+              {vistaPanel === 'ingresos' ? (
+                <IngresosRecientesCard idExamen={idExamen} />
+              ) : (
+                <div id="estudiantes-examen-tabla">
+                  <EstudiantesExamenSeccion idExamen={idExamen} examen={[examen?.asignatura, examen?.ambienteNombre].filter(Boolean).join(' · ')} datosExamen={examen} {...datos} resaltar={estudianteFoco} />
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <p className="text-sm text-[#B91C1C]">El examen indicado no es válido.</p>

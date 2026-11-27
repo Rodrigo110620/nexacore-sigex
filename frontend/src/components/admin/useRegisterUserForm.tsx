@@ -24,6 +24,8 @@ export const TOTAL_PASOS = 4;
 
 export interface UseRegisterUserFormResult {
   step: PasoRegistro;
+  /** Indica si el paso actual tiene algún campo con error de validación. */
+  currentStepHasErrors: boolean;
   form: RegisterUserFormState;
   /** IMP-12: materias del DOCENTE (paso 3). */
   materias: MateriaDto[];
@@ -76,20 +78,36 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
   const handleChange = (field: keyof RegisterUserFormState, value: string | boolean | Rol) => {
     setForm({ ...form, [field]: value });
     if (errors[field as keyof FormErrors]) {
-      setErrors({ ...errors, [field]: undefined });
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field as keyof FormErrors];
+        return next;
+      });
     }
     if (generalError) setGeneralError('');
   };
 
   const setMaterias = (lista: MateriaDto[]) => {
     setMateriasEstado(lista);
-    if (errors.materias) setErrors({ ...errors, materias: undefined });
+    if (errors.materias) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.materias;
+        return next;
+      });
+    }
     if (generalError) setGeneralError('');
   };
 
   const setConfirmaAdmin = (valor: boolean) => {
     setConfirmaAdminEstado(valor);
-    if (errors.confirmaAdmin) setErrors({ ...errors, confirmaAdmin: undefined });
+    if (errors.confirmaAdmin) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.confirmaAdmin;
+        return next;
+      });
+    }
   };
 
   const handleBlur = (field: keyof RegisterUserFormState): string => {
@@ -97,7 +115,15 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (typeof value !== 'string') return '';
 
     if (!value.trim()) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
+      // Solo limpiar si existe un error previo para este campo;
+      // no insertar claves con undefined en el state de errores.
+      if (errors[field as keyof FormErrors]) {
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next[field as keyof FormErrors];
+          return next;
+        });
+      }
       return '';
     }
 
@@ -108,9 +134,21 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     if (field === 'email') error = validateEmail(value);
     if (field === 'rol') error = validateRol(value);
 
-    setErrors((prev) => ({ ...prev, [field]: undefined }));
+    if (error) {
+      // El componente hijo se encarga de mostrar el error vía onFieldError.
+      // No insertamos claves con undefined en el state de errores.
+      return error;
+    }
 
-    return error;
+    // Si no hay error, limpiar cualquier error previo de este campo
+    if (errors[field as keyof FormErrors]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field as keyof FormErrors];
+        return next;
+      });
+    }
+    return '';
   };
 
   /** Paso 1: el rol. */
@@ -277,8 +315,14 @@ export function useRegisterUserForm(onSuccess?: () => void): UseRegisterUserForm
     }
   };
 
+  /** Indica si el paso actual tiene algún campo con error de validación. */
+  const currentStepHasErrors = Object.keys(errors).some(
+    (k) => errors[k as keyof FormErrors] !== undefined
+  );
+
   return {
     step,
+    currentStepHasErrors,
     form,
     materias,
     setMaterias,

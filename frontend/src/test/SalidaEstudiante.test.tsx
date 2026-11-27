@@ -51,7 +51,10 @@ it.each([
   expect(tabla.queryByRole('button', { name: /salida de Lucía Aguilar/ })).not.toBeInTheDocument()
 })
 
-it('muestra «SALIÓ» con la hora en el estado', () => {
-  const { tabla } = montar('CONTROL', { fechaHoraSalida: '2026-11-09T10:15:00' })
-  expect(tabla.getByText('SALIÓ 10:15')).toBeInTheDocument()
+it('destaca la hora exacta de salida en la tabla y en la tarjeta móvil', () => {
+  const { container } = montar('CONTROL', { fechaHoraSalida: '2026-11-09T10:15:42' })
+  for (const selector of ['table', 'ul']) {
+    const vista = within(container.querySelector(selector)!)
+    expect(vista.getByText('Salió 10:15:42')).toHaveClass('text-xs', 'font-bold', 'text-[#011140]')
+  }
 })

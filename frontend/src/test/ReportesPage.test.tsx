@@ -101,15 +101,15 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
   it('las expulsiones y excepciones se ven de todos los exámenes o de uno (BUG-G02, G03)', async () => {
     vi.mocked(reporteIntentos).mockResolvedValue({ contenido: [], pagina: 0, tamano: 10, totalRegistros: 0, totalPaginas: 0 })
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
-    fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
+    fireEvent.click(screen.getByRole('radio', { name: /^Expulsiones/ }))
     expect(screen.getByText('Expulsiones del examen todos')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('tab', { name: 'Excepciones' }))
+    fireEvent.click(screen.getByRole('radio', { name: /^Excepciones/ }))
     expect(screen.getByText('Excepciones del examen todos')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
+    fireEvent.click(screen.getByRole('radio', { name: /^Expulsiones/ }))
     await screen.findByRole('option', { name: 'Cálculo I · 30/10/2026 · 10:00' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '21' } })
     expect(screen.getByText('Expulsiones del examen 21')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('tab', { name: 'Excepciones' }))
+    fireEvent.click(screen.getByRole('radio', { name: /^Excepciones/ }))
     expect(screen.getByText('Excepciones del examen 21')).toBeInTheDocument()
   })
 
@@ -118,7 +118,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar estudiante o código SIS' }), { target: { value: '2019' } })
     await waitFor(() => expect(reporteIntentos).toHaveBeenLastCalledWith(null, 0, 10, '2019'))
-    fireEvent.click(screen.getByRole('tab', { name: 'Expulsiones' }))
+    fireEvent.click(screen.getByRole('radio', { name: /^Expulsiones/ }))
     expect(screen.getByText('Expulsiones del examen todos · 2019')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Borrar la búsqueda' }))
     expect(screen.getByText('Expulsiones del examen todos')).toBeInTheDocument()
@@ -151,7 +151,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
-    expect(screen.getByRole('button', { name: 'Descargar PDF' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Acta (PDF)' })).toBeInTheDocument()
   })
 
   it('el CONTROL no ve el botón Descargar PDF', async () => {
@@ -165,7 +165,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
       render(<MemoryRouter><ReportesPage /></MemoryRouter>)
       await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
       fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
-      expect(screen.queryByRole('button', { name: 'Descargar PDF' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Acta (PDF)' })).not.toBeInTheDocument()
     } finally {
       sesion.roles = ['ADMIN']
     }
@@ -182,7 +182,7 @@ describe('ReportesPage (DASH-06 / HU#7)', () => {
     render(<MemoryRouter><ReportesPage /></MemoryRouter>)
     await screen.findByRole('option', { name: 'Física I · 01/10/2026 · 10:00' })
     fireEvent.change(screen.getByLabelText('Examen'), { target: { value: '20' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Acta (PDF)' }))
     // Antes de descargar se ve la vista previa del acta; «Descargar PDF» en ella guarda el archivo.
     const previa = await screen.findByRole('dialog', { name: /Vista previa · Acta y asistencia del examen/ })
     expect(obtenerArchivo).toHaveBeenCalledWith('/reportes/examenes/20/acta.pdf', undefined, 'acta_examen_20.pdf')

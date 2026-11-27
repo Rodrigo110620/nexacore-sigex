@@ -66,7 +66,7 @@ it('un estudiante que ya marcó salida no muestra los botones de expulsar ni rea
     const vista = within(container.querySelector(selector)!)
     expect(vista.queryByRole('button', { name: 'Expulsar' })).not.toBeInTheDocument()
     expect(vista.queryByRole('button', { name: 'Reasignar' })).not.toBeInTheDocument()
-    expect(vista.getByText('SALIÓ 15:58')).toBeInTheDocument()
+    expect(vista.getByText('Salió 15:58:00')).toBeInTheDocument()
   }
 })
 
@@ -170,14 +170,14 @@ it.each([0, 1])('vista %s: carga, doble envío, error HTTP y 2xx sin confirmar',
   await act(async () => rechazar({ response: { status: 403, data: { resultado: 'EXPULSADO', mensaje: 'Sin permiso' } } }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin permiso')
   expect(campo).toHaveValue('Uso de celular')
-  expect(screen.queryByText('EXPULSADO')).not.toBeInTheDocument()
+  expect(screen.queryByText('Expulsado')).not.toBeInTheDocument()
   vi.mocked(api.post).mockResolvedValueOnce({ data: null })
   fireEvent.click(within(modal).getByRole('button', { name: 'Expulsar' }))
   expect(await screen.findByRole('status')).toHaveTextContent('sin registro verificable')
   expect(within(modal).getByRole('button', { name: 'Expulsar' })).toBeDisabled()
   fireEvent.submit(modal.querySelector('form')!)
   expect(api.post).toHaveBeenCalledTimes(2)
-  expect(screen.getAllByText('INGRESÓ')).toHaveLength(2)
+  expect(screen.getAllByText('Ingresó')).toHaveLength(2)
 })
 
 it.each([0, 1])('vista %s: confirma auditoría válida y conserva el bloqueo hasta cerrar', async (indice) => {

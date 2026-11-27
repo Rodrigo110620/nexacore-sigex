@@ -46,12 +46,12 @@ export default function EstudiantesExamenSeccion({
   const cuentas = resumen ? { ...resumen, ausentes: Math.max(0, resumen.habilitados - resumen.ingresados) } : undefined
   const vistaPrevia = cargando && Boolean(pagina?.contenido.length)
   return (
-    <section aria-labelledby="estudiantes-examen" className="rounded-xl bg-transparent md:border md:border-[#D8E3F5] md:bg-white md:p-3 md:shadow-sm">
+    <section aria-labelledby="estudiantes-examen" className="rounded-xl border border-[#D8E3F5] bg-white p-4 sm:p-5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 md:mb-4">
-        <h2 id="estudiantes-examen" className="text-[11px] font-bold uppercase text-[#011140] sm:text-base">
+        <h2 id="estudiantes-examen" className="text-base font-bold text-[#011140]">
           Estudiantes del examen
         </h2>
-        <span className="shrink-0 text-[10px] text-[#627A9B] md:hidden">Total: {resumen?.total ?? '—'}</span>
+        <span className="shrink-0 text-xs text-[#627A9B] md:hidden">Total: {resumen?.total ?? '—'}</span>
         <div role="group" aria-label="Filtrar por estado" className="hidden max-w-full flex-wrap gap-1 rounded-lg bg-[#F1F6FF] p-1 md:flex md:gap-0">
           {PESTANAS.map(({ valor, label, cuenta }) => (
             <button

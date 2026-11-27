@@ -36,6 +36,7 @@ const FIELD_LABELS: Record<string, string> = {
 export default function RegisterUserModal({ isOpen, onClose, onSuccess }: RegisterUserModalProps) {
   const {
     step,
+    currentStepHasErrors,
     form,
     materias,
     setMaterias,
@@ -133,7 +134,7 @@ export default function RegisterUserModal({ isOpen, onClose, onSuccess }: Regist
     >
       <div className="flex h-[85dvh] max-h-[760px] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#D8E3F5] bg-white shadow-2xl sm:h-auto sm:max-h-[min(90dvh,860px)] sm:rounded-2xl sm:border-gray-100">
         <ConfirmDiscardDialog open={descartar} onStay={() => setDescartar(false)} onLeave={handleClose} />
-        <RegisterUserHeader step={step} pasoDelRol={nombrePasoDelRol(form.rol)} onClose={pedirCerrar} />
+        <RegisterUserHeader step={step} pasoDelRol={nombrePasoDelRol(form.rol)} onClose={pedirCerrar} currentStepHasErrors={currentStepHasErrors} />
 
         <form noValidate onSubmit={handleFinalSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
