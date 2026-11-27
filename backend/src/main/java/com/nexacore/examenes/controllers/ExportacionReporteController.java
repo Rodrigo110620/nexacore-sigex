@@ -1,5 +1,6 @@
 package com.nexacore.examenes.controllers;
 
+import com.nexacore.examenes.dto.ExportarGrupoRequest;
 import com.nexacore.examenes.dto.ExportarReporteRequest;
 import com.nexacore.examenes.repositories.UsuarioRepository;
 import com.nexacore.examenes.services.AuditoriaService;
@@ -49,6 +50,27 @@ public class ExportacionReporteController {
         byte[] contenido = pdf ? service.pdf(request, quien) : service.excel(request, quien);
         auditoria.registrar("REPORTE_EXPORTADO", AuditoriaService.datos("reporte", request.titulo(),
                 "formato", pdf ? "PDF" : "Excel", "registros", request.filas().size()));
+        String nombre = "reporte_" + slug(request.titulo()) + "_" + LocalDate.now(ZoneId.of("America/La_Paz")) + (pdf ? ".pdf" : ".xlsx");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(nombre).build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF
+                        : MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(contenido);
+    }
+
+    @Operation(summary = "Descargar todo un grupo de reportes", description = "xlsx: una hoja por tipo; pdf: una sección por tipo.")
+    @PreAuthorize("@permisos.tiene(authentication, 'REPORTES_EXPORTAR')")
+    @PostMapping("/reportes/exportar-grupo.{formato}")
+    public ResponseEntity<byte[]> exportarGrupo(@PathVariable String formato, @Valid @RequestBody ExportarGrupoRequest request,
+                                                Authentication authentication) {
+        boolean pdf = "pdf".equalsIgnoreCase(formato);
+        if (!pdf && !"xlsx".equalsIgnoreCase(formato)) throw new IllegalArgumentException("El formato debe ser xlsx o pdf.");
+        String quien = usuarios.findByEmail(authentication.getName())
+                .map(u -> (u.getNombre() + " " + u.getApellidos()).trim()).orElse(authentication.getName());
+        byte[] contenido = pdf ? service.pdf(request, quien) : service.excel(request, quien);
+        int registros = request.secciones().stream().mapToInt(x -> x.filas().size()).sum();
+        auditoria.registrar("REPORTE_EXPORTADO", AuditoriaService.datos("reporte", request.titulo(),
+                "formato", pdf ? "PDF" : "Excel", "registros", registros));
         String nombre = "reporte_" + slug(request.titulo()) + "_" + LocalDate.now(ZoneId.of("America/La_Paz")) + (pdf ? ".pdf" : ".xlsx");
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(nombre).build().toString())

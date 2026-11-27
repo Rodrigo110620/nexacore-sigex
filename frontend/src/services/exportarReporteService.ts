@@ -124,3 +124,21 @@ export async function descargarReporte(pestana: PestanaReporte, formato: Formato
   return tabla.filas.length
 }
 
+/** Todo un grupo (p. ej. «Incidencias») en un solo archivo: en Excel una hoja por tipo; en PDF una sección por tipo. */
+export async function descargarGrupo(titulo: string, pestanas: PestanaReporte[], formato: FormatoReporte, f: FiltrosReporte): Promise<number> {
+  const secciones = []
+  for (const p of pestanas) {
+    const t = await tablaDe(p, f)
+    secciones.push({ titulo: t.titulo, filtros: [], columnas: t.columnas, filas: t.filas.slice(0, 5000) })
+  }
+  const filtros = [
+    `Examen: ${f.examen ?? 'Todos los exámenes'}`,
+    f.periodo && f.periodo !== 'Todo' ? `Periodo: ${f.periodo}` : '',
+    f.buscar.trim() ? `Búsqueda: «${f.buscar.trim()}»` : '',
+  ].filter(Boolean)
+  const { data, headers } = await api.post<Blob>(`/reportes/exportar-grupo.${formato}`, { titulo, filtros, secciones },
+    { responseType: 'blob', timeout: 2 * 60 * 1000 })
+  const nombre = /filename="?([^";]+)"?/.exec(String(headers['content-disposition'] ?? ''))?.[1] ?? `reporte.${formato}`
+  guardarArchivo({ blob: data, nombre })
+  return secciones.reduce((n, x) => n + x.filas.length, 0)
+}
